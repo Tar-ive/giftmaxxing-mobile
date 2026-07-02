@@ -29,9 +29,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
-
+      # Use the image's default (current) Xcode. Pinning an old version (e.g.
+      # 16.2) breaks actool against the newer simulator runtimes the image
+      # ships — the exact failure the original pinned workflow had.
       - name: Show Xcode version
         run: xcodebuild -version
 
@@ -41,6 +41,26 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
+      # Device inventory changes with every runner image; hardcoded names like
+      # "iPhone 16" stop resolving (it has no OS 26.x runtime). Pick the first
+      # available iPhone on the newest installed iOS runtime, by UDID.
+      - name: Pick a simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)["devices"]
+          ios = sorted((rt for rt in data if "iOS" in rt), reverse=True)
+          for rt in ios:
+              phones = [d for d in data[rt] if d["isAvailable"] and d["name"].startswith("iPhone")]
+              if phones:
+                  print(phones[0]["udid"]); break
+          ')
+          [ -n "$UDID" ] || { echo "::error::no available iPhone simulator found"; exit 1; }
+          echo "picked $UDID"
+          xcrun simctl list devices available | grep "$UDID"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
       # pipefail so a failing xcodebuild can't be masked by xcpretty's exit 0.
       - name: Build (app + tests, iOS Simulator)
         run: |
@@ -48,7 +68,7 @@ jobs:
           xcodebuild build-for-testing \
             -project Giftmaxxing.xcodeproj \
             -scheme Giftmaxxing \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -configuration Debug \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
@@ -61,7 +81,7 @@ jobs:
           xcodebuild test-without-building \
             -project Giftmaxxing.xcodeproj \
             -scheme Giftmaxxing \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -configuration Debug \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
