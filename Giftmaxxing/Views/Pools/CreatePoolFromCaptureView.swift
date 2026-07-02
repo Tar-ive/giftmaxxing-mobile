@@ -1,0 +1,154 @@
+import SwiftUI
+
+// The share-extension loop, step two: "Start a gift pool" was tapped on a
+// captured Instagram/Pinterest post — prefill a pool with that image, ask
+// only for the essentials (who, what, target), then hand off to a share
+// sheet so friends get pulled in immediately.
+struct CreatePoolFromCaptureView: View {
+    let image: UIImage?
+    let sourceURL: String?
+
+    @EnvironmentObject private var appState: AppState
+    @ObservedObject private var store = PoolsStore.shared
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var title = ""
+    @State private var forUser = ""
+    @State private var targetAmount = ""
+    @State private var createdPool: Pool?
+
+    private var parsedTarget: Double {
+        Double(targetAmount.replacingOccurrences(of: ",", with: ".")) ?? 0
+    }
+
+    private var isValid: Bool {
+        !title.trimmingCharacters(in: .whitespaces).isEmpty && parsedTarget > 0
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 18) {
+                    if let image {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 160, height: 160)
+                            .clipped()
+                            .clipShape(RoundedRectangle(cornerRadius: 18))
+                            .padding(.top, 8)
+                    }
+
+                    if let createdPool {
+                        successState(createdPool)
+                    } else {
+                        formFields
+                    }
+                }
+                .padding(.horizontal, 18)
+            }
+            .background(Color.surface)
+            .navigationTitle("Start a gift pool")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(createdPool == nil ? "Cancel" : "Done") {
+                        dismiss()
+                    }
+                    .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var formFields: some View {
+        VStack(spacing: 12) {
+            field("What's the gift?", text: $title, placeholder: "e.g. That ceramic vase she posted")
+            field("Who's it for?", text: $forUser, placeholder: "e.g. Maya")
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Target amount")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.ink)
+                TextField("$ e.g. 80", text: $targetAmount)
+                    .keyboardType(.decimalPad)
+                    .padding(12)
+                    .background(Color.cream)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+
+            Button {
+                let imageFile = image.flatMap { PoolsStore.saveCaptureImage($0) }
+                createdPool = store.create(
+                    title: title.trimmingCharacters(in: .whitespaces),
+                    forUser: forUser.trimmingCharacters(in: .whitespaces),
+                    occasion: "",
+                    targetAmount: parsedTarget,
+                    localImageFile: imageFile,
+                    sourceUrl: sourceURL
+                )
+            } label: {
+                Text("Create pool")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(isValid ? Color.coral : Color.coral.opacity(0.4))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+            .disabled(!isValid)
+            .padding(.top, 4)
+        }
+    }
+
+    // Pool exists — the next move is social: pull friends in.
+    private func successState(_ pool: Pool) -> some View {
+        VStack(spacing: 14) {
+            Text("Pool created 🎉")
+                .font(.system(size: 20, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color.ink)
+
+            Text("\(pool.title) — $\(Int(pool.targetAmount)) target. Now bring in the crew.")
+                .font(.bodyMedium)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            ShareLink(
+                item: "Chip in for \(pool.title)\(pool.forUser.isEmpty ? "" : " for \(pool.forUser)")! Target: $\(Int(pool.targetAmount)). Join the pool on Giftmaxxing 🎁",
+                subject: Text("Gift pool: \(pool.title)")
+            ) {
+                HStack(spacing: 8) {
+                    Image(systemName: "person.2.fill")
+                    Text("Invite friends to chip in")
+                }
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.coral)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+
+            Button {
+                dismiss()
+            } label: {
+                Text("View on Home")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.coral)
+            }
+        }
+        .padding(.top, 6)
+    }
+
+    private func field(_ label: String, text: Binding<String>, placeholder: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.ink)
+            TextField(placeholder, text: text)
+                .padding(12)
+                .background(Color.cream)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+    }
+}

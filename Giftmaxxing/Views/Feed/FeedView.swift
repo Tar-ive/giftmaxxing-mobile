@@ -8,7 +8,6 @@ struct FeedView: View {
     @StateObject private var viewModel = FeedViewModel()
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedPost: Post?
-    @State private var storySelection: StorySelection?
 
     var body: some View {
         NavigationStack {
@@ -56,10 +55,9 @@ struct FeedView: View {
                         .padding(.horizontal, 14)
                         .padding(.bottom, 8)
 
-                    StoriesTray(onTap: { index in
-                        storySelection = StorySelection(id: index)
-                    })
-                    .padding(.bottom, 8)
+                    // Gift pools — the social object of the app (not stories).
+                    PoolsRail()
+                        .padding(.bottom, 8)
 
                     if viewModel.isLoading && viewModel.posts.isEmpty {
                         ForEach(0..<3, id: \.self) { _ in
@@ -171,9 +169,6 @@ struct FeedView: View {
                 onSave: { viewModel.toggleSave(for: live, context: modelContext) }
             )
         }
-        .fullScreenCover(item: $storySelection) { selection in
-            StoryViewerView(stories: StoryItem.samples, index: selection.id)
-        }
         .task {
             viewModel.userId = appState.currentUser?.id
             if viewModel.posts.isEmpty {
@@ -228,7 +223,3 @@ struct PostCardSkeleton: View {
     }
 }
 
-// Identifiable index wrapper for fullScreenCover(item:).
-struct StorySelection: Identifiable {
-    let id: Int
-}

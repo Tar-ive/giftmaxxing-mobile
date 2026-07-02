@@ -118,6 +118,13 @@ struct ContentView: View {
             SignInView(showSignIn: $showSignIn)
                 .environmentObject(authManager)
         }
+        .sheet(isPresented: $appState.showCreatePoolFromCapture) {
+            CreatePoolFromCaptureView(
+                image: appState.poolCaptureImage,
+                sourceURL: appState.poolCaptureURL
+            )
+            .environmentObject(appState)
+        }
         .onChange(of: appState.selectedTab) { oldTab, newTab in
             AnalyticsEngine.shared.trackTabSwitch(
                 from: oldTab.rawValue,
@@ -135,9 +142,10 @@ struct ContentView: View {
     }
 
     // Share-extension bridge: anything sent to Giftmaxxing from another app
-    // lands in the app-group inbox and goes straight into visual search.
+    // lands in the app-group inbox and routes by the intent the user chose in
+    // the extension — visual search or a new gift pool.
     private func drainCaptureInbox() {
         guard let capture = CaptureInbox.consume() else { return }
-        appState.handleCapture(image: capture.image, url: capture.url)
+        appState.handleCapture(image: capture.image, url: capture.url, intent: capture.intent)
     }
 }

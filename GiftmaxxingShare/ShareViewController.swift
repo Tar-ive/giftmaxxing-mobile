@@ -2,32 +2,43 @@ import UIKit
 import UniformTypeIdentifiers
 import OSLog
 
-// "Send to Giftmaxxing" — the Instagram/Pinterest → Amazon bridge.
+// "Send to Giftmaxxing" — the Instagram/Pinterest → gift-giving bridge.
 //
 // Receives an image (screenshot, photo, saved pin) or a URL from any app's
-// share sheet, writes it to the app-group inbox, and shows a quick
-// confirmation. The main app picks it up on next foreground and runs visual
-// search over the gift index automatically.
+// share sheet, resolves a preview, then asks what to do with it — the start
+// of the gifting loop, not a silent save:
+//   • Find similar gifts  → visual search in the app
+//   • Start a gift pool   → pool creation prefilled with the capture
 final class ShareViewController: UIViewController {
     private let appGroupID = "group.com.giftmaxxing.ios"
     private let log = Logger(subsystem: "com.giftmaxxing.ios.share", category: "capture")
 
+    // Resolved capture (image and/or source URL) awaiting the user's choice.
+    private var resolvedImageData: Data?
+    private var resolvedURLString: String?
+
     private let card = UIView()
-    private let iconLabel = UILabel()
+    private let previewView = UIImageView()
     private let titleLabel = UILabel()
     private let subtitleLabel = UILabel()
+    private let spinner = UIActivityIndicatorView(style: .medium)
+    private let searchButton = UIButton(type: .system)
+    private let poolButton = UIButton(type: .system)
+    private let cancelButton = UIButton(type: .system)
+
+    private let coral = UIColor(red: 1.0, green: 0.42, blue: 0.32, alpha: 1.0)
 
     override func viewDidLoad() {
         super.viewDidLoad()
         buildUI()
-        processAttachments()
+        resolveAttachments()
     }
 
     // MARK: - Attachment handling
 
-    private func processAttachments() {
+    private func resolveAttachments() {
         guard let items = extensionContext?.inputItems as? [NSExtensionItem] else {
-            finish(success: false)
+            showError()
             return
         }
 
@@ -37,26 +48,28 @@ final class ShareViewController: UIViewController {
         if let imageProvider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) }) {
             imageProvider.loadItem(forTypeIdentifier: UTType.image.identifier, options: nil) { [weak self] item, _ in
                 DispatchQueue.main.async {
-                    self?.handleImageItem(item)
+                    self?.resolveImageItem(item)
                 }
             }
             return
         }
 
-        // Otherwise take a URL (Instagram post links, Pinterest pins, product pages).
+        // Otherwise a URL (Instagram posts/reels, Pinterest pins, product
+        // pages — video shares also arrive as page URLs, and the page's
+        // og:image is the video's cover frame).
         if let urlProvider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.url.identifier) }) {
             urlProvider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] item, _ in
                 DispatchQueue.main.async {
-                    self?.handleURLItem(item)
+                    self?.resolveURLItem(item)
                 }
             }
             return
         }
 
-        finish(success: false)
+        showError()
     }
 
-    private func handleImageItem(_ item: NSSecureCoding?) {
+    private func resolveImageItem(_ item: NSSecureCoding?) {
         var image: UIImage?
 
         if let url = item as? URL, let data = try? Data(contentsOf: url) {
@@ -68,35 +81,56 @@ final class ShareViewController: UIViewController {
         }
 
         guard let image, let jpeg = downscale(image, maxDimension: 1024)?.jpegData(compressionQuality: 0.85) else {
-            finish(success: false)
+            showError()
             return
         }
 
-        let saved = writeInbox(imageData: jpeg, url: nil)
-        finish(success: saved, message: saved ? "Open Giftmaxxing for matches" : "")
+        resolvedImageData = jpeg
+        showChoice(preview: UIImage(data: jpeg))
     }
 
-    private func handleURLItem(_ item: NSSecureCoding?) {
+    private func resolveURLItem(_ item: NSSecureCoding?) {
         guard let url = item as? URL else {
             log.error("url attachment did not decode")
-            finish(success: false)
+            showError()
             return
         }
+        resolvedURLString = url.absoluteString
 
-        // Most apps (Instagram included) share a page URL, not pixels. Try to
-        // resolve the page's og:image so the capture becomes a real visual
-        // search; fall back to saving the bare URL. Hard 3s budget — share
-        // extensions get killed quickly.
+        // Most apps (Instagram included) share a page URL, not pixels — the
+        // page's og:image turns the link into a usable capture. 3s budget.
         Task {
-            if let imageData = await Self.fetchOpenGraphImage(from: url) {
+            let imageData = await Self.fetchOpenGraphImage(from: url)
+            if let imageData {
                 self.log.info("og:image resolved (\(imageData.count) bytes)")
-                let saved = self.writeInbox(imageData: imageData, url: url.absoluteString)
-                self.finish(success: saved, message: saved ? "Open Giftmaxxing for matches" : "")
+                self.resolvedImageData = imageData
             } else {
-                self.log.info("no og:image — saving bare url")
-                let saved = self.writeInbox(imageData: nil, url: url.absoluteString)
-                self.finish(success: saved, message: saved ? "Open Giftmaxxing — tip inside" : "")
+                self.log.info("no og:image — url-only capture")
             }
+            self.showChoice(preview: imageData.flatMap(UIImage.init(data:)))
+        }
+    }
+
+    // MARK: - Actions
+
+    @objc private func searchTapped() {
+        commit(intent: "search", doneMessage: "Open Giftmaxxing for matches")
+    }
+
+    @objc private func poolTapped() {
+        commit(intent: "pool", doneMessage: "Pool draft ready — open Giftmaxxing")
+    }
+
+    @objc private func cancelTapped() {
+        extensionContext?.completeRequest(returningItems: nil)
+    }
+
+    private func commit(intent: String, doneMessage: String) {
+        let saved = writeInbox(imageData: resolvedImageData, url: resolvedURLString, intent: intent)
+        if saved {
+            showDone(message: doneMessage)
+        } else {
+            showError()
         }
     }
 
@@ -146,7 +180,7 @@ final class ShareViewController: UIViewController {
     // MARK: - App-group inbox
 
     @discardableResult
-    private func writeInbox(imageData: Data?, url: String?) -> Bool {
+    private func writeInbox(imageData: Data?, url: String?, intent: String) -> Bool {
         guard let container = FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: appGroupID
         ) else {
@@ -172,6 +206,7 @@ final class ShareViewController: UIViewController {
         let meta: [String: Any] = [
             "type": imageData != nil ? "image" : "url",
             "url": url ?? "",
+            "intent": intent,
             "ts": Date().timeIntervalSince1970,
         ]
         guard let metaData = try? JSONSerialization.data(withJSONObject: meta),
@@ -203,55 +238,135 @@ final class ShareViewController: UIViewController {
         card.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(card)
 
-        iconLabel.text = "🎁"
-        iconLabel.font = .systemFont(ofSize: 44)
-        iconLabel.textAlignment = .center
-        iconLabel.translatesAutoresizingMaskIntoConstraints = false
+        previewView.contentMode = .scaleAspectFill
+        previewView.clipsToBounds = true
+        previewView.layer.cornerRadius = 14
+        previewView.backgroundColor = .secondarySystemBackground
+        previewView.translatesAutoresizingMaskIntoConstraints = false
 
-        titleLabel.text = "Sending to Giftmaxxing"
+        titleLabel.text = "Add to Giftmaxxing"
         titleLabel.font = .systemFont(ofSize: 17, weight: .bold)
         titleLabel.textAlignment = .center
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        subtitleLabel.text = "One sec…"
+        subtitleLabel.text = "Reading what you shared…"
         subtitleLabel.font = .systemFont(ofSize: 13)
         subtitleLabel.textColor = .secondaryLabel
         subtitleLabel.textAlignment = .center
+        subtitleLabel.numberOfLines = 2
         subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        card.addSubview(iconLabel)
-        card.addSubview(titleLabel)
-        card.addSubview(subtitleLabel)
+        spinner.translatesAutoresizingMaskIntoConstraints = false
+        spinner.startAnimating()
+
+        configure(searchButton, title: "🔍  Find similar gifts", filled: true)
+        searchButton.addTarget(self, action: #selector(searchTapped), for: .touchUpInside)
+
+        configure(poolButton, title: "🤝  Start a gift pool", filled: false)
+        poolButton.addTarget(self, action: #selector(poolTapped), for: .touchUpInside)
+
+        cancelButton.setTitle("Not now", for: .normal)
+        cancelButton.setTitleColor(.secondaryLabel, for: .normal)
+        cancelButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
+        cancelButton.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)
+        cancelButton.translatesAutoresizingMaskIntoConstraints = false
+
+        // Buttons disabled until the capture resolves.
+        setButtons(enabled: false)
+
+        [previewView, titleLabel, subtitleLabel, spinner, searchButton, poolButton, cancelButton].forEach {
+            card.addSubview($0)
+        }
 
         NSLayoutConstraint.activate([
             card.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             card.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            card.widthAnchor.constraint(equalToConstant: 260),
+            card.widthAnchor.constraint(equalToConstant: 300),
 
-            iconLabel.topAnchor.constraint(equalTo: card.topAnchor, constant: 22),
-            iconLabel.centerXAnchor.constraint(equalTo: card.centerXAnchor),
+            previewView.topAnchor.constraint(equalTo: card.topAnchor, constant: 18),
+            previewView.centerXAnchor.constraint(equalTo: card.centerXAnchor),
+            previewView.widthAnchor.constraint(equalToConstant: 132),
+            previewView.heightAnchor.constraint(equalToConstant: 132),
 
-            titleLabel.topAnchor.constraint(equalTo: iconLabel.bottomAnchor, constant: 10),
+            spinner.centerXAnchor.constraint(equalTo: previewView.centerXAnchor),
+            spinner.centerYAnchor.constraint(equalTo: previewView.centerYAnchor),
+
+            titleLabel.topAnchor.constraint(equalTo: previewView.bottomAnchor, constant: 12),
             titleLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
             titleLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
 
-            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
+            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 3),
             subtitleLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
             subtitleLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
-            subtitleLabel.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -22),
+
+            searchButton.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 14),
+            searchButton.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 18),
+            searchButton.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -18),
+            searchButton.heightAnchor.constraint(equalToConstant: 46),
+
+            poolButton.topAnchor.constraint(equalTo: searchButton.bottomAnchor, constant: 8),
+            poolButton.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 18),
+            poolButton.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -18),
+            poolButton.heightAnchor.constraint(equalToConstant: 46),
+
+            cancelButton.topAnchor.constraint(equalTo: poolButton.bottomAnchor, constant: 6),
+            cancelButton.centerXAnchor.constraint(equalTo: card.centerXAnchor),
+            cancelButton.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -12),
         ])
     }
 
-    private func finish(success: Bool, message: String = "") {
-        if success {
-            titleLabel.text = "Added to Giftmaxxing ✓"
-            subtitleLabel.text = message
-        } else {
-            titleLabel.text = "Couldn't read that"
-            subtitleLabel.text = "Try sharing an image or link."
-        }
+    private func configure(_ button: UIButton, title: String, filled: Bool) {
+        var config = UIButton.Configuration.filled()
+        config.title = title
+        config.baseBackgroundColor = filled ? coral : coral.withAlphaComponent(0.14)
+        config.baseForegroundColor = filled ? .white : coral
+        config.cornerStyle = .large
+        button.configuration = config
+        button.titleLabel?.font = .systemFont(ofSize: 15, weight: .bold)
+        button.translatesAutoresizingMaskIntoConstraints = false
+    }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
+    private func setButtons(enabled: Bool) {
+        searchButton.isEnabled = enabled
+        poolButton.isEnabled = enabled
+        searchButton.alpha = enabled ? 1 : 0.5
+        poolButton.alpha = enabled ? 1 : 0.5
+    }
+
+    // MARK: - States
+
+    private func showChoice(preview: UIImage?) {
+        spinner.stopAnimating()
+        setButtons(enabled: true)
+
+        if let preview {
+            previewView.image = preview
+            subtitleLabel.text = "What do you want to do with it?"
+        } else {
+            // URL-only capture (private post) — still actionable.
+            previewView.image = nil
+            previewView.backgroundColor = coral.withAlphaComponent(0.12)
+            subtitleLabel.text = "Couldn't load a preview — you can still save it."
+        }
+    }
+
+    private func showDone(message: String) {
+        titleLabel.text = "Added to Giftmaxxing ✓"
+        subtitleLabel.text = message
+        setButtons(enabled: false)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            self?.extensionContext?.completeRequest(returningItems: nil)
+        }
+    }
+
+    private func showError() {
+        spinner.stopAnimating()
+        titleLabel.text = "Couldn't read that"
+        subtitleLabel.text = "Try sharing an image or link."
+        setButtons(enabled: false)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
             self?.extensionContext?.completeRequest(returningItems: nil)
         }
     }

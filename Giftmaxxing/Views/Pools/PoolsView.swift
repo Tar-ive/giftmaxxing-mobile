@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct PoolsView: View {
-    @StateObject private var store = PoolsStore()
+    @ObservedObject private var store = PoolsStore.shared
     @State private var showCreateSheet = false
     @State private var contributingTo: Pool?
 

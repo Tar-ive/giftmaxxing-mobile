@@ -20,22 +20,37 @@ final class AppState: ObservableObject {
     @Published var pendingCaptureImage: UIImage?
     @Published var pendingCaptureNote: String?
 
+    // Pool-intent capture ("Start a gift pool" in the share extension) —
+    // ContentView presents the create-pool sheet prefilled with these.
+    @Published var poolCaptureImage: UIImage?
+    @Published var poolCaptureURL: String?
+    @Published var showCreatePoolFromCapture = false
+
     func openSearch(_ tab: SearchTab) {
         pendingSearchTab = tab
         selectedTab = .search
     }
 
-    // Route a capture (shared image/URL or tapped screenshot) into visual search.
-    func handleCapture(image: UIImage?, url: String? = nil) {
-        if let image {
-            pendingCaptureImage = image
-            pendingCaptureNote = nil
-        } else if let url {
-            // Login-walled pages (Instagram/Pinterest) can't be fetched
-            // server-side; steer the user to the screenshot path.
-            pendingCaptureNote = "Links from \(URL(string: url)?.host ?? "that app") can't be read directly — screenshot the post and share that instead."
+    // Route a capture (shared image/URL or tapped screenshot) by intent.
+    func handleCapture(image: UIImage?, url: String? = nil, intent: CaptureInbox.Intent = .search) {
+        switch intent {
+        case .pool:
+            poolCaptureImage = image
+            poolCaptureURL = url
+            selectedTab = .feed
+            showCreatePoolFromCapture = true
+
+        case .search:
+            if let image {
+                pendingCaptureImage = image
+                pendingCaptureNote = nil
+            } else if let url {
+                // Login-walled pages (Instagram/Pinterest) can't be fetched
+                // server-side; steer the user to the screenshot path.
+                pendingCaptureNote = "Links from \(URL(string: url)?.host ?? "that app") can't be read directly — screenshot the post and share that instead."
+            }
+            openSearch(.visual)
         }
-        openSearch(.visual)
     }
 
     var cartCount: Int { cartItems.count }

@@ -9,9 +9,15 @@ enum CaptureInbox {
     static let appGroupID = "group.com.giftmaxxing.ios"
     private static let log = Logger(subsystem: "com.giftmaxxing.ios", category: "capture")
 
+    enum Intent: String {
+        case search   // "Find similar gifts" → visual search
+        case pool     // "Start a gift pool" → pool creation prefilled with the capture
+    }
+
     struct Capture {
         let image: UIImage?
         let url: String?
+        let intent: Intent
     }
 
     private static var inboxURL: URL? {
@@ -40,12 +46,13 @@ enum CaptureInbox {
             image = UIImage(data: imageData)
         }
         let url = (meta["url"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        let intent = Intent(rawValue: meta["intent"] as? String ?? "") ?? .search
 
         // Clear so it's handled exactly once.
         try? FileManager.default.removeItem(at: metaURL)
         try? FileManager.default.removeItem(at: imageURL)
 
         guard image != nil || url != nil else { return nil }
-        return Capture(image: image, url: url)
+        return Capture(image: image, url: url, intent: intent)
     }
 }

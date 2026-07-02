@@ -72,30 +72,41 @@ final class SearchTabsViewModel: ObservableObject {
         isLoadingCatalog = false
     }
 
+    // Generation token: "Clear photo" (or a newer search) invalidates any
+    // in-flight request, so late responses can't repopulate a cleared pane.
+    private var searchGeneration = 0
+
     func runVisualSearch(with image: UIImage) async {
+        searchGeneration += 1
+        let generation = searchGeneration
+
         tab = .visual
         queryImage = image
         visualResults = nil
         visualError = nil
         visualLoading = true
-        defer { visualLoading = false }
 
         // Downscale before upload (Titan MM works fine at 512px; keeps the
         // payload small on cell connections).
         guard let jpeg = image.resized(maxDimension: 512).jpegData(compressionQuality: 0.8) else {
             visualError = "Couldn't read that image. Try a different one."
+            visualLoading = false
             return
         }
 
         do {
             let response = try await api.fetchVisualSearch(imageBase64: jpeg.base64EncodedString())
+            guard generation == searchGeneration else { return }
             visualResults = response.items ?? []
         } catch {
+            guard generation == searchGeneration else { return }
             visualError = "Couldn't run visual search. Try a different image."
         }
+        visualLoading = false
     }
 
     func clearVisual() {
+        searchGeneration += 1
         queryImage = nil
         visualResults = nil
         visualError = nil

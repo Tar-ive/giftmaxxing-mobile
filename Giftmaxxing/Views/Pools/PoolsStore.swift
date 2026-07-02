@@ -1,4 +1,4 @@
-import Foundation
+import UIKit
 
 // Local-first pools store — iOS port of web/lib/pools.ts behavior. Pools are
 // persisted on-device (web keeps them server-side per signed-in user; until
@@ -6,9 +6,40 @@ import Foundation
 // via POST /pools + /pools/{id}/contribute attaches once sign-in ships (#5).
 @MainActor
 final class PoolsStore: ObservableObject {
+    // Single source of truth — the Home rail, the Pools screen and the
+    // share-capture flow all observe the same instance.
+    static let shared = PoolsStore()
+
     @Published private(set) var pools: [Pool] = []
 
     private static let storageKey = "giftmaxxing_pools_local"
+
+    // Captured pool images live in the app group so they survive reinstalls
+    // of either the app or the extension.
+    static var imagesDirectory: URL? {
+        FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: CaptureInbox.appGroupID)?
+            .appendingPathComponent("pool-images", isDirectory: true)
+    }
+
+    static func image(named file: String?) -> UIImage? {
+        guard let file, let dir = imagesDirectory else { return nil }
+        return UIImage(contentsOfFile: dir.appendingPathComponent(file).path)
+    }
+
+    // Persist a captured image; returns the filename to store on the Pool.
+    static func saveCaptureImage(_ image: UIImage) -> String? {
+        guard let dir = imagesDirectory,
+              let jpeg = image.jpegData(compressionQuality: 0.85) else { return nil }
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let name = "capture-\(Int(Date().timeIntervalSince1970 * 1000)).jpg"
+        do {
+            try jpeg.write(to: dir.appendingPathComponent(name), options: .atomic)
+            return name
+        } catch {
+            return nil
+        }
+    }
 
     init() {
         load()
@@ -25,7 +56,14 @@ final class PoolsStore: ObservableObject {
     }
 
     @discardableResult
-    func create(title: String, forUser: String, occasion: String, targetAmount: Double) -> Pool {
+    func create(
+        title: String,
+        forUser: String,
+        occasion: String,
+        targetAmount: Double,
+        localImageFile: String? = nil,
+        sourceUrl: String? = nil
+    ) -> Pool {
         let pool = Pool(
             id: "pool_\(Int(Date().timeIntervalSince1970 * 1000))",
             title: title,
@@ -35,7 +73,9 @@ final class PoolsStore: ObservableObject {
             currentAmount: 0,
             contributors: [],
             createdAt: Date(),
-            product: nil
+            product: nil,
+            localImageFile: localImageFile,
+            sourceUrl: sourceUrl
         )
         pools.insert(pool, at: 0)
         persist()
