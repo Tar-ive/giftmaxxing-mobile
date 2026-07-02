@@ -195,6 +195,13 @@ actor APIClient {
         return try await get("/mobile/sync", params: params)
     }
 
+    // MARK: - Analytics
+
+    func uploadAnalytics(events: [[String: Any]]) async throws {
+        let body: [String: Any] = ["events": events]
+        let _: EmptyResponse = try await post("/mobile/analytics", body: body)
+    }
+
     // MARK: - Raw execution (for offline queue replay)
 
     func executeRaw(method: String, path: String, body: [String: Any]?) async throws {

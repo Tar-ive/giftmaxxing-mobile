@@ -38,12 +38,37 @@ struct FeedView: View {
                         ForEach(Array(viewModel.posts.enumerated()), id: \.element.id) { index, post in
                             PostCardView(
                                 post: post,
-                                onLike: { viewModel.toggleLike(for: post, context: modelContext) },
-                                onSave: { viewModel.toggleSave(for: post, context: modelContext) }
+                                onLike: {
+                                    viewModel.toggleLike(for: post, context: modelContext)
+                                    AnalyticsEngine.shared.trackContentAction(
+                                        post.liked ? .contentUnlike : .contentLike,
+                                        postId: post.id
+                                    )
+                                },
+                                onSave: {
+                                    viewModel.toggleSave(for: post, context: modelContext)
+                                    AnalyticsEngine.shared.trackContentAction(
+                                        post.saved ? .contentUnsave : .contentSave,
+                                        postId: post.id
+                                    )
+                                },
+                                onProductTap: {
+                                    if let url = post.productUrl {
+                                        AnalyticsEngine.shared.trackAffiliateClick(
+                                            postId: post.id,
+                                            productUrl: url,
+                                            source: "feed"
+                                        )
+                                    }
+                                }
                             )
                             .onAppear {
                                 viewModel.prefetchImages(around: index)
                             }
+                            // Instagram-style: track when each post enters/leaves viewport
+                            .trackImpression(postId: post.id, position: index, source: "feed")
+                            // Scroll depth analytics
+                            .trackScrollAnalytics(currentPosition: index)
 
                             if index < viewModel.posts.count - 1 {
                                 Divider()
@@ -111,6 +136,7 @@ struct FeedView: View {
         }
         .task {
             if viewModel.posts.isEmpty {
+                AnalyticsEngine.shared.trackScreenView(screen: "feed")
                 await viewModel.loadFeed(context: modelContext)
             }
         }

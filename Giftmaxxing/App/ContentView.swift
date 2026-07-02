@@ -82,5 +82,11 @@ struct ContentView: View {
             SignInView(showSignIn: $showSignIn)
                 .environmentObject(authManager)
         }
+        .onChange(of: appState.selectedTab) { oldTab, newTab in
+            AnalyticsEngine.shared.trackTabSwitch(
+                from: oldTab.rawValue,
+                to: newTab.rawValue
+            )
+        }
     }
 }

@@ -128,6 +128,13 @@ struct UpcomingEvent: Identifiable, Codable {
     }
 }
 
+struct DeltaSyncResponse: Codable {
+    var updatedPosts: [APIPost]?
+    var deletedPostIds: [String]?
+    var updatedEvents: [UpcomingEvent]?
+    var serverTime: Double?
+}
+
 struct GraphResponse: Codable {
     var nodes: [GraphNode]?
     var edges: [GraphEdge]?

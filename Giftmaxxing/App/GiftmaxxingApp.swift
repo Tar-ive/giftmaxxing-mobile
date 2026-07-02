@@ -21,6 +21,8 @@ struct GiftmaxxingApp: App {
                 .environmentObject(pushManager)
                 .modelContainer(dataController.container)
                 .task {
+                    AnalyticsEngine.shared.startSession()
+                    AnalyticsEngine.shared.retryPendingAnalytics()
                     await authManager.refreshTokenIfNeeded()
                     await pushManager.updatePermissionStatus()
                     await syncEngine.performFullSync(
