@@ -1,3 +1,80 @@
+// Core declarations restored verbatim from 392869e — the c51031c merge kept
+// only the mobile-branch block and dropped these, but lambda.tf, apprunner.tf,
+// budgets.tf, cloudfront.tf, killswitch.tf, monitoring.tf, … still reference
+// them (and terraform.tfvars sets several). local.prefix and var.prefix
+// intentionally resolve to the same "giftmaxxing-dev" so old and new files
+// name resources identically.
+variable "region" {
+  description = "AWS region to deploy into"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "env" {
+  description = "Environment name (used in resource name prefixes)"
+  type        = string
+  default     = "dev"
+}
+
+variable "project" {
+  description = "Project name prefix for resources"
+  type        = string
+  default     = "giftmaxxing"
+}
+
+locals {
+  prefix = "${var.project}-${var.env}"
+}
+
+variable "cors_allow_origins" {
+  description = "Allowed CORS origins for the HTTP API. This is an unauthenticated public read API, so '*' lets the Vercel prod + preview domains call it from the browser. Restrict to specific origins (e.g. your Vercel domain + http://localhost:3000) to lock down browser callers."
+  type        = list(string)
+  default     = ["*"]
+}
+
+variable "enable_cost_allocation_tags" {
+  description = "Activate Project/Env as Cost Allocation Tags for Cost Explorer (see cost.tf). Requires the management/payer account AND the tag key to already be visible in Billing (~24h after first use); leave false otherwise to avoid apply errors."
+  type        = bool
+  default     = false
+}
+
+variable "alert_email" {
+  description = "Email for cost/budget alerts (subscribes to the cost-alerts SNS topic; see budgets.tf). Leave empty to skip. Set it in terraform.tfvars (gitignored) or via -var. After apply you MUST click the confirmation link AWS emails you, or no alerts arrive."
+  type        = string
+  default     = ""
+}
+
+variable "cost_alert_emails" {
+  description = "Addresses emailed DIRECTLY by the monthly budget (in addition to var.alert_email's SNS subscription) for the actual-threshold + $500 forecasted notifications. Codifies the recipients so `terraform apply` never again wipes emails added by hand in the AWS console. Unlike SNS, budget emails need NO confirmation. Set in terraform.tfvars (gitignored)."
+  type        = list(string)
+  default     = []
+}
+
+variable "alert_sms_number" {
+  description = "Optional phone number in E.164 format (e.g. +15551234567) for SMS cost alerts. Leave empty to skip. SNS SMS may require moving the account out of the SMS sandbox / verifying the number first."
+  type        = string
+  default     = ""
+}
+
+# ── Phase 2: kill switch + real-time tripwires (see killswitch.tf) ────────────
+variable "api_reserved_concurrency" {
+  description = "Reserved concurrency ceiling for the API Lambda — a baseline guard so a runaway/traffic spike can't balloon Lambda + DynamoDB cost. -1 = unreserved (no cap). The $1,000 kill switch pauses expensive AI routes on top of this. NOTE: a reservation needs the account's Lambda 'Concurrent executions' quota above 10 (AWS always keeps 10 unreserved); raise it via Service Quotas to use a positive value."
+  type        = number
+  default     = -1
+}
+
+variable "maxi_base_model_id" {
+  description = "Bedrock model / inference-profile id for Maxi's BASE (default) tier — the cheapest option, used for browsing, gift discovery, taste chat, and Q&A. Default = Amazon Nova Lite (us cross-region inference profile)."
+  type        = string
+  default     = "us.amazon.nova-lite-v1:0"
+}
+
+variable "clerk_issuer" {
+  description = "Clerk Frontend API issuer URL used to verify session JWTs (token iss must match). Derived from NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY."
+  type        = string
+  default     = "https://usable-mammoth-92.clerk.accounts.dev"
+}
+
 variable "prefix" {
   description = "Resource name prefix"
   type        = string

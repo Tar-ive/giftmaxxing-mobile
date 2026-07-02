@@ -41,8 +41,12 @@ resource "aws_cognito_user_pool" "mobile" {
   }
 }
 
-# Sign in with Apple identity provider
+# Sign in with Apple identity provider — only when the Apple credentials are
+# actually supplied (empty tfvars would fail the whole apply otherwise; the
+# pool itself works without it, which is all the API's JWT verification needs).
 resource "aws_cognito_identity_provider" "apple" {
+  count = var.apple_client_id != "" && var.apple_private_key != "" ? 1 : 0
+
   user_pool_id  = aws_cognito_user_pool.mobile.id
   provider_name = "SignInWithApple"
   provider_type = "SignInWithApple"
@@ -70,7 +74,9 @@ resource "aws_cognito_user_pool_client" "ios" {
 
   generate_secret = false
 
-  supported_identity_providers = ["SignInWithApple"]
+  # Cognito rejects listing an IdP that doesn't exist — fall back to native
+  # accounts until the Apple provider is configured.
+  supported_identity_providers = var.apple_client_id != "" && var.apple_private_key != "" ? ["SignInWithApple"] : ["COGNITO"]
 
   allowed_oauth_flows                  = ["code"]
   allowed_oauth_scopes                 = ["openid", "email", "profile"]
@@ -83,6 +89,9 @@ resource "aws_cognito_user_pool_client" "ios" {
     "ALLOW_REFRESH_TOKEN_AUTH",
     "ALLOW_USER_SRP_AUTH",
     "ALLOW_CUSTOM_AUTH",
+    # Admin-side password auth (needs AWS creds) — lets ops mint test JWTs:
+    #   aws cognito-idp admin-initiate-auth --auth-flow ADMIN_USER_PASSWORD_AUTH ...
+    "ALLOW_ADMIN_USER_PASSWORD_AUTH",
   ]
 
   token_validity_units {

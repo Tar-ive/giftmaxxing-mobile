@@ -24,6 +24,6 @@ output "devices_table_name" {
 }
 
 output "sns_platform_app_arn" {
-  description = "SNS Platform Application ARN for iOS push"
-  value       = aws_sns_platform_application.ios_push.arn
+  description = "SNS Platform Application ARN for iOS push (null until APNs credentials are supplied)"
+  value       = one(aws_sns_platform_application.ios_push[*].arn)
 }

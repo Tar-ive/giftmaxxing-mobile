@@ -3,7 +3,11 @@
 # devices. The device token table stores APNs tokens registered by the mobile app
 # via POST /mobile/device.
 
+# Created only when APNs credentials are supplied — SNS rejects empty ones and
+# would fail the whole apply.
 resource "aws_sns_platform_application" "ios_push" {
+  count = var.apns_private_key != "" ? 1 : 0
+
   name                = "${var.prefix}-ios-push"
   platform            = "APNS"
   platform_credential = var.apns_private_key
@@ -60,10 +64,13 @@ data "aws_iam_policy_document" "mobile_push" {
     resources = [aws_dynamodb_table.devices.arn]
   }
 
-  statement {
-    sid     = "SNSPublishPush"
-    actions = ["sns:Publish"]
-    resources = [aws_sns_platform_application.ios_push.arn]
+  dynamic "statement" {
+    for_each = aws_sns_platform_application.ios_push[*].arn
+    content {
+      sid       = "SNSPublishPush"
+      actions   = ["sns:Publish"]
+      resources = [statement.value]
+    }
   }
 
   statement {

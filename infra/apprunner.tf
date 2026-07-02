@@ -114,6 +114,9 @@ resource "aws_apprunner_service" "api" {
           AUTH_ENFORCE     = var.auth_enforce ? "1" : "0"
           ADMIN_API_SECRET = var.admin_api_secret
           CLERK_ISSUER     = var.clerk_issuer
+          # iOS-app identities (mirrors lambda.tf — see handler.mjs verifiers).
+          COGNITO_ISSUER         = "https://${aws_cognito_user_pool.mobile.endpoint}"
+          GOOGLE_OAUTH_CLIENT_ID = var.google_oauth_client_id
 
           VECTOR_BUCKET          = "${local.prefix}-vectors"
           VECTOR_INDEX           = "pins"
