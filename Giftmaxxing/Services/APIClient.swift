@@ -148,12 +148,10 @@ actor APIClient {
             body["messages"] = msgs
         }
 
-        do {
-            let reply: MaxiAgentReply = try await post("/maxi", body: body)
-            return reply
-        } catch {
-            return nil
-        }
+        // Throws so the caller can tell 401 (sign-in needed) from 429/503
+        // (budget guard) from network loss — each gets different fallback UX.
+        let reply: MaxiAgentReply = try await post("/maxi", body: body)
+        return reply
     }
 
     // MARK: - Vector Recommendations

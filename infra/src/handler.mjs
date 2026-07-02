@@ -100,27 +100,80 @@ function hasAdminToken(event) {
   return timingSafeEqual(tok, ADMIN_API_SECRET);
 }
 
-async function verifyClerkJwt(event) {
-  if (!_clerkJwks || !CLERK_ISSUER) return null;
+function bearerToken(event) {
   const h = event.headers || {};
   const auth = h.authorization || h.Authorization || "";
   const m = /^Bearer\s+(.+)$/i.exec(auth);
-  if (!m) return null;
+  return m ? m[1] : null;
+}
+
+async function verifyClerkJwt(event) {
+  if (!_clerkJwks || !CLERK_ISSUER) return null;
+  const token = bearerToken(event);
+  if (!token) return null;
   try {
-    const { payload } = await jwtVerify(m[1], _clerkJwks, { issuer: CLERK_ISSUER });
+    const { payload } = await jwtVerify(token, _clerkJwks, { issuer: CLERK_ISSUER });
     return payload?.sub ? String(payload.sub) : null;
   } catch {
     return null;
   }
 }
 
-// /seed is admin-only (ingest). Other protected routes accept a Clerk JWT OR the
-// admin token.
+// ── iOS-app identities ───────────────────────────────────────────────────────
+// The native app signs users in with Google (ASWebAuthenticationSession) or
+// Sign in with Apple→Cognito, not Clerk. Accept those verified ID tokens too so
+// signed-in iOS users reach the auth-gated routes (/maxi, /me, /events, …).
+// Both verifiers are env-gated: unset vars = feature dark, zero behavior change.
+const GOOGLE_OAUTH_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID || "";
+const _googleJwks = GOOGLE_OAUTH_CLIENT_ID
+  ? createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"))
+  : null;
+
+async function verifyGoogleIdToken(event) {
+  if (!_googleJwks) return null;
+  const token = bearerToken(event);
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, _googleJwks, {
+      issuer: ["https://accounts.google.com", "accounts.google.com"],
+      audience: GOOGLE_OAUTH_CLIENT_ID,
+    });
+    // Prefix mirrors the iOS client's local userId convention ("google_<sub>")
+    // so profile/memory rows line up across sessions.
+    return payload?.sub ? `google_${payload.sub}` : null;
+  } catch {
+    return null;
+  }
+}
+
+const COGNITO_ISSUER = process.env.COGNITO_ISSUER || "";
+const _cognitoJwks = COGNITO_ISSUER
+  ? createRemoteJWKSet(new URL(`${COGNITO_ISSUER}/.well-known/jwks.json`))
+  : null;
+
+async function verifyCognitoJwt(event) {
+  if (!_cognitoJwks || !COGNITO_ISSUER) return null;
+  const token = bearerToken(event);
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, _cognitoJwks, { issuer: COGNITO_ISSUER });
+    return payload?.sub ? String(payload.sub) : null;
+  } catch {
+    return null;
+  }
+}
+
+// /seed is admin-only (ingest). Other protected routes accept a Clerk JWT (web),
+// a Google/Cognito ID token (iOS app), OR the admin token.
 async function authorizeRequest(event, method, path) {
   if (hasAdminToken(event)) return { ok: true, sub: "admin", via: "admin" };
   if (method === "POST" && path === "/seed") return { ok: false };
-  const sub = await verifyClerkJwt(event);
-  if (sub) return { ok: true, sub, via: "clerk" };
+  const clerkSub = await verifyClerkJwt(event);
+  if (clerkSub) return { ok: true, sub: clerkSub, via: "clerk" };
+  const googleSub = await verifyGoogleIdToken(event);
+  if (googleSub) return { ok: true, sub: googleSub, via: "google" };
+  const cognitoSub = await verifyCognitoJwt(event);
+  if (cognitoSub) return { ok: true, sub: cognitoSub, via: "cognito" };
   return { ok: false };
 }
 

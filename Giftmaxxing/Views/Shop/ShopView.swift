@@ -189,6 +189,7 @@ struct ShopItemCard: View {
 struct ShopItemDetail: View {
     let item: ShopItem
     @Environment(\.dismiss) private var dismiss
+    @State private var browserTarget: BrowserTarget?
 
     var body: some View {
         NavigationStack {
@@ -232,9 +233,14 @@ struct ShopItemDetail: View {
 
                         Divider()
 
-                        // Buy button
+                        // Buy button — Amazon app when installed, in-app browser
+                        // fallback (and click analytics) via the outbound router.
                         if let url = item.affiliateUrl, let link = URL(string: url) {
-                            Link(destination: link) {
+                            Button {
+                                OutboundRouter.open(link, postId: item.id, source: "shop") {
+                                    browserTarget = BrowserTarget(url: $0)
+                                }
+                            } label: {
                                 HStack {
                                     Image(systemName: "cart.fill")
                                     Text("Buy on Amazon")
@@ -245,6 +251,10 @@ struct ShopItemDetail: View {
                                 .padding(.vertical, 14)
                                 .background(Color(hex: "#FF9900"))
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                            }
+                            .sheet(item: $browserTarget) { target in
+                                SafariView(url: target.url)
+                                    .ignoresSafeArea()
                             }
                         }
 

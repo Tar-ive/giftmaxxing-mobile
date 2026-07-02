@@ -128,15 +128,13 @@ struct PostDetailView: View {
                         }
                         .padding(.top, 2)
 
-                        // Outbound product link — opens IN-APP (SFSafariViewController)
+                        // Outbound product link — Amazon app via universal link
+                        // when installed, in-app browser otherwise.
                         if let url = Affiliate.productUrl(for: activePost) {
                             Button {
-                                AnalyticsEngine.shared.trackAffiliateClick(
-                                    postId: activePost.id,
-                                    productUrl: url.absoluteString,
-                                    source: "post_detail"
-                                )
-                                browserTarget = BrowserTarget(url: url)
+                                OutboundRouter.open(url, postId: activePost.id, source: "post_detail") {
+                                    browserTarget = BrowserTarget(url: $0)
+                                }
                             } label: {
                                 HStack(spacing: 6) {
                                     Image(systemName: "bag.fill")

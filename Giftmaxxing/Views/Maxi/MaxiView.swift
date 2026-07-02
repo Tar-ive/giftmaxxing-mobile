@@ -44,32 +44,64 @@ final class MaxiViewModel: ObservableObject {
 
         let history = messages.dropLast().map { (role: $0.role.rawValue, text: $0.text) }
 
-        if let reply = try? await api.askMaxi(
-            userId: nil,
-            name: nil,
-            message: text,
-            history: history
-        ), !reply.say.isEmpty {
-            messages.append(MaxiMessage(
-                role: .assistant,
-                text: reply.say,
-                products: reply.pins,
-                steps: reply.steps
-            ))
-        } else {
-            // Agent API unreachable (or auth-gated) \u{2014} answer locally like the
-            // web's respond() engine so Maxi never dead-ends.
-            await loadCatalogIfNeeded()
-            let local = MaxiLocalEngine.respond(to: text, catalog: catalog)
-            messages.append(MaxiMessage(
-                role: .assistant,
-                text: local.say,
-                products: local.products,
-                chips: local.chips
-            ))
+        do {
+            // Send the signed-in identity: the agent unlocks memory, events and
+            // connection tools server-side only when it knows who's asking.
+            let reply = try await api.askMaxi(
+                userId: AuthManager.shared.userId,
+                name: AuthManager.shared.displayName,
+                message: text,
+                history: history
+            )
+            if let reply, !reply.say.isEmpty {
+                messages.append(MaxiMessage(
+                    role: .assistant,
+                    text: reply.say,
+                    products: reply.pins,
+                    steps: reply.steps
+                ))
+            } else {
+                await respondLocally(to: text, note: nil)
+            }
+        } catch APIError.httpError(let code) where code == 401 || code == 403 {
+            // Auth-gated agent: be honest about why answers are canned.
+            await respondLocally(
+                to: text,
+                note: "I'm in quick-answers mode — sign in to unlock the full AI concierge (memory, your events, agentic shopping)."
+            )
+        } catch APIError.httpError(let code) where code == 429 || code == 503 {
+            await respondLocally(
+                to: text,
+                note: "The AI concierge is taking a breather (usage limits). Here's what I can find in the catalog meanwhile."
+            )
+        } catch {
+            await respondLocally(
+                to: text,
+                note: "You're offline, so I'm answering from the on-device catalog."
+            )
         }
 
         isThinking = false
+    }
+
+    // Local fallback (web respond() parity) with a one-time status note so
+    // canned answers are never mistaken for the real agent.
+    private var shownFallbackNote = false
+
+    private func respondLocally(to text: String, note: String?) async {
+        await loadCatalogIfNeeded()
+        let local = MaxiLocalEngine.respond(to: text, catalog: catalog)
+        var say = local.say
+        if let note, !shownFallbackNote {
+            shownFallbackNote = true
+            say = "\(note)\n\n\(say)"
+        }
+        messages.append(MaxiMessage(
+            role: .assistant,
+            text: say,
+            products: local.products,
+            chips: local.chips
+        ))
     }
 }
 
@@ -304,12 +336,9 @@ struct MaxiProductCard: View {
         cardBody
             .onTapGesture {
                 if let url = outboundURL {
-                    AnalyticsEngine.shared.trackAffiliateClick(
-                        postId: product.postId,
-                        productUrl: url.absoluteString,
-                        source: "maxi"
-                    )
-                    browserTarget = BrowserTarget(url: url)
+                    OutboundRouter.open(url, postId: product.postId, source: "maxi") {
+                        browserTarget = BrowserTarget(url: $0)
+                    }
                 }
             }
             .sheet(item: $browserTarget) { target in

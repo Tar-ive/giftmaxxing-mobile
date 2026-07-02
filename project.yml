@@ -31,6 +31,7 @@ targets:
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "Giftmaxxing uses the microphone so you can talk to Maxi, your AI gift concierge."
         INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Giftmaxxing transcribes your voice so Maxi can find gifts for you."
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Giftmaxxing shows your screenshots so you can shop the things you've captured."
+        INFOPLIST_KEY_NSCameraUsageDescription: "Giftmaxxing uses the camera for visual search — snap a product to find similar gifts."
         SWIFT_VERSION: "5.9"
         GENERATE_INFOPLIST_FILE: true
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

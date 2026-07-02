@@ -153,6 +153,12 @@ variable "admin_api_secret" {
   sensitive   = true
 }
 
+variable "google_oauth_client_id" {
+  description = "Google OAuth client id used as the JWT audience when the API verifies iOS Google Sign-In ID tokens. Must match GoogleOAuthConfig.clientID in the app. Empty (default) keeps Google-token auth dark; Cognito (Sign in with Apple) works regardless."
+  type        = string
+  default     = ""
+}
+
 # ── Sign in with Apple (Cognito IdP) ──────────────────────────────────────────
 variable "apple_private_key" {
   description = "Apple Sign In private key (PEM)"

@@ -45,6 +45,10 @@ resource "aws_lambda_function" "api" {
       AUTH_ENFORCE     = var.auth_enforce ? "1" : "0"
       ADMIN_API_SECRET = var.admin_api_secret
       CLERK_ISSUER     = var.clerk_issuer
+      # iOS-app identities (handler verifies alongside Clerk): Cognito pool JWTs
+      # (Sign in with Apple) + Google ID tokens (empty client id = dark).
+      COGNITO_ISSUER         = "https://${aws_cognito_user_pool.mobile.endpoint}"
+      GOOGLE_OAUTH_CLIENT_ID = var.google_oauth_client_id
       VECTOR_BUCKET    = "${local.prefix}-vectors"
       VECTOR_INDEX     = "pins"
       # Visual search: Titan Multimodal embedding model + vector dimensionality.

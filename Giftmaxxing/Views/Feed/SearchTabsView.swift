@@ -108,6 +108,9 @@ struct SearchTabsView: View {
     @StateObject private var viewModel = SearchTabsViewModel()
     @State private var selectedPost: Post?
     @State private var photoItem: PhotosPickerItem?
+    @State private var showSourceDialog = false
+    @State private var showCamera = false
+    @State private var showLibrary = false
 
     var body: some View {
         NavigationStack {
@@ -120,7 +123,15 @@ struct SearchTabsView: View {
                         onSubmit: {}
                     )
 
-                    PhotosPicker(selection: $photoItem, matching: .images) {
+                    Button {
+                        // On a device: choose camera or library. No camera
+                        // (simulator/iPad without one): straight to library.
+                        if CameraPicker.isAvailable {
+                            showSourceDialog = true
+                        } else {
+                            showLibrary = true
+                        }
+                    } label: {
                         Image(systemName: "camera.viewfinder")
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundStyle(Color.coral)
@@ -128,6 +139,7 @@ struct SearchTabsView: View {
                             .background(Color.coralSoft)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
+                    .accessibilityLabel("Visual search with a photo")
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 8)
@@ -209,6 +221,18 @@ struct SearchTabsView: View {
                     photoItem = nil
                 }
             }
+            .confirmationDialog("Search with a photo", isPresented: $showSourceDialog, titleVisibility: .visible) {
+                Button("Take a photo") { showCamera = true }
+                Button("Choose from library") { showLibrary = true }
+                Button("Cancel", role: .cancel) {}
+            }
+            .fullScreenCover(isPresented: $showCamera) {
+                CameraPicker { image in
+                    Task { await viewModel.runVisualSearch(with: image) }
+                }
+                .ignoresSafeArea()
+            }
+            .photosPicker(isPresented: $showLibrary, selection: $photoItem, matching: .images)
         }
     }
 
@@ -361,14 +385,36 @@ struct SearchTabsView: View {
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
 
-                    PhotosPicker(selection: $photoItem, matching: .images) {
-                        Text("Choose a photo")
+                    if CameraPicker.isAvailable {
+                        Button {
+                            showCamera = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "camera.fill")
+                                Text("Take a photo")
+                            }
                             .font(.system(size: 15, weight: .bold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 24)
                             .padding(.vertical, 12)
                             .background(Color.coral)
                             .clipShape(Capsule())
+                        }
+                    }
+
+                    Button {
+                        showLibrary = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "photo.on.rectangle")
+                            Text("Choose from library")
+                        }
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(CameraPicker.isAvailable ? Color.coral : .white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(CameraPicker.isAvailable ? Color.coralSoft : Color.coral)
+                        .clipShape(Capsule())
                     }
                 }
                 .padding(40)

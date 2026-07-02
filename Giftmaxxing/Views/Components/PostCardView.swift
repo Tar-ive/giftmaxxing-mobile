@@ -123,28 +123,32 @@ struct PostCardView: View {
                     .padding(.top, 4)
             }
 
-            // Caption
+            // Caption — ONE flowing text run (an HStack of Texts squeezes the
+            // username into its own truncating column once the caption wraps).
             if !post.caption.isEmpty {
-                HStack(spacing: 0) {
-                    Text(post.user)
-                        .font(.system(size: 13, weight: .semibold))
-                    Text(" ")
-                    Text(post.caption)
-                        .font(.system(size: 13))
-                }
-                .foregroundStyle(Color.ink)
-                .lineLimit(3)
-                .padding(.horizontal, 14)
-                .padding(.top, 3)
+                (Text(post.user).fontWeight(.semibold) + Text(" ") + Text(post.caption))
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 4)
             }
 
-            // Recommendation reason
-            if let reason = post.reason {
-                Text(reason)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 14)
-                    .padding(.top, 2)
+            // Recommendation reason — styled as a distinct "why you're seeing
+            // this" note so it doesn't read as a second caption line.
+            if let reason = post.reason, !reason.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 10))
+                    Text(reason)
+                        .lineLimit(1)
+                }
+                .font(.caption)
+                .foregroundStyle(Color.coral.opacity(0.9))
+                .padding(.horizontal, 14)
+                .padding(.top, 4)
             }
 
             // Comments
@@ -158,17 +162,23 @@ struct PostCardView: View {
                 .padding(.top, 3)
             }
 
-            // Product info
+            // Product info — name can be long; keep it to one truncated line and
+            // let the brand hold its width so the row never wraps or collides.
             HStack(spacing: 6) {
                 Text(post.product.name)
                     .font(.system(size: 12, weight: .medium))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 Text("·")
                 Text(post.product.brand)
                     .font(.system(size: 12))
+                    .lineLimit(1)
+                    .layoutPriority(1)
+                Spacer(minLength: 0)
             }
             .foregroundStyle(.secondary)
             .padding(.horizontal, 14)
-            .padding(.top, 4)
+            .padding(.top, 5)
             .padding(.bottom, 14)
         }
         .background(Color.surface)

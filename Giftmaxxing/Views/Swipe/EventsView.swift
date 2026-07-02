@@ -15,6 +15,19 @@ final class EventsViewModel: ObservableObject {
             .sorted { $0.daysUntil < $1.daysUntil }
     }
 
+    // Urgency buckets — "what needs a gift NOW" scans better than one long list.
+    var sections: [(title: String, events: [GiftEvent])] {
+        let upcoming = upcomingEvents
+        let week = upcoming.filter { $0.daysUntil <= 7 }
+        let month = upcoming.filter { $0.daysUntil > 7 && $0.daysUntil <= 31 }
+        let later = upcoming.filter { $0.daysUntil > 31 }
+        return [
+            ("This week", week),
+            ("This month", month),
+            ("Later", later),
+        ].filter { !$0.1.isEmpty }
+    }
+
     func loadEvents(context: ModelContext?) async {
         if let context {
             loadFromCache(context: context)
@@ -73,6 +86,29 @@ final class EventsViewModel: ObservableObject {
                     "recipientName": event.recipientName,
                 ]
             )
+        }
+    }
+
+    func deleteEvent(_ event: GiftEvent, context: ModelContext?) {
+        events.removeAll { $0.id == event.id }
+
+        if let context {
+            let id = event.id
+            let descriptor = FetchDescriptor<CachedEvent>(predicate: #Predicate { $0.eventId == id })
+            if let cached = try? context.fetch(descriptor) {
+                cached.forEach { context.delete($0) }
+                try? context.save()
+            }
+
+            // Demo rows only exist client-side; real ones sync the delete.
+            if let userId = AuthManager.shared.userId, !event.id.hasPrefix("demo_") {
+                OfflineQueue.shared.enqueue(
+                    context: context,
+                    method: "POST",
+                    path: "/events/delete",
+                    body: ["userId": userId, "eventId": event.id]
+                )
+            }
         }
     }
 
@@ -146,13 +182,30 @@ struct EventsView: View {
                         }
                         .padding(40)
                     } else {
-                        ForEach(viewModel.upcomingEvents) { event in
-                            NavigationLink {
-                                EventDetailView(event: event)
-                            } label: {
-                                EventCard(event: event)
+                        ForEach(viewModel.sections, id: \.title) { section in
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text(section.title)
+                                    .font(.system(size: 13, weight: .heavy))
+                                    .foregroundStyle(.secondary)
+                                    .textCase(.uppercase)
+                                    .padding(.leading, 4)
+
+                                ForEach(section.events) { event in
+                                    NavigationLink {
+                                        EventDetailView(event: event)
+                                    } label: {
+                                        EventCard(event: event)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .contextMenu {
+                                        Button(role: .destructive) {
+                                            viewModel.deleteEvent(event, context: modelContext)
+                                        } label: {
+                                            Label("Delete event", systemImage: "trash")
+                                        }
+                                    }
+                                }
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -212,10 +265,22 @@ struct EventCard: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                if !event.recipientName.isEmpty {
-                    Text("For \(event.recipientName)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    if !event.recipientName.isEmpty {
+                        Text("For \(event.recipientName)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    if let budget = event.budget {
+                        Text("$\(Int(budget)) budget")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(Color.coral)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.coralSoft)
+                            .clipShape(Capsule())
+                    }
                 }
             }
 
