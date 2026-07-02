@@ -1,62 +1,32 @@
-variable "region" {
-  description = "AWS region to deploy into"
+variable "prefix" {
+  description = "Resource name prefix"
+  type        = string
+  default     = "giftmaxxing-dev"
+}
+
+variable "aws_region" {
+  description = "AWS region"
   type        = string
   default     = "us-east-1"
 }
 
-variable "env" {
-  description = "Environment name (used in resource name prefixes)"
-  type        = string
-  default     = "dev"
-}
-
-variable "project" {
-  description = "Project name prefix for resources"
-  type        = string
-  default     = "giftmaxxing"
-}
-
-variable "cors_allow_origins" {
-  description = "Allowed CORS origins for the HTTP API. This is an unauthenticated public read API, so '*' lets the Vercel prod + preview domains call it from the browser. Restrict to specific origins (e.g. your Vercel domain + http://localhost:3000) to lock down browser callers."
-  type        = list(string)
-  default     = ["*"]
-}
-
-variable "enable_cost_allocation_tags" {
-  description = "Activate Project/Env as Cost Allocation Tags for Cost Explorer (see cost.tf). Requires the management/payer account AND the tag key to already be visible in Billing (~24h after first use); leave false otherwise to avoid apply errors."
-  type        = bool
-  default     = false
-}
-
-variable "alert_email" {
-  description = "Email for cost/budget alerts (subscribes to the cost-alerts SNS topic; see budgets.tf). Leave empty to skip. Set it in terraform.tfvars (gitignored) or via -var. After apply you MUST click the confirmation link AWS emails you, or no alerts arrive."
+# ── Apple Sign In (Cognito) ───────────────────────────────────────────────────
+variable "apple_client_id" {
+  description = "Apple Services ID (e.g. com.giftmaxxing.ios)"
   type        = string
   default     = ""
 }
 
-variable "cost_alert_emails" {
-  description = "Addresses emailed DIRECTLY by the monthly budget (in addition to var.alert_email's SNS subscription) for the actual-threshold + $500 forecasted notifications. Codifies the recipients so `terraform apply` never again wipes emails added by hand in the AWS console. Unlike SNS, budget emails need NO confirmation. Set in terraform.tfvars (gitignored)."
-  type        = list(string)
-  default     = []
-}
-
-variable "alert_sms_number" {
-  description = "Optional phone number in E.164 format (e.g. +15551234567) for SMS cost alerts. Leave empty to skip. SNS SMS may require moving the account out of the SMS sandbox / verifying the number first."
+variable "apple_team_id" {
+  description = "Apple Developer Team ID"
   type        = string
   default     = ""
 }
 
-# ── Phase 2: kill switch + real-time tripwires (see killswitch.tf) ────────────
-variable "api_reserved_concurrency" {
-  description = "Reserved concurrency ceiling for the API Lambda — a baseline guard so a runaway/traffic spike can't balloon Lambda + DynamoDB cost. -1 = unreserved (no cap). The $1,000 kill switch pauses expensive AI routes on top of this. NOTE: a reservation needs the account's Lambda 'Concurrent executions' quota above 10 (AWS always keeps 10 unreserved); raise it via Service Quotas to use a positive value."
-  type        = number
-  default     = -1
-}
-
-variable "maxi_base_model_id" {
-  description = "Bedrock model / inference-profile id for Maxi's BASE (default) tier — the cheapest option, used for browsing, gift discovery, taste chat, and Q&A. Default = Amazon Nova Lite (us cross-region inference profile)."
+variable "apple_key_id" {
+  description = "Apple Sign In key ID"
   type        = string
-  default     = "us.amazon.nova-lite-v1:0"
+  default     = ""
 }
 
 variable "maxi_shopping_model_id" {
@@ -183,12 +153,38 @@ variable "admin_api_secret" {
   sensitive   = true
 }
 
-variable "clerk_issuer" {
-  description = "Clerk Frontend API issuer URL used to verify session JWTs (token iss must match). Derived from NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY."
+# ── Sign in with Apple (Cognito IdP) ──────────────────────────────────────────
+variable "apple_private_key" {
+  description = "Apple Sign In private key (PEM)"
   type        = string
-  default     = "https://usable-mammoth-92.clerk.accounts.dev"
+  default     = ""
+  sensitive   = true
 }
 
-locals {
-  prefix = "${var.project}-${var.env}"
+# ── APNs (Push Notifications) ─────────────────────────────────────────────────
+variable "apns_private_key" {
+  description = "APNs private key (.p8)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "apns_certificate" {
+  description = "APNs certificate (.pem)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+# ── Cognito OAuth ─────────────────────────────────────────────────────────────
+variable "cognito_callback_urls" {
+  description = "OAuth callback URLs for Cognito"
+  type        = list(string)
+  default     = ["giftmaxxing://auth/callback"]
+}
+
+variable "cognito_logout_urls" {
+  description = "OAuth logout URLs for Cognito"
+  type        = list(string)
+  default     = ["giftmaxxing://auth/logout"]
 }

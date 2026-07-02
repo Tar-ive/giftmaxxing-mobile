@@ -2,24 +2,29 @@ import Foundation
 
 struct GiftEvent: Identifiable, Codable {
     let id: String
-    var userId: String
+    var userId: String?
     var recipientId: String?
     var type: String
-    var title: String?
-    var date: String?
+    var title: String
+    var date: Date
+    var recipientName: String
     var recurrence: String?
     var reminderLeadDays: Int?
     var budget: Double?
+    var notes: String?
+    var scope: String?
     var createdAt: Date?
 
-    var daysUntil: Int? {
-        guard let date else { return nil }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        guard let target = formatter.date(from: date) else { return nil }
+    var daysUntil: Int {
         let today = Calendar.current.startOfDay(for: Date())
-        let targetDay = Calendar.current.startOfDay(for: target)
-        return Calendar.current.dateComponents([.day], from: today, to: targetDay).day
+        let targetDay = Calendar.current.startOfDay(for: date)
+        return max(0, Calendar.current.dateComponents([.day], from: today, to: targetDay).day ?? 0)
+    }
+
+    var dateString: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
     }
 
     var eventTypeIcon: String {

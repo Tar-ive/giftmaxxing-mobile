@@ -1,29 +1,107 @@
 import SwiftUI
+import SwiftData
 
 @MainActor
 final class EventsViewModel: ObservableObject {
-    @Published var events: [GiftEvent] = GiftEvent.samples
+    @Published var events: [GiftEvent] = []
     @Published var showAddEvent = false
+    @Published var isLoading = false
+
+    private let api = APIClient.shared
 
     var upcomingEvents: [GiftEvent] {
         events
-            .filter { ($0.daysUntil ?? Int.max) >= 0 }
-            .sorted { ($0.daysUntil ?? Int.max) < ($1.daysUntil ?? Int.max) }
+            .filter { $0.daysUntil >= 0 }
+            .sorted { $0.daysUntil < $1.daysUntil }
     }
 
-    var pastEvents: [GiftEvent] {
-        events.filter { ($0.daysUntil ?? 0) < 0 }
+    func loadEvents(context: ModelContext?) async {
+        if let context {
+            loadFromCache(context: context)
+        }
+
+        guard let userId = AuthManager.shared.userId else { return }
+        isLoading = true
+
+        do {
+            let fetched = try await api.fetchUpcomingEvents(userId: userId)
+            let mapped = fetched.map { event -> GiftEvent in
+                GiftEvent(
+                    id: event.eventId ?? UUID().uuidString,
+                    userId: userId,
+                    type: event.type ?? "other",
+                    title: event.title ?? event.type ?? "Event",
+                    date: Date(timeIntervalSince1970: (event.date ?? 0) / 1000),
+                    recipientName: event.recipientName ?? "",
+                    scope: event.scope
+                )
+            }
+            events = mapped
+
+            if let context {
+                cacheEvents(mapped, userId: userId, context: context)
+            }
+        } catch {
+            // keep cached data
+        }
+
+        isLoading = false
+    }
+
+    func addEvent(_ event: GiftEvent, context: ModelContext?) {
+        events.append(event)
+
+        if let context {
+            let cached = CachedEvent(from: event, userId: AuthManager.shared.userId ?? "", synced: false)
+            context.insert(cached)
+            try? context.save()
+
+            OfflineQueue.shared.enqueue(
+                context: context,
+                method: "POST",
+                path: "/events",
+                body: [
+                    "userId": AuthManager.shared.userId ?? "",
+                    "title": event.title,
+                    "type": event.type,
+                    "date": String(Int(event.date.timeIntervalSince1970 * 1000)),
+                    "recipientName": event.recipientName,
+                ]
+            )
+        }
+    }
+
+    private func loadFromCache(context: ModelContext) {
+        let descriptor = FetchDescriptor<CachedEvent>(
+            sortBy: [SortDescriptor(\.eventDate)]
+        )
+        if let cached = try? context.fetch(descriptor), !cached.isEmpty {
+            events = cached.map { $0.toGiftEvent() }
+        }
+    }
+
+    private func cacheEvents(_ events: [GiftEvent], userId: String, context: ModelContext) {
+        try? context.delete(model: CachedEvent.self)
+        for event in events {
+            let cached = CachedEvent(from: event, userId: userId)
+            context.insert(cached)
+        }
+        try? context.save()
     }
 }
 
 struct EventsView: View {
     @StateObject private var viewModel = EventsViewModel()
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 16) {
-                    if viewModel.upcomingEvents.isEmpty {
+                    if viewModel.isLoading && viewModel.events.isEmpty {
+                        ProgressView()
+                            .padding(40)
+                    } else if viewModel.upcomingEvents.isEmpty {
                         VStack(spacing: 16) {
                             Image(systemName: "calendar.badge.plus")
                                 .font(.system(size: 40))
@@ -68,7 +146,14 @@ struct EventsView: View {
                 }
             }
             .sheet(isPresented: $viewModel.showAddEvent) {
-                AddEventSheet()
+                AddEventSheet { event in
+                    viewModel.addEvent(event, context: modelContext)
+                }
+            }
+        }
+        .task {
+            if viewModel.events.isEmpty {
+                await viewModel.loadEvents(context: modelContext)
             }
         }
     }
@@ -78,7 +163,7 @@ struct EventCard: View {
     let event: GiftEvent
 
     var urgencyColor: Color {
-        guard let days = event.daysUntil else { return .secondary }
+        let days = event.daysUntil
         if days <= 3 { return .red }
         if days <= 7 { return .orange }
         if days <= 14 { return Color.coral }
@@ -87,21 +172,23 @@ struct EventCard: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            // Icon
             Text(event.eventTypeIcon)
                 .font(.system(size: 28))
                 .frame(width: 52, height: 52)
                 .background(Color.cream)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
 
-            // Info
             VStack(alignment: .leading, spacing: 3) {
-                Text(event.title ?? event.type.capitalized)
+                Text(event.title)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Color.ink)
 
-                if let date = event.date {
-                    Text(date)
+                Text(event.dateString)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if !event.recipientName.isEmpty {
+                    Text("For \(event.recipientName)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -109,16 +196,13 @@ struct EventCard: View {
 
             Spacer()
 
-            // Countdown
-            if let days = event.daysUntil {
-                VStack(spacing: 2) {
-                    Text("\(days)")
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundStyle(urgencyColor)
-                    Text(days == 1 ? "day" : "days")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
+            VStack(spacing: 2) {
+                Text("\(event.daysUntil)")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(urgencyColor)
+                Text(event.daysUntil == 1 ? "day" : "days")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(16)
@@ -134,6 +218,7 @@ struct AddEventSheet: View {
     @State private var type = "birthday"
     @State private var date = Date()
     @State private var recipientName = ""
+    var onAdd: ((GiftEvent) -> Void)?
 
     private let eventTypes = ["birthday", "anniversary", "holiday", "graduation", "wedding", "housewarming", "baby_shower", "other"]
 
@@ -153,7 +238,17 @@ struct AddEventSheet: View {
                 }
 
                 Section {
-                    Button(action: { dismiss() }) {
+                    Button(action: {
+                        let event = GiftEvent(
+                            id: UUID().uuidString,
+                            type: type,
+                            title: title.isEmpty ? type.capitalized : title,
+                            date: date,
+                            recipientName: recipientName
+                        )
+                        onAdd?(event)
+                        dismiss()
+                    }) {
                         Text("Add Event")
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(.white)
@@ -175,57 +270,4 @@ struct AddEventSheet: View {
             }
         }
     }
-}
-
-extension GiftEvent {
-    static let samples: [GiftEvent] = {
-        let cal = Calendar.current
-        let today = Date()
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-
-        return [
-            GiftEvent(
-                id: "e1",
-                userId: "you",
-                recipientId: "maya",
-                type: "birthday",
-                title: "Maya's Birthday",
-                date: formatter.string(from: cal.date(byAdding: .day, value: 4, to: today)!),
-                recurrence: "yearly",
-                reminderLeadDays: 7,
-                budget: 50
-            ),
-            GiftEvent(
-                id: "e2",
-                userId: "you",
-                recipientId: "noor",
-                type: "birthday",
-                title: "Noor's Birthday",
-                date: formatter.string(from: cal.date(byAdding: .day, value: 11, to: today)!),
-                recurrence: "yearly",
-                reminderLeadDays: 7,
-                budget: 30
-            ),
-            GiftEvent(
-                id: "e3",
-                userId: "you",
-                recipientId: "ivy",
-                type: "anniversary",
-                title: "Ivy & Alex Anniversary",
-                date: formatter.string(from: cal.date(byAdding: .day, value: 18, to: today)!),
-                recurrence: "yearly",
-                reminderLeadDays: 14,
-                budget: 75
-            ),
-            GiftEvent(
-                id: "e4",
-                userId: "you",
-                type: "holiday",
-                title: "Holiday Gift Season",
-                date: formatter.string(from: cal.date(byAdding: .day, value: 45, to: today)!),
-                budget: 200
-            ),
-        ]
-    }()
 }

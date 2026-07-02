@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 // Feed orchestration with the hybrid serving split:
 //   server  = candidate generation only (GENERIC pages — no userId, so they are
@@ -32,7 +33,7 @@ final class FeedViewModel: ObservableObject {
 
     // MARK: - Loading
 
-    func loadFeed() async {
+    func loadFeed(context: ModelContext? = nil) async {
         guard !isLoading else { return }
         isLoading = true
         error = nil
@@ -41,10 +42,18 @@ final class FeedViewModel: ObservableObject {
         rankedBuffer = []
         servedIds = []
 
+        // Instant paint from the SwiftData cache while network + ranking run.
+        if let context, posts.isEmpty {
+            loadFromCache(context: context)
+        }
+
         await refreshTasteCentroid()
         do {
             try await fetchAndRankNextPage()
             posts = drain(uiPageSize)
+            if let context {
+                cacheResults(posts, context: context)
+            }
         } catch {
             if posts.isEmpty { self.error = error.localizedDescription }
         }
@@ -52,7 +61,7 @@ final class FeedViewModel: ObservableObject {
         isLoading = false
     }
 
-    func loadMore() async {
+    func loadMore(context: ModelContext? = nil) async {
         guard !isLoadingMore, !isLoading, !(exhausted && rankedBuffer.isEmpty) else { return }
         isLoadingMore = true
 
@@ -60,6 +69,9 @@ final class FeedViewModel: ObservableObject {
             try? await fetchAndRankNextPage()
         }
         posts.append(contentsOf: drain(uiPageSize))
+        if let context {
+            cacheResults(posts, context: context)
+        }
 
         isLoadingMore = false
     }
@@ -143,11 +155,18 @@ final class FeedViewModel: ObservableObject {
         }
     }
 
-    func toggleLike(for post: Post) {
+    func toggleLike(for post: Post, context: ModelContext? = nil) {
         guard let index = posts.firstIndex(where: { $0.id == post.id }) else { return }
         posts[index].liked.toggle()
         posts[index].likes += posts[index].liked ? 1 : -1
         let liked = posts[index].liked
+
+        // SwiftData cache keeps the UI state consistent across launches; the
+        // server write goes through the batched InteractionQueue (one Lambda
+        // invocation per ~10 taps instead of one per tap).
+        if let context {
+            updateCache(postId: post.id, liked: liked, likes: posts[index].likes, context: context)
+        }
         Task {
             await TasteProfileStore.shared.record(tasteEvent(liked ? .like : .unlike, post))
             await InteractionQueue.shared.enqueue(userId: userId, targetId: post.id, type: liked ? "like" : "unlike")
@@ -155,14 +174,56 @@ final class FeedViewModel: ObservableObject {
         }
     }
 
-    func toggleSave(for post: Post) {
+    func toggleSave(for post: Post, context: ModelContext? = nil) {
         guard let index = posts.firstIndex(where: { $0.id == post.id }) else { return }
         posts[index].saved.toggle()
         let saved = posts[index].saved
+
+        if let context {
+            updateCache(postId: post.id, saved: saved, context: context)
+        }
         Task {
             await TasteProfileStore.shared.record(tasteEvent(saved ? .save : .unsave, post))
             await InteractionQueue.shared.enqueue(userId: userId, targetId: post.id, type: saved ? "save" : "unsave")
             if saved { await seedVector(for: post) }
+        }
+    }
+
+    private func loadFromCache(context: ModelContext) {
+        let descriptor = FetchDescriptor<CachedPost>(
+            sortBy: [SortDescriptor(\.feedPosition)]
+        )
+        if let cached = try? context.fetch(descriptor), !cached.isEmpty {
+            posts = cached.map { $0.toPost() }
+        }
+    }
+
+    private func cacheResults(_ posts: [Post], context: ModelContext) {
+        try? context.delete(model: CachedPost.self)
+        for (index, post) in posts.enumerated() {
+            let cached = CachedPost(from: post, position: index)
+            context.insert(cached)
+        }
+        try? context.save()
+    }
+
+    private func updateCache(postId: String, liked: Bool? = nil, likes: Int? = nil, saved: Bool? = nil, context: ModelContext) {
+        let descriptor = FetchDescriptor<CachedPost>(
+            predicate: #Predicate { $0.postId == postId }
+        )
+        guard let cached = try? context.fetch(descriptor).first else { return }
+        if let liked { cached.liked = liked }
+        if let likes { cached.likes = likes }
+        if let saved { cached.saved = saved }
+        try? context.save()
+    }
+
+    func prefetchImages(around index: Int) {
+        guard !posts.isEmpty else { return }
+        let range = max(0, index - 2)...min(posts.count - 1, index + 5)
+        let urls = posts[range].compactMap { $0.product.image }
+        Task {
+            await ImageLoader.shared.prefetch(urls: urls, width: 600)
         }
     }
 

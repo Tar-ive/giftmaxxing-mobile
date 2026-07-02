@@ -72,14 +72,32 @@ actor APIClient {
 
     // MARK: - Interactions
 
-    func recordInteraction(userId: String, targetId: String, type: String, data: [String: String]? = nil) async {
-        var body: [String: Any] = ["userId": userId, "targetId": targetId, "type": type]
+    func recordInteraction(userId: String?, targetId: String, type: String, data: [String: String]? = nil) async {
+        var body: [String: Any] = ["targetId": targetId, "type": type]
+        if let userId { body["userId"] = userId }
         if let data { body["data"] = data }
 
         do {
             let _: EmptyResponse = try await post("/interactions", body: body)
         } catch {
             // fire-and-forget
+        }
+    }
+
+    func batchRecordInteractions(_ interactions: [[String: Any]]) async {
+        guard !interactions.isEmpty else { return }
+        let body: [String: Any] = ["interactions": interactions]
+        do {
+            let _: EmptyResponse = try await post("/mobile/interactions/batch", body: body)
+        } catch {
+            // fall back to individual calls
+            for interaction in interactions {
+                await recordInteraction(
+                    userId: interaction["userId"] as? String,
+                    targetId: interaction["targetId"] as? String ?? "",
+                    type: interaction["type"] as? String ?? ""
+                )
+            }
         }
     }
 
@@ -99,6 +117,12 @@ actor APIClient {
 
     func saveMe(userId: String, profile: UserProfile) async throws {
         let body: [String: Any] = ["userId": userId, "profile": encodeToDictionary(profile)]
+        let _: EmptyResponse = try await put("/me", body: body)
+    }
+
+    func saveMe(userId: String, profile: [String: String]) async throws {
+        var body: [String: Any] = ["userId": userId]
+        body["profile"] = profile
         let _: EmptyResponse = try await put("/me", body: body)
     }
 
@@ -181,6 +205,46 @@ actor APIClient {
 
     func fetchGraph(userId: String) async throws -> GraphResponse {
         return try await get("/graph", params: ["userId": userId])
+    }
+
+    // MARK: - Mobile Device Registration
+
+    func registerDevice(userId: String, platform: String, token: String) async throws {
+        let body: [String: Any] = [
+            "userId": userId,
+            "platform": platform,
+            "token": token,
+        ]
+        let _: EmptyResponse = try await post("/mobile/device", body: body)
+    }
+
+    // MARK: - Delta Sync
+
+    func fetchDeltaSync(since: Date) async throws -> DeltaSyncResponse {
+        let params: [String: String] = [
+            "since": String(Int(since.timeIntervalSince1970 * 1000)),
+        ]
+        return try await get("/mobile/sync", params: params)
+    }
+
+    // MARK: - Analytics
+
+    func uploadAnalytics(events: [[String: Any]]) async throws {
+        let body: [String: Any] = ["events": events]
+        let _: EmptyResponse = try await post("/mobile/analytics", body: body)
+    }
+
+    // MARK: - Raw execution (for offline queue replay)
+
+    func executeRaw(method: String, path: String, body: [String: Any]?) async throws {
+        switch method.uppercased() {
+        case "POST":
+            let _: EmptyResponse = try await post(path, body: body ?? [:])
+        case "PUT":
+            let _: EmptyResponse = try await put(path, body: body ?? [:])
+        default:
+            let _: EmptyResponse = try await get(path)
+        }
     }
 
     // MARK: - Networking

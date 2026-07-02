@@ -1,7 +1,10 @@
 import SwiftUI
+import SwiftData
 
 struct FeedView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var syncEngine: SyncEngine
+    @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel = FeedViewModel()
     @Environment(\.scenePhase) private var scenePhase
 
@@ -9,7 +12,6 @@ struct FeedView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 1) {
-                    // Stories tray
                     StoriesTray()
                         .padding(.bottom, 8)
 
@@ -27,7 +29,7 @@ struct FeedView: View {
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                             Button("Retry") {
-                                Task { await viewModel.loadFeed() }
+                                Task { await viewModel.loadFeed(context: modelContext) }
                             }
                             .font(.labelBold)
                             .foregroundStyle(Color.coral)
@@ -37,10 +39,38 @@ struct FeedView: View {
                         ForEach(Array(viewModel.posts.enumerated()), id: \.element.id) { index, post in
                             PostCardView(
                                 post: post,
-                                onLike: { viewModel.toggleLike(for: post) },
-                                onSave: { viewModel.toggleSave(for: post) }
+                                onLike: {
+                                    viewModel.toggleLike(for: post, context: modelContext)
+                                    AnalyticsEngine.shared.trackContentAction(
+                                        post.liked ? .contentUnlike : .contentLike,
+                                        postId: post.id
+                                    )
+                                },
+                                onSave: {
+                                    viewModel.toggleSave(for: post, context: modelContext)
+                                    AnalyticsEngine.shared.trackContentAction(
+                                        post.saved ? .contentUnsave : .contentSave,
+                                        postId: post.id
+                                    )
+                                },
+                                onProductTap: {
+                                    if let url = post.productUrl {
+                                        AnalyticsEngine.shared.trackAffiliateClick(
+                                            postId: post.id,
+                                            productUrl: url,
+                                            source: "feed"
+                                        )
+                                    }
+                                }
                             )
-                            .onAppear { viewModel.recordImpression(for: post) }
+                            .onAppear {
+                                viewModel.recordImpression(for: post)
+                                viewModel.prefetchImages(around: index)
+                            }
+                            // Instagram-style: track when each post enters/leaves viewport
+                            .trackImpression(postId: post.id, position: index, source: "feed")
+                            // Scroll depth analytics
+                            .trackScrollAnalytics(currentPosition: index)
 
                             if index < viewModel.posts.count - 1 {
                                 Divider()
@@ -48,7 +78,6 @@ struct FeedView: View {
                             }
                         }
 
-                        // Infinite scroll sentinel
                         if viewModel.isLoadingMore {
                             ProgressView()
                                 .padding(20)
@@ -64,7 +93,7 @@ struct FeedView: View {
             }
             .background(Color.surface)
             .refreshable {
-                await viewModel.loadFeed()
+                await viewModel.loadFeed(context: modelContext)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -91,11 +120,27 @@ struct FeedView: View {
                     }
                 }
             }
+            .overlay(alignment: .top) {
+                if syncEngine.isSyncing {
+                    HStack(spacing: 4) {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                        Text("Syncing...")
+                            .font(.caption2)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Capsule())
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
         }
         .task {
             viewModel.userId = appState.currentUser?.id
             if viewModel.posts.isEmpty {
-                await viewModel.loadFeed()
+                AnalyticsEngine.shared.trackScreenView(screen: "feed")
+                await viewModel.loadFeed(context: modelContext)
             }
         }
         .onChange(of: scenePhase) { _, phase in
@@ -145,7 +190,6 @@ struct PostCardSkeleton: View {
     }
 }
 
-// Placeholder views for navigation destinations
 struct ActivityView: View {
     var body: some View {
         Text("Notifications")
