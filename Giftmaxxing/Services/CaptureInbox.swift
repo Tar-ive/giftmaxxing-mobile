@@ -1,4 +1,5 @@
 import UIKit
+import OSLog
 
 // Reads captures dropped by the share extension into the app-group container.
 // Consumed once on app foreground: image captures route straight into visual
@@ -6,6 +7,7 @@ import UIKit
 // fetched server-side — a screenshot works every time).
 enum CaptureInbox {
     static let appGroupID = "group.com.giftmaxxing.ios"
+    private static let log = Logger(subsystem: "com.giftmaxxing.ios", category: "capture")
 
     struct Capture {
         let image: UIImage?
@@ -20,7 +22,10 @@ enum CaptureInbox {
 
     // Returns the pending capture (if any) and clears the inbox.
     static func consume() -> Capture? {
-        guard let inbox = inboxURL else { return nil }
+        guard let inbox = inboxURL else {
+            log.error("app-group container unavailable \u{2014} share captures can't be read")
+            return nil
+        }
         let metaURL = inbox.appendingPathComponent("capture.json")
         let imageURL = inbox.appendingPathComponent("capture.jpg")
 
@@ -28,6 +33,7 @@ enum CaptureInbox {
               let meta = try? JSONSerialization.jsonObject(with: metaData) as? [String: Any] else {
             return nil
         }
+        log.info("capture found: type=\(meta["type"] as? String ?? "?", privacy: .public)")
 
         var image: UIImage?
         if let imageData = try? Data(contentsOf: imageURL) {

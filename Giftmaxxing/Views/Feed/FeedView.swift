@@ -14,6 +14,31 @@ struct FeedView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 1) {
+                    // Compact custom header — the system toolbar is hidden on
+                    // Home (Liquid Glass capsules clipped the wordmark and ate
+                    // vertical space).
+                    HStack(spacing: 6) {
+                        MaxiIcon(size: 26)
+                        Text("giftmaxxing")
+                            .font(.system(size: 19, weight: .heavy, design: .rounded))
+                            .foregroundStyle(Color.coral)
+                        Spacer()
+                        NavigationLink(destination: ActivityView()) {
+                            Image(systemName: "heart")
+                                .font(.system(size: 20))
+                                .foregroundStyle(Color.ink)
+                        }
+                        NavigationLink(destination: MessagesView()) {
+                            Image(systemName: "paperplane")
+                                .font(.system(size: 20))
+                                .foregroundStyle(Color.ink)
+                                .padding(.leading, 14)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 6)
+                    .padding(.bottom, 8)
+
                     // Amazon-style top bar: search + camera (visual search) +
                     // mic (talk to Maxi) — the agent-first entry points.
                     HomeSearchBar(
@@ -120,32 +145,7 @@ struct FeedView: View {
             .refreshable {
                 await viewModel.loadFeed(context: modelContext)
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                // Single uncluttered bar: wordmark left, activity/messages right.
-                ToolbarItem(placement: .topBarLeading) {
-                    HStack(spacing: 6) {
-                        MaxiIcon(size: 24)
-                        Text("giftmaxxing")
-                            .font(.system(size: 18, weight: .heavy, design: .rounded))
-                            .foregroundStyle(Color.coral)
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 16) {
-                        NavigationLink(destination: ActivityView()) {
-                            Image(systemName: "heart")
-                                .font(.system(size: 19))
-                                .foregroundStyle(Color.ink)
-                        }
-                        NavigationLink(destination: MessagesView()) {
-                            Image(systemName: "paperplane")
-                                .font(.system(size: 19))
-                                .foregroundStyle(Color.ink)
-                        }
-                    }
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
             .overlay(alignment: .top) {
                 if syncEngine.isSyncing {
                     HStack(spacing: 4) {

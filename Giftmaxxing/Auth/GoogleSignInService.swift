@@ -6,13 +6,27 @@ import UIKit
 // Google Sign-In via ASWebAuthenticationSession + PKCE (authorization-code
 // flow for iOS OAuth clients — no client secret required).
 //
-// SETUP (one-time): create an iOS OAuth client in Google Cloud Console
-// (APIs & Services → Credentials → Create credentials → OAuth client ID →
-// iOS, bundle id com.giftmaxxing.ios) and paste the client id below.
-// The reversed-client-id callback scheme is derived automatically.
+// SETUP (one-time), either way works:
+//   A. Firebase route: console.firebase.google.com → create project → add iOS
+//      app (bundle id com.giftmaxxing.ios) → enable Authentication → Google →
+//      download GoogleService-Info.plist and drop it into the Giftmaxxing/
+//      folder. The CLIENT_ID inside is picked up automatically.
+//   B. Direct route: Google Cloud Console → APIs & Services → Credentials →
+//      OAuth client ID (iOS) → paste the client id into `manualClientID`.
 enum GoogleOAuthConfig {
     // e.g. "1234567890-abc123.apps.googleusercontent.com"
-    static let clientID = ""
+    static let manualClientID = ""
+
+    static var clientID: String {
+        if !manualClientID.isEmpty { return manualClientID }
+        // Firebase config file, if the project has one.
+        guard let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+              let plist = NSDictionary(contentsOfFile: path),
+              let id = plist["CLIENT_ID"] as? String else {
+            return ""
+        }
+        return id
+    }
 
     static var isConfigured: Bool { !clientID.isEmpty }
 

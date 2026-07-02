@@ -57,12 +57,19 @@ final class ScreenshotStore: ObservableObject {
             fetched.append(asset)
         }
 
+        // Skip the rebuild when nothing changed (called on every foreground).
+        let ids = fetched.map(\.localIdentifier)
+        guard ids != thumbnails.map(\.id) || thumbnails.isEmpty else { return }
+
         assets = Dictionary(uniqueKeysWithValues: fetched.map { ($0.localIdentifier, $0) })
-        thumbnails = []
 
         let thumbOptions = PHImageRequestOptions()
         thumbOptions.deliveryMode = .opportunistic
         thumbOptions.isNetworkAccessAllowed = true
+
+        // Keep order stable (newest first) regardless of async delivery order.
+        thumbnails = []
+        var pending: [String: UIImage] = [:]
 
         for asset in fetched {
             manager.requestImage(
@@ -73,10 +80,9 @@ final class ScreenshotStore: ObservableObject {
             ) { [weak self] image, _ in
                 guard let self, let image else { return }
                 Task { @MainActor in
-                    if !self.thumbnails.contains(where: { $0.id == asset.localIdentifier }) {
-                        self.thumbnails.append((id: asset.localIdentifier, image: image))
-                    } else if let index = self.thumbnails.firstIndex(where: { $0.id == asset.localIdentifier }) {
-                        self.thumbnails[index].image = image
+                    pending[asset.localIdentifier] = image
+                    self.thumbnails = ids.compactMap { id in
+                        pending[id].map { (id: id, image: $0) }
                     }
                 }
             }
@@ -110,6 +116,7 @@ final class ScreenshotStore: ObservableObject {
 struct ScreenshotShopRail: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var store = ScreenshotStore()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var loadingId: String?
 
     var body: some View {
@@ -124,6 +131,13 @@ struct ScreenshotShopRail: View {
         }
         .onAppear {
             store.loadIfAuthorized()
+        }
+        // The whole point is "screenshot in Instagram → come back → shop it",
+        // so refresh whenever the app returns to the foreground.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                store.loadIfAuthorized()
+            }
         }
     }
 
