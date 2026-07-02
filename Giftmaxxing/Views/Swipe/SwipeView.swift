@@ -309,9 +309,16 @@ struct SwipeView: View {
 struct SwipeCardView: View {
     let post: Post
 
+    // Adapt to small devices (SE = 667pt tall) so the card + buttons always fit.
+    private var imageHeight: CGFloat {
+        UIScreen.main.bounds.height < 700 ? 260 : 340
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            // Product image
+            // Product image. The fill-mode image MUST be clipped to the card's
+            // bounds — otherwise its intrinsic width inflates the whole card
+            // past the screen edge (price ends up off-screen).
             ZStack {
                 Color.gradient(for: post.product.grad)
 
@@ -322,19 +329,24 @@ struct SwipeCardView: View {
                     CachedAsyncImage(url: image, width: 600)
                 }
             }
-            .frame(height: 340)
+            .frame(maxWidth: .infinity)
+            .frame(height: imageHeight)
+            .clipped()
             .clipShape(UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24))
 
             // Info
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
+                HStack(alignment: .firstTextBaseline) {
                     Text(post.product.name)
                         .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(Color.ink)
-                    Spacer()
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 8)
                     Text("$\(Int(post.product.price))")
                         .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(Color.coral)
+                        .fixedSize()
                 }
 
                 Text(post.product.brand)
@@ -360,9 +372,11 @@ struct SwipeCardView: View {
                 }
             }
             .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.surface)
             .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 24, bottomTrailingRadius: 24))
         }
+        .frame(maxWidth: 500)
         .shadow(color: .black.opacity(0.1), radius: 16, y: 8)
         .padding(.horizontal, 20)
     }

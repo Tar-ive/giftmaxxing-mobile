@@ -21,6 +21,7 @@ targets:
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: true
         INFOPLIST_KEY_UILaunchScreen_Generation: true
+        INFOPLIST_KEY_UIUserInterfaceStyle: Light
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait"
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UIBackgroundModes: "fetch remote-notification"
@@ -28,15 +29,50 @@ targets:
         GENERATE_INFOPLIST_FILE: true
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
-        CODE_SIGN_ENTITLEMENTS: Giftmaxxing/Giftmaxxing.entitlements
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: KJH66PARX6
       configs:
         Debug:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+          # Personal (free) dev team cannot provision Sign in with Apple / push.
+          # Debug/device builds use stripped entitlements; Release keeps the full set.
+          CODE_SIGN_ENTITLEMENTS: Giftmaxxing/Giftmaxxing-dev.entitlements
         Release:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: ""
-    entitlements:
-      path: Giftmaxxing/Giftmaxxing.entitlements
-      properties:
-        com.apple.developer.applesignin:
-          - Default
-        aps-environment: development
+          CODE_SIGN_ENTITLEMENTS: Giftmaxxing/Giftmaxxing.entitlements
+
+  # Unit tests for the pure-logic layer (recommendation pipeline, invite links,
+  # content quality). Runs in CI via `xcodebuild test` on the simulator.
+  GiftmaxxingTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: GiftmaxxingTests
+    dependencies:
+      - target: Giftmaxxing
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.giftmaxxing.ios.tests
+        GENERATE_INFOPLIST_FILE: true
+        SWIFT_VERSION: "5.9"
+
+# Explicit scheme so `xcodebuild test -scheme Giftmaxxing` knows which test
+# bundle to run (auto-generated per-target schemes don't attach the tests).
+schemes:
+  Giftmaxxing:
+    build:
+      targets:
+        Giftmaxxing: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - GiftmaxxingTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

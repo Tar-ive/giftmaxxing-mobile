@@ -5,12 +5,14 @@ on:
     branches: [main]
     paths:
       - 'Giftmaxxing/**'
+      - 'GiftmaxxingTests/**'
       - 'project.yml'
       - '.github/workflows/ios-build.yml'
   pull_request:
     branches: [main]
     paths:
       - 'Giftmaxxing/**'
+      - 'GiftmaxxingTests/**'
       - 'project.yml'
       - '.github/workflows/ios-build.yml'
 
@@ -39,9 +41,11 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
-      - name: Build (iOS Simulator)
+      # pipefail so a failing xcodebuild can't be masked by xcpretty's exit 0.
+      - name: Build (app + tests, iOS Simulator)
         run: |
-          xcodebuild build \
+          set -o pipefail
+          xcodebuild build-for-testing \
             -project Giftmaxxing.xcodeproj \
             -scheme Giftmaxxing \
             -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
@@ -50,3 +54,16 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             | xcpretty --color
+
+      - name: Unit tests (iOS Simulator)
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building \
+            -project Giftmaxxing.xcodeproj \
+            -scheme Giftmaxxing \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -configuration Debug \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty --color --test
