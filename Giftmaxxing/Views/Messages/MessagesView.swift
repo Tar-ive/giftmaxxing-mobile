@@ -84,6 +84,60 @@ final class MessagesStore: ObservableObject {
             time: "now"
         ))
         persist()
+
+        // @maxi summons the concierge into the thread. Deliberately
+        // invocation-only: Maxi never reads the chat unless mentioned, so
+        // groups that don't want an AI listening simply don't @ her.
+        if trimmed.lowercased().contains("@maxi") {
+            respondAsMaxi(to: trimmed, in: chatId)
+        }
+    }
+
+    // Nudge the group — visible in-thread. (Real push notifications attach
+    // once the messages backend lands; local-first for now, like the web.)
+    func ping(chatId: String) {
+        guard let idx = chats.firstIndex(where: { $0.id == chatId }) else { return }
+        let others = chats[idx].memberNames
+        chats[idx].messages.append(ChatMessage(
+            id: "msg-ping-\(Int(Date().timeIntervalSince1970 * 1000))",
+            user: "you",
+            text: "\u{1F4E3} Pinged \(others) — time to chip in!",
+            time: "now"
+        ))
+        persist()
+    }
+
+    // Feed catalog for Maxi's product picks — fetched once, reused.
+    private var maxiCatalog: [Post] = []
+
+    private func respondAsMaxi(to text: String, in chatId: String) {
+        Task {
+            if maxiCatalog.isEmpty {
+                maxiCatalog = (try? await APIClient.shared.fetchRecommendations(limit: 30).posts) ?? []
+            }
+            let cleaned = text
+                .replacingOccurrences(of: "@maxi", with: "", options: [.caseInsensitive])
+                .trimmingCharacters(in: .whitespaces)
+            let reply = MaxiLocalEngine.respond(
+                to: cleaned.isEmpty ? "gift ideas" : cleaned,
+                catalog: maxiCatalog
+            )
+
+            var lines = [reply.say]
+            for product in reply.products.prefix(3) {
+                let price = product.price.map { " — $\(Int($0))" } ?? ""
+                lines.append("\u{2022} \(product.title)\(price)")
+            }
+
+            guard let idx = chats.firstIndex(where: { $0.id == chatId }) else { return }
+            chats[idx].messages.append(ChatMessage(
+                id: "msg-maxi-\(Int(Date().timeIntervalSince1970 * 1000))",
+                user: "maxi",
+                text: lines.joined(separator: "\n"),
+                time: "now"
+            ))
+            persist()
+        }
     }
 
     private func persist() {
@@ -253,9 +307,24 @@ struct ChatThreadView: View {
                     }
                 }
 
-                // Composer
+                // Composer — the sparkle chip drops "@maxi " into the draft
+                // so the concierge is one tap away for the whole group.
                 HStack(spacing: 8) {
-                    TextField("Type a message…", text: $draft)
+                    Button {
+                        if !draft.lowercased().contains("@maxi") {
+                            draft = "@maxi " + draft
+                        }
+                        composerFocused = true
+                    } label: {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Color.coral)
+                            .frame(width: 36, height: 36)
+                            .background(Color.coralSoft)
+                            .clipShape(Circle())
+                    }
+
+                    TextField("Message — @maxi for gift ideas…", text: $draft)
                         .focused($composerFocused)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
@@ -285,6 +354,16 @@ struct ChatThreadView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                // Nudge everyone — the countdown is the reason to hurry.
+                Button {
+                    store.ping(chatId: chatId)
+                } label: {
+                    Image(systemName: "bell.badge.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color.coral)
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 if let occasion = chat?.occasion, !occasion.isEmpty {
                     Text(occasion)
                         .font(.system(size: 11, weight: .bold))
@@ -310,6 +389,7 @@ private struct MessageBubble: View {
     let showAvatar: Bool
 
     private var isMe: Bool { message.user == "you" }
+    private var isMaxi: Bool { message.user == "maxi" }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -327,9 +407,9 @@ private struct MessageBubble: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 if showAvatar && !isMe {
-                    Text(SocialUsers.name(for: message.user).components(separatedBy: " ").first ?? message.user)
+                    Text(isMaxi ? "Maxi \u{2728}" : SocialUsers.name(for: message.user).components(separatedBy: " ").first ?? message.user)
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(isMaxi ? Color.coral : .secondary)
                 }
                 Text(message.text)
                     .font(.system(size: 14))
@@ -341,7 +421,7 @@ private struct MessageBubble: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(isMe ? Color.coral : Color.ink.opacity(0.05))
+            .background(isMe ? Color.coral : (isMaxi ? Color.coralSoft : Color.ink.opacity(0.05)))
             .clipShape(RoundedRectangle(cornerRadius: 16))
 
             if !isMe { Spacer(minLength: 60) }

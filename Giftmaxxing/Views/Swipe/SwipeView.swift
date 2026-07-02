@@ -27,8 +27,23 @@ final class SwipeViewModel: ObservableObject {
         currentIndex >= cards.count && !cards.isEmpty
     }
 
+    // "My list" deck — the posts you queued from the feed for a friend.
+    // Swiping left prunes the item off the list before you send it.
+    var isMyListMode = false
+
+    func loadMyList() {
+        isMyListMode = true
+        cards = SwipeListStore.shared.posts
+        currentIndex = 0
+        yesCount = 0
+        noCount = 0
+        offset = .zero
+        prefetchNextImages()
+    }
+
     func loadCards() async {
         guard !isLoading else { return }
+        isMyListMode = false
         isLoading = true
 
         do {
@@ -113,6 +128,9 @@ final class SwipeViewModel: ObservableObject {
         // Left-swipes are the strongest explicit negative signal the app has —
         // they feed the on-device taste profile (and de-dup) but stay local.
         record(.hide, for: card, uploadAs: nil)
+        if isMyListMode {
+            SwipeListStore.shared.remove(id: card.id)
+        }
 
         analytics.trackSwipeLeft(
             postId: card.id,
@@ -179,12 +197,48 @@ final class SwipeViewModel: ObservableObject {
 
 struct SwipeView: View {
     @StateObject private var viewModel = SwipeViewModel()
+    @ObservedObject private var swipeList = SwipeListStore.shared
     @Environment(\.modelContext) private var modelContext
+
+    private enum DeckMode: String, CaseIterable {
+        case forYou = "For you"
+        case myList = "My list"
+    }
+    @State private var mode: DeckMode = .forYou
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                if viewModel.isLoading {
+                // Deck picker — recommendations vs. the list you're curating
+                // for a friend.
+                Picker("Deck", selection: $mode) {
+                    ForEach(DeckMode.allCases, id: \.self) { deck in
+                        Text(deck == .myList && !swipeList.posts.isEmpty
+                             ? "\(deck.rawValue) (\(swipeList.posts.count))"
+                             : deck.rawValue)
+                            .tag(deck)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 20)
+                .padding(.top, 6)
+
+                if mode == .myList && swipeList.posts.isEmpty && viewModel.cards.isEmpty {
+                    VStack(spacing: 14) {
+                        Spacer()
+                        Image(systemName: "rectangle.stack.badge.plus")
+                            .font(.system(size: 40))
+                            .foregroundStyle(.secondary)
+                        Text("Your swipe list is empty")
+                            .font(.displaySmall)
+                        Text("See something in the feed a friend might love?\nTap “Add to swipe list”, then send them the deck.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 30)
+                } else if viewModel.isLoading {
                     Spacer()
                     ProgressView("Loading gifts...")
                         .font(.bodyMedium)
@@ -293,12 +347,30 @@ struct SwipeView: View {
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink(destination: ChallengeView()) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 16))
-                            .foregroundStyle(Color.coral)
+                    if mode == .myList {
+                        // Send the curated deck — the whole point of the list.
+                        ShareLink(item: swipeList.shareMessage) {
+                            Image(systemName: "paperplane.fill")
+                                .font(.system(size: 16))
+                                .foregroundStyle(swipeList.posts.isEmpty ? Color.secondary : Color.coral)
+                        }
+                        .disabled(swipeList.posts.isEmpty)
+                    } else {
+                        NavigationLink(destination: ChallengeView()) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 16))
+                                .foregroundStyle(Color.coral)
+                        }
                     }
                 }
+            }
+        }
+        .onChange(of: mode) { _, newMode in
+            switch newMode {
+            case .myList:
+                viewModel.loadMyList()
+            case .forYou:
+                Task { await viewModel.loadCards() }
             }
         }
         .task {

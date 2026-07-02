@@ -2,10 +2,9 @@ import SwiftUI
 
 struct PostCardView: View {
     let post: Post
-    var onLike: (() -> Void)?
-    var onSave: (() -> Void)?
-    var onComment: (() -> Void)?
-    var onShare: (() -> Void)?
+    var inSwipeList: Bool = false
+    var onPledge: (() -> Void)?
+    var onAddToSwipeList: (() -> Void)?
     var onProductTap: (() -> Void)?
 
     var body: some View {
@@ -83,45 +82,44 @@ struct PostCardView: View {
             }
             .buttonStyle(.plain)
 
-            // Action buttons
-            HStack(spacing: 16) {
-                Button(action: { onLike?() }) {
-                    Image(systemName: post.liked ? "heart.fill" : "heart")
-                        .font(.system(size: 22))
-                        .foregroundStyle(post.liked ? Color.coral : Color.ink)
+            // Gifting actions — no likes/comments/shares (this isn't
+            // Instagram): start a pool for it, or queue it for a friend's
+            // swipe list.
+            HStack(spacing: 8) {
+                Button(action: { onPledge?() }) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Pledge")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color.coral)
+                    .clipShape(Capsule())
                 }
+                .buttonStyle(.plain)
 
-                Button(action: { onComment?() }) {
-                    Image(systemName: "bubble.right")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Color.ink)
+                Button(action: { onAddToSwipeList?() }) {
+                    HStack(spacing: 5) {
+                        Image(systemName: inSwipeList ? "checkmark" : "rectangle.stack.badge.plus")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(inSwipeList ? "On swipe list" : "Add to swipe list")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .foregroundStyle(inSwipeList ? .white : Color.coral)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(inSwipeList ? Color.coral.opacity(0.75) : Color.coralSoft)
+                    .clipShape(Capsule())
                 }
-
-                Button(action: { onShare?() }) {
-                    Image(systemName: "paperplane")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Color.ink)
-                }
+                .buttonStyle(.plain)
 
                 Spacer()
-
-                Button(action: { onSave?() }) {
-                    Image(systemName: post.saved ? "bookmark.fill" : "bookmark")
-                        .font(.system(size: 20))
-                        .foregroundStyle(post.saved ? Color.coral : Color.ink)
-                }
             }
             .padding(.horizontal, 14)
             .padding(.top, 10)
-
-            // Likes
-            if post.likes > 0 {
-                Text("\(post.likes) likes")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.ink)
-                    .padding(.horizontal, 14)
-                    .padding(.top, 4)
-            }
 
             // Caption — ONE flowing text run (an HStack of Texts squeezes the
             // username into its own truncating column once the caption wraps).
@@ -149,17 +147,6 @@ struct PostCardView: View {
                 .foregroundStyle(Color.coral.opacity(0.9))
                 .padding(.horizontal, 14)
                 .padding(.top, 4)
-            }
-
-            // Comments
-            if post.displayCommentCount > 0 {
-                Button(action: { onComment?() }) {
-                    Text("View all \(post.displayCommentCount) comments")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, 14)
-                .padding(.top, 3)
             }
 
             // Product info — name can be long; keep it to one truncated line and

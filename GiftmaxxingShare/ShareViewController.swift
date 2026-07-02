@@ -114,24 +114,46 @@ final class ShareViewController: UIViewController {
     // MARK: - Actions
 
     @objc private func searchTapped() {
-        commit(intent: "search", doneMessage: "Open Giftmaxxing for matches")
+        commit(intent: "search", doneMessage: "Taking you to your matches…")
     }
 
     @objc private func poolTapped() {
-        commit(intent: "pool", doneMessage: "Pool draft ready — open Giftmaxxing")
+        commit(intent: "pool", doneMessage: "Setting up your pool…")
     }
 
     @objc private func cancelTapped() {
         extensionContext?.completeRequest(returningItems: nil)
     }
 
+    private var committedIntent: String?
+
     private func commit(intent: String, doneMessage: String) {
         let saved = writeInbox(imageData: resolvedImageData, url: resolvedURLString, intent: intent)
         if saved {
+            committedIntent = intent
             showDone(message: doneMessage)
         } else {
             showError()
         }
+    }
+
+    // Share extensions have no sanctioned "open my app" API (only Today
+    // widgets do) — the classic workaround walks the responder chain to
+    // UIApplication and invokes openURL: by selector. Works in dev/TestFlight;
+    // if iOS ever refuses, the done-card still tells the user to open the app.
+    private func openMainApp(intent: String) {
+        guard let url = URL(string: "giftmaxxing://capture?intent=\(intent)") else { return }
+        let selector = NSSelectorFromString("openURL:")
+        var responder: UIResponder? = self
+        while let current = responder {
+            if current.responds(to: selector), !(current is UIViewController) {
+                current.perform(selector, with: url)
+                log.info("handed off to main app (intent=\(intent, privacy: .public))")
+                return
+            }
+            responder = current.next
+        }
+        log.info("responder-chain open unavailable — user opens app manually")
     }
 
     // Fetch the shared page and pull og:image / twitter:image. Works for
@@ -355,8 +377,14 @@ final class ShareViewController: UIViewController {
         subtitleLabel.text = message
         setButtons(enabled: false)
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
-            self?.extensionContext?.completeRequest(returningItems: nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self else { return }
+            if let intent = self.committedIntent {
+                self.openMainApp(intent: intent)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.extensionContext?.completeRequest(returningItems: nil)
+            }
         }
     }
 

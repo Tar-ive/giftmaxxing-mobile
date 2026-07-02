@@ -1,5 +1,7 @@
 import SwiftUI
 import PhotosUI
+import Vision
+import OSLog
 
 // Search — iOS port of web/app/feed/search/page.tsx: People / Brands /
 // Products / Visual tabs, brand-enriched matching, and photo-based visual
@@ -23,6 +25,12 @@ final class SearchTabsViewModel: ObservableObject {
     @Published var visualLoading = false
     @Published var visualError: String?
     @Published var queryImage: UIImage?
+
+    // Lens-style region search: Vision proposes salient objects in the photo;
+    // tapping an anchor re-runs the search on just that crop (like Amazon
+    // Lens / Google Lens part-selection).
+    @Published var regionRects: [CGRect] = []   // normalized, top-left origin
+    @Published var selectedRegion: Int?          // nil = whole image
 
     private let api = APIClient.shared
 
@@ -77,11 +85,42 @@ final class SearchTabsViewModel: ObservableObject {
     private var searchGeneration = 0
 
     func runVisualSearch(with image: UIImage) async {
+        // Normalize orientation + size once so Vision boxes, crops and the
+        // on-screen anchors all share the same pixel space.
+        let normalized = image.orientedUp().resized(maxDimension: 1280)
+        tab = .visual
+        queryImage = normalized
+        selectedRegion = nil
+        regionRects = []
+
+        // Object proposals run in parallel with the whole-image search.
+        Task { [weak self] in
+            let rects = await Self.detectSalientRegions(in: normalized)
+            guard let self, self.queryImage === normalized else { return }
+            self.regionRects = rects
+        }
+
+        await search(normalized)
+    }
+
+    // Tap an anchor (or "Whole image") — re-search on that region only.
+    func searchRegion(_ index: Int?) async {
+        guard let original = queryImage else { return }
+        if selectedRegion == index { return }
+        selectedRegion = index
+
+        if let index, regionRects.indices.contains(index) {
+            guard let crop = original.cropped(toNormalized: regionRects[index].insetBy(fraction: -0.08)) else { return }
+            await search(crop)
+        } else {
+            await search(original)
+        }
+    }
+
+    private func search(_ image: UIImage) async {
         searchGeneration += 1
         let generation = searchGeneration
 
-        tab = .visual
-        queryImage = image
         visualResults = nil
         visualError = nil
         visualLoading = true
@@ -111,6 +150,35 @@ final class SearchTabsViewModel: ObservableObject {
         visualResults = nil
         visualError = nil
         visualLoading = false
+        regionRects = []
+        selectedRegion = nil
+    }
+
+    // Vision objectness-based saliency — up to 3 salient object boxes,
+    // converted from Vision's bottom-left origin to top-left.
+    private static func detectSalientRegions(in image: UIImage) async -> [CGRect] {
+        guard let cgImage = image.cgImage else { return [] }
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let log = Logger(subsystem: "com.giftmaxxing.ios", category: "regions")
+                let request = VNGenerateObjectnessBasedSaliencyImageRequest()
+                let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+                do {
+                    try handler.perform([request])
+                } catch {
+                    log.error("saliency failed: \(error.localizedDescription, privacy: .public)")
+                }
+                let observation = request.results?.first
+                let boxes = (observation?.salientObjects ?? []).map { object -> CGRect in
+                    let b = object.boundingBox
+                    return CGRect(x: b.minX, y: 1 - b.maxY, width: b.width, height: b.height)
+                }
+                // Ignore near-full-frame boxes — they duplicate "whole image".
+                let useful = boxes.filter { $0.width * $0.height < 0.85 }
+                log.info("saliency boxes=\(boxes.count) useful=\(useful.count)")
+                continuation.resume(returning: Array(useful.prefix(3)))
+            }
+        }
     }
 }
 
@@ -370,17 +438,38 @@ struct SearchTabsView: View {
         VStack(spacing: 16) {
             if let queryImage = viewModel.queryImage {
                 VStack(spacing: 10) {
-                    Image(uiImage: queryImage)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 120, height: 120)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                    RegionSearchImage(
+                        image: queryImage,
+                        regions: viewModel.regionRects,
+                        selected: viewModel.selectedRegion,
+                        onSelect: { index in
+                            Task { await viewModel.searchRegion(index) }
+                        }
+                    )
 
-                    Button("Clear photo") {
-                        viewModel.clearVisual()
+                    if !viewModel.regionRects.isEmpty {
+                        Text(viewModel.selectedRegion == nil
+                             ? "Tap a dot to search just that item"
+                             : "Searching the selected item")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.coral)
+
+                    HStack(spacing: 14) {
+                        if viewModel.selectedRegion != nil {
+                            Button("Whole image") {
+                                Task { await viewModel.searchRegion(nil) }
+                            }
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color.coral)
+                        }
+
+                        Button("Clear photo") {
+                            viewModel.clearVisual()
+                        }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.coral)
+                    }
                 }
                 .padding(.top, 12)
             } else {
@@ -579,7 +668,22 @@ struct SearchTabsView: View {
     }
 }
 
-private extension UIImage {
+private extension CGRect {
+    // Grow (negative fraction) or shrink a normalized rect, clamped to [0,1].
+    func insetBy(fraction: CGFloat) -> CGRect {
+        let dx = width * fraction
+        let dy = height * fraction
+        let r = insetBy(dx: dx, dy: dy)
+        return CGRect(
+            x: max(0, r.minX),
+            y: max(0, r.minY),
+            width: min(1 - max(0, r.minX), r.width),
+            height: min(1 - max(0, r.minY), r.height)
+        )
+    }
+}
+
+extension UIImage {
     func resized(maxDimension: CGFloat) -> UIImage {
         let largest = max(size.width, size.height)
         guard largest > maxDimension else { return self }
@@ -589,5 +693,31 @@ private extension UIImage {
         return renderer.image { _ in
             draw(in: CGRect(origin: .zero, size: newSize))
         }
+    }
+
+    // Redraw so cgImage pixel space matches display orientation — required
+    // before Vision boxes / crops can map 1:1 onto what's on screen.
+    func orientedUp() -> UIImage {
+        guard imageOrientation != .up else { return self }
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { _ in
+            draw(in: CGRect(origin: .zero, size: size))
+        }
+    }
+
+    // Crop using a normalized (0-1, top-left origin) rect.
+    func cropped(toNormalized rect: CGRect) -> UIImage? {
+        guard let cgImage else { return nil }
+        let w = CGFloat(cgImage.width)
+        let h = CGFloat(cgImage.height)
+        let pixelRect = CGRect(
+            x: rect.minX * w,
+            y: rect.minY * h,
+            width: rect.width * w,
+            height: rect.height * h
+        ).integral
+        guard pixelRect.width > 8, pixelRect.height > 8,
+              let crop = cgImage.cropping(to: pixelRect) else { return nil }
+        return UIImage(cgImage: crop, scale: scale, orientation: .up)
     }
 }

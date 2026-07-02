@@ -61,6 +61,7 @@ final class PoolsStore: ObservableObject {
         forUser: String,
         occasion: String,
         targetAmount: Double,
+        product: Product? = nil,
         localImageFile: String? = nil,
         sourceUrl: String? = nil
     ) -> Pool {
@@ -73,7 +74,7 @@ final class PoolsStore: ObservableObject {
             currentAmount: 0,
             contributors: [],
             createdAt: Date(),
-            product: nil,
+            product: product,
             localImageFile: localImageFile,
             sourceUrl: sourceUrl
         )

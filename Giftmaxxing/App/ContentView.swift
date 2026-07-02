@@ -139,6 +139,12 @@ struct ContentView: View {
         .onAppear {
             drainCaptureInbox()
         }
+        // giftmaxxing://capture — the share extension hands off here right
+        // after "Find similar gifts" / "Start a gift pool".
+        .onOpenURL { url in
+            guard url.scheme == "giftmaxxing" else { return }
+            drainCaptureInbox()
+        }
     }
 
     // Share-extension bridge: anything sent to Giftmaxxing from another app

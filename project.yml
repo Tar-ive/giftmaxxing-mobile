@@ -15,6 +15,14 @@ targets:
     dependencies:
       - target: GiftmaxxingShare
         embed: true
+    # giftmaxxing:// deep links — the share extension hands off to the app
+    # after "Find similar gifts" / "Start a gift pool".
+    info:
+      path: Giftmaxxing/Info.plist
+      properties:
+        CFBundleURLTypes:
+          - CFBundleURLName: com.giftmaxxing.ios
+            CFBundleURLSchemes: [giftmaxxing]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.giftmaxxing.ios

@@ -7,6 +7,8 @@ import SwiftUI
 struct CreatePoolFromCaptureView: View {
     let image: UIImage?
     let sourceURL: String?
+    // Pledging from the feed — prefills title/target and attaches the product.
+    var product: Product? = nil
 
     @EnvironmentObject private var appState: AppState
     @ObservedObject private var store = PoolsStore.shared
@@ -37,6 +39,18 @@ struct CreatePoolFromCaptureView: View {
                             .clipped()
                             .clipShape(RoundedRectangle(cornerRadius: 18))
                             .padding(.top, 8)
+                    } else if let product {
+                        ZStack {
+                            Color.gradient(for: product.grad)
+                            Text(product.emoji).font(.system(size: 48))
+                            if let productImage = product.image {
+                                CachedAsyncImage(url: productImage, width: 400)
+                            }
+                        }
+                        .frame(width: 160, height: 160)
+                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                        .padding(.top, 8)
                     }
 
                     if let createdPool {
@@ -50,6 +64,15 @@ struct CreatePoolFromCaptureView: View {
             .background(Color.surface)
             .navigationTitle("Start a gift pool")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                // Feed pledge → sensible defaults the user can still edit.
+                if let product, title.isEmpty {
+                    title = product.name
+                    if targetAmount.isEmpty, product.price > 0 {
+                        targetAmount = String(Int(product.price.rounded()))
+                    }
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(createdPool == nil ? "Cancel" : "Done") {
@@ -84,6 +107,7 @@ struct CreatePoolFromCaptureView: View {
                     forUser: forUser.trimmingCharacters(in: .whitespaces),
                     occasion: "",
                     targetAmount: parsedTarget,
+                    product: product,
                     localImageFile: imageFile,
                     sourceUrl: sourceURL
                 )

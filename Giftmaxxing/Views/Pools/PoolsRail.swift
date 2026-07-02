@@ -6,7 +6,7 @@ import SwiftUI
 struct PoolsRail: View {
     @ObservedObject private var store = PoolsStore.shared
     @State private var showPools = false
-    @State private var contributingTo: Pool?
+    @State private var viewingPool: Pool?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -30,7 +30,7 @@ struct PoolsRail: View {
                 HStack(spacing: 10) {
                     ForEach(store.pools.prefix(8)) { pool in
                         Button {
-                            contributingTo = pool
+                            viewingPool = pool
                         } label: {
                             PoolRailCard(pool: pool)
                         }
@@ -62,11 +62,9 @@ struct PoolsRail: View {
         .sheet(isPresented: $showPools) {
             PoolsView()
         }
-        .sheet(item: $contributingTo) { pool in
-            ContributeSheet(pool: pool) { amount in
-                store.contribute(amount, to: pool.id)
-            }
-            .presentationDetents([.medium])
+        .sheet(item: $viewingPool) { pool in
+            // Detail first — see who's in before you chip in.
+            PoolDetailView(poolId: pool.id)
         }
     }
 }

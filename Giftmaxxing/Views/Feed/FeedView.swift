@@ -8,6 +8,8 @@ struct FeedView: View {
     @StateObject private var viewModel = FeedViewModel()
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedPost: Post?
+    @State private var pledgingPost: Post?
+    @ObservedObject private var swipeList = SwipeListStore.shared
 
     var body: some View {
         NavigationStack {
@@ -83,25 +85,21 @@ struct FeedView: View {
                         ForEach(Array(viewModel.posts.enumerated()), id: \.element.id) { index, post in
                             PostCardView(
                                 post: post,
-                                onLike: {
-                                    viewModel.toggleLike(for: post, context: modelContext)
+                                inSwipeList: swipeList.contains(post),
+                                onPledge: {
+                                    pledgingPost = post
+                                    // Pledge = the strongest positive signal the feed has.
                                     AnalyticsEngine.shared.trackContentAction(
-                                        post.liked ? .contentUnlike : .contentLike,
+                                        .contentLike,
                                         postId: post.id
                                     )
                                 },
-                                onSave: {
-                                    viewModel.toggleSave(for: post, context: modelContext)
+                                onAddToSwipeList: {
+                                    swipeList.toggle(post)
                                     AnalyticsEngine.shared.trackContentAction(
-                                        post.saved ? .contentUnsave : .contentSave,
+                                        swipeList.contains(post) ? .contentSave : .contentUnsave,
                                         postId: post.id
                                     )
-                                },
-                                onComment: {
-                                    selectedPost = post
-                                },
-                                onShare: {
-                                    selectedPost = post
                                 },
                                 onProductTap: {
                                     selectedPost = post
@@ -168,6 +166,15 @@ struct FeedView: View {
                 onLike: { viewModel.toggleLike(for: live, context: modelContext) },
                 onSave: { viewModel.toggleSave(for: live, context: modelContext) }
             )
+        }
+        .sheet(item: $pledgingPost) { post in
+            // Pledge → pool creation prefilled with this post's product.
+            CreatePoolFromCaptureView(
+                image: nil,
+                sourceURL: post.productUrl ?? post.url,
+                product: post.product
+            )
+            .environmentObject(appState)
         }
         .task {
             viewModel.userId = appState.currentUser?.id

@@ -4,16 +4,23 @@ struct PoolsView: View {
     @ObservedObject private var store = PoolsStore.shared
     @State private var showCreateSheet = false
     @State private var contributingTo: Pool?
+    @State private var viewingPool: Pool?
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 16) {
-                    // Active pools
+                    // Active pools — tap the card to inspect (gift, goal, who's
+                    // in); the Contribute button stays as the quick action.
                     ForEach(store.pools) { pool in
-                        PoolCard(pool: pool) {
-                            contributingTo = pool
+                        Button {
+                            viewingPool = pool
+                        } label: {
+                            PoolCard(pool: pool) {
+                                contributingTo = pool
+                            }
                         }
+                        .buttonStyle(.plain)
                     }
 
                     // Create new pool CTA
@@ -59,6 +66,9 @@ struct PoolsView: View {
                     store.contribute(amount, to: pool.id)
                 }
                 .presentationDetents([.medium])
+            }
+            .sheet(item: $viewingPool) { pool in
+                PoolDetailView(poolId: pool.id)
             }
         }
         .onAppear {
