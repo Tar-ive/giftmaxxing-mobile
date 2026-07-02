@@ -216,10 +216,15 @@ struct SwipeView: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
 
-                    // Card
-                    Spacer()
-
-                    SwipeCardView(post: card)
+                    // Card — explicit width from the measured screen so a
+                    // fill-mode image can never inflate the layout past the
+                    // device edge (reported on 390pt-wide phones).
+                    GeometryReader { geo in
+                        SwipeCardView(
+                            post: card,
+                            cardWidth: min(geo.size.width - 40, 500)
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .offset(viewModel.offset)
                         .rotationEffect(.degrees(Double(viewModel.offset.width) / 20))
                         .gesture(
@@ -238,8 +243,7 @@ struct SwipeView: View {
                                     )
                                 }
                         )
-
-                    Spacer()
+                    }
 
                     // Action buttons
                     HStack(spacing: 40) {
@@ -308,6 +312,7 @@ struct SwipeView: View {
 
 struct SwipeCardView: View {
     let post: Post
+    var cardWidth: CGFloat = UIScreen.main.bounds.width - 40
 
     // Adapt to small devices (SE = 667pt tall) so the card + buttons always fit.
     private var imageHeight: CGFloat {
@@ -316,9 +321,10 @@ struct SwipeCardView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Product image. The fill-mode image MUST be clipped to the card's
-            // bounds — otherwise its intrinsic width inflates the whole card
-            // past the screen edge (price ends up off-screen).
+            // Product image. Fixed frame + clipped: a fill-mode image reports
+            // a width wider than proposed when its aspect demands it, which
+            // was inflating the card past the screen edge. An EXPLICIT width
+            // (not maxWidth) makes overflow impossible.
             ZStack {
                 Color.gradient(for: post.product.grad)
 
@@ -327,10 +333,11 @@ struct SwipeCardView: View {
 
                 if let image = post.product.image {
                     CachedAsyncImage(url: image, width: 600)
+                        .frame(width: cardWidth, height: imageHeight)
+                        .clipped()
                 }
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: imageHeight)
+            .frame(width: cardWidth, height: imageHeight)
             .clipped()
             .clipShape(UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24))
 
@@ -372,13 +379,12 @@ struct SwipeCardView: View {
                 }
             }
             .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(width: cardWidth, alignment: .leading)
             .background(Color.surface)
             .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 24, bottomTrailingRadius: 24))
         }
-        .frame(maxWidth: 500)
+        .frame(width: cardWidth)
         .shadow(color: .black.opacity(0.1), radius: 16, y: 8)
-        .padding(.horizontal, 20)
     }
 }
 

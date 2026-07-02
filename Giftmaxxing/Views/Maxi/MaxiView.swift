@@ -75,6 +75,7 @@ final class MaxiViewModel: ObservableObject {
 
 struct MaxiView: View {
     @StateObject private var viewModel = MaxiViewModel()
+    @StateObject private var speech = SpeechRecognizer()
 
     var body: some View {
         NavigationStack {
@@ -111,8 +112,31 @@ struct MaxiView: View {
 
                 Divider()
 
+                // Voice status / errors
+                if speech.isRecording {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(.red)
+                            .frame(width: 8, height: 8)
+                        Text(speech.transcript.isEmpty ? "Listening\u{2026}" : speech.transcript)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color.ink)
+                            .lineLimit(2)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.coralSoft)
+                } else if let voiceError = speech.errorMessage {
+                    Text(voiceError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                }
+
                 // Input
-                HStack(spacing: 12) {
+                HStack(spacing: 10) {
                     TextField("Ask Maxi anything...", text: $viewModel.inputText, axis: .vertical)
                         .font(.bodyMedium)
                         .lineLimit(1...4)
@@ -121,6 +145,14 @@ struct MaxiView: View {
                         .padding(.vertical, 10)
                         .background(Color.cream)
                         .clipShape(RoundedRectangle(cornerRadius: 20))
+
+                    // Voice input (Amazon-style voice shopping)
+                    Button(action: { speech.toggle() }) {
+                        Image(systemName: speech.isRecording ? "stop.circle.fill" : "mic.fill")
+                            .font(.system(size: speech.isRecording ? 32 : 20, weight: .semibold))
+                            .foregroundStyle(speech.isRecording ? .red : Color.coral)
+                            .frame(width: 36, height: 36)
+                    }
 
                     Button(action: {
                         Task { await viewModel.sendMessage() }
@@ -138,6 +170,16 @@ struct MaxiView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .background(Color.surface)
+                .onChange(of: speech.isRecording) { wasRecording, isRecording in
+                    // Recording just stopped with a transcript \u{2192} send it to Maxi.
+                    if wasRecording && !isRecording {
+                        let heard = speech.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !heard.isEmpty {
+                            viewModel.send(heard)
+                            speech.transcript = ""
+                        }
+                    }
+                }
             }
             .background(Color.surface)
             .navigationBarTitleDisplayMode(.inline)
@@ -249,7 +291,7 @@ struct MaxiMessageBubble: View {
 
 struct MaxiProductCard: View {
     let product: MaxiProduct
-    @Environment(\.openURL) private var openURL
+    @State private var browserTarget: BrowserTarget?
 
     private var outboundURL: URL? {
         let query = [product.title, product.brand ?? ""]
@@ -267,8 +309,12 @@ struct MaxiProductCard: View {
                         productUrl: url.absoluteString,
                         source: "maxi"
                     )
-                    openURL(url)
+                    browserTarget = BrowserTarget(url: url)
                 }
+            }
+            .sheet(item: $browserTarget) { target in
+                SafariView(url: target.url)
+                    .ignoresSafeArea()
             }
     }
 

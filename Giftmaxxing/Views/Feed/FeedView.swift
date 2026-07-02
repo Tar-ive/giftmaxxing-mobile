@@ -14,6 +14,17 @@ struct FeedView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 1) {
+                    // Amazon-style top bar: search + camera (visual search) +
+                    // mic (talk to Maxi) — the agent-first entry points.
+                    HomeSearchBar(
+                        onSearchTap: { appState.openSearch(.products) },
+                        onCameraTap: { appState.openSearch(.visual) },
+                        onMicTap: { appState.showMaxi = true }
+                    )
+                    .padding(.horizontal, 14)
+                    .padding(.top, 4)
+                    .padding(.bottom, 6)
+
                     StoriesTray(onTap: { index in
                         storySelection = StorySelection(id: index)
                     })

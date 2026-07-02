@@ -34,6 +34,32 @@ struct SignInView: View {
                 .frame(height: 50)
                 .cornerRadius(12)
 
+                Button {
+                    Task {
+                        await authManager.signInWithGoogle()
+                        if authManager.isAuthenticated {
+                            showSignIn = false
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Text("G")
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .foregroundStyle(Color(hex: "#4285F4"))
+                        Text("Continue with Google")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Color.ink)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(Color.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(Color.line, lineWidth: 1)
+                    )
+                }
+
                 Button("Continue as Guest") {
                     showSignIn = false
                 }

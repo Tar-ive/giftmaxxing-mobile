@@ -25,6 +25,8 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait"
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UIBackgroundModes: "fetch remote-notification"
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Giftmaxxing uses the microphone so you can talk to Maxi, your AI gift concierge."
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Giftmaxxing transcribes your voice so Maxi can find gifts for you."
         SWIFT_VERSION: "5.9"
         GENERATE_INFOPLIST_FILE: true
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

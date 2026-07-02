@@ -1,0 +1,91 @@
+import SwiftUI
+
+// Amazon-style cold-launch splash: brand logo scales in with a spring, holds
+// a beat, then the overlay fades out (driven by ContentView).
+struct SplashView: View {
+    var onFinished: () -> Void
+
+    @State private var logoScale: CGFloat = 0.7
+    @State private var logoOpacity: Double = 0
+    @State private var glowScale: CGFloat = 0.4
+
+    var body: some View {
+        ZStack {
+            Color.cream.ignoresSafeArea()
+
+            // Soft radial glow behind the logo
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.coral.opacity(0.25), .clear],
+                        center: .center,
+                        startRadius: 10,
+                        endRadius: 180
+                    )
+                )
+                .frame(width: 360, height: 360)
+                .scaleEffect(glowScale)
+
+            VStack(spacing: 14) {
+                Text("🎁")
+                    .font(.system(size: 72))
+                    .scaleEffect(logoScale)
+
+                Text("giftmaxxing")
+                    .font(.system(size: 30, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Color.coral)
+
+                Text("gifting, solved")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .opacity(logoOpacity)
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.55, dampingFraction: 0.65)) {
+                logoScale = 1.0
+                logoOpacity = 1
+            }
+            withAnimation(.easeOut(duration: 0.9)) {
+                glowScale = 1.0
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.15) {
+                onFinished()
+            }
+        }
+    }
+}
+
+// Floating Maxi entry point (Amazon Rufus-style) — pulsing gradient bubble.
+struct MaxiFloatingButton: View {
+    var action: () -> Void
+    @State private var pulse = false
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.coral, Color(hex: "#FF9A76")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 56, height: 56)
+                    .shadow(color: Color.coral.opacity(0.45), radius: pulse ? 14 : 8, y: 4)
+
+                Image(systemName: "sparkles")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+            .scaleEffect(pulse ? 1.04 : 1.0)
+        }
+        .accessibilityLabel("Ask Maxi")
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
+        }
+    }
+}

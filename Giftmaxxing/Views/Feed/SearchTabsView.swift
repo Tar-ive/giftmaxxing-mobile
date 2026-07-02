@@ -104,6 +104,7 @@ final class SearchTabsViewModel: ObservableObject {
 }
 
 struct SearchTabsView: View {
+    @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = SearchTabsViewModel()
     @State private var selectedPost: Post?
     @State private var photoItem: PhotosPickerItem?
@@ -178,6 +179,18 @@ struct SearchTabsView: View {
             .task {
                 AnalyticsEngine.shared.trackScreenView(screen: "search")
                 await viewModel.loadCatalog()
+            }
+            .onAppear {
+                if let pending = appState.pendingSearchTab {
+                    viewModel.tab = pending
+                    appState.pendingSearchTab = nil
+                }
+            }
+            .onChange(of: appState.pendingSearchTab) { _, pending in
+                if let pending {
+                    viewModel.tab = pending
+                    appState.pendingSearchTab = nil
+                }
             }
             .onChange(of: photoItem) { _, newItem in
                 guard let newItem else { return }

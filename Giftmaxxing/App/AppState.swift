@@ -7,6 +7,19 @@ final class AppState: ObservableObject {
     @Published var currentUser: AppUser?
     @Published var cartItems: [CartItem] = []
 
+    // Maxi is the app's core agent — reachable from anywhere via the floating
+    // button (Amazon Rufus-style) and the home top bar.
+    @Published var showMaxi = false
+
+    // Set before jumping to the Search tab to land on a specific mode
+    // (e.g. the camera button opens Visual search directly).
+    @Published var pendingSearchTab: SearchTab?
+
+    func openSearch(_ tab: SearchTab) {
+        pendingSearchTab = tab
+        selectedTab = .search
+    }
+
     var cartCount: Int { cartItems.count }
 
     func addToCart(_ item: CartItem) {

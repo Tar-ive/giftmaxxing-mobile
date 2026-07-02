@@ -146,7 +146,9 @@ struct MessagesView: View {
     var body: some View {
         List {
             ForEach(store.chats) { chat in
-                NavigationLink(value: chat.id) {
+                NavigationLink {
+                    ChatThreadView(chatId: chat.id, store: store)
+                } label: {
                     ChatRow(chat: chat)
                 }
                 .listRowBackground(Color.surface)
@@ -156,11 +158,6 @@ struct MessagesView: View {
         .background(Color.surface)
         .navigationTitle("Messages")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(for: String.self) { chatId in
-            if let chat = store.chats.first(where: { $0.id == chatId }) {
-                ChatThreadView(chatId: chat.id, store: store)
-            }
-        }
         .onAppear {
             AnalyticsEngine.shared.trackScreenView(screen: "messages")
         }

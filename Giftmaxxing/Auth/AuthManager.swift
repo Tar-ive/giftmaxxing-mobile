@@ -64,8 +64,55 @@ final class AuthManager: ObservableObject {
             if (authError as NSError).code == ASAuthorizationError.canceled.rawValue {
                 return
             }
-            self.error = authError.localizedDescription
+            // "Unknown" (1000) here almost always means the Sign in with Apple
+            // entitlement isn't provisioned \u{2014} free personal dev teams can't
+            // use it. Give an actionable message instead of the OS one.
+            if (authError as NSError).code == ASAuthorizationError.unknown.rawValue {
+                self.error = "Sign in with Apple isn't available in this development build. Use Google or continue as guest."
+            } else {
+                self.error = authError.localizedDescription
+            }
         }
+    }
+
+    // Google Sign-In (ASWebAuthenticationSession + PKCE). Establishes a local
+    // session from the verified Google ID token; the token is sent as bearer
+    // so the backend can adopt Google-federated auth when enforcement lands.
+    func signInWithGoogle() async {
+        isLoading = true
+        error = nil
+
+        do {
+            let identity = try await GoogleSignInService.shared.signIn()
+
+            try KeychainStore.saveString(key: tokenKey, value: identity.idToken)
+            let userIdValue = "google_\(identity.sub)"
+            try KeychainStore.saveString(key: userIdKey, value: userIdValue)
+
+            userId = userIdValue
+            displayName = identity.name
+            email = identity.email
+            isAuthenticated = true
+
+            await APIClient.shared.setAuthToken(identity.idToken)
+
+            if let name = identity.name ?? identity.email {
+                try? await APIClient.shared.saveMe(userId: userIdValue, profile: ["name": name])
+            }
+        } catch let signInError as GoogleSignInService.GoogleSignInError {
+            switch signInError {
+            case .cancelled:
+                break // user dismissed \u{2014} not an error
+            case .notConfigured:
+                error = "Google Sign-In needs a one-time setup (OAuth client id). Continue as guest for now."
+            case .exchangeFailed:
+                error = signInError.errorDescription
+            }
+        } catch {
+            self.error = "Google sign-in failed. Please try again."
+        }
+
+        isLoading = false
     }
 
     private func authenticateWithCognito(appleToken: String, fullName: PersonNameComponents?, email: String?) async {

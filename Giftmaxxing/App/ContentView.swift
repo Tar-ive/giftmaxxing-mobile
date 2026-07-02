@@ -6,6 +6,7 @@ struct ContentView: View {
     @EnvironmentObject private var offlineQueue: OfflineQueue
     @State private var showOnboarding = !UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
     @State private var showSignIn = false
+    @State private var showSplash = true
 
     var body: some View {
         ZStack {
@@ -42,6 +43,22 @@ struct ContentView: View {
             }
             .tint(Color.coral)
 
+            // Floating Maxi button (Amazon Rufus-style): the agent is one tap
+            // away on every tab — Maxi is the app's core interface.
+            if appState.selectedTab != .more {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        MaxiFloatingButton {
+                            appState.showMaxi = true
+                        }
+                        .padding(.trailing, 16)
+                        .padding(.bottom, 62)
+                    }
+                }
+            }
+
             if !offlineQueue.isOnline {
                 VStack {
                     HStack(spacing: 6) {
@@ -68,6 +85,21 @@ struct ContentView: View {
                     Spacer()
                 }
             }
+
+            // Amazon-style animated splash on cold launch.
+            if showSplash {
+                SplashView {
+                    withAnimation(.easeOut(duration: 0.35)) {
+                        showSplash = false
+                    }
+                }
+                .transition(.opacity)
+                .zIndex(10)
+            }
+        }
+        .sheet(isPresented: $appState.showMaxi) {
+            MaxiView()
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showOnboarding) {
             OnboardingView(isOnboardingComplete: Binding(
