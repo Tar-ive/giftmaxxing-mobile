@@ -88,6 +88,34 @@ resource "aws_cloudfront_origin_request_policy" "api_feed" {
   }
 }
 
+# Embeddings are immutable per pin key (they only change on re-ingest), so the
+# /vectors route the iOS on-device ranker fills its cache from can be held at
+# the edge much longer than the feed pages. min_ttl stays 0 so the origin's
+# `cache-control: no-store` on DEGRADED (breaker-shed) responses is honored —
+# an empty payload never gets pinned into the cache.
+resource "aws_cloudfront_cache_policy" "api_vectors" {
+  name        = "${local.prefix}-api-vectors-cache"
+  comment     = "Long-TTL cache for immutable pin embeddings; keyed on query string"
+  default_ttl = 86400
+  min_ttl     = 0
+  max_ttl     = 604800
+
+  parameters_in_cache_key_and_forwarded_to_origin {
+    enable_accept_encoding_gzip   = true
+    enable_accept_encoding_brotli = true
+
+    query_strings_config {
+      query_string_behavior = "all"
+    }
+    headers_config {
+      header_behavior = "none"
+    }
+    cookies_config {
+      cookie_behavior = "none"
+    }
+  }
+}
+
 resource "aws_cloudfront_distribution" "api" {
   enabled         = true
   is_ipv6_enabled = true
@@ -118,6 +146,19 @@ resource "aws_cloudfront_distribution" "api" {
 
     cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
     origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
+  }
+
+  # Cached long: immutable pin embeddings for the on-device ranker.
+  ordered_cache_behavior {
+    path_pattern           = "/vectors"
+    target_origin_id       = "apprunner"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+
+    cache_policy_id          = aws_cloudfront_cache_policy.api_vectors.id
+    origin_request_policy_id = aws_cloudfront_origin_request_policy.api_feed.id
   }
 
   # Cached: the public feed GETs that were causing the throttle storm.

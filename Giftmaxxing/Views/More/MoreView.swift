@@ -20,6 +20,7 @@ enum MoreDestination: String {
     case drops
     case cart
     case recommendations
+    case challenge
 }
 
 struct MoreView: View {
@@ -27,6 +28,7 @@ struct MoreView: View {
 
     private let primaryFeatures: [MoreFeature] = [
         MoreFeature(id: "maxi", title: "Ask Maxi", description: "AI gift concierge", icon: "sparkles", color: .coral, destination: .maxi, badge: "AI"),
+        MoreFeature(id: "challenge", title: "Gift Challenge", description: "Learn a friend's taste", icon: "paperplane.fill", color: Color(hex: "#FB6F52"), destination: .challenge, badge: "VIRAL"),
         MoreFeature(id: "pools", title: "Gift Pools", description: "Split costs with friends", icon: "person.3.fill", color: Color(hex: "#7C5CFC"), destination: .pools),
         MoreFeature(id: "shop", title: "Shop", description: "Amazon picks & deals", icon: "bag.fill", color: Color(hex: "#FF9900"), destination: .shop),
         MoreFeature(id: "ideas", title: "Gift Ideas", description: "Curated inspiration", icon: "lightbulb.fill", color: Color(hex: "#34C759"), destination: .ideas),
@@ -223,6 +225,7 @@ struct FeatureCard: View {
         case .pools: PoolsView()
         case .shop: ShopView()
         case .settings: SettingsView()
+        case .challenge: ChallengeView()
         default: PlaceholderView(title: feature.title)
         }
     }

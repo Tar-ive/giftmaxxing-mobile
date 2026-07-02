@@ -248,16 +248,21 @@ resource "aws_cloudwatch_metric_alarm" "api_request_spike" {
   ok_actions          = [aws_sns_topic.cost_killswitch.arn]
 }
 
-resource "aws_cloudwatch_metric_alarm" "lambda_concurrency" {
-  alarm_name          = "${local.prefix}-api-concurrency-high"
-  alarm_description   = "API Lambda concurrency near its reserved cap — trips the cost kill switch."
-  namespace           = "AWS/Lambda"
-  metric_name         = "ConcurrentExecutions"
-  dimensions          = { FunctionName = aws_lambda_function.api.function_name }
+# Concurrency tripwire — watches the App Runner service (the live API) instead of
+# the legacy Lambda. AWS/AppRunner "Concurrency" = concurrent requests in flight;
+# a sustained spike DEGRADES non-essential AI then auto-resumes (dims defined in
+# apprunner.tf). The legacy api Lambda is bypassed, so its concurrency is no
+# longer a meaningful cost signal.
+resource "aws_cloudwatch_metric_alarm" "apprunner_concurrency" {
+  alarm_name          = "${local.prefix}-apprunner-concurrency-high"
+  alarm_description   = "App Runner API concurrent requests high — real-time cost tripwire: degrades non-essential AI (Maxi cheap+short; pause visual search / vector recs / pins), then AUTO-RESUMES when it clears."
+  namespace           = "AWS/AppRunner"
+  metric_name         = "Concurrency"
+  dimensions          = local.apprunner_dims
   statistic           = "Maximum"
-  period              = 300
-  evaluation_periods  = 1
-  threshold           = var.alarm_api_concurrency
+  period              = 60
+  evaluation_periods  = 3
+  threshold           = var.alarm_apprunner_concurrency
   comparison_operator = "GreaterThanThreshold"
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.cost_killswitch.arn]

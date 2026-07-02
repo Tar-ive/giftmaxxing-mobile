@@ -3,7 +3,10 @@ import Foundation
 actor APIClient {
     static let shared = APIClient()
 
-    private let baseURL = "https://tvyu8gqmki.execute-api.us-east-1.amazonaws.com"
+    // CloudFront edge cache in front of the API (infra/cloudfront.tf). Generic
+    // feed pages + /vectors are served from cache; personal routes pass through.
+    // (Old direct origin: https://tvyu8gqmki.execute-api.us-east-1.amazonaws.com)
+    private let baseURL = "https://d21osnvwewgoao.cloudfront.net"
     private let session: URLSession
     private let decoder: JSONDecoder
 
@@ -145,6 +148,35 @@ actor APIClient {
         return try await get("/recommendations", params: params)
     }
 
+    // MARK: - On-device ranking support
+
+    // Quantized Titan embeddings for a set of pin keys — feeds the on-device
+    // VectorStore so centroid + similarity math runs locally instead of in the
+    // Lambda (GET /vectors is served straight from S3 Vectors GetVectors).
+    func fetchVectors(keys: [String]) async throws -> VectorsResponse {
+        guard !keys.isEmpty else { return VectorsResponse(items: [], source: nil) }
+        return try await get("/vectors", params: ["keys": keys.prefix(60).joined(separator: ",")])
+    }
+
+    // Batched interaction upload (one Lambda invocation per batch instead of
+    // one per tap). Server accepts { items: [...] } on POST /interactions.
+    func sendInteractionsBatch(_ batch: [InteractionQueue.PendingInteraction]) async throws {
+        guard !batch.isEmpty else { return }
+        let items: [[String: Any]] = batch.map {
+            ["userId": $0.userId, "targetId": $0.targetId, "type": $0.type, "createdAt": Int($0.queuedAt * 1000)]
+        }
+        let _: EmptyResponse = try await post("/interactions", body: ["items": items])
+    }
+
+    // MARK: - Connections (swipe-challenge responses; auth-gated server-side)
+
+    func fetchConnections(userId: String, unseenOnly: Bool = false) async throws -> [SoftConnectionItem] {
+        var params: [String: String] = ["userId": userId]
+        if unseenOnly { params["unseenOnly"] = "1" }
+        let response: ConnectionsResponse = try await get("/connections", params: params)
+        return (response.items ?? []).sorted { ($0.createdAt ?? 0) > ($1.createdAt ?? 0) }
+    }
+
     // MARK: - Graph
 
     func fetchGraph(userId: String) async throws -> GraphResponse {
@@ -226,7 +258,7 @@ actor APIClient {
             id: p?.id ?? api.postId,
             name: p?.name ?? api.caption ?? "Gift find",
             brand: p?.brand ?? api.source ?? "Reddit",
-            price: p?.price ?? 0,
+            price: p?.price ?? api.price ?? 0,
             grad: GradientStyle(rawValue: p?.grad ?? "peach") ?? .peach,
             emoji: p?.emoji ?? "🎁",
             image: p?.image
@@ -247,7 +279,13 @@ actor APIClient {
             url: api.url,
             productUrl: api.productUrl,
             rec: api.rec,
-            reason: api.reason
+            reason: api.reason,
+            recipient: api.recipient,
+            occasion: api.occasion,
+            category: api.category,
+            domain: api.domain ?? api.merchant,
+            qualityScore: api.qualityScore,
+            feedEligible: api.feedEligible
         )
     }
 

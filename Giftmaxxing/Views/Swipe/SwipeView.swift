@@ -43,7 +43,7 @@ final class SwipeViewModel: ObservableObject {
         isSwiping = true
         yesCount += 1
         let card = cards[currentIndex]
-        Task { await api.recordInteraction(userId: nil, targetId: card.id, type: "like") }
+        record(.like, for: card, uploadAs: "like")
         withAnimation(.spring(response: 0.4)) {
             offset = CGSize(width: 500, height: 0)
         }
@@ -54,10 +54,31 @@ final class SwipeViewModel: ObservableObject {
         guard !isSwiping, currentIndex < cards.count else { return }
         isSwiping = true
         noCount += 1
+        let card = cards[currentIndex]
+        // Left-swipes are the strongest explicit negative signal the app has —
+        // they feed the on-device taste profile (and de-dup) but stay local.
+        record(.hide, for: card, uploadAs: nil)
         withAnimation(.spring(response: 0.4)) {
             offset = CGSize(width: -500, height: 0)
         }
         advanceAfterDelay()
+    }
+
+    private func record(_ kind: TasteEvent.Kind, for card: Post, uploadAs type: String?) {
+        Task {
+            let signals = TasteSignals.extract(from: card)
+            await TasteProfileStore.shared.record(TasteEvent(
+                kind: kind,
+                postId: card.id,
+                author: card.user,
+                price: card.product.price,
+                vibes: signals.vibes,
+                category: signals.category
+            ))
+            if let type {
+                await InteractionQueue.shared.enqueue(userId: nil, targetId: card.id, type: type)
+            }
+        }
     }
 
     private func advanceAfterDelay() {
@@ -181,7 +202,7 @@ struct SwipeView: View {
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: {}) {
+                    NavigationLink(destination: ChallengeView()) {
                         Image(systemName: "square.and.arrow.up")
                             .font(.system(size: 16))
                             .foregroundStyle(Color.coral)
@@ -315,6 +336,23 @@ struct SwipeCompleteView: View {
                     .padding(.vertical, 14)
                     .background(Color.coral)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+            .padding(.horizontal, 40)
+
+            // Post-task conversion moment (mirrors the web reveal): you just
+            // learned YOUR taste — now capture a friend's.
+            NavigationLink(destination: ChallengeView()) {
+                HStack(spacing: 6) {
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 14))
+                    Text("Challenge a friend to swipe")
+                        .font(.system(size: 15, weight: .bold))
+                }
+                .foregroundStyle(Color.coral)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(Color.coral.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
             }
             .padding(.horizontal, 40)
 

@@ -12,6 +12,8 @@ import { GRADIENTS } from "@/lib/data";
 import { shortTitle } from "@/lib/feed-builder";
 import { type Pin } from "@/lib/pins";
 import { GuestClaimCard } from "@/components/app/guest-claim-card";
+import { GetAppBanner } from "@/components/app/get-app-banner";
+import { AppDownloadCTA } from "@/components/app/app-download-cta";
 import { PoolInvite } from "@/components/app/pool-invite";
 import { EVENT_TYPE_META, type EventType, parseISODate } from "@/lib/events";
 import { saveLocalConnection } from "@/lib/local-connections";
@@ -184,7 +186,9 @@ export default function InvitePage() {
   // ── Welcome phase ─────────────────────────────────────────────────────────
   if (phase === "welcome") {
     return (
-      <div className={`flex min-h-screen flex-col items-center justify-center bg-cream px-4 ${transitionClass}`}>
+      <div className={`flex min-h-screen flex-col bg-cream ${transitionClass}`}>
+        <GetAppBanner />
+        <div className="flex flex-1 flex-col items-center justify-center px-4">
         <Maxi size={72} />
         <h1 className="mt-6 text-center font-display text-3xl font-extrabold leading-tight text-ink sm:text-4xl">
           {inviterName} wants to find<br />your perfect gift
@@ -217,6 +221,7 @@ export default function InvitePage() {
           </a>
           .
         </p>
+        </div>
       </div>
     );
   }
@@ -326,6 +331,7 @@ export default function InvitePage() {
   if (phase === "swipe") {
     return (
       <div className={`min-h-screen bg-cream ${transitionClass}`}>
+        <GetAppBanner />
         <div className="mx-auto max-w-2xl px-4 py-8">
           <div className="text-center">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-coral-soft px-3 py-1 text-xs font-bold text-coral">
@@ -432,6 +438,8 @@ export default function InvitePage() {
             </div>
           ))}
         </div>
+
+        <AppDownloadCTA />
 
         {clerkEnabled ? (
           <GuestClaimCard inviterName={inviterName} />

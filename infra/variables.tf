@@ -151,10 +151,10 @@ variable "alarm_api_requests_5min" {
   default     = 50000
 }
 
-variable "alarm_api_concurrency" {
-  description = "Real-time tripwire: trip the kill switch if API Lambda concurrency exceeds this. Keep it below api_reserved_concurrency."
+variable "alarm_apprunner_concurrency" {
+  description = "Real-time tripwire: DEGRADE non-essential AI (Maxi cheap+short; pause visual search / vector recs / pins) when App Runner SERVICE-WIDE concurrent requests (AWS/AppRunner 'Concurrency', Maximum, dimensioned by ServiceName/ServiceID) exceed this for 3 consecutive minutes, then AUTO-RESUME when it clears. The service ceiling is max_concurrency (100) x max_size (5) = 500 concurrent, so tune relative to that (e.g. 200 ~= 40%). Raise it as you scale."
   type        = number
-  default     = 40
+  default     = 150
 }
 
 variable "monthly_budget_limit_usd" {

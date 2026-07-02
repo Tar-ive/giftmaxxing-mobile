@@ -17,6 +17,15 @@ struct APIPost: Codable {
     var category: String?
     var status: String?
     var product: APIProduct?
+    // Serve-time enrichment attached by the backend feed/recommendation routes
+    // (classifyPin output + raw commerce fields) — used by the on-device ranker.
+    var domain: String?
+    var merchant: String?
+    var price: Double?
+    var vibes: [String]?
+    var qualityScore: Double?
+    var contentType: String?
+    var feedEligible: Bool?
 }
 
 struct APIProduct: Codable {
@@ -59,6 +68,19 @@ struct InteractionsResponse: Codable {
     var items: [PersistedInteraction]?
 }
 
+// GET /vectors — int8-quantized Titan embeddings for on-device similarity.
+struct VectorsResponse: Codable {
+    var items: [QuantizedVectorItem]?
+    var source: String?
+
+    struct QuantizedVectorItem: Codable {
+        var key: String
+        var dim: Int?
+        var scale: Float
+        var data: String // base64-encoded int8 components
+    }
+}
+
 struct PersistedInteraction: Codable {
     var targetId: String
     var type: String
@@ -68,6 +90,30 @@ struct PersistedInteraction: Codable {
     struct InteractionData: Codable {
         var text: String?
     }
+}
+
+// GET /connections — soft profiles collected from shared swipe challenges.
+struct ConnectionsResponse: Codable {
+    var items: [SoftConnectionItem]?
+    var unseen: Int?
+}
+
+struct SoftConnectionItem: Codable, Identifiable {
+    var userId: String?
+    var connectionId: String
+    var soft: Bool?
+    var kind: String?
+    var guestName: String
+    var birthday: String?
+    var genderPref: String?
+    var vibes: [String]?
+    var seeds: [String]?
+    var yesCount: Int?
+    var totalSwipes: Int?
+    var seen: Bool?
+    var createdAt: Double?
+
+    var id: String { connectionId }
 }
 
 struct UserProfileResponse: Codable {

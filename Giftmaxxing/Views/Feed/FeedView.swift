@@ -3,6 +3,7 @@ import SwiftUI
 struct FeedView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = FeedViewModel()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         NavigationStack {
@@ -39,6 +40,7 @@ struct FeedView: View {
                                 onLike: { viewModel.toggleLike(for: post) },
                                 onSave: { viewModel.toggleSave(for: post) }
                             )
+                            .onAppear { viewModel.recordImpression(for: post) }
 
                             if index < viewModel.posts.count - 1 {
                                 Divider()
@@ -91,9 +93,14 @@ struct FeedView: View {
             }
         }
         .task {
+            viewModel.userId = appState.currentUser?.id
             if viewModel.posts.isEmpty {
                 await viewModel.loadFeed()
             }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Push any locally queued interaction events before we lose runtime.
+            if phase == .background { viewModel.flushInteractions() }
         }
     }
 }

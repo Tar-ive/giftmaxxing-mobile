@@ -1,0 +1,247 @@
+import SwiftUI
+
+// Swipe-challenge sharing, in-app. Mirrors the web's /challenge page and its
+// Instagram-style guest boundary:
+//   • ANYONE (signed in or not) can create + share a challenge — the link opens
+//     in the recipient's mobile BROWSER where they swipe as a guest, no
+//     account, no install (that's the viral loop).
+//   • Seeing the responses is the HARD boundary: it requires a signed-in
+//     account. Signed-out senders still collect responses under the device's
+//     anonymous id; they're claimed onto the account on sign-in (same claim
+//     flow as the web).
+struct ChallengeView: View {
+    @EnvironmentObject private var appState: AppState
+
+    @State private var yourName = ""
+    @State private var theirName = ""
+    @State private var occasion = "birthday"
+    @State private var includeDate = false
+    @State private var date = Date()
+
+    private static let occasions: [(id: String, label: String, emoji: String)] = [
+        ("birthday", "Birthday", "🎂"),
+        ("anniversary", "Anniversary", "💝"),
+        ("wedding", "Wedding", "💒"),
+        ("valentines", "Valentine's Day", "🌹"),
+        ("mothers-day", "Mother's Day", "🌷"),
+        ("fathers-day", "Father's Day", "🧔"),
+        ("graduation", "Graduation", "🎓"),
+        ("housewarming", "Housewarming", "🏡"),
+        ("holiday", "Holiday / Christmas", "🎄"),
+        ("baby-shower", "Baby shower", "🍼"),
+        ("other", "Other occasion", "✨"),
+    ]
+
+    private var senderId: String {
+        appState.currentUser?.id ?? InteractionQueue.anonymousUserId
+    }
+
+    private var inviteURL: URL? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return InviteLink.buildURL(
+            inviterName: yourName.isEmpty ? (appState.currentUser?.name ?? "A friend") : yourName,
+            senderId: senderId,
+            to: theirName,
+            occasion: occasion == "other" ? nil : occasion,
+            date: includeDate ? formatter.string(from: date) : nil
+        )
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Hero
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Find their exact gift taste — without asking")
+                        .font(.system(size: 26, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Color.ink)
+                    Text("Share a 60-second swipe challenge. They swipe in their browser — no app, no sign-up — and their taste lands right here.")
+                        .font(.bodyMedium)
+                        .foregroundStyle(.secondary)
+                }
+
+                // Personalize card
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("PERSONALIZE YOUR CHALLENGE")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+
+                    TextField("Your name (e.g. Alex)", text: $yourName)
+                        .textFieldStyle(.roundedBorder)
+                    TextField("Who's it for? (e.g. Sam)", text: $theirName)
+                        .textFieldStyle(.roundedBorder)
+
+                    Picker("Occasion", selection: $occasion) {
+                        ForEach(Self.occasions, id: \.id) { occ in
+                            Text("\(occ.emoji) \(occ.label)").tag(occ.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .tint(Color.coral)
+
+                    Toggle("Add the event date", isOn: $includeDate)
+                        .font(.bodyMedium)
+                    if includeDate {
+                        DatePicker("Event date", selection: $date, displayedComponents: .date)
+                            .datePickerStyle(.compact)
+                            .font(.bodyMedium)
+                    }
+                }
+                .padding(16)
+                .background(Color.cream)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+
+                // Share
+                if let url = inviteURL {
+                    ShareLink(
+                        item: url,
+                        subject: Text("Giftmaxxing challenge"),
+                        message: Text(InviteLink.shareText)
+                    ) {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "paperplane.fill")
+                            Text("Share the challenge")
+                                .font(.labelBold)
+                            Spacer()
+                        }
+                        .padding(.vertical, 15)
+                        .background(Color.coral)
+                        .foregroundStyle(.white)
+                        .clipShape(Capsule())
+                    }
+                }
+
+                Text("The link opens in their browser — they swipe as a guest, and their gift taste shows up in your responses below.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+
+                Divider()
+
+                // Responses — the hard auth boundary.
+                ChallengeResponsesSection()
+            }
+            .padding(16)
+        }
+        .background(Color.surface)
+        .navigationTitle("Gift Challenge")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// ── Responses (auth-gated, mirrors web "Seeing results needs auth") ──────────
+struct ChallengeResponsesSection: View {
+    @EnvironmentObject private var appState: AppState
+    @State private var connections: [SoftConnectionItem] = []
+    @State private var isLoading = false
+    @State private var loadFailed = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Responses")
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.ink)
+
+            if !appState.isAuthenticated {
+                SignInWall()
+            } else if isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .padding(24)
+            } else if loadFailed {
+                Text("Couldn't load responses. Pull to refresh or try again later.")
+                    .font(.bodyMedium)
+                    .foregroundStyle(.secondary)
+            } else if connections.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 28))
+                        .foregroundStyle(.secondary)
+                    Text("No responses yet — share your challenge!")
+                        .font(.bodyMedium)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(24)
+            } else {
+                ForEach(connections) { conn in
+                    ResponseRow(connection: conn)
+                }
+            }
+        }
+        .task { await load() }
+    }
+
+    private func load() async {
+        guard appState.isAuthenticated, let userId = appState.currentUser?.id else { return }
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            connections = try await APIClient.shared.fetchConnections(userId: userId)
+            loadFailed = false
+        } catch {
+            loadFailed = true
+        }
+    }
+}
+
+// The conversion wall: creating/sharing stayed open, results require identity.
+struct SignInWall: View {
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 26))
+                .foregroundStyle(Color.coral)
+            Text("Sign in to see responses")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(Color.ink)
+            Text("Anyone can share a challenge, but responses are private to your account. Everything collected so far is saved and appears the moment you sign in.")
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(20)
+        .background(Color.cream)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+struct ResponseRow: View {
+    let connection: SoftConnectionItem
+
+    var body: some View {
+        HStack(spacing: 12) {
+            AvatarView(name: connection.guestName, grad: .lilac, size: 42)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(connection.guestName)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.ink)
+                if let vibes = connection.vibes, !vibes.isEmpty {
+                    Text(vibes.prefix(4).joined(separator: " · "))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                if let yes = connection.yesCount, let total = connection.totalSwipes, total > 0 {
+                    Text("\(yes) of \(total) swipes were a yes")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.coral)
+                }
+            }
+
+            Spacer()
+
+            if connection.seen != true {
+                Circle()
+                    .fill(Color.coral)
+                    .frame(width: 8, height: 8)
+            }
+        }
+        .padding(12)
+        .background(Color.cream)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}

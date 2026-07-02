@@ -16,6 +16,14 @@ struct Post: Identifiable, Codable, Hashable {
     var productUrl: String?
     var rec: Bool?
     var reason: String?
+    // Facet + quality fields (server-enriched when present) consumed by the
+    // on-device ranking pipeline (Services/Recommendation/).
+    var recipient: String?
+    var occasion: String?
+    var category: String?
+    var domain: String?
+    var qualityScore: Double?
+    var feedEligible: Bool?
 
     var displayCommentCount: Int {
         commentCount ?? comments.count
@@ -24,6 +32,7 @@ struct Post: Identifiable, Codable, Hashable {
     enum CodingKeys: String, CodingKey {
         case id, user, time, product, caption, likes, liked, saved
         case comments, commentCount, source, url, productUrl, rec, reason
+        case recipient, occasion, category, domain, qualityScore, feedEligible
     }
 
     init(
@@ -41,7 +50,13 @@ struct Post: Identifiable, Codable, Hashable {
         url: String? = nil,
         productUrl: String? = nil,
         rec: Bool? = nil,
-        reason: String? = nil
+        reason: String? = nil,
+        recipient: String? = nil,
+        occasion: String? = nil,
+        category: String? = nil,
+        domain: String? = nil,
+        qualityScore: Double? = nil,
+        feedEligible: Bool? = nil
     ) {
         self.id = id
         self.user = user
@@ -58,6 +73,12 @@ struct Post: Identifiable, Codable, Hashable {
         self.productUrl = productUrl
         self.rec = rec
         self.reason = reason
+        self.recipient = recipient
+        self.occasion = occasion
+        self.category = category
+        self.domain = domain
+        self.qualityScore = qualityScore
+        self.feedEligible = feedEligible
     }
 }
 

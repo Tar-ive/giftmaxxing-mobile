@@ -67,6 +67,12 @@ export const metadata: Metadata = {
       "Social gifting with an AI companion. Discover finds, build shared wishlists, pool money for group gifts, and let Maxi nail the perfect present every time.",
   },
   icons: { icon: "/favicon.ico" },
+  // Safari's native Smart App Banner ("Open in the Giftmaxxing app") on every
+  // page, including shared invite links — the lowest-friction app conversion
+  // surface iOS offers. No-op until the App Store id is configured.
+  ...(process.env.NEXT_PUBLIC_APPLE_APP_ID
+    ? { itunes: { appId: process.env.NEXT_PUBLIC_APPLE_APP_ID } }
+    : {}),
 };
 
 export default function RootLayout({

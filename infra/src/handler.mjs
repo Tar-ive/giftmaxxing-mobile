@@ -78,6 +78,7 @@ function isPublicRoute(method, path) {
   if (method === "GET") {
     if (path === "/feed" || path === "/recommendations" || path === "/pins") return true;
     if (path === "/recipients" || path === "/ideas") return true;
+    if (path === "/vectors") return true;
     if (path.startsWith("/posts/")) return true;
   }
   if (method === "POST" && (path === "/visual-search" || path === "/connections")) return true;
@@ -195,9 +196,9 @@ async function embedImage(imageB64, text) {
   return JSON.parse(Buffer.from(out.body).toString("utf8")).embedding;
 }
 
-const json = (statusCode, body) => ({
+const json = (statusCode, body, headers = {}) => ({
   statusCode,
-  headers: { "content-type": "application/json" },
+  headers: { "content-type": "application/json", ...headers },
   body: JSON.stringify(body),
 });
 
@@ -2016,8 +2017,42 @@ export const handler = async (event) => {
       return json(200, { items });
     }
 
-    // POST /interactions  { userId, targetId, type, data? }
+    // POST /interactions  { userId, targetId, type, data? }  — single event
+    //                     { items: [{ userId, targetId, type, createdAt? }] } — batch
+    // The iOS client queues events locally and flushes them in batches (one
+    // Lambda invocation per ~10-100 events instead of one per tap).
     if (method === "POST" && path === "/interactions") {
+      if (Array.isArray(body.items)) {
+        const rows = [];
+        const seenKeys = new Set(); // BatchWrite rejects duplicate keys in one request
+        for (const it of body.items.slice(0, 100)) {
+          const { userId, targetId, type } = it ?? {};
+          if (!userId || !targetId || !type) continue;
+          const sk = type === "comment" ? `${type}#${targetId}#${Date.now()}` : `${type}#${targetId}`;
+          const key = `${userId}|${sk}`;
+          if (seenKeys.has(key)) continue;
+          seenKeys.add(key);
+          rows.push({
+            userId,
+            targetId: sk,
+            type,
+            target: targetId,
+            createdAt: Number(it.createdAt) || Date.now(),
+          });
+        }
+        if (!rows.length) return json(400, { error: "items must contain { userId, targetId, type }" });
+        for (let i = 0; i < rows.length; i += 25) {
+          await ddb.send(
+            new BatchWriteCommand({
+              RequestItems: {
+                [INTERACTIONS]: rows.slice(i, i + 25).map((Item) => ({ PutRequest: { Item } })),
+              },
+            })
+          );
+        }
+        return json(200, { ok: true, count: rows.length });
+      }
+
       const { userId, targetId, type, data } = body;
       if (!userId || !targetId || !type) {
         return json(400, { error: "userId, targetId, type required" });
@@ -2036,6 +2071,52 @@ export const handler = async (event) => {
       if (data) item.data = data;
       await ddb.send(new PutCommand({ TableName: INTERACTIONS, Item: item }));
       return json(200, { ok: true });
+    }
+
+    // GET /vectors?keys=a,b,c — int8-quantized embeddings for the given pin
+    // keys, so the mobile client can cache them and run taste-centroid +
+    // cosine ranking ON-DEVICE (see Giftmaxxing/Services/Recommendation/).
+    // Each vector is unit-normalized then quantized to int8 with a per-vector
+    // scale (~1 KB over the wire vs ~8 KB as JSON floats). Sheds with the AI
+    // breaker: clients fall back to facet-only local ranking when degraded.
+    if (method === "GET" && path === "/vectors") {
+      const keys = parseList(qs.keys).slice(0, 60);
+      if (!keys.length) return json(400, { error: "keys required" });
+      if (!s3v || !(await aiEnabled())) {
+        // no-store: an empty degraded payload must never stick in the edge cache.
+        return json(200, { items: [], source: s3v ? "degraded" : "disabled" }, { "cache-control": "no-store" });
+      }
+      const out = await s3v.send(
+        new GetVectorsCommand({
+          vectorBucketName: VECTOR_BUCKET,
+          indexName: VECTOR_INDEX,
+          keys,
+          returnData: true,
+        })
+      );
+      const items = (out.vectors ?? [])
+        .map((v) => {
+          const f = v.data?.float32;
+          if (!Array.isArray(f) || !f.length) return null;
+          const norm = Math.sqrt(f.reduce((s, x) => s + x * x, 0)) || 1;
+          let maxAbs = 0;
+          const unit = f.map((x) => {
+            const u = x / norm;
+            const a = Math.abs(u);
+            if (a > maxAbs) maxAbs = a;
+            return u;
+          });
+          const scale = maxAbs > 0 ? maxAbs / 127 : 1;
+          const q = Int8Array.from(unit.map((u) => Math.max(-127, Math.min(127, Math.round(u / scale)))));
+          return { key: v.key, dim: f.length, scale, data: Buffer.from(q.buffer).toString("base64") };
+        })
+        .filter(Boolean);
+      // Embeddings are immutable per key (re-ingest aside), so let CloudFront
+      // hold them for a day — repeat on-device cache fills never reach us.
+      // Keys with no vector yet (not embedded) only cache briefly, so they
+      // become visible shortly after the embed backfill runs.
+      const ttl = items.length ? 86400 : 300;
+      return json(200, { items, source: "s3v" }, { "cache-control": `public, max-age=${ttl}` });
     }
 
     // GET /recommendations?userId=&limit=&cursor=&vibes=&recipient=&occasion=&category=
