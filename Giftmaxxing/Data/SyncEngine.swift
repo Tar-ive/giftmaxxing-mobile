@@ -80,7 +80,15 @@ final class SyncEngine: ObservableObject {
 
             for event in events {
                 if existingById[event.id] == nil {
-                    let cached = CachedEvent(from: event, userId: userId)
+                    let gift = GiftEvent(
+                        id: event.id,
+                        type: event.type ?? "birthday",
+                        title: event.title ?? event.recipientName ?? "Event",
+                        date: Date(timeIntervalSince1970: (event.date ?? 0) / 1000),
+                        recipientName: event.recipientName ?? event.recipient?.name ?? "",
+                        scope: event.scope
+                    )
+                    let cached = CachedEvent(from: gift, userId: userId)
                     context.insert(cached)
                 }
             }

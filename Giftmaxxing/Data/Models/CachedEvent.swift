@@ -30,10 +30,10 @@ final class CachedEvent {
     func toGiftEvent() -> GiftEvent {
         GiftEvent(
             id: eventId,
+            type: eventType,
             title: title,
             date: eventDate,
             recipientName: recipientName,
-            type: eventType,
             notes: notes,
             scope: scope
         )

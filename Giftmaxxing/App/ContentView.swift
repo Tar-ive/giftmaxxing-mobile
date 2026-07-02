@@ -70,13 +70,16 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $showOnboarding) {
-            OnboardingView()
-                .onDisappear {
-                    UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
-                    if !authManager.isAuthenticated {
-                        showSignIn = true
-                    }
+            OnboardingView(isOnboardingComplete: Binding(
+                get: { !showOnboarding },
+                set: { showOnboarding = !$0 }
+            ))
+            .onDisappear {
+                UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
+                if !authManager.isAuthenticated {
+                    showSignIn = true
                 }
+            }
         }
         .sheet(isPresented: $showSignIn) {
             SignInView(showSignIn: $showSignIn)

@@ -336,13 +336,6 @@ struct FeedPage {
 
 struct EmptyResponse: Decodable {}
 
-struct DeltaSyncResponse: Decodable {
-    var updatedPosts: [APIPost]?
-    var deletedPostIds: [String]?
-    var updatedEvents: [UpcomingEvent]?
-    var serverTime: Double?
-}
-
 enum APIError: LocalizedError {
     case invalidResponse
     case httpError(statusCode: Int)
