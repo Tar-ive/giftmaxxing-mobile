@@ -15,9 +15,27 @@ final class AppState: ObservableObject {
     // (e.g. the camera button opens Visual search directly).
     @Published var pendingSearchTab: SearchTab?
 
+    // Image captured via the share extension or the screenshots rail —
+    // SearchTabsView picks it up and runs visual search immediately.
+    @Published var pendingCaptureImage: UIImage?
+    @Published var pendingCaptureNote: String?
+
     func openSearch(_ tab: SearchTab) {
         pendingSearchTab = tab
         selectedTab = .search
+    }
+
+    // Route a capture (shared image/URL or tapped screenshot) into visual search.
+    func handleCapture(image: UIImage?, url: String? = nil) {
+        if let image {
+            pendingCaptureImage = image
+            pendingCaptureNote = nil
+        } else if let url {
+            // Login-walled pages (Instagram/Pinterest) can't be fetched
+            // server-side; steer the user to the screenshot path.
+            pendingCaptureNote = "Links from \(URL(string: url)?.host ?? "that app") can't be read directly — screenshot the post and share that instead."
+        }
+        openSearch(.visual)
     }
 
     var cartCount: Int { cartItems.count }

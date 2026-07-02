@@ -12,6 +12,9 @@ targets:
     platform: iOS
     sources:
       - path: Giftmaxxing
+    dependencies:
+      - target: GiftmaxxingShare
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.giftmaxxing.ios
@@ -27,6 +30,7 @@ targets:
         INFOPLIST_KEY_UIBackgroundModes: "fetch remote-notification"
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "Giftmaxxing uses the microphone so you can talk to Maxi, your AI gift concierge."
         INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Giftmaxxing transcribes your voice so Maxi can find gifts for you."
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Giftmaxxing shows your screenshots so you can shop the things you've captured."
         SWIFT_VERSION: "5.9"
         GENERATE_INFOPLIST_FILE: true
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -42,6 +46,36 @@ targets:
         Release:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: ""
           CODE_SIGN_ENTITLEMENTS: Giftmaxxing/Giftmaxxing.entitlements
+
+  # Share extension — the Instagram/Pinterest → Amazon bridge. Receives an
+  # image or URL from any app's share sheet, drops it in the app-group inbox,
+  # and the main app runs visual search on it at next foreground.
+  GiftmaxxingShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: GiftmaxxingShare
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.giftmaxxing.ios.share
+        INFOPLIST_KEY_CFBundleDisplayName: Giftmaxxing
+        SWIFT_VERSION: "5.9"
+        GENERATE_INFOPLIST_FILE: false
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: KJH66PARX6
+        CODE_SIGN_ENTITLEMENTS: GiftmaxxingShare/GiftmaxxingShare.entitlements
+        SKIP_INSTALL: true
+    info:
+      path: GiftmaxxingShare/Info.plist
+      properties:
+        CFBundleDisplayName: Giftmaxxing
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsImageWithMaxCount: 1
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
 
   # Unit tests for the pure-logic layer (recommendation pipeline, invite links,
   # content quality). Runs in CI via `xcodebuild test` on the simulator.

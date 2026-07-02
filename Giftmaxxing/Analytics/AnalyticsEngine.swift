@@ -306,13 +306,19 @@ final class AnalyticsEngine: ObservableObject {
 
     // MARK: - Product funnel
 
-    func trackAffiliateClick(postId: String, productUrl: String, source: String) {
-        track(.productAffiliateClick, properties: [
+    func trackAffiliateClick(postId: String, productUrl: String, source: String, destination: String? = nil) {
+        var properties: [String: AnyCodableValue] = [
             "postId": .string(postId),
             "productUrl": .string(productUrl),
             "source": .string(source),
             "sessionId": .string(sessionId),
-        ])
+        ]
+        // Where the click actually landed: "amazon_app" (universal link into the
+        // Amazon app) vs "in_app_browser" — measures the app-open rate.
+        if let destination {
+            properties["destination"] = .string(destination)
+        }
+        track(.productAffiliateClick, properties: properties)
     }
 
     // MARK: - Search

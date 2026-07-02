@@ -25,6 +25,12 @@ struct FeedView: View {
                     .padding(.top, 4)
                     .padding(.bottom, 6)
 
+                    // Instagram → Amazon bridge, half two: shop what you
+                    // already screenshotted.
+                    ScreenshotShopRail()
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 8)
+
                     StoriesTray(onTap: { index in
                         storySelection = StorySelection(id: index)
                     })
@@ -116,24 +122,25 @@ struct FeedView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .principal) {
+                // Single uncluttered bar: wordmark left, activity/messages right.
+                ToolbarItem(placement: .topBarLeading) {
                     HStack(spacing: 6) {
-                        MaxiIcon(size: 28)
-                        Text("Giftmaxxing")
-                            .font(.system(size: 20, weight: .heavy, design: .rounded))
-                            .foregroundStyle(Color.ink)
+                        MaxiIcon(size: 24)
+                        Text("giftmaxxing")
+                            .font(.system(size: 18, weight: .heavy, design: .rounded))
+                            .foregroundStyle(Color.coral)
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 16) {
                         NavigationLink(destination: ActivityView()) {
                             Image(systemName: "heart")
-                                .font(.system(size: 20))
+                                .font(.system(size: 19))
                                 .foregroundStyle(Color.ink)
                         }
                         NavigationLink(destination: MessagesView()) {
                             Image(systemName: "paperplane")
-                                .font(.system(size: 20))
+                                .font(.system(size: 19))
                                 .foregroundStyle(Color.ink)
                         }
                     }

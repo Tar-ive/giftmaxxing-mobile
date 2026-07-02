@@ -4,6 +4,7 @@ struct ContentView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var authManager: AuthManager
     @EnvironmentObject private var offlineQueue: OfflineQueue
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showOnboarding = !UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
     @State private var showSignIn = false
     @State private var showSplash = true
@@ -123,5 +124,20 @@ struct ContentView: View {
                 to: newTab.rawValue
             )
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                drainCaptureInbox()
+            }
+        }
+        .onAppear {
+            drainCaptureInbox()
+        }
+    }
+
+    // Share-extension bridge: anything sent to Giftmaxxing from another app
+    // lands in the app-group inbox and goes straight into visual search.
+    private func drainCaptureInbox() {
+        guard let capture = CaptureInbox.consume() else { return }
+        appState.handleCapture(image: capture.image, url: capture.url)
     }
 }

@@ -185,12 +185,19 @@ struct SearchTabsView: View {
                     viewModel.tab = pending
                     appState.pendingSearchTab = nil
                 }
+                consumeCapture()
             }
             .onChange(of: appState.pendingSearchTab) { _, pending in
                 if let pending {
                     viewModel.tab = pending
                     appState.pendingSearchTab = nil
                 }
+            }
+            .onChange(of: appState.pendingCaptureImage) { _, _ in
+                consumeCapture()
+            }
+            .onChange(of: appState.pendingCaptureNote) { _, _ in
+                consumeCapture()
             }
             .onChange(of: photoItem) { _, newItem in
                 guard let newItem else { return }
@@ -202,6 +209,18 @@ struct SearchTabsView: View {
                     photoItem = nil
                 }
             }
+        }
+    }
+
+    // Shared-in image (share extension / screenshots rail) → visual search.
+    private func consumeCapture() {
+        if let image = appState.pendingCaptureImage {
+            appState.pendingCaptureImage = nil
+            Task { await viewModel.runVisualSearch(with: image) }
+        } else if let note = appState.pendingCaptureNote {
+            appState.pendingCaptureNote = nil
+            viewModel.tab = .visual
+            viewModel.visualError = note
         }
     }
 
