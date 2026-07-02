@@ -48,10 +48,18 @@ final class FeedViewModel: ObservableObject {
         guard let index = posts.firstIndex(where: { $0.id == post.id }) else { return }
         posts[index].liked.toggle()
         posts[index].likes += posts[index].liked ? 1 : -1
+        let type = posts[index].liked ? "like" : "unlike"
+        Task {
+            await api.recordInteraction(userId: nil, targetId: post.id, type: type)
+        }
     }
 
     func toggleSave(for post: Post) {
         guard let index = posts.firstIndex(where: { $0.id == post.id }) else { return }
         posts[index].saved.toggle()
+        let type = posts[index].saved ? "save" : "unsave"
+        Task {
+            await api.recordInteraction(userId: nil, targetId: post.id, type: type)
+        }
     }
 }

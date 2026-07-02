@@ -56,6 +56,11 @@ struct SearchView: View {
                 )
                 .padding(.horizontal, 14)
                 .padding(.top, 8)
+                .onChange(of: viewModel.query) { _, newValue in
+                    if newValue.isEmpty {
+                        viewModel.results = []
+                    }
+                }
 
                 if viewModel.isSearching {
                     Spacer()

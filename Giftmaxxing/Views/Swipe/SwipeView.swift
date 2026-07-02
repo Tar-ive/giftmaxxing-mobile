@@ -8,6 +8,7 @@ final class SwipeViewModel: ObservableObject {
     @Published var yesCount = 0
     @Published var noCount = 0
     @Published var offset: CGSize = .zero
+    @Published var isSwiping = false
 
     private let api = APIClient.shared
 
@@ -38,8 +39,11 @@ final class SwipeViewModel: ObservableObject {
     }
 
     func swipeRight() {
-        guard currentIndex < cards.count else { return }
+        guard !isSwiping, currentIndex < cards.count else { return }
+        isSwiping = true
         yesCount += 1
+        let card = cards[currentIndex]
+        Task { await api.recordInteraction(userId: nil, targetId: card.id, type: "like") }
         withAnimation(.spring(response: 0.4)) {
             offset = CGSize(width: 500, height: 0)
         }
@@ -47,7 +51,8 @@ final class SwipeViewModel: ObservableObject {
     }
 
     func swipeLeft() {
-        guard currentIndex < cards.count else { return }
+        guard !isSwiping, currentIndex < cards.count else { return }
+        isSwiping = true
         noCount += 1
         withAnimation(.spring(response: 0.4)) {
             offset = CGSize(width: -500, height: 0)
@@ -59,6 +64,7 @@ final class SwipeViewModel: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             self?.currentIndex += 1
             self?.offset = .zero
+            self?.isSwiping = false
         }
     }
 }
@@ -138,6 +144,7 @@ struct SwipeView: View {
                                 .clipShape(Circle())
                                 .shadow(color: .red.opacity(0.2), radius: 8)
                         }
+                        .disabled(viewModel.isSwiping)
 
                         Button(action: { viewModel.swipeRight() }) {
                             Image(systemName: "heart.fill")
@@ -148,6 +155,7 @@ struct SwipeView: View {
                                 .clipShape(Circle())
                                 .shadow(color: Color.coral.opacity(0.3), radius: 8)
                         }
+                        .disabled(viewModel.isSwiping)
                     }
                     .padding(.bottom, 24)
                 } else {
