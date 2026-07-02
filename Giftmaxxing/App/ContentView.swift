@@ -16,7 +16,7 @@ struct ContentView: View {
                     }
                     .tag(Tab.feed)
 
-                SearchView()
+                SearchTabsView()
                     .tabItem {
                         Label(Tab.search.rawValue, systemImage: Tab.search.icon)
                     }

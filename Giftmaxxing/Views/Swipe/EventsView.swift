@@ -20,7 +20,12 @@ final class EventsViewModel: ObservableObject {
             loadFromCache(context: context)
         }
 
-        guard let userId = AuthManager.shared.userId else { return }
+        guard let userId = AuthManager.shared.userId else {
+            // Signed-out demo parity with the web app: show the same social
+            // circle's upcoming occasions so the screen is never dead.
+            if events.isEmpty { events = Self.demoEvents() }
+            return
+        }
         isLoading = true
 
         do {
@@ -88,6 +93,21 @@ final class EventsViewModel: ObservableObject {
         }
         try? context.save()
     }
+
+    // Mirrors the demo social circle used across the web app (Maya's birthday
+    // in 4 days, Noor in 11, Ivy's anniversary in 18, Remy's housewarming).
+    static func demoEvents() -> [GiftEvent] {
+        func inDays(_ days: Int) -> Date {
+            Calendar.current.date(byAdding: .day, value: days, to: Date()) ?? Date()
+        }
+        return [
+            GiftEvent(id: "demo_maya", type: "birthday", title: "Maya's Birthday", date: inDays(4), recipientName: "Maya Reyes", budget: 90),
+            GiftEvent(id: "demo_sam", type: "other", title: "Sam's Farewell", date: inDays(7), recipientName: "Sam Okafor", notes: "Off to Lisbon \u{1F6EB}"),
+            GiftEvent(id: "demo_noor", type: "birthday", title: "Noor's Birthday", date: inDays(11), recipientName: "Noor Haddad", budget: 50),
+            GiftEvent(id: "demo_ivy", type: "anniversary", title: "Ivy & Alex's Anniversary", date: inDays(18), recipientName: "Ivy Castellano"),
+            GiftEvent(id: "demo_remy", type: "housewarming", title: "Remy's Housewarming", date: inDays(25), recipientName: "Remy Adebayo"),
+        ]
+    }
 }
 
 struct EventsView: View {
@@ -127,7 +147,12 @@ struct EventsView: View {
                         .padding(40)
                     } else {
                         ForEach(viewModel.upcomingEvents) { event in
-                            EventCard(event: event)
+                            NavigationLink {
+                                EventDetailView(event: event)
+                            } label: {
+                                EventCard(event: event)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }

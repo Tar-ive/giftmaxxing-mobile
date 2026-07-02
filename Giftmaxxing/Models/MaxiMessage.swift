@@ -6,6 +6,7 @@ struct MaxiMessage: Identifiable {
     var text: String
     var products: [MaxiProduct]
     var steps: [MaxiStep]
+    var chips: [String]
     var timestamp: Date
 
     init(
@@ -14,6 +15,7 @@ struct MaxiMessage: Identifiable {
         text: String,
         products: [MaxiProduct] = [],
         steps: [MaxiStep] = [],
+        chips: [String] = [],
         timestamp: Date = Date()
     ) {
         self.id = id
@@ -21,6 +23,7 @@ struct MaxiMessage: Identifiable {
         self.text = text
         self.products = products
         self.steps = steps
+        self.chips = chips
         self.timestamp = timestamp
     }
 }

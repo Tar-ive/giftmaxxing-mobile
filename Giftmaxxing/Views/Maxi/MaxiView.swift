@@ -7,14 +7,30 @@ final class MaxiViewModel: ObservableObject {
     @Published var isThinking = false
 
     private let api = APIClient.shared
+    private var catalog: [Post] = []
 
     init() {
         messages.append(MaxiMessage(
             role: .assistant,
             text: "Hey! I'm Maxi, your AI gift concierge 🎁\n\nTell me who you're shopping for, their interests, or an occasion — I'll find the perfect gift.",
             products: [],
-            steps: []
+            steps: [],
+            chips: MaxiLocalEngine.seedChips
         ))
+    }
+
+    func send(_ text: String) {
+        inputText = text
+        Task { await sendMessage() }
+    }
+
+    // Product catalog for the local fallback engine (web runs respond() over
+    // its bundled pins; we use the live feed and cache it for the session).
+    private func loadCatalogIfNeeded() async {
+        guard catalog.isEmpty else { return }
+        if let page = try? await api.fetchFeed(limit: 60) {
+            catalog = page.posts
+        }
     }
 
     func sendMessage() async {
@@ -28,32 +44,28 @@ final class MaxiViewModel: ObservableObject {
 
         let history = messages.dropLast().map { (role: $0.role.rawValue, text: $0.text) }
 
-        do {
-            let reply = try await api.askMaxi(
-                userId: nil,
-                name: nil,
-                message: text,
-                history: history
-            )
-
-            if let reply {
-                let assistantMessage = MaxiMessage(
-                    role: .assistant,
-                    text: reply.say,
-                    products: reply.pins,
-                    steps: reply.steps
-                )
-                messages.append(assistantMessage)
-            } else {
-                messages.append(MaxiMessage(
-                    role: .assistant,
-                    text: "I'm having trouble connecting right now. Try again in a moment!"
-                ))
-            }
-        } catch {
+        if let reply = try? await api.askMaxi(
+            userId: nil,
+            name: nil,
+            message: text,
+            history: history
+        ), !reply.say.isEmpty {
             messages.append(MaxiMessage(
                 role: .assistant,
-                text: "Something went wrong. Please try again."
+                text: reply.say,
+                products: reply.pins,
+                steps: reply.steps
+            ))
+        } else {
+            // Agent API unreachable (or auth-gated) \u{2014} answer locally like the
+            // web's respond() engine so Maxi never dead-ends.
+            await loadCatalogIfNeeded()
+            let local = MaxiLocalEngine.respond(to: text, catalog: catalog)
+            messages.append(MaxiMessage(
+                role: .assistant,
+                text: local.say,
+                products: local.products,
+                chips: local.chips
             ))
         }
 
@@ -72,8 +84,10 @@ struct MaxiView: View {
                     ScrollView {
                         LazyVStack(spacing: 12) {
                             ForEach(viewModel.messages) { message in
-                                MaxiMessageBubble(message: message)
-                                    .id(message.id)
+                                MaxiMessageBubble(message: message) { chip in
+                                    viewModel.send(chip)
+                                }
+                                .id(message.id)
                             }
 
                             if viewModel.isThinking {
@@ -149,6 +163,7 @@ struct MaxiView: View {
 
 struct MaxiMessageBubble: View {
     let message: MaxiMessage
+    var onChipTap: ((String) -> Void)?
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -199,6 +214,27 @@ struct MaxiMessageBubble: View {
                         }
                     }
                 }
+
+                // Suggestion chips (web parity)
+                if !message.chips.isEmpty && message.role == .assistant {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(message.chips, id: \.self) { chip in
+                                Button {
+                                    onChipTap?(chip)
+                                } label: {
+                                    Text(chip)
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(Color.coral)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 7)
+                                        .background(Color.coralSoft)
+                                        .clipShape(Capsule())
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             if message.role == .user {
@@ -213,8 +249,30 @@ struct MaxiMessageBubble: View {
 
 struct MaxiProductCard: View {
     let product: MaxiProduct
+    @Environment(\.openURL) private var openURL
+
+    private var outboundURL: URL? {
+        let query = [product.title, product.brand ?? ""]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        return URL(string: Affiliate.searchUrl(query: query.isEmpty ? "gifts" : query))
+    }
 
     var body: some View {
+        cardBody
+            .onTapGesture {
+                if let url = outboundURL {
+                    AnalyticsEngine.shared.trackAffiliateClick(
+                        postId: product.postId,
+                        productUrl: url.absoluteString,
+                        source: "maxi"
+                    )
+                    openURL(url)
+                }
+            }
+    }
+
+    private var cardBody: some View {
         VStack(alignment: .leading, spacing: 6) {
             ZStack {
                 Color.gradient(for: .coral)

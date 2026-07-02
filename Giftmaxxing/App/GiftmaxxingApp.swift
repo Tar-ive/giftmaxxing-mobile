@@ -14,6 +14,7 @@ struct GiftmaxxingApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .preferredColorScheme(.light)
                 .environmentObject(appState)
                 .environmentObject(authManager)
                 .environmentObject(syncEngine)

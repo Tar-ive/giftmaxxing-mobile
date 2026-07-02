@@ -1,16 +1,19 @@
 import SwiftUI
 
 struct PoolsView: View {
-    @State private var pools: [Pool] = Pool.samples
+    @StateObject private var store = PoolsStore()
     @State private var showCreateSheet = false
+    @State private var contributingTo: Pool?
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 16) {
                     // Active pools
-                    ForEach(pools) { pool in
-                        PoolCard(pool: pool)
+                    ForEach(store.pools) { pool in
+                        PoolCard(pool: pool) {
+                            contributingTo = pool
+                        }
                     }
 
                     // Create new pool CTA
@@ -47,14 +50,26 @@ struct PoolsView: View {
             .navigationTitle("Gift Pools")
             .navigationBarTitleDisplayMode(.large)
             .sheet(isPresented: $showCreateSheet) {
-                CreatePoolSheet()
+                CreatePoolSheet { title, forUser, occasion, target in
+                    store.create(title: title, forUser: forUser, occasion: occasion, targetAmount: target)
+                }
             }
+            .sheet(item: $contributingTo) { pool in
+                ContributeSheet(pool: pool) { amount in
+                    store.contribute(amount, to: pool.id)
+                }
+                .presentationDetents([.medium])
+            }
+        }
+        .onAppear {
+            AnalyticsEngine.shared.trackScreenView(screen: "pools")
         }
     }
 }
 
 struct PoolCard: View {
     let pool: Pool
+    var onContribute: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -141,15 +156,16 @@ struct PoolCard: View {
 
                 Spacer()
 
-                Button(action: {}) {
-                    Text("Contribute")
+                Button(action: { onContribute?() }) {
+                    Text(pool.progressPercent >= 1 ? "Funded \u{2713}" : "Contribute")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
-                        .background(Color.coral)
+                        .background(pool.progressPercent >= 1 ? Color.ink.opacity(0.55) : Color.coral)
                         .clipShape(Capsule())
                 }
+                .disabled(pool.progressPercent >= 1)
             }
         }
         .padding(16)
@@ -165,6 +181,15 @@ struct CreatePoolSheet: View {
     @State private var forUser = ""
     @State private var targetAmount = ""
     @State private var occasion = ""
+    var onCreate: ((String, String, String, Double) -> Void)?
+
+    private var parsedTarget: Double {
+        Double(targetAmount.replacingOccurrences(of: ",", with: ".")) ?? 0
+    }
+
+    private var isValid: Bool {
+        !title.trimmingCharacters(in: .whitespaces).isEmpty && parsedTarget > 0
+    }
 
     var body: some View {
         NavigationStack {
@@ -179,6 +204,12 @@ struct CreatePoolSheet: View {
 
                 Section {
                     Button(action: {
+                        onCreate?(
+                            title.trimmingCharacters(in: .whitespaces),
+                            forUser.trimmingCharacters(in: .whitespaces),
+                            occasion.trimmingCharacters(in: .whitespaces),
+                            parsedTarget
+                        )
                         dismiss()
                     }) {
                         Text("Create Pool")
@@ -186,14 +217,101 @@ struct CreatePoolSheet: View {
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(Color.coral)
+                            .background(isValid ? Color.coral : Color.ink.opacity(0.25))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
+                    .disabled(!isValid)
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                 }
             }
             .navigationTitle("New Gift Pool")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+// Contribution flow — web parity: quick $10/25/50/100 chips + custom amount
+// (web/app/feed/pools/page.tsx QUICK constants + PaymentMethodSheet).
+struct ContributeSheet: View {
+    let pool: Pool
+    var onContribute: ((Double) -> Void)?
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedAmount: Double?
+    @State private var customAmount = ""
+
+    private let quickAmounts: [Double] = [10, 25, 50, 100]
+
+    private var amount: Double {
+        if let selectedAmount { return selectedAmount }
+        return Double(customAmount.replacingOccurrences(of: ",", with: ".")) ?? 0
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Chip in for \(pool.forUser)")
+                        .font(.displaySmall)
+                        .foregroundStyle(Color.ink)
+                    Text("\(pool.title) \u{00B7} $\(Int(pool.currentAmount)) of $\(Int(pool.targetAmount)) raised")
+                        .font(.bodyMedium)
+                        .foregroundStyle(.secondary)
+                }
+
+                // Quick amounts
+                HStack(spacing: 10) {
+                    ForEach(quickAmounts, id: \.self) { quick in
+                        Button {
+                            selectedAmount = quick
+                            customAmount = ""
+                        } label: {
+                            Text("$\(Int(quick))")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(selectedAmount == quick ? .white : Color.ink)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(selectedAmount == quick ? Color.coral : Color.cream)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                    }
+                }
+
+                // Custom amount
+                TextField("Custom amount ($)", text: $customAmount)
+                    .keyboardType(.decimalPad)
+                    .padding(14)
+                    .background(Color.cream)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .onChange(of: customAmount) { _, newValue in
+                        if !newValue.isEmpty { selectedAmount = nil }
+                    }
+
+                Button {
+                    onContribute?(amount)
+                    dismiss()
+                } label: {
+                    Text(amount > 0 ? "Contribute $\(Int(amount))" : "Contribute")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(amount > 0 ? Color.coral : Color.ink.opacity(0.25))
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+                .disabled(amount <= 0)
+
+                Spacer()
+            }
+            .padding(20)
+            .background(Color.surface)
+            .navigationTitle("Contribute")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

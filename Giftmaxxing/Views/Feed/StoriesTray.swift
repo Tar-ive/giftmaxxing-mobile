@@ -23,16 +23,23 @@ struct StoryItem: Identifiable {
 
 struct StoriesTray: View {
     let stories: [StoryItem]
+    var onTap: ((Int) -> Void)?
 
-    init(stories: [StoryItem] = StoryItem.samples) {
+    init(stories: [StoryItem] = StoryItem.samples, onTap: ((Int) -> Void)? = nil) {
         self.stories = stories
+        self.onTap = onTap
     }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 14) {
-                ForEach(stories) { story in
-                    StoryBubble(story: story)
+                ForEach(Array(stories.enumerated()), id: \.element.id) { index, story in
+                    Button {
+                        onTap?(index)
+                    } label: {
+                        StoryBubble(story: story)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 14)

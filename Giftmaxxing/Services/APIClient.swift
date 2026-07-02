@@ -172,6 +172,14 @@ actor APIClient {
         return try await get("/recommendations", params: params)
     }
 
+    // Visual search: query image -> Titan MM embed -> kNN over S3 Vectors.
+    // Mirrors web fetchVisualSearch (POST /visual-search {imageBase64, ...}).
+    func fetchVisualSearch(imageBase64: String, text: String? = nil, limit: Int = 18) async throws -> VectorResponse {
+        var body: [String: Any] = ["imageBase64": imageBase64, "limit": limit]
+        if let text, !text.isEmpty { body["text"] = text }
+        return try await post("/visual-search", body: body)
+    }
+
     // MARK: - On-device ranking support
 
     // Quantized Titan embeddings for a set of pin keys — feeds the on-device

@@ -7,13 +7,17 @@ struct FeedView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel = FeedViewModel()
     @Environment(\.scenePhase) private var scenePhase
+    @State private var selectedPost: Post?
+    @State private var storySelection: StorySelection?
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 1) {
-                    StoriesTray()
-                        .padding(.bottom, 8)
+                    StoriesTray(onTap: { index in
+                        storySelection = StorySelection(id: index)
+                    })
+                    .padding(.bottom, 8)
 
                     if viewModel.isLoading && viewModel.posts.isEmpty {
                         ForEach(0..<3, id: \.self) { _ in
@@ -53,14 +57,18 @@ struct FeedView: View {
                                         postId: post.id
                                     )
                                 },
+                                onComment: {
+                                    selectedPost = post
+                                },
+                                onShare: {
+                                    selectedPost = post
+                                },
                                 onProductTap: {
-                                    if let url = post.productUrl {
-                                        AnalyticsEngine.shared.trackAffiliateClick(
-                                            postId: post.id,
-                                            productUrl: url,
-                                            source: "feed"
-                                        )
-                                    }
+                                    selectedPost = post
+                                    AnalyticsEngine.shared.trackContentAction(
+                                        .contentTap,
+                                        postId: post.id
+                                    )
                                 }
                             )
                             .onAppear {
@@ -136,6 +144,18 @@ struct FeedView: View {
                 }
             }
         }
+        .sheet(item: $selectedPost) { post in
+            // Read live state so like/save toggles reflect immediately.
+            let live = viewModel.posts.first(where: { $0.id == post.id }) ?? post
+            PostDetailView(
+                post: live,
+                onLike: { viewModel.toggleLike(for: live, context: modelContext) },
+                onSave: { viewModel.toggleSave(for: live, context: modelContext) }
+            )
+        }
+        .fullScreenCover(item: $storySelection) { selection in
+            StoryViewerView(stories: StoryItem.samples, index: selection.id)
+        }
         .task {
             viewModel.userId = appState.currentUser?.id
             if viewModel.posts.isEmpty {
@@ -190,18 +210,7 @@ struct PostCardSkeleton: View {
     }
 }
 
-struct ActivityView: View {
-    var body: some View {
-        Text("Notifications")
-            .font(.displayMedium)
-            .navigationTitle("Activity")
-    }
-}
-
-struct MessagesView: View {
-    var body: some View {
-        Text("Messages")
-            .font(.displayMedium)
-            .navigationTitle("Messages")
-    }
+// Identifiable index wrapper for fullScreenCover(item:).
+struct StorySelection: Identifiable {
+    let id: Int
 }
