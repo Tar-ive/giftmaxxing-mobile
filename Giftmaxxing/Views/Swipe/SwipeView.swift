@@ -11,6 +11,11 @@ final class SwipeViewModel: ObservableObject {
     @Published var isSwiping = false
 
     private let api = APIClient.shared
+    private let analytics = AnalyticsEngine.shared
+
+    // Tinder-style: track drag start time for hesitation detection
+    private var dragStartTime: Date?
+    private var dragStartTranslation: CGSize = .zero
 
     var currentCard: Post? {
         guard currentIndex < cards.count else { return nil }
@@ -31,6 +36,14 @@ final class SwipeViewModel: ObservableObject {
             currentIndex = 0
             yesCount = 0
             noCount = 0
+
+            if let first = cards.first {
+                analytics.trackCardShown(
+                    postId: first.id,
+                    position: 0,
+                    totalCards: cards.count
+                )
+            }
         } catch {
             // use empty state
         }
@@ -38,22 +51,70 @@ final class SwipeViewModel: ObservableObject {
         isLoading = false
     }
 
-    func swipeRight() {
+    func onDragStart() {
+        dragStartTime = Date()
+        dragStartTranslation = offset
+    }
+
+    func onDragEnd(translation: CGSize, velocity: CGSize) {
+        if translation.width > 100 {
+            swipeRight(velocity: Double(velocity.width))
+        } else if translation.width < -100 {
+            swipeLeft(velocity: Double(velocity.width))
+        } else {
+            // Hesitation: user dragged but released without committing
+            if let card = currentCard, let start = dragStartTime {
+                let dragDistance = sqrt(
+                    pow(Double(translation.width), 2) + pow(Double(translation.height), 2)
+                )
+                let dragDuration = Date().timeIntervalSince(start) * 1000
+                if dragDistance > 30 {
+                    analytics.trackSwipeHesitation(
+                        postId: card.id,
+                        dragDistance: dragDistance,
+                        dragDurationMs: dragDuration
+                    )
+                }
+            }
+            withAnimation(.spring(response: 0.3)) {
+                offset = .zero
+            }
+        }
+        dragStartTime = nil
+    }
+
+    func swipeRight(velocity: Double = 500) {
         guard !isSwiping, currentIndex < cards.count else { return }
         isSwiping = true
         yesCount += 1
         let card = cards[currentIndex]
-        Task { await api.recordInteraction(userId: nil, targetId: card.id, type: "like") }
+
+        Task { await api.recordInteraction(userId: "", targetId: card.id, type: "like") }
+
+        analytics.trackSwipeRight(
+            postId: card.id,
+            velocity: abs(velocity),
+            position: currentIndex
+        )
+
         withAnimation(.spring(response: 0.4)) {
             offset = CGSize(width: 500, height: 0)
         }
         advanceAfterDelay()
     }
 
-    func swipeLeft() {
+    func swipeLeft(velocity: Double = 500) {
         guard !isSwiping, currentIndex < cards.count else { return }
         isSwiping = true
         noCount += 1
+        let card = cards[currentIndex]
+
+        analytics.trackSwipeLeft(
+            postId: card.id,
+            velocity: abs(velocity),
+            position: currentIndex
+        )
+
         withAnimation(.spring(response: 0.4)) {
             offset = CGSize(width: -500, height: 0)
         }
@@ -62,9 +123,25 @@ final class SwipeViewModel: ObservableObject {
 
     private func advanceAfterDelay() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-            self?.currentIndex += 1
-            self?.offset = .zero
-            self?.isSwiping = false
+            guard let self else { return }
+            self.currentIndex += 1
+            self.offset = .zero
+            self.isSwiping = false
+
+            // Track next card shown (Tinder tracks every card impression)
+            if let next = self.currentCard {
+                self.analytics.trackCardShown(
+                    postId: next.id,
+                    position: self.currentIndex,
+                    totalCards: self.cards.count
+                )
+            } else if self.isFinished {
+                self.analytics.trackDeckComplete(
+                    yesCount: self.yesCount,
+                    noCount: self.noCount,
+                    totalCards: self.cards.count
+                )
+            }
         }
     }
 }
@@ -116,18 +193,16 @@ struct SwipeView: View {
                         .gesture(
                             DragGesture()
                                 .onChanged { value in
+                                    if viewModel.offset == .zero {
+                                        viewModel.onDragStart()
+                                    }
                                     viewModel.offset = value.translation
                                 }
                                 .onEnded { value in
-                                    if value.translation.width > 100 {
-                                        viewModel.swipeRight()
-                                    } else if value.translation.width < -100 {
-                                        viewModel.swipeLeft()
-                                    } else {
-                                        withAnimation(.spring(response: 0.3)) {
-                                            viewModel.offset = .zero
-                                        }
-                                    }
+                                    viewModel.onDragEnd(
+                                        translation: value.translation,
+                                        velocity: value.velocity
+                                    )
                                 }
                         )
 
@@ -191,6 +266,7 @@ struct SwipeView: View {
         }
         .task {
             if viewModel.cards.isEmpty {
+                AnalyticsEngine.shared.trackScreenView(screen: "swipe")
                 await viewModel.loadCards()
             }
         }

@@ -151,6 +151,54 @@ actor APIClient {
         return try await get("/graph", params: ["userId": userId])
     }
 
+    // MARK: - Mobile endpoints
+
+    func batchRecordInteractions(_ interactions: [[String: Any]]) async {
+        let body: [String: Any] = ["interactions": interactions]
+        do {
+            let _: EmptyResponse = try await post("/mobile/interactions/batch", body: body)
+        } catch {
+            for ix in interactions {
+                await recordInteraction(
+                    userId: ix["userId"] as? String ?? "",
+                    targetId: ix["targetId"] as? String ?? "",
+                    type: ix["type"] as? String ?? "view"
+                )
+            }
+        }
+    }
+
+    func registerDevice(userId: String, platform: String, token: String) async throws {
+        let body: [String: Any] = ["userId": userId, "platform": platform, "token": token]
+        let _: EmptyResponse = try await post("/mobile/device", body: body)
+    }
+
+    func fetchDeltaSync(since: Date) async throws -> DeltaSyncResponse {
+        let ms = String(Int(since.timeIntervalSince1970 * 1000))
+        return try await get("/mobile/sync", params: ["since": ms])
+    }
+
+    func uploadAnalytics(events: [[String: Any]]) async throws {
+        let body: [String: Any] = ["events": events]
+        let _: EmptyResponse = try await post("/mobile/analytics", body: body)
+    }
+
+    func executeRaw(method: String, path: String, body: [String: Any]?) async throws {
+        switch method.uppercased() {
+        case "POST":
+            let _: EmptyResponse = try await post(path, body: body ?? [:])
+        case "PUT":
+            let _: EmptyResponse = try await put(path, body: body ?? [:])
+        default:
+            let _: EmptyResponse = try await get(path)
+        }
+    }
+
+    func saveMe(userId: String, profile: [String: String]) async throws {
+        let body: [String: Any] = ["userId": userId, "profile": profile]
+        let _: EmptyResponse = try await put("/me", body: body)
+    }
+
     // MARK: - Networking
 
     private func get<T: Decodable>(_ path: String, params: [String: String] = [:]) async throws -> T {

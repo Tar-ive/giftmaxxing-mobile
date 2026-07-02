@@ -36,5 +36,11 @@ struct ContentView: View {
                 .tag(Tab.more)
         }
         .tint(Color.coral)
+        .onChange(of: appState.selectedTab) { oldTab, newTab in
+            AnalyticsEngine.shared.trackTabSwitch(
+                from: oldTab.rawValue,
+                to: newTab.rawValue
+            )
+        }
     }
 }

@@ -8,6 +8,10 @@ struct GiftmaxxingApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(appState)
+                .task {
+                    AnalyticsEngine.shared.startSession()
+                    AnalyticsEngine.shared.retryPendingAnalytics()
+                }
         }
     }
 }
