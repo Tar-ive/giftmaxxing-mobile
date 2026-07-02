@@ -30,6 +30,7 @@ const POSTS = process.env.POSTS_TABLE;
 const INTERACTIONS = process.env.INTERACTIONS_TABLE;
 const KNOWLEDGE = process.env.KNOWLEDGE_TABLE;
 const CONNECTIONS = process.env.CONNECTIONS_TABLE;
+const CHALLENGES = process.env.CHALLENGES_TABLE;
 const POOLS = process.env.POOLS_TABLE;
 const EVENTS = process.env.EVENTS_TABLE;
 const GRAPH = process.env.GRAPH_TABLE;
@@ -80,8 +81,15 @@ function isPublicRoute(method, path) {
     if (path === "/recipients" || path === "/ideas") return true;
     if (path === "/vectors") return true;
     if (path.startsWith("/posts/")) return true;
+    // Guest deck fetch (the invited friend swipes without an account). The
+    // sender-only fields (seed, verdicts) are stripped unless the request
+    // authenticates as the challenge's sender — see the route.
+    if (/^\/challenges\/[^/]+$/.test(path)) return true;
   }
   if (method === "POST" && (path === "/visual-search" || path === "/connections")) return true;
+  // Challenge create (anon senders allowed, same trust as POST /connections;
+  // Bedrock embed cost rides the aiEnabled() breaker) + the guest's response.
+  if (method === "POST" && (path === "/challenges" || /^\/challenges\/[^/]+\/response$/.test(path))) return true;
   return false;
 }
 
@@ -441,6 +449,226 @@ async function vectorRecommend(seedKeys, { limit, sourceUser }) {
     .map(vecToItem)
     .filter((it) => it.feedEligible)
     .slice(0, limit);
+}
+
+// ── Challenge engine (product-seeded swipe challenges) ───────────────────────
+// A challenge packages a SEED (a catalog pin, a taste-key set, or an uploaded
+// image — e.g. shared from Instagram) into a swipe deck of catalog items around
+// that seed: near-twins ("same thing, other colorways/varieties"), same-vibe
+// items at mid distance, and a few taste probes further out. The guest never
+// sees which card was the ask; their swipes are scored against the seed vector
+// to answer the sender's real question — "would they like THIS?" — indirectly.
+const CHALLENGE_DECK_SIZE = 14;
+// Cosine-DISTANCE bands over the Titan multimodal space: twins | same-vibe.
+const CHALLENGE_BAND_TWIN = 0.35;
+const CHALLENGE_BAND_VIBE = 0.55;
+
+function cosSim(a, b) {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  const d = Math.sqrt(na) * Math.sqrt(nb);
+  return d > 0 ? dot / d : 0;
+}
+
+// int8-quantize a float vector for storage inside the challenge META item
+// (~1.4 KB vs ~20 KB as JSON floats). Same scheme as GET /vectors; cosine only
+// needs direction, so the per-vector scale fully preserves what we use.
+function packVector(f) {
+  const norm = Math.sqrt(f.reduce((s, x) => s + x * x, 0)) || 1;
+  let maxAbs = 0;
+  const unit = f.map((x) => {
+    const u = x / norm;
+    const a = Math.abs(u);
+    if (a > maxAbs) maxAbs = a;
+    return u;
+  });
+  const scale = maxAbs > 0 ? maxAbs / 127 : 1;
+  const q = Int8Array.from(unit.map((u) => Math.max(-127, Math.min(127, Math.round(u / scale)))));
+  return { dim: f.length, scale, data: Buffer.from(q.buffer).toString("base64") };
+}
+
+function unpackVector(p) {
+  if (!p?.data || !p?.dim) return null;
+  const buf = Buffer.from(p.data, "base64");
+  const q = new Int8Array(buf.buffer, buf.byteOffset, Math.min(p.dim, buf.length));
+  const scale = Number(p.scale) || 1;
+  return Array.from(q, (v) => v * scale);
+}
+
+// GetVectors in chunks of 20 (API cap) -> Map(key -> vector record with data).
+async function getVectorsByKeys(keys) {
+  const out = new Map();
+  if (!s3v) return out;
+  for (let i = 0; i < keys.length; i += 20) {
+    const res = await s3v.send(
+      new GetVectorsCommand({
+        vectorBucketName: VECTOR_BUCKET,
+        indexName: VECTOR_INDEX,
+        keys: keys.slice(i, i + 20),
+        returnData: true,
+        returnMetadata: true,
+      })
+    );
+    for (const v of res.vectors ?? []) {
+      if (Array.isArray(v.data?.float32)) out.set(v.key, v);
+    }
+  }
+  return out;
+}
+
+// The condensed per-card snapshot stored on the challenge META item. `band` and
+// `distance` are sender-side internals — strip them before showing a guest.
+function deckSnapshot(it, band) {
+  return {
+    postId: it.postId,
+    name: it.name,
+    image: it.image,
+    price: it.price,
+    priceDisplay: it.priceDisplay,
+    category: it.category,
+    domain: it.domain,
+    url: it.url,
+    band,
+    distance: it._distance,
+  };
+}
+
+// kNN around the seed, quality-filtered, then a banded diversity pass:
+// ~30% twins (variant/colorway candidates), ~40% same vibe, rest probes —
+// capped per merchant + category, then shuffled so the deck order never leaks
+// the similarity gradient to the guest.
+async function buildChallengeDeck(seedVector, { size = CHALLENGE_DECK_SIZE, excludeKeys = [] } = {}) {
+  const out = await s3v.send(
+    new QueryVectorsCommand({
+      vectorBucketName: VECTOR_BUCKET,
+      indexName: VECTOR_INDEX,
+      topK: Math.min(Math.max(size * 6, 60), 100),
+      queryVector: { float32: seedVector },
+      returnMetadata: true,
+      returnDistance: true,
+    })
+  );
+  const seen = new Set(excludeKeys);
+  const candidates = (out.vectors ?? [])
+    .filter((v) => !seen.has(v.key))
+    .map((v) => {
+      const it = vecToItem(v);
+      const d = v.distance ?? 1;
+      it._band = d < CHALLENGE_BAND_TWIN ? "twin" : d < CHALLENGE_BAND_VIBE ? "vibe" : "probe";
+      return it;
+    })
+    .filter((it) => it.feedEligible && it.image);
+
+  const quota = { twin: Math.round(size * 0.3), vibe: Math.round(size * 0.4), probe: size };
+  const picked = [];
+  const pickedKeys = new Set();
+  const byDomain = {};
+  const byCategory = {};
+  const taken = { twin: 0, vibe: 0, probe: 0 };
+  const admit = (it, band, enforceQuota) => {
+    if (picked.length >= size || pickedKeys.has(it.postId)) return;
+    if (enforceQuota && taken[band] >= quota[band]) return;
+    if ((byDomain[it.domain] ?? 0) >= 3 || (byCategory[it.category] ?? 0) >= 5) return;
+    picked.push(deckSnapshot(it, band));
+    pickedKeys.add(it.postId);
+    taken[band]++;
+    byDomain[it.domain] = (byDomain[it.domain] ?? 0) + 1;
+    byCategory[it.category] = (byCategory[it.category] ?? 0) + 1;
+  };
+  for (const band of ["twin", "vibe", "probe"]) {
+    for (const it of candidates) if (it._band === band) admit(it, band, true);
+  }
+  // Backfill closest-first if any band under-delivered.
+  for (const it of candidates) admit(it, it._band, false);
+
+  // Fisher-Yates so twins aren't clustered at the front of the deck.
+  for (let i = picked.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [picked[i], picked[j]] = [picked[j], picked[i]];
+  }
+  return picked;
+}
+
+// Score a guest's swipes against the seed. Two signals, blended:
+//   1. weightedApproval — on cards SIMILAR to the seed, did they say yes?
+//      (each swipe weighted by cos(card, seed)^2, so far-away probes barely count)
+//   2. centroidDelta — is their yes-centroid closer to the seed than their
+//      no-centroid? (sign = direction of their taste relative to the ask)
+// Plus a taste summary the sender can act on (categories, price band, dwell
+// favorite, and liked TWINS = direct "buy this variant" candidates).
+function computeChallengeVerdict({ seedVec, swipes, vectorsByKey, deckByKey }) {
+  const yes = swipes.filter((s) => s.dir === "yes");
+  const dim = seedVec.length;
+  let wYes = 0, wTot = 0, nYes = 0, nNo = 0;
+  const accYes = new Array(dim).fill(0);
+  const accNo = new Array(dim).fill(0);
+  let directSeedSwipe = null; // the seed card itself, if it was in the deck
+  for (const s of swipes) {
+    if (deckByKey.get(s.id)?.band === "seed") directSeedSwipe = s.dir;
+    const v = vectorsByKey.get(s.id)?.data?.float32;
+    if (!v || v.length !== dim) continue;
+    const w = Math.max(0, cosSim(v, seedVec)) ** 2;
+    wTot += w;
+    if (s.dir === "yes") {
+      wYes += w;
+      nYes++;
+      for (let i = 0; i < dim; i++) accYes[i] += v[i];
+    } else {
+      nNo++;
+      for (let i = 0; i < dim; i++) accNo[i] += v[i];
+    }
+  }
+  const plainYesRate = swipes.length ? yes.length / swipes.length : 0;
+  const weightedApproval = wTot > 1e-6 ? wYes / wTot : plainYesRate;
+  let centroidDelta = 0;
+  if (nYes && nNo) {
+    centroidDelta =
+      cosSim(accYes.map((x) => x / nYes), seedVec) - cosSim(accNo.map((x) => x / nNo), seedVec);
+  } else if (nYes) centroidDelta = 0.1;
+  else if (nNo) centroidDelta = -0.1;
+  const deltaNorm = Math.max(0, Math.min(1, (centroidDelta + 0.2) / 0.4));
+  let score = Math.max(0, Math.min(1, 0.65 * weightedApproval + 0.35 * deltaNorm));
+  // A direct swipe on the hidden seed card overrides inference in that direction.
+  if (directSeedSwipe === "yes") score = Math.max(score, 0.85);
+  if (directSeedSwipe === "no") score = Math.min(score, 0.25);
+  const label = score >= 0.72 ? "love" : score >= 0.55 ? "like" : score >= 0.4 ? "unsure" : "pass";
+
+  const likedItems = yes.map((s) => deckByKey.get(s.id)).filter(Boolean);
+  const catCounts = {};
+  for (const it of likedItems) if (it.category) catCounts[it.category] = (catCounts[it.category] ?? 0) + 1;
+  const topCategories = Object.entries(catCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([c]) => c);
+  const prices = likedItems.map((it) => it.price).filter((p) => p > 0).sort((a, b) => a - b);
+  const priceBand = prices.length
+    ? { min: prices[0], median: prices[Math.floor(prices.length / 2)], max: prices[prices.length - 1] }
+    : null;
+  const favoriteId =
+    swipes
+      .filter((s) => s.dir === "yes" && s.dwellMs > 0)
+      .sort((a, b) => b.dwellMs - a.dwellMs)[0]?.id ?? null;
+  const variantPicks = likedItems
+    .filter((it) => it.band === "twin" || it.band === "seed")
+    .map((it) => it.postId);
+
+  return {
+    score: Math.round(score * 100) / 100,
+    label,
+    directSeedSwipe,
+    weightedApproval: Math.round(weightedApproval * 100) / 100,
+    centroidDelta: Math.round(centroidDelta * 1000) / 1000,
+    topCategories,
+    priceBand,
+    favoriteId,
+    variantPicks,
+    yesCount: yes.length,
+    swipeCount: swipes.length,
+  };
 }
 
 // Server-side mirror of web/lib/events.ts date math: whole days until an event's
@@ -2451,7 +2679,328 @@ export const handler = async (event) => {
         );
         claimed++;
       }
-      return json(200, { ok: true, claimed });
+      // Also re-key challenges created under the anon id (bySender GSI returns
+      // META rows only — they alone carry senderId), so verdicts collected while
+      // signed out appear the moment the sender signs in.
+      let claimedChallenges = 0;
+      if (CHALLENGES) {
+        const ch = await ddb.send(
+          new QueryCommand({
+            TableName: CHALLENGES,
+            IndexName: "bySender",
+            KeyConditionExpression: "senderId = :s",
+            ExpressionAttributeValues: { ":s": anonId },
+          })
+        );
+        for (const row of ch.Items ?? []) {
+          await ddb.send(
+            new UpdateCommand({
+              TableName: CHALLENGES,
+              Key: { challengeId: row.challengeId, itemId: "META" },
+              UpdateExpression: "SET senderId = :u",
+              ExpressionAttributeValues: { ":u": claimUserId },
+            })
+          );
+          claimedChallenges++;
+        }
+      }
+      return json(200, { ok: true, claimed, claimedChallenges });
+    }
+
+    // ── Product-seeded swipe challenges ─────────────────────────────────────
+    // The funnel: sender shares a product (or an image, e.g. from Instagram) →
+    // we build a swipe deck of similar catalog items around it → the friend
+    // swipes as a guest → we score their swipes against the seed and tell the
+    // sender "they'd love/like/pass on this" without the friend ever knowing
+    // which card was the ask.
+
+    // POST /challenges  { senderId, seed: { imageBase64? | postId? | seedKeys? ,
+    //   text? }, to?, occasion?, date?, note?, inviterName?, deckSize? }
+    // Resolves the seed to a vector, builds the deck, stores the META item.
+    if (method === "POST" && path === "/challenges") {
+      if (!CHALLENGES) return json(503, { error: "challenges not configured" });
+      const senderId = String(body.senderId || "").slice(0, 80);
+      if (!senderId) return json(400, { error: "senderId required" });
+      if (!s3v || !(await aiEnabled())) {
+        return json(503, { error: "temporarily disabled (cost guard)" });
+      }
+      const seed = body.seed ?? {};
+      const deckSize = Math.max(6, Math.min(Number(body.deckSize) || CHALLENGE_DECK_SIZE, 24));
+
+      // Resolve the seed vector: an uploaded image (share-extension flow), one
+      // catalog pin, or a set of taste keys (centroid).
+      let seedVector = null;
+      let seedInfo = null;
+      let seedCard = null; // the seed itself, slipped into the deck when it's a catalog pin
+      let exclude = [];
+      try {
+        if (seed.imageBase64) {
+          seedVector = await embedImage(seed.imageBase64, seed.text);
+          seedInfo = { kind: "image", text: seed.text ? String(seed.text).slice(0, 200) : null };
+        } else if (seed.postId || (Array.isArray(seed.seedKeys) && seed.seedKeys.length)) {
+          const keys = seed.postId
+            ? [String(seed.postId)]
+            : seed.seedKeys.slice(0, 8).map(String);
+          exclude = keys;
+          const vecs = await getVectorsByKeys(keys);
+          if (vecs.size) {
+            const dim = vecs.values().next().value.data.float32.length;
+            const c = new Array(dim).fill(0);
+            for (const v of vecs.values()) for (let i = 0; i < dim; i++) c[i] += v.data.float32[i];
+            for (let i = 0; i < dim; i++) c[i] /= vecs.size;
+            seedVector = c;
+            const first = seed.postId ? vecs.get(String(seed.postId)) : null;
+            seedInfo = {
+              kind: seed.postId ? "post" : "keys",
+              keys,
+              title: first?.metadata?.title || null,
+              image: first?.metadata?.imageUrl || null,
+            };
+            // A pin-seeded challenge hides the seed card IN the deck: a direct
+            // swipe on it is the strongest possible signal for the sender.
+            if (first) seedCard = deckSnapshot(vecToItem(first), "seed");
+          }
+        }
+      } catch (e) {
+        console.warn("challenge seed resolve failed:", e.message);
+      }
+      if (!seedVector) {
+        return json(400, { error: "seed required: imageBase64, postId, or seedKeys" });
+      }
+
+      const deck = await buildChallengeDeck(seedVector, {
+        size: seedCard ? deckSize - 1 : deckSize,
+        excludeKeys: exclude,
+      });
+      if (seedCard) deck.splice(Math.floor(Math.random() * (deck.length + 1)), 0, seedCard);
+      if (deck.length < 4) return json(422, { error: "not enough similar catalog items" });
+
+      const challengeId = `chal_${gid()}`;
+      const meta = {
+        challengeId,
+        itemId: "META",
+        senderId,
+        createdAt: Date.now(),
+        inviterName: body.inviterName ? String(body.inviterName).slice(0, 80) : undefined,
+        to: body.to ? String(body.to).slice(0, 80) : undefined,
+        occasion: body.occasion ? String(body.occasion).slice(0, 40) : undefined,
+        date:
+          typeof body.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.date)
+            ? body.date
+            : undefined,
+        note: body.note ? String(body.note).slice(0, 280) : undefined,
+        seed: seedInfo,
+        seedVec: packVector(seedVector),
+        deck,
+        responseCount: 0,
+      };
+      await ddb.send(new PutCommand({ TableName: CHALLENGES, Item: meta }));
+      // The sender gets the full deck (bands included) for their own preview.
+      return json(200, { ok: true, challengeId, seed: seedInfo, deck });
+    }
+
+    // GET /challenges/{id} — the guest's deck (public; sender internals
+    // stripped). If the caller authenticates as the SENDER (or admin), the
+    // seed, banded deck, and all responses+verdicts ride along.
+    if (method === "GET" && /^\/challenges\/[^/]+$/.test(path)) {
+      if (!CHALLENGES) return json(503, { error: "challenges not configured" });
+      const challengeId = decodeURIComponent(path.split("/")[2] ?? "");
+      const out = await ddb.send(
+        new GetCommand({ TableName: CHALLENGES, Key: { challengeId, itemId: "META" } })
+      );
+      const meta = out.Item;
+      if (!meta) return json(404, { error: "not found" });
+      const base = {
+        challengeId,
+        inviterName: meta.inviterName ?? null,
+        to: meta.to ?? null,
+        occasion: meta.occasion ?? null,
+        date: meta.date ?? null,
+        note: meta.note ?? null,
+        createdAt: meta.createdAt,
+        // Guests must not see which card is the ask: strip band + distance.
+        deck: (meta.deck ?? []).map(({ band, distance, ...it }) => it),
+      };
+      const auth = await authorizeRequest(event, method, path);
+      if (auth.ok && (auth.via === "admin" || auth.sub === meta.senderId)) {
+        const resp = await ddb.send(
+          new QueryCommand({
+            TableName: CHALLENGES,
+            KeyConditionExpression: "challengeId = :c AND begins_with(itemId, :r)",
+            ExpressionAttributeValues: { ":c": challengeId, ":r": "RESP#" },
+            ScanIndexForward: false,
+          })
+        );
+        return json(200, {
+          ...base,
+          senderId: meta.senderId,
+          seed: meta.seed,
+          deckFull: meta.deck,
+          responseCount: meta.responseCount ?? 0,
+          responses: resp.Items ?? [],
+        });
+      }
+      return json(200, base);
+    }
+
+    // POST /challenges/{id}/response  { guest:{ name?, handle?, birthday?,
+    //   genderPref? }, swipes:[{ id, dir, dwellMs? }] }
+    // Stores the response + verdict, mirrors a soft-profile connection so the
+    // sender's existing Activity/Responses surfaces light up. The GUEST only
+    // gets back their own taste summary — never the seed verdict.
+    if (method === "POST" && /^\/challenges\/[^/]+\/response$/.test(path)) {
+      if (!CHALLENGES) return json(503, { error: "challenges not configured" });
+      const challengeId = decodeURIComponent(path.split("/")[2] ?? "");
+      const out = await ddb.send(
+        new GetCommand({ TableName: CHALLENGES, Key: { challengeId, itemId: "META" } })
+      );
+      const meta = out.Item;
+      if (!meta) return json(404, { error: "not found" });
+
+      const deckByKey = new Map((meta.deck ?? []).map((it) => [it.postId, it]));
+      const swipes = (Array.isArray(body.swipes) ? body.swipes : [])
+        .slice(0, 60)
+        .map((s) => ({
+          id: String(s.id || ""),
+          dir: s.dir === "yes" ? "yes" : "no",
+          dwellMs: Math.max(0, Number(s.dwellMs) || 0),
+        }))
+        .filter((s) => s.id && deckByKey.has(s.id));
+      if (!swipes.length) return json(400, { error: "swipes (on deck items) required" });
+
+      // Verdict: vector-scored when the index is up, facet fallback otherwise.
+      let verdict = null;
+      const seedVec = unpackVector(meta.seedVec);
+      if (seedVec && s3v && (await aiEnabled())) {
+        try {
+          const vectorsByKey = await getVectorsByKeys(swipes.map((s) => s.id));
+          verdict = computeChallengeVerdict({ seedVec, swipes, vectorsByKey, deckByKey });
+        } catch (e) {
+          console.warn("challenge verdict failed, falling back:", e.message);
+        }
+      }
+      if (!verdict) {
+        verdict = computeChallengeVerdict({
+          seedVec: seedVec ?? [1],
+          swipes,
+          vectorsByKey: new Map(),
+          deckByKey,
+        });
+      }
+
+      const guest = body.guest ?? {};
+      const guestName = String(guest.name || meta.to || "Friend").trim().slice(0, 80);
+      const createdAt = Date.now();
+      const respId = gid();
+      await ddb.send(
+        new PutCommand({
+          TableName: CHALLENGES,
+          Item: {
+            challengeId,
+            itemId: `RESP#${createdAt}#${respId}`,
+            guestName,
+            guestHandle: guest.handle ? String(guest.handle).slice(0, 40) : undefined,
+            birthday:
+              typeof guest.birthday === "string" && /^\d{4}-\d{2}-\d{2}$/.test(guest.birthday)
+                ? guest.birthday
+                : undefined,
+            genderPref: guest.genderPref ? String(guest.genderPref).slice(0, 12) : undefined,
+            swipes,
+            verdict,
+            createdAt,
+          },
+        })
+      );
+      await ddb.send(
+        new UpdateCommand({
+          TableName: CHALLENGES,
+          Key: { challengeId, itemId: "META" },
+          UpdateExpression: "ADD responseCount :one",
+          ExpressionAttributeValues: { ":one": 1 },
+        })
+      );
+
+      // Mirror a soft profile so the sender's existing surfaces (Activity,
+      // ChallengeView responses, Maxi's list_connections) pick this up as-is.
+      if (meta.senderId) {
+        const item = {
+          userId: meta.senderId,
+          connectionId: `conn_${respId}`,
+          soft: true,
+          kind: "challenge",
+          challengeId,
+          guestName,
+          birthday:
+            typeof guest.birthday === "string" && /^\d{4}-\d{2}-\d{2}$/.test(guest.birthday)
+              ? guest.birthday
+              : undefined,
+          genderPref: guest.genderPref ? String(guest.genderPref).slice(0, 12) : undefined,
+          vibes: verdict.topCategories,
+          seeds: swipes.filter((s) => s.dir === "yes").slice(0, 8).map((s) => s.id),
+          yesCount: verdict.yesCount,
+          totalSwipes: verdict.swipeCount,
+          verdictScore: verdict.score,
+          verdictLabel: verdict.label,
+          seen: false,
+          createdAt,
+        };
+        await ddb.send(new PutCommand({ TableName: CONNECTIONS, Item: item }));
+        await captureConnection(item);
+      }
+
+      // The guest's reveal: their own taste only. No seed verdict — the point
+      // of the funnel is that the ask stays invisible.
+      return json(200, {
+        ok: true,
+        taste: { topCategories: verdict.topCategories, priceBand: verdict.priceBand },
+      });
+    }
+
+    // GET /challenges?senderId= — the sender's challenges, newest first, with
+    // response counts + latest verdict. Auth-gated by default-deny.
+    if (method === "GET" && path === "/challenges") {
+      if (!CHALLENGES) return json(503, { error: "challenges not configured" });
+      const senderId = qs.senderId;
+      if (!senderId) return json(400, { error: "senderId required" });
+      const out = await ddb.send(
+        new QueryCommand({
+          TableName: CHALLENGES,
+          IndexName: "bySender",
+          KeyConditionExpression: "senderId = :s",
+          ExpressionAttributeValues: { ":s": senderId },
+          ScanIndexForward: false,
+          Limit: 50,
+        })
+      );
+      const items = await Promise.all(
+        (out.Items ?? []).map(async (m) => {
+          let latestVerdict = null;
+          if ((m.responseCount ?? 0) > 0) {
+            const r = await ddb.send(
+              new QueryCommand({
+                TableName: CHALLENGES,
+                KeyConditionExpression: "challengeId = :c AND begins_with(itemId, :r)",
+                ExpressionAttributeValues: { ":c": m.challengeId, ":r": "RESP#" },
+                ScanIndexForward: false,
+                Limit: 1,
+              })
+            );
+            latestVerdict = r.Items?.[0]?.verdict ?? null;
+          }
+          return {
+            challengeId: m.challengeId,
+            to: m.to ?? null,
+            occasion: m.occasion ?? null,
+            date: m.date ?? null,
+            seed: m.seed ?? null,
+            deckSize: (m.deck ?? []).length,
+            responseCount: m.responseCount ?? 0,
+            createdAt: m.createdAt,
+            latestVerdict,
+          };
+        })
+      );
+      return json(200, { items });
     }
 
     // ── Gift bundles (Maxi's picks from a completed challenge) ─────────────────

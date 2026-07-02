@@ -40,6 +40,8 @@ data "aws_iam_policy_document" "ddb_access" {
       aws_dynamodb_table.interactions.arn,
       aws_dynamodb_table.knowledge.arn,
       aws_dynamodb_table.connections.arn,
+      aws_dynamodb_table.challenges.arn,
+      "${aws_dynamodb_table.challenges.arn}/index/*",
       aws_dynamodb_table.pools.arn,
       "${aws_dynamodb_table.pools.arn}/index/*",
       aws_dynamodb_table.events.arn,

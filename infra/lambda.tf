@@ -34,6 +34,7 @@ resource "aws_lambda_function" "api" {
       INTERACTIONS_TABLE = aws_dynamodb_table.interactions.name
       KNOWLEDGE_TABLE    = aws_dynamodb_table.knowledge.name
       CONNECTIONS_TABLE  = aws_dynamodb_table.connections.name
+      CHALLENGES_TABLE   = aws_dynamodb_table.challenges.name
       POOLS_TABLE        = aws_dynamodb_table.pools.name
       EVENTS_TABLE       = aws_dynamodb_table.events.name
       GRAPH_TABLE        = aws_dynamodb_table.graph.name

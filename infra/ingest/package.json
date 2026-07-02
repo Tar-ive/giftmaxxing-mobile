@@ -20,7 +20,9 @@
     "ingest:pins": "node ingest-pins.mjs",
     "clean:posts:dry": "node clean-posts.mjs",
     "clean:posts": "node clean-posts.mjs --apply",
-    "vectors:query": "node vector-query.mjs"
+    "vectors:query": "node vector-query.mjs",
+    "catalog:enrich:dry": "node catalog-enrich.mjs --limit 20 --dry-run",
+    "catalog:enrich": "node catalog-enrich.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.600.0",

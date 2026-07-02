@@ -219,6 +219,49 @@ resource "aws_dynamodb_table" "connections" {
   }
 }
 
+# ── Challenges (product-seeded swipe challenges) ──────────────────────────────
+# A challenge = a seed product/image + a server-built swipe deck of similar
+# catalog items (S3 Vectors kNN), sent to a friend. Single-table adjacency:
+#   pk = challengeId
+#   sk = "META"                → the challenge (senderId, seed, deck, verdictable)
+#        "RESP#<ts>#<id>"      → one guest response (swipes + computed verdict)
+# GSI bySender (sparse: only META rows carry senderId) lists a sender's
+# challenges newest-first, mirroring the connections claim flow for anon ids.
+resource "aws_dynamodb_table" "challenges" {
+  name         = "${local.prefix}-challenges"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "challengeId"
+  range_key    = "itemId"
+
+  attribute {
+    name = "challengeId"
+    type = "S"
+  }
+  attribute {
+    name = "itemId"
+    type = "S"
+  }
+  attribute {
+    name = "senderId"
+    type = "S"
+  }
+  attribute {
+    name = "createdAt"
+    type = "N"
+  }
+
+  global_secondary_index {
+    name            = "bySender"
+    hash_key        = "senderId"
+    range_key       = "createdAt"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+}
+
 # ── Pools (group gifts) ───────────────────────────────────────────────────────
 # Backend-backed group-gift pools so contributions + the group chat sync across
 # everyone in the pool (the old localStorage pools were per-device only).
