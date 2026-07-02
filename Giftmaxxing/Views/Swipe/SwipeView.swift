@@ -14,7 +14,7 @@ final class SwipeViewModel: ObservableObject {
     private let analytics = AnalyticsEngine.shared
 
     // Tinder-style: track drag start time for hesitation detection
-    private var dragStartTime: Date?
+    private(set) var dragStartTime: Date?
     private var dragStartTranslation: CGSize = .zero
 
     var currentCard: Post? {
@@ -193,7 +193,7 @@ struct SwipeView: View {
                         .gesture(
                             DragGesture()
                                 .onChanged { value in
-                                    if viewModel.offset == .zero {
+                                    if viewModel.dragStartTime == nil {
                                         viewModel.onDragStart()
                                     }
                                     viewModel.offset = value.translation

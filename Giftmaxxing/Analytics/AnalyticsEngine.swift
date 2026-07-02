@@ -75,12 +75,13 @@ final class AnalyticsEngine: ObservableObject {
 
     private func handleBecomeActive() {
         let wasBackgrounded = lastActiveTime.timeIntervalSinceNow < -1
+        let backgroundDurationMs = -lastActiveTime.timeIntervalSinceNow * 1000
         lastActiveTime = Date()
 
         if wasBackgrounded {
             track(.sessionResume, properties: [
                 "sessionId": .string(sessionId),
-                "backgroundDurationMs": .double(-lastActiveTime.timeIntervalSinceNow * 1000),
+                "backgroundDurationMs": .double(backgroundDurationMs),
             ])
         }
     }
@@ -393,8 +394,18 @@ final class AnalyticsEngine: ObservableObject {
         }
     }
 
+    private var consecutiveFailures = 0
+    private var nextRetryTime: Date?
+
     private func uploadBatch(_ events: [AnalyticsEvent]) async {
         guard !events.isEmpty else { return }
+
+        // Exponential backoff: skip if we're in a cooldown period after repeated failures
+        if let nextRetry = nextRetryTime, Date() < nextRetry {
+            let requeued = Array(events.prefix(200))
+            eventBuffer.insert(contentsOf: requeued, at: 0)
+            return
+        }
 
         do {
             let payload = events.map { event -> [String: Any] in
@@ -415,8 +426,15 @@ final class AnalyticsEngine: ObservableObject {
             }
 
             try await api.uploadAnalytics(events: payload)
+            consecutiveFailures = 0
+            nextRetryTime = nil
         } catch {
-            // Re-buffer failed events for next flush (max 200 to prevent unbounded growth)
+            consecutiveFailures += 1
+            // Exponential backoff: 30s, 60s, 120s, 240s, capped at 5 min
+            let backoffSeconds = min(300, 30 * pow(2.0, Double(consecutiveFailures - 1)))
+            nextRetryTime = Date().addingTimeInterval(backoffSeconds)
+
+            // Re-buffer failed events (max 200 to prevent unbounded growth)
             let requeued = Array(events.prefix(200))
             eventBuffer.insert(contentsOf: requeued, at: 0)
         }

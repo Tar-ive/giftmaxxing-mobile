@@ -13,12 +13,31 @@ const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
 });
 
 const ANALYTICS_TABLE = process.env.ANALYTICS_TABLE;
+const MAX_BATCH_SIZE = 100;
+const MAX_STRING_LENGTH = 500;
+
+const VALID_EVENT_TYPES = new Set([
+  "session_start", "session_end", "session_resume", "session_background",
+  "feed_impression", "feed_dwell", "feed_scroll", "feed_scroll_depth", "feed_revisit",
+  "content_like", "content_unlike", "content_save", "content_unsave",
+  "content_share", "content_tap", "content_comment",
+  "swipe_card_shown", "swipe_right", "swipe_left",
+  "swipe_decision_time", "swipe_velocity", "swipe_hesitation", "swipe_deck_complete", "swipe_undo",
+  "tab_switch", "screen_view",
+  "product_view", "product_affiliate_click",
+  "search_query", "search_result_tap",
+  "maxi_conversation_start", "maxi_message_sent", "maxi_response_received", "maxi_product_tap",
+]);
 
 const json = (statusCode, body) => ({
   statusCode,
   headers: { "content-type": "application/json" },
   body: JSON.stringify(body),
 });
+
+function truncate(val, max = MAX_STRING_LENGTH) {
+  return typeof val === "string" ? val.slice(0, max) : val;
+}
 
 // POST /mobile/analytics — batch upload behavioral events from iOS app.
 // Body: { events: [{ eventId, type, timestamp, ...properties }] }
@@ -55,6 +74,9 @@ async function ingestAnalytics(body) {
   if (!Array.isArray(events) || events.length === 0) {
     return json(400, { error: "events array required" });
   }
+  if (events.length > MAX_BATCH_SIZE) {
+    return json(400, { error: `batch size exceeds limit of ${MAX_BATCH_SIZE}` });
+  }
 
   if (!ANALYTICS_TABLE) {
     // Table not provisioned yet — accept silently so the app doesn't retry
@@ -71,9 +93,15 @@ async function ingestAnalytics(body) {
 
   for (const batch of batches) {
     const items = batch.map((evt) => {
-      const userId = evt.userId || "anonymous";
-      const timestamp = evt.timestamp || Date.now();
-      const eventId = evt.eventId || `${timestamp}-${Math.random().toString(36).slice(2, 10)}`;
+      const rawType = typeof evt.type === "string" ? evt.type : "";
+      if (!VALID_EVENT_TYPES.has(rawType)) return null;
+
+      const userId = truncate(evt.userId || "anonymous", 128);
+      const timestamp = typeof evt.timestamp === "number" ? evt.timestamp : Date.now();
+      const eventId = truncate(
+        evt.eventId || `${timestamp}-${Math.random().toString(36).slice(2, 10)}`,
+        64
+      );
 
       return {
         PutRequest: {
@@ -81,15 +109,14 @@ async function ingestAnalytics(body) {
             userId,
             sk: `${timestamp}#${eventId}`,
             eventId,
-            type: evt.type,
+            type: rawType,
             timestamp,
-            // Flatten all properties into the item for flexible querying
-            platform: evt.platform || "ios",
-            appVersion: evt.appVersion,
-            sessionId: evt.sessionId,
-            postId: evt.postId,
-            position: evt.position,
-            source: evt.source,
+            platform: truncate(evt.platform || "ios", 16),
+            appVersion: truncate(evt.appVersion, 32),
+            sessionId: truncate(evt.sessionId, 64),
+            postId: truncate(evt.postId, 128),
+            position: typeof evt.position === "number" ? evt.position : undefined,
+            source: truncate(evt.source, 32),
             // Dwell/timing metrics (Instagram-style)
             dwellMs: evt.dwellMs,
             dwellBucket: evt.dwellBucket,
@@ -115,21 +142,20 @@ async function ingestAnalytics(body) {
             activeDurationMs: evt.activeDurationMs,
             backgroundDurationMs: evt.backgroundDurationMs,
             thermalState: evt.thermalState,
-            // Navigation
-            fromTab: evt.fromTab,
-            toTab: evt.toTab,
-            screen: evt.screen,
-            // Product funnel
-            productUrl: evt.productUrl,
-            // Search
-            query: evt.query,
-            resultCount: evt.resultCount,
+            fromTab: truncate(evt.fromTab, 32),
+            toTab: truncate(evt.toTab, 32),
+            screen: truncate(evt.screen, 64),
+            productUrl: truncate(evt.productUrl, 512),
+            query: truncate(evt.query, 256),
+            resultCount: typeof evt.resultCount === "number" ? evt.resultCount : undefined,
             // TTL: auto-delete after 90 days
             expiresAt: Math.floor(timestamp / 1000) + 90 * 86400,
           },
         },
       };
-    });
+    }).filter(Boolean);
+
+    if (items.length === 0) continue;
 
     try {
       await ddb.send(new BatchWriteCommand({
