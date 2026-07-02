@@ -105,15 +105,20 @@ struct UpcomingEventsResponse: Codable {
 }
 
 struct UpcomingEvent: Identifiable, Codable {
-    var id: String { "\(recipientId)-\(type)-\(date ?? "")" }
-    var recipientId: String
-    var type: String
-    var date: String?
+    var eventId: String?
+    var recipientId: String?
+    var type: String?
+    var title: String?
+    var date: Double?
+    var recipientName: String?
     var recurrence: String?
     var reminderLeadDays: Int?
     var budget: Double?
     var daysUntil: Int?
+    var scope: String?
     var recipient: EventRecipient?
+
+    var id: String { eventId ?? "\(recipientId ?? "")-\(type ?? "")-\(date ?? 0)" }
 
     struct EventRecipient: Codable {
         var id: String

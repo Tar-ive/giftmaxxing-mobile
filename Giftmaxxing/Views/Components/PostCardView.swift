@@ -47,14 +47,8 @@ struct PostCardView: View {
                     Text(post.product.emoji)
                         .font(.system(size: 64))
 
-                    if let image = post.product.image, let url = URL(string: image) {
-                        AsyncImage(url: url) { phase in
-                            if let image = phase.image {
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                            }
-                        }
+                    if let image = post.product.image {
+                        CachedAsyncImage(url: image, width: 600)
                     }
 
                     // Price badge

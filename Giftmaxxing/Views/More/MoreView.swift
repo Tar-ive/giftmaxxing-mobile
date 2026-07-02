@@ -1,380 +1,270 @@
 import SwiftUI
 
-struct MoreFeature: Identifiable {
-    let id: String
-    var title: String
-    var description: String
-    var icon: String
-    var color: Color
-    var destination: MoreDestination
-    var badge: String?
-}
-
-enum MoreDestination: String {
-    case maxi
-    case pools
-    case shop
-    case ideas
-    case milestones
-    case settings
-    case drops
-    case cart
-    case recommendations
-}
-
 struct MoreView: View {
     @EnvironmentObject private var appState: AppState
-
-    private let primaryFeatures: [MoreFeature] = [
-        MoreFeature(id: "maxi", title: "Ask Maxi", description: "AI gift concierge", icon: "sparkles", color: .coral, destination: .maxi, badge: "AI"),
-        MoreFeature(id: "pools", title: "Gift Pools", description: "Split costs with friends", icon: "person.3.fill", color: Color(hex: "#7C5CFC"), destination: .pools),
-        MoreFeature(id: "shop", title: "Shop", description: "Amazon picks & deals", icon: "bag.fill", color: Color(hex: "#FF9900"), destination: .shop),
-        MoreFeature(id: "ideas", title: "Gift Ideas", description: "Curated inspiration", icon: "lightbulb.fill", color: Color(hex: "#34C759"), destination: .ideas),
-        MoreFeature(id: "drops", title: "Drops", description: "Bundled deals", icon: "flame.fill", color: Color(hex: "#FF6B35"), destination: .drops),
-        MoreFeature(id: "recs", title: "For You", description: "Personalized picks", icon: "heart.text.square.fill", color: Color(hex: "#AF52DE"), destination: .recommendations),
-    ]
-
-    private let secondaryFeatures: [MoreFeature] = [
-        MoreFeature(id: "milestones", title: "Milestones", description: "Track gifting goals", icon: "trophy.fill", color: Color(hex: "#FFD700"), destination: .milestones),
-        MoreFeature(id: "cart", title: "Cart", description: "Your saved items", icon: "cart.fill", color: Color(hex: "#007AFF"), destination: .cart),
-        MoreFeature(id: "settings", title: "Settings", description: "Account & preferences", icon: "gearshape.fill", color: .gray, destination: .settings),
-    ]
+    @EnvironmentObject private var authManager: AuthManager
+    @EnvironmentObject private var pushManager: PushManager
+    @EnvironmentObject private var syncEngine: SyncEngine
+    @State private var showSignIn = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 20) {
                     // User header
-                    UserHeaderCard()
+                    if authManager.isAuthenticated {
+                        VStack(spacing: 8) {
+                            Circle()
+                                .fill(Color.gradient(for: .coral))
+                                .frame(width: 72, height: 72)
+                                .overlay {
+                                    Text(String(authManager.displayName?.prefix(1) ?? "?"))
+                                        .font(.system(size: 28, weight: .bold))
+                                        .foregroundStyle(.white)
+                                }
 
-                    // Quick stats
-                    QuickStatsRow()
+                            Text(authManager.displayName ?? "Giftmaxxer")
+                                .font(.displaySmall)
+                                .foregroundStyle(Color.ink)
 
-                    // Primary features
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Features")
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color.ink)
-                            .padding(.horizontal, 16)
+                            if let email = authManager.email {
+                                Text(email)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
 
-                        LazyVGrid(columns: [
-                            GridItem(.flexible(), spacing: 12),
-                            GridItem(.flexible(), spacing: 12),
-                        ], spacing: 12) {
-                            ForEach(primaryFeatures) { feature in
-                                FeatureCard(feature: feature)
+                            if let lastSync = syncEngine.lastSyncDate {
+                                Text("Last synced \(lastSync, style: .relative) ago")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
                             }
                         }
-                        .padding(.horizontal, 16)
-                    }
-
-                    // Secondary features
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("More")
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color.ink)
-                            .padding(.horizontal, 16)
-
-                        ForEach(secondaryFeatures) { feature in
-                            SecondaryFeatureRow(feature: feature)
-                        }
-                        .padding(.horizontal, 16)
-                    }
-
-                    // Maxi banner
-                    MaxiBannerCard()
-                        .padding(.horizontal, 16)
-
-                    // Footer links
-                    VStack(spacing: 8) {
-                        NavigationLink(destination: PrivacyView()) {
-                            Text("Privacy Policy")
-                                .font(.caption)
+                        .padding(.vertical, 16)
+                    } else {
+                        VStack(spacing: 12) {
+                            Text("Sign in to unlock all features")
+                                .font(.bodyMedium)
                                 .foregroundStyle(.secondary)
+
+                            Button("Sign in with Apple") {
+                                showSignIn = true
+                            }
+                            .font(.labelBold)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(Color.ink)
+                            .clipShape(Capsule())
                         }
-                        Text("giftmaxxing v1.0")
-                            .font(.caption)
-                            .foregroundStyle(.secondary.opacity(0.6))
+                        .padding(.vertical, 16)
                     }
-                    .padding(.top, 8)
-                    .padding(.bottom, 32)
+
+                    // Features
+                    VStack(spacing: 2) {
+                        MoreSectionHeader(title: "Features")
+
+                        MoreRow(icon: "sparkles", title: "Maxi AI", subtitle: "Your gift concierge") {
+                            MaxiView()
+                        }
+                        MoreRow(icon: "person.2.fill", title: "Gift Pools", subtitle: "Group gifting") {
+                            PoolsView()
+                        }
+                        MoreRow(icon: "bag.fill", title: "Shop", subtitle: "Curated picks") {
+                            ShopView()
+                        }
+                    }
+
+                    // Settings
+                    VStack(spacing: 2) {
+                        MoreSectionHeader(title: "Settings")
+
+                        Button(action: {
+                            Task { await pushManager.requestPermission() }
+                        }) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "bell.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(Color.coral)
+                                    .frame(width: 28)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Push Notifications")
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundStyle(Color.ink)
+                                    Text(pushManager.isRegistered ? "Enabled" : "Tap to enable")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                if pushManager.isRegistered {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(.green)
+                                } else {
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .background(Color.surface)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button(action: {
+                            Task {
+                                await syncEngine.performFullSync(
+                                    context: DataController.shared.mainContext,
+                                    userId: authManager.userId
+                                )
+                            }
+                        }) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(Color.coral)
+                                    .frame(width: 28)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Sync Now")
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundStyle(Color.ink)
+                                    if syncEngine.isSyncing {
+                                        Text("Syncing...")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    } else if let lastSync = syncEngine.lastSyncDate {
+                                        Text("Last: \(lastSync, style: .relative) ago")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+
+                                Spacer()
+
+                                if syncEngine.isSyncing {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                }
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .background(Color.surface)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    // Account
+                    if authManager.isAuthenticated {
+                        VStack(spacing: 2) {
+                            MoreSectionHeader(title: "Account")
+
+                            Button(action: {
+                                DataController.shared.clearAllData()
+                                authManager.signOut()
+                            }) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                                        .font(.system(size: 16))
+                                        .foregroundStyle(.red)
+                                        .frame(width: 28)
+
+                                    Text("Sign Out")
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundStyle(.red)
+
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+                                .background(Color.surface)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    // Privacy
+                    VStack(spacing: 2) {
+                        MoreSectionHeader(title: "Legal")
+
+                        MoreRow(icon: "hand.raised.fill", title: "Privacy Policy", subtitle: "Your data rights") {
+                            PrivacyView()
+                        }
+                    }
+
+                    Spacer(minLength: 40)
                 }
-                .padding(.top, 16)
+                .padding(.horizontal, 14)
             }
-            .background(Color.surface)
+            .background(Color.cream)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    HStack(spacing: 6) {
-                        MaxiIcon(size: 24)
-                        Text("Giftmaxxing")
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
-                    }
+                    Text("More")
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
                 }
             }
+        }
+        .sheet(isPresented: $showSignIn) {
+            SignInView(showSignIn: $showSignIn)
+                .environmentObject(authManager)
         }
     }
 }
 
-struct UserHeaderCard: View {
-    var body: some View {
-        HStack(spacing: 14) {
-            AvatarView(name: "You", grad: .coral, size: 56)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Welcome back!")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(Color.ink)
-                Text("@you")
-                    .font(.bodyMedium)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            NavigationLink(destination: SettingsView()) {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 20))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(16)
-        .background(Color.cream)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal, 16)
-    }
-}
-
-struct QuickStatsRow: View {
-    private let stats: [(label: String, value: String, icon: String)] = [
-        ("Gifts given", "12", "gift.fill"),
-        ("Pools", "3", "person.3.fill"),
-        ("Saved", "24", "bookmark.fill"),
-    ]
-
-    var body: some View {
-        HStack(spacing: 12) {
-            ForEach(stats, id: \.label) { stat in
-                VStack(spacing: 6) {
-                    Image(systemName: stat.icon)
-                        .font(.system(size: 16))
-                        .foregroundStyle(Color.coral)
-                    Text(stat.value)
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(Color.ink)
-                    Text(stat.label)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(Color.cream)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-            }
-        }
-        .padding(.horizontal, 16)
-    }
-}
-
-struct FeatureCard: View {
-    let feature: MoreFeature
-
-    var body: some View {
-        NavigationLink(destination: destinationView) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Image(systemName: feature.icon)
-                        .font(.system(size: 20))
-                        .foregroundStyle(feature.color)
-
-                    Spacer()
-
-                    if let badge = feature.badge {
-                        Text(badge)
-                            .font(.system(size: 9, weight: .heavy))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.coral)
-                            .clipShape(Capsule())
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(feature.title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.ink)
-                    Text(feature.description)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(14)
-            .background(Color.cream)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-        }
-        .buttonStyle(.plain)
-    }
-
-    @ViewBuilder
-    private var destinationView: some View {
-        switch feature.destination {
-        case .maxi: MaxiView()
-        case .pools: PoolsView()
-        case .shop: ShopView()
-        case .settings: SettingsView()
-        default: PlaceholderView(title: feature.title)
-        }
-    }
-}
-
-struct SecondaryFeatureRow: View {
-    let feature: MoreFeature
-
-    var body: some View {
-        NavigationLink(destination: destinationView) {
-            HStack(spacing: 14) {
-                Image(systemName: feature.icon)
-                    .font(.system(size: 18))
-                    .foregroundStyle(feature.color)
-                    .frame(width: 36, height: 36)
-                    .background(feature.color.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(feature.title)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color.ink)
-                    Text(feature.description)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(12)
-            .background(Color.cream)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-        }
-        .buttonStyle(.plain)
-    }
-
-    @ViewBuilder
-    private var destinationView: some View {
-        switch feature.destination {
-        case .settings: SettingsView()
-        default: PlaceholderView(title: feature.title)
-        }
-    }
-}
-
-struct MaxiBannerCard: View {
-    var body: some View {
-        NavigationLink(destination: MaxiView()) {
-            HStack(spacing: 14) {
-                MaxiIcon(size: 44)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        Text("Ask Maxi")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(.white)
-                        Text("AI")
-                            .font(.system(size: 9, weight: .heavy))
-                            .foregroundStyle(Color.coral)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(.white)
-                            .clipShape(Capsule())
-                    }
-                    Text("Your AI gift concierge — find the perfect gift in seconds")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.85))
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.7))
-            }
-            .padding(16)
-            .background(
-                LinearGradient(
-                    colors: [Color.coral, Color(hex: "#FF9A76")],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-struct PlaceholderView: View {
+struct MoreSectionHeader: View {
     let title: String
 
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "hammer.fill")
-                .font(.system(size: 40))
+        HStack {
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.secondary)
-            Text("\(title)")
-                .font(.displaySmall)
-            Text("Coming soon")
-                .font(.bodyMedium)
-                .foregroundStyle(.secondary)
+                .tracking(1)
+            Spacer()
         }
-        .navigationTitle(title)
+        .padding(.horizontal, 4)
+        .padding(.top, 4)
+        .padding(.bottom, 6)
     }
 }
 
-struct SettingsView: View {
+struct MoreRow<Destination: View>: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    @ViewBuilder let destination: () -> Destination
+
     var body: some View {
-        List {
-            Section("Account") {
-                HStack {
-                    Text("Name")
-                    Spacer()
-                    Text("You")
+        NavigationLink(destination: destination) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundStyle(Color.coral)
+                    .frame(width: 28)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Color.ink)
+                    Text(subtitle)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                HStack {
-                    Text("Email")
-                    Spacer()
-                    Text("you@example.com")
-                        .foregroundStyle(.secondary)
-                }
-            }
 
-            Section("Preferences") {
-                Toggle("Push notifications", isOn: .constant(true))
-                Toggle("Email reminders", isOn: .constant(true))
-                Toggle("Event countdown alerts", isOn: .constant(true))
-            }
+                Spacer()
 
-            Section("About") {
-                HStack {
-                    Text("Version")
-                    Spacer()
-                    Text("1.0.0")
-                        .foregroundStyle(.secondary)
-                }
-                NavigationLink("Privacy Policy", destination: PrivacyView())
-                NavigationLink("Terms of Service", destination: PlaceholderView(title: "Terms"))
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             }
-
-            Section {
-                Button("Sign Out") {}
-                    .foregroundStyle(.red)
-            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Color.surface)
         }
-        .navigationTitle("Settings")
+        .buttonStyle(.plain)
     }
 }
 
@@ -383,32 +273,31 @@ struct PrivacyView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Privacy Policy")
-                    .font(.displayLarge)
+                    .font(.displayMedium)
 
-                Text("Last updated: July 2025")
-                    .font(.bodyMedium)
-                    .foregroundStyle(.secondary)
+                Text("Giftmaxxing respects your privacy. We collect only the data necessary to provide personalized gift recommendations.")
+                    .font(.bodyLarge)
 
-                Group {
-                    Text("Data Ownership")
-                        .font(.displaySmall)
-                    Text("Your data belongs to you. Giftmaxxing stores only what's necessary to provide the service: your profile, saved items, event dates, and interaction history.")
-                        .font(.bodyMedium)
+                Text("Data We Collect")
+                    .font(.displaySmall)
 
-                    Text("PII Redaction")
-                        .font(.displaySmall)
-                    Text("We do not sell or share personal information with third parties for advertising purposes. Affiliate links connect to Amazon's Associates program; Amazon handles all purchase data independently.")
-                        .font(.bodyMedium)
+                Text("Your interactions (likes, saves, swipes) help us understand your taste for gift recommendations. This data is stored securely on AWS and is never sold to third parties.")
+                    .font(.bodyLarge)
 
-                    Text("No Third-Party Tracking")
-                        .font(.displaySmall)
-                    Text("We do not use third-party analytics or tracking services. Your browsing behavior within the app stays within the app.")
-                        .font(.bodyMedium)
-                }
+                Text("Data Ownership")
+                    .font(.displaySmall)
+
+                Text("You own your data. You can request deletion of all your data at any time by contacting support or using the Sign Out option, which clears all local data.")
+                    .font(.bodyLarge)
+
+                Text("Amazon Affiliate Links")
+                    .font(.displaySmall)
+
+                Text("When you purchase products through our links, we may earn a small commission from Amazon Associates. This does not affect the price you pay.")
+                    .font(.bodyLarge)
             }
             .padding(20)
         }
         .navigationTitle("Privacy")
-        .navigationBarTitleDisplayMode(.inline)
     }
 }

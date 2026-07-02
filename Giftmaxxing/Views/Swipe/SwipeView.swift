@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 @MainActor
 final class SwipeViewModel: ObservableObject {
@@ -31,6 +32,7 @@ final class SwipeViewModel: ObservableObject {
             currentIndex = 0
             yesCount = 0
             noCount = 0
+            prefetchNextImages()
         } catch {
             // use empty state
         }
@@ -38,22 +40,44 @@ final class SwipeViewModel: ObservableObject {
         isLoading = false
     }
 
-    func swipeRight() {
+    func swipeRight(context: ModelContext? = nil) {
         guard !isSwiping, currentIndex < cards.count else { return }
         isSwiping = true
         yesCount += 1
         let card = cards[currentIndex]
-        Task { await api.recordInteraction(userId: nil, targetId: card.id, type: "like") }
+
+        if let context {
+            OfflineQueue.shared.recordInteraction(
+                context: context,
+                userId: AuthManager.shared.userId ?? "",
+                targetId: card.id,
+                type: "like"
+            )
+        } else {
+            Task { await api.recordInteraction(userId: nil, targetId: card.id, type: "like") }
+        }
+
         withAnimation(.spring(response: 0.4)) {
             offset = CGSize(width: 500, height: 0)
         }
         advanceAfterDelay()
     }
 
-    func swipeLeft() {
+    func swipeLeft(context: ModelContext? = nil) {
         guard !isSwiping, currentIndex < cards.count else { return }
         isSwiping = true
         noCount += 1
+        let card = cards[currentIndex]
+
+        if let context {
+            OfflineQueue.shared.recordInteraction(
+                context: context,
+                userId: AuthManager.shared.userId ?? "",
+                targetId: card.id,
+                type: "skip"
+            )
+        }
+
         withAnimation(.spring(response: 0.4)) {
             offset = CGSize(width: -500, height: 0)
         }
@@ -65,12 +89,22 @@ final class SwipeViewModel: ObservableObject {
             self?.currentIndex += 1
             self?.offset = .zero
             self?.isSwiping = false
+            self?.prefetchNextImages()
         }
+    }
+
+    private func prefetchNextImages() {
+        let start = currentIndex
+        let end = min(cards.count, start + 5)
+        guard start < end else { return }
+        let urls = cards[start..<end].compactMap { $0.product.image }
+        Task { await ImageLoader.shared.prefetch(urls: urls, width: 600) }
     }
 }
 
 struct SwipeView: View {
     @StateObject private var viewModel = SwipeViewModel()
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         NavigationStack {
@@ -120,9 +154,9 @@ struct SwipeView: View {
                                 }
                                 .onEnded { value in
                                     if value.translation.width > 100 {
-                                        viewModel.swipeRight()
+                                        viewModel.swipeRight(context: modelContext)
                                     } else if value.translation.width < -100 {
-                                        viewModel.swipeLeft()
+                                        viewModel.swipeLeft(context: modelContext)
                                     } else {
                                         withAnimation(.spring(response: 0.3)) {
                                             viewModel.offset = .zero
@@ -135,7 +169,7 @@ struct SwipeView: View {
 
                     // Action buttons
                     HStack(spacing: 40) {
-                        Button(action: { viewModel.swipeLeft() }) {
+                        Button(action: { viewModel.swipeLeft(context: modelContext) }) {
                             Image(systemName: "xmark")
                                 .font(.system(size: 24, weight: .bold))
                                 .foregroundStyle(.red)
@@ -146,7 +180,7 @@ struct SwipeView: View {
                         }
                         .disabled(viewModel.isSwiping)
 
-                        Button(action: { viewModel.swipeRight() }) {
+                        Button(action: { viewModel.swipeRight(context: modelContext) }) {
                             Image(systemName: "heart.fill")
                                 .font(.system(size: 24, weight: .bold))
                                 .foregroundStyle(Color.coral)
@@ -209,14 +243,8 @@ struct SwipeCardView: View {
                 Text(post.product.emoji)
                     .font(.system(size: 72))
 
-                if let image = post.product.image, let url = URL(string: image) {
-                    AsyncImage(url: url) { phase in
-                        if let image = phase.image {
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        }
-                    }
+                if let image = post.product.image {
+                    CachedAsyncImage(url: image, width: 600)
                 }
             }
             .frame(height: 340)

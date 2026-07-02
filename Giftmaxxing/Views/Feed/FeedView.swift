@@ -1,14 +1,16 @@
 import SwiftUI
+import SwiftData
 
 struct FeedView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var syncEngine: SyncEngine
+    @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel = FeedViewModel()
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 1) {
-                    // Stories tray
                     StoriesTray()
                         .padding(.bottom, 8)
 
@@ -26,7 +28,7 @@ struct FeedView: View {
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                             Button("Retry") {
-                                Task { await viewModel.loadFeed() }
+                                Task { await viewModel.loadFeed(context: modelContext) }
                             }
                             .font(.labelBold)
                             .foregroundStyle(Color.coral)
@@ -36,9 +38,12 @@ struct FeedView: View {
                         ForEach(Array(viewModel.posts.enumerated()), id: \.element.id) { index, post in
                             PostCardView(
                                 post: post,
-                                onLike: { viewModel.toggleLike(for: post) },
-                                onSave: { viewModel.toggleSave(for: post) }
+                                onLike: { viewModel.toggleLike(for: post, context: modelContext) },
+                                onSave: { viewModel.toggleSave(for: post, context: modelContext) }
                             )
+                            .onAppear {
+                                viewModel.prefetchImages(around: index)
+                            }
 
                             if index < viewModel.posts.count - 1 {
                                 Divider()
@@ -46,7 +51,6 @@ struct FeedView: View {
                             }
                         }
 
-                        // Infinite scroll sentinel
                         if viewModel.isLoadingMore {
                             ProgressView()
                                 .padding(20)
@@ -62,7 +66,7 @@ struct FeedView: View {
             }
             .background(Color.surface)
             .refreshable {
-                await viewModel.loadFeed()
+                await viewModel.loadFeed(context: modelContext)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -89,10 +93,25 @@ struct FeedView: View {
                     }
                 }
             }
+            .overlay(alignment: .top) {
+                if syncEngine.isSyncing {
+                    HStack(spacing: 4) {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                        Text("Syncing...")
+                            .font(.caption2)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Capsule())
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
         }
         .task {
             if viewModel.posts.isEmpty {
-                await viewModel.loadFeed()
+                await viewModel.loadFeed(context: modelContext)
             }
         }
     }
@@ -138,7 +157,6 @@ struct PostCardSkeleton: View {
     }
 }
 
-// Placeholder views for navigation destinations
 struct ActivityView: View {
     var body: some View {
         Text("Notifications")
