@@ -125,12 +125,14 @@ final class ShareViewController: UIViewController {
         extensionContext?.completeRequest(returningItems: nil)
     }
 
-    private var committedIntent: String?
-
     private func commit(intent: String, doneMessage: String) {
         let saved = writeInbox(imageData: resolvedImageData, url: resolvedURLString, intent: intent)
         if saved {
-            committedIntent = intent
+            // Open the app *inside the tap's call stack* — hosts honor a
+            // user-interaction-driven open far more reliably than one fired
+            // after a delay (which is why the old +0.5s handoff silently
+            // failed from Amazon/Instagram).
+            openMainApp(intent: intent)
             showDone(message: doneMessage)
         } else {
             showError()
@@ -138,22 +140,38 @@ final class ShareViewController: UIViewController {
     }
 
     // Share extensions have no sanctioned "open my app" API (only Today
-    // widgets do) — the classic workaround walks the responder chain to
-    // UIApplication and invokes openURL: by selector. Works in dev/TestFlight;
-    // if iOS ever refuses, the done-card still tells the user to open the app.
+    // widgets do). Strategy, most→least reliable on modern iOS:
+    //   1. Walk the responder chain to the real UIApplication and call the
+    //      modern openURL:options:completionHandler: through its IMP —
+    //      the deprecated openURL: selector is a no-op in many hosts now.
+    //   2. Legacy openURL: perform, for older systems.
+    //   3. extensionContext.open — unsupported for share extensions on paper
+    //      but honored by some hosts.
+    // If everything refuses, the done-card still tells the user to open the app.
     private func openMainApp(intent: String) {
         guard let url = URL(string: "giftmaxxing://capture?intent=\(intent)") else { return }
-        let selector = NSSelectorFromString("openURL:")
+
         var responder: UIResponder? = self
         while let current = responder {
-            if current.responds(to: selector), !(current is UIViewController) {
-                current.perform(selector, with: url)
-                log.info("handed off to main app (intent=\(intent, privacy: .public))")
+            if let application = current as? UIApplication {
+                let modern = NSSelectorFromString("openURL:options:completionHandler:")
+                if application.responds(to: modern) {
+                    typealias OpenFn = @convention(c) (NSObject, Selector, NSURL, NSDictionary, UnsafeRawPointer?) -> Void
+                    let open = unsafeBitCast(application.method(for: modern), to: OpenFn.self)
+                    open(application, modern, url as NSURL, [:] as NSDictionary, nil)
+                    log.info("handed off via UIApplication.open (intent=\(intent, privacy: .public))")
+                } else {
+                    application.perform(NSSelectorFromString("openURL:"), with: url)
+                    log.info("handed off via legacy openURL: (intent=\(intent, privacy: .public))")
+                }
                 return
             }
             responder = current.next
         }
-        log.info("responder-chain open unavailable — user opens app manually")
+
+        extensionContext?.open(url) { [weak self] success in
+            self?.log.info("extensionContext.open fallback success=\(success)")
+        }
     }
 
     // Fetch the shared page and pull og:image / twitter:image. Works for
@@ -363,7 +381,7 @@ final class ShareViewController: UIViewController {
 
         if let preview {
             previewView.image = preview
-            subtitleLabel.text = "What do you want to do with it?"
+            subtitleLabel.text = "Looking for gifts like those in this photo?"
         } else {
             // URL-only capture (private post) — still actionable.
             previewView.image = nil
@@ -377,14 +395,10 @@ final class ShareViewController: UIViewController {
         subtitleLabel.text = message
         setButtons(enabled: false)
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            guard let self else { return }
-            if let intent = self.committedIntent {
-                self.openMainApp(intent: intent)
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                self.extensionContext?.completeRequest(returningItems: nil)
-            }
+        // The open was already fired from the tap handler; give the system a
+        // beat to switch apps, then dismiss the sheet either way.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            self?.extensionContext?.completeRequest(returningItems: nil)
         }
     }
 

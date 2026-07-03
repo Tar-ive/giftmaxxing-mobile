@@ -28,17 +28,22 @@ final class AuthManager: ObservableObject {
         KeychainStore.loadString(key: tokenKey)
     }
 
+    // Identity (userId) outlives the bearer token: Apple identity tokens
+    // expire in ~10 minutes and Google's in ~1 hour, but the account itself
+    // is durable. Restore the signed-in state whenever a userId exists and
+    // only attach the bearer if it's still fresh — auth-enforced routes will
+    // just re-prompt when they need to.
     private func restoreSession() {
-        guard let token = KeychainStore.loadString(key: tokenKey),
-              let savedUserId = KeychainStore.loadString(key: userIdKey),
-              !isTokenExpired(token) else {
+        guard let savedUserId = KeychainStore.loadString(key: userIdKey) else {
             clearSession()
             return
         }
         userId = savedUserId
         isAuthenticated = true
-        Task {
-            await APIClient.shared.setAuthToken(token)
+        if let token = KeychainStore.loadString(key: tokenKey), !isTokenExpired(token) {
+            Task {
+                await APIClient.shared.setAuthToken(token)
+            }
         }
     }
 
@@ -52,13 +57,7 @@ final class AuthManager: ObservableObject {
                 return
             }
 
-            Task {
-                await authenticateWithCognito(
-                    appleToken: identityToken,
-                    fullName: credential.fullName,
-                    email: credential.email
-                )
-            }
+            establishAppleSession(credential: credential, identityToken: identityToken)
 
         case .failure(let authError):
             if (authError as NSError).code == ASAuthorizationError.canceled.rawValue {
@@ -115,74 +114,37 @@ final class AuthManager: ObservableObject {
         isLoading = false
     }
 
-    private func authenticateWithCognito(appleToken: String, fullName: PersonNameComponents?, email: String?) async {
-        isLoading = true
-        error = nil
-
+    // Local session from the verified Apple identity token — mirrors the
+    // Google path (no Cognito hop; the token rides as bearer so the backend
+    // can verify it when enforcement lands). `credential.user` is the stable
+    // per-team Apple user id; name/email only arrive on the FIRST
+    // authorization ever, so persist whatever we're given.
+    private func establishAppleSession(credential: ASAuthorizationAppleIDCredential, identityToken: String) {
         do {
-            let tokenResponse = try await exchangeAppleTokenForCognito(appleToken: appleToken)
+            try KeychainStore.saveString(key: tokenKey, value: identityToken)
+            let userIdValue = "apple_\(credential.user)"
+            try KeychainStore.saveString(key: userIdKey, value: userIdValue)
 
-            try KeychainStore.saveString(key: tokenKey, value: tokenResponse.idToken)
-            if let refreshToken = tokenResponse.refreshToken {
-                try KeychainStore.saveString(key: refreshTokenKey, value: refreshToken)
+            userId = userIdValue
+            if let name = credential.fullName {
+                let joined = [name.givenName, name.familyName].compactMap { $0 }.joined(separator: " ")
+                if !joined.isEmpty { displayName = joined }
             }
-
-            let sub = extractSub(from: tokenResponse.idToken) ?? UUID().uuidString
-            try KeychainStore.saveString(key: userIdKey, value: sub)
-
-            userId = sub
+            if let credentialEmail = credential.email {
+                email = credentialEmail
+            }
             isAuthenticated = true
+            error = nil
 
-            if let name = fullName {
-                displayName = [name.givenName, name.familyName]
-                    .compactMap { $0 }
-                    .joined(separator: " ")
-            }
-            self.email = email
-
-            await APIClient.shared.setAuthToken(tokenResponse.idToken)
-
-            if let name = displayName ?? email {
-                try? await APIClient.shared.saveMe(userId: sub, profile: ["name": name])
+            Task {
+                await APIClient.shared.setAuthToken(identityToken)
+                if let name = displayName ?? email {
+                    try? await APIClient.shared.saveMe(userId: userIdValue, profile: ["name": name])
+                }
             }
         } catch {
-            self.error = error.localizedDescription
+            self.error = "Couldn't save your session. Please try again."
         }
-
-        isLoading = false
-    }
-
-    private func exchangeAppleTokenForCognito(appleToken: String) async throws -> CognitoTokenResponse {
-        let url = URL(string: "https://cognito-idp.\(cognitoRegion).amazonaws.com/")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/x-amz-json-1.1", forHTTPHeaderField: "Content-Type")
-        request.setValue("AWSCognitoIdentityProviderService.InitiateAuth", forHTTPHeaderField: "X-Amz-Target")
-
-        let body: [String: Any] = [
-            "AuthFlow": "USER_SRP_AUTH",
-            "ClientId": cognitoClientId,
-            "AuthParameters": [
-                "USERNAME": "Apple_\(extractSub(fromAppleToken: appleToken) ?? UUID().uuidString)",
-                "SRP_A": appleToken,
-            ],
-        ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw AuthError.cognitoExchangeFailed
-        }
-
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        let authResult = json?["AuthenticationResult"] as? [String: Any]
-
-        return CognitoTokenResponse(
-            idToken: authResult?["IdToken"] as? String ?? appleToken,
-            accessToken: authResult?["AccessToken"] as? String,
-            refreshToken: authResult?["RefreshToken"] as? String,
-            expiresIn: authResult?["ExpiresIn"] as? Int ?? 3600
-        )
     }
 
     func refreshTokenIfNeeded() async {

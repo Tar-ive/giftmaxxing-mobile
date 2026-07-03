@@ -23,6 +23,9 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: com.giftmaxxing.ios
             CFBundleURLSchemes: [giftmaxxing]
+        # Only standard HTTPS (exempt) — lets TestFlight builds go straight to
+        # testers without the export-compliance questionnaire on every upload.
+        ITSAppUsesNonExemptEncryption: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.giftmaxxing.ios
