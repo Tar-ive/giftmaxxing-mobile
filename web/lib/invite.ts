@@ -101,6 +101,9 @@ export function buildInviteUrl(
     to?: string;
     occasion?: string;
     date?: string;
+    /** Server-side challenge id (POST /challenges) — guest page fetches the
+     *  pre-built deck instead of running the legacy local one. */
+    challengeId?: string;
   } = {}
 ): string {
   // Prefer the canonical public site URL so a shared link never points at a
@@ -117,6 +120,7 @@ export function buildInviteUrl(
   if (opts.to?.trim()) payload.to = opts.to.trim();
   if (opts.occasion?.trim()) payload.occasion = opts.occasion.trim();
   if (opts.date?.trim()) payload.date = opts.date.trim();
+  if (opts.challengeId) payload.challengeId = opts.challengeId;
   const code = encodeInvite(payload);
   return `${base}/invite/${code}`;
 }

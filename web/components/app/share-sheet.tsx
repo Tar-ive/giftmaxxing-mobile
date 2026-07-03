@@ -54,6 +54,7 @@ export function ShareSheet({
   triggerClassName,
   note,
   recipientName = "",
+  prepare,
 }: {
   url: string;
   text: string;
@@ -63,11 +64,34 @@ export function ShareSheet({
   triggerClassName?: string;
   note?: React.ReactNode;
   recipientName?: string;
+  /** Optional async link upgrade, awaited when the trigger is tapped — the
+   *  challenge pages use it to POST /challenges and return a link carrying
+   *  the challengeId (server-built deck). null → share the plain url. */
+  prepare?: () => Promise<string | null>;
 }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [shares, setShares] = useState<ShareRecord[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const [preparedUrl, setPreparedUrl] = useState<string | null>(null);
+
+  // The link actually shared — the prepared (server-deck) one when available.
+  const shareUrl = preparedUrl ?? url;
+
+  const openSheet = useCallback(async () => {
+    if (prepare && !preparing) {
+      setPreparing(true);
+      try {
+        const upgraded = await prepare();
+        setPreparedUrl(upgraded);
+      } catch {
+        setPreparedUrl(null);
+      }
+      setPreparing(false);
+    }
+    setOpen(true);
+  }, [prepare, preparing]);
 
   // Load share history on mount and listen for updates.
   useEffect(() => {
@@ -79,8 +103,8 @@ export function ShareSheet({
   }, []);
 
   const track = useCallback(
-    (channel: string) => recordShare(channel, recipientName, url),
-    [recipientName, url]
+    (channel: string) => recordShare(channel, recipientName, shareUrl),
+    [recipientName, shareUrl]
   );
   // Detect the Web Share API without a setState-in-effect (avoids hydration
   // drift): server snapshot is false, client snapshot reflects real capability.
@@ -101,7 +125,7 @@ export function ShareSheet({
   }, [open]);
 
   const copy = async () => {
-    await copyToClipboard(url);
+    await copyToClipboard(shareUrl);
     setCopied(true);
     track("copy");
     window.setTimeout(() => setCopied(false), 2400);
@@ -109,7 +133,7 @@ export function ShareSheet({
 
   const nativeShare = async () => {
     try {
-      await navigator.share({ title, text, url });
+      await navigator.share({ title, text, url: shareUrl });
       track("native");
       setOpen(false);
     } catch {
@@ -118,21 +142,21 @@ export function ShareSheet({
   };
 
   const instagram = async () => {
-    await copyToClipboard(url);
+    await copyToClipboard(shareUrl);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2400);
     track("instagram");
     window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
   };
 
-  const msg = `${text} ${url}`;
+  const msg = `${text} ${shareUrl}`;
   const links: { key: string; label: string; emoji: string; href: string; external?: boolean }[] = [
     { key: "email", label: "Email", emoji: "✉️", href: `mailto:?subject=${enc(subject)}&body=${enc(msg)}` },
     { key: "sms", label: "Messages", emoji: "💬", href: `sms:?&body=${enc(msg)}` },
     { key: "whatsapp", label: "WhatsApp", emoji: "🟢", href: `https://wa.me/?text=${enc(msg)}`, external: true },
-    { key: "x", label: "X", emoji: "𝕏", href: `https://twitter.com/intent/tweet?text=${enc(text)}&url=${enc(url)}`, external: true },
-    { key: "telegram", label: "Telegram", emoji: "📨", href: `https://t.me/share/url?url=${enc(url)}&text=${enc(text)}`, external: true },
-    { key: "messenger", label: "Messenger", emoji: "💙", href: `fb-messenger://share?link=${enc(url)}`, external: true },
+    { key: "x", label: "X", emoji: "𝕏", href: `https://twitter.com/intent/tweet?text=${enc(text)}&url=${enc(shareUrl)}`, external: true },
+    { key: "telegram", label: "Telegram", emoji: "📨", href: `https://t.me/share/url?url=${enc(shareUrl)}&text=${enc(text)}`, external: true },
+    { key: "messenger", label: "Messenger", emoji: "💙", href: `fb-messenger://share?link=${enc(shareUrl)}`, external: true },
   ];
 
   const trackLink = (key: string) => track(key);
@@ -141,13 +165,14 @@ export function ShareSheet({
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
-        className={
+        onClick={() => void openSheet()}
+        disabled={preparing}
+        className={`${
           triggerClassName ??
           "inline-flex items-center gap-2 rounded-full bg-coral px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-coral/25 transition-opacity hover:opacity-90"
-        }
+        } ${preparing ? "cursor-wait opacity-70" : ""}`}
       >
-        <Icons.share size={16} /> {triggerLabel}
+        <Icons.share size={16} /> {preparing ? "Building their deck…" : triggerLabel}
       </button>
 
       {open && (
@@ -174,7 +199,7 @@ export function ShareSheet({
 
             {/* Link preview + copy */}
             <div className="mb-4 flex items-center gap-2 rounded-xl border border-line bg-cream px-3 py-2.5">
-              <span className="truncate text-sm text-ink-soft">{url}</span>
+              <span className="truncate text-sm text-ink-soft">{shareUrl}</span>
               <button
                 onClick={copy}
                 className="ml-auto shrink-0 rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-cream transition-opacity hover:opacity-90"

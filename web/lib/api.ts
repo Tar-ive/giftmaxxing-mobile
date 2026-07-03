@@ -538,6 +538,47 @@ export type ChallengePublic = {
   deck: ChallengeDeckItem[];
 };
 
+// Sender-side: build the deck in the Lambda around a seed (taste keys on the
+// web — the image path is the iOS share-extension flow). Returns the
+// challengeId to embed in the invite link, or null → caller keeps the legacy
+// local-deck link so sharing never blocks.
+export async function createChallenge(opts: {
+  senderId: string;
+  seedKeys?: string[];
+  imageBase64?: string;
+  postId?: string;
+  inviterName?: string;
+  to?: string;
+  occasion?: string;
+  date?: string;
+}): Promise<string | null> {
+  if (!isApiConfigured() || !opts.senderId) return null;
+  const seed: Record<string, unknown> = {};
+  if (opts.imageBase64) seed.imageBase64 = opts.imageBase64;
+  if (opts.postId) seed.postId = opts.postId;
+  if (opts.seedKeys?.length) seed.seedKeys = opts.seedKeys.slice(0, 8);
+  if (Object.keys(seed).length === 0) return null;
+  try {
+    const res = await apiFetch(`/challenges`, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({
+        senderId: opts.senderId,
+        seed,
+        ...(opts.inviterName ? { inviterName: opts.inviterName } : {}),
+        ...(opts.to?.trim() ? { to: opts.to.trim() } : {}),
+        ...(opts.occasion ? { occasion: opts.occasion } : {}),
+        ...(opts.date ? { date: opts.date } : {}),
+      }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { challengeId?: string };
+    return typeof data?.challengeId === "string" && data.challengeId ? data.challengeId : null;
+  } catch {
+    return null;
+  }
+}
+
 // Guest-side: the pre-built deck (band/distance stripped by the server).
 export async function fetchChallenge(challengeId: string): Promise<ChallengePublic | null> {
   if (!isApiConfigured() || !challengeId) return null;

@@ -6,6 +6,7 @@ import { ShareSheet } from "@/components/app/share-sheet";
 import { Icons, Maxi } from "@/components/ui";
 import { buildInviteUrl } from "@/lib/invite";
 import { getShareSenderId, getMyUserId } from "@/lib/api";
+import { useServerChallengePrepare } from "@/lib/use-server-challenge";
 import { EVENT_TYPE_META, type EventType } from "@/lib/events";
 
 const clerkEnabled = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -26,6 +27,7 @@ export default function ChallengePage() {
 
   useEffect(() => {
     // Read/mint the share sender id after mount (SSR-safe; touches localStorage).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSenderId(getShareSenderId());
     setSignedIn(!!getMyUserId());
   }, []);
@@ -41,6 +43,17 @@ export default function ChallengePage() {
       }),
     [inviterName, senderId, to, occasion, date]
   );
+
+  // Tapping "Share the challenge" upgrades the link to a server-built deck
+  // (POST /challenges seeded with this browser's recent yes-swipes); falls
+  // back to the legacy local-deck link when there's no seed / no API.
+  const prepareServerChallenge = useServerChallengePrepare({
+    senderId: senderId || null,
+    inviterName,
+    to,
+    occasion,
+    date,
+  });
 
   const occasionLabel = EVENT_TYPE_META[occasion]?.label.toLowerCase() ?? "occasion";
   const them = to.trim() || "them";
@@ -141,6 +154,7 @@ export default function ChallengePage() {
           <div className="mt-5 flex justify-center">
             <ShareSheet
               url={url}
+              prepare={prepareServerChallenge}
               text={text}
               subject={`${inviterName} wants to find you the perfect gift`}
               recipientName={to.trim() || "someone"}

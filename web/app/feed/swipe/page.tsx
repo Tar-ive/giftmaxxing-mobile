@@ -9,6 +9,7 @@ import { Icons } from "@/components/ui";
 import { useCurrentUser } from "@/lib/identity";
 import { getShareSenderId } from "@/lib/api";
 import { buildInviteUrl } from "@/lib/invite";
+import { useServerChallengePrepare } from "@/lib/use-server-challenge";
 import { EVENT_TYPE_META, type EventType } from "@/lib/events";
 
 export default function SwipePage() {
@@ -49,6 +50,17 @@ function SwipeInner() {
       }),
     [inviterName, senderId, to, occasion, date]
   );
+  // "Share the challenge" builds the deck server-side around this user's
+  // recent yes-swipes (POST /challenges) — the link then carries the
+  // challengeId. No swipes yet / API down → legacy local-deck link.
+  const prepareServerChallenge = useServerChallengePrepare({
+    senderId,
+    inviterName,
+    to,
+    occasion,
+    date,
+  });
+
   const occasionLabel = EVENT_TYPE_META[occasion]?.label.toLowerCase() ?? "occasion";
   const text =
     "Would you want this gifted to you? 👀 Swipe to find your gift taste on Giftmaxxing";
@@ -114,6 +126,7 @@ function SwipeInner() {
         <div className="mt-4 flex justify-center">
           <ShareSheet
             url={url}
+            prepare={prepareServerChallenge}
             text={text}
             subject={`${inviterName} wants to find you the perfect gift`}
             recipientName={to.trim() || "someone"}
