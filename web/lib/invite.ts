@@ -42,6 +42,11 @@ export type InvitePayload = {
    *  group gift (chip in) rather than run the swipe challenge. /invite/[code]
    *  routes these through sign-in + consent before they can contribute. */
   pool?: PoolInviteSnapshot;
+  /** Server-side challenge (POST /challenges): when present, the guest page
+   *  fetches the pre-built seeded deck from GET /challenges/{id} and posts
+   *  swipes to /challenges/{id}/response — deck + verdict fully server-side.
+   *  Absent → the legacy local-deck flow (old links keep working). */
+  challengeId?: string;
 };
 
 // ── Encoding / decoding ──────────────────────────────────────────────────────

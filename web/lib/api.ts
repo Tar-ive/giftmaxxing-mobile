@@ -511,6 +511,70 @@ export type SoftConnection = {
   createdAt?: number;
 };
 
+// ── Server-side challenges (deck + verdict in the Lambda) ────────────────────
+// POST /challenges (sender, iOS/web) builds a banded deck around a seed; the
+// invite link carries challengeId; the guest page fetches the deck and posts
+// swipes back — the verdict is computed server-side and mirrored into
+// connections, so no separate createConnection call is needed on this path.
+
+export type ChallengeDeckItem = {
+  postId: string;
+  name?: string;
+  image?: string;
+  price?: number;
+  priceDisplay?: string | null;
+  category?: string;
+  domain?: string;
+  url?: string;
+};
+
+export type ChallengePublic = {
+  challengeId: string;
+  inviterName?: string | null;
+  to?: string | null;
+  occasion?: string | null;
+  date?: string | null;
+  note?: string | null;
+  deck: ChallengeDeckItem[];
+};
+
+// Guest-side: the pre-built deck (band/distance stripped by the server).
+export async function fetchChallenge(challengeId: string): Promise<ChallengePublic | null> {
+  if (!isApiConfigured() || !challengeId) return null;
+  try {
+    const res = await apiFetch(`/challenges/${encodeURIComponent(challengeId)}`, {
+      headers: { accept: "application/json" },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as ChallengePublic;
+    return Array.isArray(data?.deck) && data.deck.length ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+export type ChallengeSwipe = { id: string; dir: "yes" | "no"; dwellMs?: number };
+
+// Guest-side: submit swipes; the server scores the verdict against the hidden
+// seed and mirrors a soft-profile connection for the sender.
+export async function submitChallengeResponse(
+  challengeId: string,
+  guest: { name?: string; handle?: string; birthday?: string; genderPref?: string },
+  swipes: ChallengeSwipe[]
+): Promise<boolean> {
+  if (!isApiConfigured() || !challengeId || !swipes.length) return false;
+  try {
+    const res = await apiFetch(`/challenges/${encodeURIComponent(challengeId)}/response`, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ guest, swipes }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 // Called by the (anonymous) guest's browser on challenge completion.
 export async function createConnection(
   senderId: string,

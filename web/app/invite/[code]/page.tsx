@@ -1,14 +1,20 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Maxi, Icons } from "@/components/ui";
 import { SwipeDeck } from "@/components/app/swipe-deck";
 import { decodeInvite, saveInviteSession, clearInviteSession } from "@/lib/invite";
-import { createConnection } from "@/lib/api";
-import { swipeVibes, seedKeysFromSwipes, loadSwipes, localMatchesFromSwipes, swipeTimingSignals } from "@/lib/swipes";
-import { GRADIENTS } from "@/lib/data";
+import {
+  createConnection,
+  fetchChallenge,
+  submitChallengeResponse,
+  type ChallengeDeckItem,
+  type ChallengeSwipe,
+} from "@/lib/api";
+import { swipeVibes, seedKeysFromSwipes, loadSwipes, localMatchesFromSwipes, swipeTimingSignals, type SwipeDir } from "@/lib/swipes";
+import { GRADIENTS, type Grad } from "@/lib/data";
 import { shortTitle } from "@/lib/feed-builder";
 import { type Pin } from "@/lib/pins";
 import { GuestClaimCard } from "@/components/app/guest-claim-card";
@@ -29,6 +35,27 @@ function formatInviteDate(iso?: string): string | null {
   if (!iso) return null;
   const p = parseISODate(iso);
   return p ? `${MONTHS[p.m - 1]} ${p.d}` : null;
+}
+
+// Server challenge deck item → the Pin shape SwipeDeck renders. Gradient is a
+// stable hash of the id so cards look consistent across re-renders.
+const GRAD_KEYS = Object.keys(GRADIENTS) as Grad[];
+function deckItemToPin(it: ChallengeDeckItem): Pin {
+  let h = 0;
+  for (let i = 0; i < it.postId.length; i++) h = (h * 31 + it.postId.charCodeAt(i)) >>> 0;
+  return {
+    id: it.postId,
+    title: it.name || "Gift find",
+    image: it.image || "",
+    thumb: it.image || "",
+    source: it.domain || "",
+    brand: (it.domain || "").replace(/^www\./, "") || "Gift find",
+    url: it.url || "",
+    price: it.price ?? 0,
+    grad: GRAD_KEYS[h % GRAD_KEYS.length] ?? "peach",
+    emoji: "\u{1F381}",
+    category: it.category || "gift",
+  };
 }
 
 // ── Phases ──────────────────────────────────────────────────────────────────
@@ -57,6 +84,37 @@ export default function InvitePage() {
   const [genderPref, setGenderPref] = useState<GenderPref | null>(null);
   const [transitioning, setTransitioning] = useState(false);
   const reportedRef = useRef(false);
+
+  // Server-side challenge: fetch the pre-built seeded deck up front (while the
+  // guest reads the welcome/consent screens). "failed" falls back to the
+  // legacy local deck so an expired challenge still gives a good experience.
+  const challengeId = invite?.challengeId;
+  const [serverDeck, setServerDeck] = useState<Pin[] | null>(null);
+  const [deckState, setDeckState] = useState<"idle" | "loading" | "ready" | "failed">(
+    challengeId ? "loading" : "idle"
+  );
+  const challengeSwipesRef = useRef<ChallengeSwipe[]>([]);
+
+  useEffect(() => {
+    if (!challengeId) return;
+    let cancelled = false;
+    void fetchChallenge(challengeId).then((challenge) => {
+      if (cancelled) return;
+      if (challenge?.deck?.length) {
+        setServerDeck(challenge.deck.map(deckItemToPin));
+        setDeckState("ready");
+      } else {
+        setDeckState("failed");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [challengeId]);
+
+  const onChallengeSwipe = useCallback((id: string, dir: SwipeDir, dwellMs: number) => {
+    challengeSwipesRef.current.push({ id, dir, dwellMs });
+  }, []);
 
   // The sender can pre-set who the gift set is for, so the guest never types a
   // name or picks a birthday. Used only for a friendly greeting on the reveal.
@@ -93,7 +151,35 @@ export default function InvitePage() {
     const vibes = swipeVibes(5);
     const seeds = seedKeysFromSwipes(8);
 
-    if (invite?.senderId) {
+    // Server-challenge path: post the deck swipes back — the Lambda computes
+    // the verdict against the hidden seed AND mirrors a soft-profile
+    // connection, so createConnection would double-report. Deduped to the
+    // guest's final answer per card (undo/redo keeps only the last).
+    const challengeSwipes = [
+      ...new Map(challengeSwipesRef.current.map((s) => [s.id, s])).values(),
+    ];
+    if (invite?.challengeId && challengeSwipes.length) {
+      const fallbackSenderId = invite?.senderId;
+      void submitChallengeResponse(
+        invite.challengeId,
+        { name, birthday: guestBirthday, genderPref: genderPref ?? undefined },
+        challengeSwipes
+      ).then((ok) => {
+        if (!ok && fallbackSenderId) {
+          // Challenge gone (expired/deleted) — report the classic way instead.
+          void createConnection(fallbackSenderId, {
+            name,
+            birthday: guestBirthday,
+            vibes,
+            seeds,
+            genderPref: genderPref ?? undefined,
+            yesCount: swipes.filter((s) => s.dir === "yes").length,
+            totalSwipes: swipes.length,
+            dwellSignals: swipeTimingSignals(swipes),
+          });
+        }
+      });
+    } else if (invite?.senderId) {
       void createConnection(invite.senderId, {
         name,
         birthday: guestBirthday,
@@ -137,7 +223,15 @@ export default function InvitePage() {
   }, [invite, birthday, inviterName, genderPref]);
 
   const onSwipeDone = useCallback(() => {
-    setResults(localMatchesFromSwipes(9));
+    // Server-deck flow: the reveal shows what the guest actually said yes to;
+    // legacy flow keeps the local taste-match ranking.
+    const yesIds = new Set(
+      [...new Map(challengeSwipesRef.current.map((s) => [s.id, s])).values()]
+        .filter((s) => s.dir === "yes")
+        .map((s) => s.id)
+    );
+    const serverYes = (serverDeck ?? []).filter((p) => yesIds.has(p.id));
+    setResults(serverYes.length ? serverYes.slice(0, 9) : localMatchesFromSwipes(9));
     // If the sender pre-set a date, skip the birthday step.
     if (invite?.date) {
       reportConnection();
@@ -145,7 +239,7 @@ export default function InvitePage() {
     } else {
       transition("birthday");
     }
-  }, [invite, transition, reportConnection]);
+  }, [invite, transition, reportConnection, serverDeck]);
 
   const finishChallenge = useCallback(() => {
     reportConnection();
@@ -346,7 +440,17 @@ export default function InvitePage() {
           </div>
 
           <div className="mt-8">
-            <SwipeDeck onMatchesReady={onSwipeDone} genderPref={genderPref ?? undefined} />
+            {deckState === "loading" ? (
+              // Challenge deck still arriving — don't flash the local deck.
+              <div className="mx-auto h-[460px] w-full max-w-sm animate-pulse rounded-3xl bg-line" />
+            ) : (
+              <SwipeDeck
+                onMatchesReady={onSwipeDone}
+                genderPref={genderPref ?? undefined}
+                externalDeck={deckState === "ready" && serverDeck ? serverDeck : undefined}
+                onSwipe={challengeId ? onChallengeSwipe : undefined}
+              />
+            )}
           </div>
         </div>
       </div>

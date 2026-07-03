@@ -6,3 +6,4 @@ pins.retailers.json
 .scrape-state.json
 .scrape-retailers.state.json
 .catalog-enrich.state.json
+*.log

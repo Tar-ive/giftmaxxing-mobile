@@ -84,10 +84,18 @@ export function SwipeDeck({
   compact = false,
   onMatchesReady,
   genderPref,
+  externalDeck,
+  onSwipe,
 }: {
   compact?: boolean;
   onMatchesReady?: () => void;
   genderPref?: GenderPref;
+  /** Server-built deck (challenge flow) — used as-is: the Lambda already
+   *  quality-filtered, banded, and shuffled it, so no local reordering. */
+  externalDeck?: Pin[];
+  /** Per-swipe callback with dwell time — the challenge page collects these
+   *  to POST /challenges/{id}/response. */
+  onSwipe?: (id: string, dir: SwipeDir, dwellMs: number) => void;
 }) {
   const [mounted, setMounted] = useState(false);
   const [deck, setDeck] = useState<Pin[]>([]);
@@ -107,13 +115,13 @@ export function SwipeDeck({
 
   useEffect(() => {
     // SSR-safe: read localStorage only after mount.
-    const rawDeck = buildDeck();
+    const rawDeck = externalDeck?.length ? externalDeck : buildDeck();
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDeck(genderPref ? sortByGenderPref(rawDeck, genderPref) : rawDeck);
-    setStats(swipeStats());
+    setDeck(!externalDeck?.length && genderPref ? sortByGenderPref(rawDeck, genderPref) : rawDeck);
+    setStats(externalDeck?.length ? { yes: 0, no: 0, total: 0 } : swipeStats());
     setMounted(true);
     cardShownAtRef.current = Date.now();
-  }, [genderPref]);
+  }, [genderPref, externalDeck]);
 
   const eligible = stats.yes >= GOAL || (mounted && deck.length > 0 && idx >= deck.length);
 
@@ -125,13 +133,24 @@ export function SwipeDeck({
       // Calculate dwell time: how long the user looked at this card before swiping
       const dwellMs = Date.now() - cardShownAtRef.current;
       recordSwipe(pin.id, dir, dwellMs);
+      onSwipe?.(pin.id, dir, dwellMs);
       // Persist the swipe to the DynamoDB interactions table (fire-and-forget,
       // no-ops when the API isn't configured). A "yes" is a positive taste
       // signal -> `like` (seeds the vector recommender + excludes from feed);
       // a "no" is recorded as `seen` so it stops reappearing without becoming a
       // positive seed.
       recordInteraction(getMyUserId(), pin.id, dir === "yes" ? "like" : "seen");
-      setStats(swipeStats());
+      if (externalDeck?.length) {
+        // Challenge session: count only this deck's swipes (global stats
+        // include past local sessions).
+        setStats((s) => ({
+          yes: s.yes + (dir === "yes" ? 1 : 0),
+          no: s.no + (dir === "no" ? 1 : 0),
+          total: s.total + 1,
+        }));
+      } else {
+        setStats(swipeStats());
+      }
       window.setTimeout(() => {
         setIdx((i) => i + 1);
         setDrag({ dx: 0, dy: 0 });
@@ -140,7 +159,7 @@ export function SwipeDeck({
         cardShownAtRef.current = Date.now();
       }, 230);
     },
-    [deck, idx, fly]
+    [deck, idx, fly, onSwipe, externalDeck]
   );
 
   const undo = useCallback(() => {
@@ -263,13 +282,17 @@ export function SwipeDeck({
           <span className="font-semibold text-ink">
             <span className="text-coral">♥ {stats.yes}</span> want · {stats.no} pass
           </span>
-          <button
-            onClick={undo}
-            disabled={idx === 0}
-            className="flex items-center gap-1 text-ink-faint transition-colors hover:text-ink disabled:opacity-40"
-          >
-            <Icons.back size={15} /> Undo
-          </button>
+          {/* Undo rewinds localStorage swipes — not meaningful for a
+              server-deck challenge session, so it's hidden there. */}
+          {!externalDeck?.length && (
+            <button
+              onClick={undo}
+              disabled={idx === 0}
+              className="flex items-center gap-1 text-ink-faint transition-colors hover:text-ink disabled:opacity-40"
+            >
+              <Icons.back size={15} /> Undo
+            </button>
+          )}
         </div>
       )}
 
