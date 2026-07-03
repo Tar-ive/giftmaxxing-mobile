@@ -17,6 +17,11 @@ struct InvitePayload: Codable {
     var to: String?
     var occasion: String?
     var date: String?
+    // Server-side challenge (POST /challenges): when present, the guest page
+    // fetches the pre-built deck from GET /challenges/{id} and posts swipes to
+    // /challenges/{id}/response — deck + verdict fully server-side. Absent →
+    // the legacy local-deck flow (old links keep working).
+    var challengeId: String?
 }
 
 enum InviteLink {
@@ -38,7 +43,8 @@ enum InviteLink {
         senderId: String?,
         to: String? = nil,
         occasion: String? = nil,
-        date: String? = nil
+        date: String? = nil,
+        challengeId: String? = nil
     ) -> URL? {
         var payload = InvitePayload(name: inviterName.trimmingCharacters(in: .whitespaces))
         if payload.name.isEmpty { payload.name = "A friend" }
@@ -46,6 +52,7 @@ enum InviteLink {
         if let to = to?.trimmingCharacters(in: .whitespaces), !to.isEmpty { payload.to = to }
         if let occasion, !occasion.isEmpty { payload.occasion = occasion }
         if let date, !date.isEmpty { payload.date = date }
+        if let challengeId, !challengeId.isEmpty { payload.challengeId = challengeId }
         guard let code = encode(payload) else { return nil }
         return URL(string: "\(siteURL)/invite/\(code)")
     }

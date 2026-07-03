@@ -68,6 +68,22 @@ struct InteractionsResponse: Codable {
     var items: [PersistedInteraction]?
 }
 
+// POST /challenges — the server builds and stores the deck; the app only
+// needs the id to put in the share link (deck rides along for a preview).
+struct ChallengeCreateResponse: Codable {
+    var ok: Bool?
+    var challengeId: String
+    var deck: [ChallengeDeckItem]?
+
+    struct ChallengeDeckItem: Codable {
+        var postId: String
+        var name: String?
+        var image: String?
+        var price: Double?
+        var category: String?
+    }
+}
+
 // GET /vectors — int8-quantized Titan embeddings for on-device similarity.
 struct VectorsResponse: Codable {
     var items: [QuantizedVectorItem]?

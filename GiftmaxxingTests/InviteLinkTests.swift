@@ -68,5 +68,20 @@ final class InviteLinkTests: XCTestCase {
         XCTAssertNil(payload["to"])
         XCTAssertNil(payload["occasion"])
         XCTAssertNil(payload["date"])
+        XCTAssertNil(payload["challengeId"], "no server challenge → key omitted (legacy local-deck flow)")
+    }
+
+    // Server-side challenge links: the guest page keys off payload.challengeId
+    // to fetch GET /challenges/{id} instead of building a local deck.
+    func testChallengeIdRidesInPayload() throws {
+        let url = try XCTUnwrap(InviteLink.buildURL(
+            inviterName: "Alex",
+            senderId: "user_1",
+            to: "Sam",
+            challengeId: "chal_abc123"
+        ))
+        let payload = try decode(url.lastPathComponent)
+        XCTAssertEqual(payload["challengeId"] as? String, "chal_abc123")
+        XCTAssertEqual(payload["name"] as? String, "Alex")
     }
 }

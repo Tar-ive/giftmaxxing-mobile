@@ -178,6 +178,35 @@ actor APIClient {
         return try await post("/visual-search", body: body)
     }
 
+    // Server-side swipe challenge (POST /challenges): resolves the seed
+    // (captured image, catalog pin, or taste keys), builds the quality-filtered
+    // banded deck in the Lambda, and returns the challengeId to share. Deck +
+    // verdicts live entirely server-side from here.
+    func createChallenge(
+        senderId: String,
+        seedImageBase64: String? = nil,
+        seedPostId: String? = nil,
+        seedKeys: [String]? = nil,
+        seedText: String? = nil,
+        inviterName: String? = nil,
+        to: String? = nil,
+        occasion: String? = nil,
+        date: String? = nil
+    ) async throws -> ChallengeCreateResponse {
+        var seed: [String: Any] = [:]
+        if let seedImageBase64 { seed["imageBase64"] = seedImageBase64 }
+        if let seedPostId { seed["postId"] = seedPostId }
+        if let seedKeys, !seedKeys.isEmpty { seed["seedKeys"] = Array(seedKeys.prefix(8)) }
+        if let seedText, !seedText.isEmpty { seed["text"] = seedText }
+
+        var body: [String: Any] = ["senderId": senderId, "seed": seed]
+        if let inviterName, !inviterName.isEmpty { body["inviterName"] = inviterName }
+        if let to, !to.isEmpty { body["to"] = to }
+        if let occasion, !occasion.isEmpty { body["occasion"] = occasion }
+        if let date, !date.isEmpty { body["date"] = date }
+        return try await post("/challenges", body: body)
+    }
+
     // MARK: - On-device ranking support
 
     // Quantized Titan embeddings for a set of pin keys — feeds the on-device

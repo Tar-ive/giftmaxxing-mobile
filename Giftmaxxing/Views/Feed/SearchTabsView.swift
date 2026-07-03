@@ -189,6 +189,7 @@ struct SearchTabsView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var showSourceDialog = false
     @State private var showCamera = false
+    @State private var showChallengeSheet = false
     @State private var showLibrary = false
 
     var body: some View {
@@ -266,6 +267,11 @@ struct SearchTabsView: View {
             }
             .sheet(item: $selectedPost) { post in
                 PostDetailView(post: post)
+            }
+            .sheet(isPresented: $showChallengeSheet) {
+                NavigationStack {
+                    ChallengeView(seedImage: viewModel.queryImage)
+                }
             }
             .task {
                 AnalyticsEngine.shared.trackScreenView(screen: "search")
@@ -469,6 +475,24 @@ struct SearchTabsView: View {
                         }
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Color.coral)
+                    }
+
+                    // Image-seeded swipe challenge: POST /challenges embeds
+                    // this capture and builds the guest deck around it —
+                    // "would they like THIS?" without showing your hand.
+                    Button {
+                        showChallengeSheet = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "person.crop.circle.badge.questionmark")
+                            Text("Would they love it? Challenge them")
+                        }
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.coral)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 9)
+                        .background(Color.coralSoft)
+                        .clipShape(Capsule())
                     }
                 }
                 .padding(.top, 12)

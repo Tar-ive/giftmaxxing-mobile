@@ -12,11 +12,21 @@ import SwiftUI
 struct ChallengeView: View {
     @EnvironmentObject private var appState: AppState
 
+    // Optional image seed (share-extension / visual-search captures): the
+    // server embeds it and builds the deck around it — "would they like THIS?"
+    var seedImage: UIImage? = nil
+
     @State private var yourName = ""
     @State private var theirName = ""
     @State private var occasion = "birthday"
     @State private var includeDate = false
     @State private var date = Date()
+
+    // Server-side challenge: deck + verdicts live in the backend; the link
+    // just carries the challengeId. nil until created; invalidated on edits.
+    @State private var challengeId: String?
+    @State private var isCreating = false
+    @State private var serverUnavailable = false
 
     private static let occasions: [(id: String, label: String, emoji: String)] = [
         ("birthday", "Birthday", "🎂"),
@@ -36,16 +46,67 @@ struct ChallengeView: View {
         appState.currentUser?.id ?? InteractionQueue.anonymousUserId
     }
 
-    private var inviteURL: URL? {
+    private var dateString: String? {
+        guard includeDate else { return nil }
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
-        return InviteLink.buildURL(
-            inviterName: yourName.isEmpty ? (appState.currentUser?.name ?? "A friend") : yourName,
+        return formatter.string(from: date)
+    }
+
+    private var inviterName: String {
+        yourName.isEmpty ? (appState.currentUser?.name ?? "A friend") : yourName
+    }
+
+    private var inviteURL: URL? {
+        InviteLink.buildURL(
+            inviterName: inviterName,
             senderId: senderId,
             to: theirName,
             occasion: occasion == "other" ? nil : occasion,
-            date: includeDate ? formatter.string(from: date) : nil
+            date: dateString,
+            challengeId: challengeId
         )
+    }
+
+    // POST /challenges — seed priority: captured image (embedded server-side),
+    // else the sender's recent taste keys (centroid deck). No seed or no
+    // network → legacy local-deck link so sharing never blocks.
+    private func createServerChallenge() async {
+        guard !isCreating else { return }
+        isCreating = true
+        defer { isCreating = false }
+
+        var imageBase64: String?
+        if let seedImage {
+            imageBase64 = seedImage.resized(maxDimension: 512)
+                .jpegData(compressionQuality: 0.8)?
+                .base64EncodedString()
+        }
+        var seedKeys: [String] = []
+        if imageBase64 == nil {
+            seedKeys = await TasteProfileStore.shared.snapshot().seedKeys
+        }
+        guard imageBase64 != nil || !seedKeys.isEmpty else {
+            serverUnavailable = true
+            return
+        }
+
+        do {
+            let response = try await APIClient.shared.createChallenge(
+                senderId: senderId,
+                seedImageBase64: imageBase64,
+                seedKeys: seedKeys.isEmpty ? nil : seedKeys,
+                inviterName: inviterName,
+                to: theirName,
+                occasion: occasion == "other" ? nil : occasion,
+                date: dateString
+            )
+            challengeId = response.challengeId
+            serverUnavailable = false
+            AnalyticsEngine.shared.trackScreenView(screen: "challenge_created_server")
+        } catch {
+            serverUnavailable = true
+        }
     }
 
     var body: some View {
@@ -59,6 +120,30 @@ struct ChallengeView: View {
                     Text("Share a 60-second swipe challenge. They swipe in their browser — no app, no sign-up — and their taste lands right here.")
                         .font(.bodyMedium)
                         .foregroundStyle(.secondary)
+                }
+
+                // Image-seeded challenge — the deck is built around this capture.
+                if let seedImage {
+                    HStack(spacing: 12) {
+                        Image(uiImage: seedImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 64, height: 64)
+                            .clipped()
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Seeded with your photo")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(Color.ink)
+                            Text("Their deck is built around this — their swipes tell you if they'd love it, without ever showing your hand.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.coralSoft.opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
 
                 // Personalize card
@@ -92,8 +177,32 @@ struct ChallengeView: View {
                 .background(Color.cream)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
 
-                // Share
-                if let url = inviteURL {
+                // Share — two-step: build the deck server-side (POST
+                // /challenges → challengeId in the link), then hand off to the
+                // share sheet. Server unreachable → legacy local-deck link so
+                // sharing never blocks.
+                if challengeId == nil && !serverUnavailable {
+                    Button {
+                        Task { await createServerChallenge() }
+                    } label: {
+                        HStack {
+                            Spacer()
+                            if isCreating {
+                                ProgressView().tint(.white)
+                                Text("Building their deck…").font(.labelBold)
+                            } else {
+                                Image(systemName: "wand.and.stars")
+                                Text("Create the challenge").font(.labelBold)
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 15)
+                        .background(Color.coral)
+                        .foregroundStyle(.white)
+                        .clipShape(Capsule())
+                    }
+                    .disabled(isCreating)
+                } else if let url = inviteURL {
                     ShareLink(
                         item: url,
                         subject: Text("Giftmaxxing challenge"),
@@ -113,9 +222,25 @@ struct ChallengeView: View {
                     }
                 }
 
-                Text("The link opens in their browser — they swipe as a guest, and their gift taste shows up in your responses below.")
+                if challengeId != nil {
+                    Label(
+                        "Deck ready — built around \(seedImage != nil ? "your photo" : "your taste") from the live catalog. Their verdict lands in Responses.",
+                        systemImage: "checkmark.seal.fill"
+                    )
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.coral)
+                } else if serverUnavailable {
+                    Label(
+                        "Deck builder unreachable — sharing the classic challenge instead. It still collects their taste.",
+                        systemImage: "wifi.slash"
+                    )
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
+                } else {
+                    Text("The link opens in their browser — they swipe as a guest, and their gift taste shows up in your responses below.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
 
                 Divider()
 
@@ -127,6 +252,13 @@ struct ChallengeView: View {
         .background(Color.surface)
         .navigationTitle("Gift Challenge")
         .navigationBarTitleDisplayMode(.inline)
+        // Personalization is baked into the server deck's META — editing any
+        // field invalidates the created challenge so the next share rebuilds.
+        .onChange(of: yourName) { _, _ in challengeId = nil }
+        .onChange(of: theirName) { _, _ in challengeId = nil }
+        .onChange(of: occasion) { _, _ in challengeId = nil }
+        .onChange(of: includeDate) { _, _ in challengeId = nil }
+        .onChange(of: date) { _, _ in challengeId = nil }
     }
 }
 
