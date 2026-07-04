@@ -81,10 +81,7 @@ export default function SearchPage() {
     setVLoading(false);
   }
 
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
+  async function runVisualSearch(file: File) {
     setTab("visual");
     setQueryImage(URL.createObjectURL(file));
     setVResults(null);
@@ -104,6 +101,38 @@ export default function SearchPage() {
     }
   }
 
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) void runVisualSearch(file);
+  }
+
+  // Paste an image anywhere on the page (⌘V / long-press → Paste) — the
+  // closest thing the web has to the iOS share extension: screenshot a post
+  // on Instagram/Pinterest, copy it, paste it here.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const file = Array.from(e.clipboardData?.files ?? []).find((f) =>
+        f.type.startsWith("image/")
+      );
+      if (!file) return;
+      e.preventDefault();
+      void runVisualSearch(file);
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, []);
+
+  const [dragOver, setDragOver] = useState(false);
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = Array.from(e.dataTransfer?.files ?? []).find((f) =>
+      f.type.startsWith("image/")
+    );
+    if (file) void runVisualSearch(file);
+  }
+
   const TABS: { key: SearchTab; label: string }[] = [
     { key: "people", label: "People" },
     { key: "brands", label: "Brands" },
@@ -112,7 +141,15 @@ export default function SearchPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-xl px-4 py-6">
+    <div
+      className={`mx-auto max-w-xl px-4 py-6 ${dragOver ? "rounded-3xl outline-2 outline-dashed outline-coral" : ""}`}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={onDrop}
+    >
       {/* Search bar */}
       <div className="mb-4 flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5">
         <Icons.search size={18} className="shrink-0 text-ink-faint" />
@@ -265,7 +302,9 @@ export default function SearchPage() {
               <div>
                 <p className="font-display text-lg font-bold text-ink">Search by image</p>
                 <p className="mt-1 text-sm text-ink-soft">
-                  Upload a photo to find visually similar gifts using AI.
+                  Saw it on Instagram or Pinterest? Screenshot it, then upload,
+                  paste (⌘V), or drop the photo here — we&rsquo;ll find visually
+                  similar gifts you can actually buy.
                 </p>
               </div>
               <button
