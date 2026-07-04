@@ -93,6 +93,10 @@ export default function InvitePage() {
   const [deckState, setDeckState] = useState<"idle" | "loading" | "ready" | "failed">(
     challengeId ? "loading" : "idle"
   );
+  // Group gift: the swiper is a helper-friend picking FOR the recipient, not
+  // the recipient themselves — different copy, named tally entry, no birthday.
+  const [groupMode, setGroupMode] = useState(false);
+  const [helperName, setHelperName] = useState("");
   const challengeSwipesRef = useRef<ChallengeSwipe[]>([]);
 
   useEffect(() => {
@@ -103,6 +107,7 @@ export default function InvitePage() {
       if (challenge?.deck?.length) {
         setServerDeck(challenge.deck.map(deckItemToPin));
         setDeckState("ready");
+        if (challenge.mode === "group") setGroupMode(true);
       } else {
         setDeckState("failed");
       }
@@ -120,6 +125,8 @@ export default function InvitePage() {
   // name or picks a birthday. Used only for a friendly greeting on the reveal.
   const guestName = invite?.to?.trim() || "Friend";
   const guestFirst = guestName.split(/\s+/)[0];
+  // Group mode: invite.to is the RECIPIENT the friends are shopping for.
+  const recipientFirst = (invite?.to?.trim() || "them").split(/\s+/)[0];
 
   const transition = useCallback((next: Phase) => {
     setTransitioning(true);
@@ -146,7 +153,10 @@ export default function InvitePage() {
     if (reportedRef.current) return;
     reportedRef.current = true;
     const swipes = loadSwipes();
-    const name = invite?.to?.trim() || "Friend";
+    // Group mode: credit the tally to the helper who swiped, not the recipient.
+    const name = groupMode
+      ? helperName.trim() || "A friend"
+      : invite?.to?.trim() || "Friend";
     const guestBirthday = birthday || invite?.date || undefined;
     const vibes = swipeVibes(5);
     const seeds = seedKeysFromSwipes(8);
@@ -220,7 +230,7 @@ export default function InvitePage() {
     });
 
     clearInviteSession();
-  }, [invite, birthday, inviterName, genderPref]);
+  }, [invite, birthday, inviterName, genderPref, groupMode, helperName]);
 
   const onSwipeDone = useCallback(() => {
     // Server-deck flow: the reveal shows what the guest actually said yes to;
@@ -232,14 +242,15 @@ export default function InvitePage() {
     );
     const serverYes = (serverDeck ?? []).filter((p) => yesIds.has(p.id));
     setResults(serverYes.length ? serverYes.slice(0, 9) : localMatchesFromSwipes(9));
-    // If the sender pre-set a date, skip the birthday step.
-    if (invite?.date) {
+    // Group helpers aren't the giftee — their birthday is irrelevant. Same if
+    // the sender pre-set the date.
+    if (groupMode || invite?.date) {
       reportConnection();
       transition("reveal");
     } else {
       transition("birthday");
     }
-  }, [invite, transition, reportConnection, serverDeck]);
+  }, [invite, transition, reportConnection, serverDeck, groupMode]);
 
   const finishChallenge = useCallback(() => {
     reportConnection();
@@ -285,7 +296,11 @@ export default function InvitePage() {
         <div className="flex flex-1 flex-col items-center justify-center px-4">
         <Maxi size={72} />
         <h1 className="mt-6 text-center font-display text-3xl font-extrabold leading-tight text-ink sm:text-4xl">
-          {inviterName} wants to find<br />your perfect gift
+          {groupMode ? (
+            <>{inviterName} needs your help<br />picking a gift for {recipientFirst}</>
+          ) : (
+            <>{inviterName} wants to find<br />your perfect gift</>
+          )}
         </h1>
         {occasionMeta && (
           <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-coral-soft px-3.5 py-1.5 text-sm font-bold text-coral">
@@ -297,10 +312,21 @@ export default function InvitePage() {
           </span>
         )}
         <p className="mx-auto mt-3 max-w-md text-center text-ink-soft">
-          {occasionLabel
-            ? `${inviterName} wants to give you something special for your ${occasionLabel}. Swipe a few ideas so they know exactly what you'd love.`
-            : `Swipe on gift ideas so ${inviterName} knows exactly what you'd love. No sign-up, no forms, just swipe!`}
+          {groupMode
+            ? `Swipe what you think ${recipientFirst} would love — everyone's picks combine into the group's favorites. No sign-up, just swipe!`
+            : occasionLabel
+              ? `${inviterName} wants to give you something special for your ${occasionLabel}. Swipe a few ideas so they know exactly what you'd love.`
+              : `Swipe on gift ideas so ${inviterName} knows exactly what you'd love. No sign-up, no forms, just swipe!`}
         </p>
+        {groupMode && (
+          <input
+            type="text"
+            value={helperName}
+            onChange={(e) => setHelperName(e.target.value)}
+            placeholder="Your first name (for the tally)"
+            className="mt-5 w-full max-w-xs rounded-full border border-line bg-surface px-5 py-3 text-center text-sm font-medium text-ink outline-none focus:border-coral focus:ring-2 focus:ring-coral/20"
+          />
+        )}
         <button
           onClick={goToConsent}
           className="mt-8 inline-flex items-center gap-2 rounded-full bg-coral px-8 py-3.5 text-base font-bold text-white shadow-lg shadow-coral/30 transition-opacity hover:opacity-90"
@@ -309,7 +335,9 @@ export default function InvitePage() {
         </button>
         <p className="mt-4 text-xs text-ink-faint">Takes less than a minute</p>
         <p className="mx-auto mt-3 max-w-xs text-center text-[11px] leading-relaxed text-ink-faint">
-          {`Swiping shares your gift taste with ${inviterName} so they can gift you. No account or personal details needed. `}
+          {groupMode
+            ? `Your picks are shared with ${inviterName}'s group so you can choose together. No account needed. `
+            : `Swiping shares your gift taste with ${inviterName} so they can gift you. No account or personal details needed. `}
           <a href="/privacy#recipient" className="underline hover:text-ink">
             How we use this
           </a>
@@ -330,12 +358,17 @@ export default function InvitePage() {
             Before you swipe
           </h2>
           <p className="mt-2 text-sm text-ink-soft">
-            Your swipes help {inviterName} pick gifts you&apos;d love. Here&apos;s what happens:
+            {groupMode
+              ? `Your swipes help the group land on the gift ${recipientFirst} actually wants. Here's what happens:`
+              : `Your swipes help ${inviterName} pick gifts you'd love. Here's what happens:`}
           </p>
           <ul className="mt-4 space-y-2 text-left text-sm text-ink-soft">
             <li className="flex items-start gap-2">
               <span className="mt-0.5 text-coral">♥</span>
-              <span>Your <strong className="font-semibold text-ink">yes/no swipes</strong> are shared with {inviterName}</span>
+              <span>
+                Your <strong className="font-semibold text-ink">yes/no swipes</strong>{" "}
+                {groupMode ? "count toward the group's tally" : <>are shared with {inviterName}</>}
+              </span>
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-0.5 text-coral">🎁</span>
@@ -432,10 +465,12 @@ export default function InvitePage() {
               <Icons.gift size={14} /> {inviterName}&apos;s invite
             </span>
             <h1 className="mt-3 font-display text-3xl font-extrabold leading-tight text-ink">
-              Would you want this gifted to you?
+              {groupMode ? `Would ${recipientFirst} love this?` : "Would you want this gifted to you?"}
             </h1>
             <p className="mx-auto mt-2 max-w-md text-ink-soft">
-              Swipe right for yes, left for no. This helps {inviterName} pick the perfect gift for you.
+              {groupMode
+                ? `Swipe right if you think ${recipientFirst} would love it — the group's favorites win.`
+                : `Swipe right for yes, left for no. This helps ${inviterName} pick the perfect gift for you.`}
             </p>
           </div>
 
@@ -497,13 +532,16 @@ export default function InvitePage() {
             <Icons.gift size={44} />
           </div>
           <h2 className="mt-3 font-display text-3xl font-extrabold leading-tight text-ink">
-            {guestFirst !== "Friend" ? `${guestFirst}, your` : "Your"}
-            {occasionLabel ? ` ${occasionLabel}` : ""} gift set is ready
+            {groupMode
+              ? "Your picks are on the board!"
+              : `${guestFirst !== "Friend" ? `${guestFirst}, your` : "Your"}${occasionLabel ? ` ${occasionLabel}` : ""} gift set is ready`}
           </h2>
           <p className="mx-auto mt-2 max-w-sm text-ink-soft">
-            {occasionLabel
-              ? `Based on your swipes, here's what ${inviterName} can shop from for your ${occasionLabel}.`
-              : `Based on your swipes, here's what ${inviterName} can shop from.`}
+            {groupMode
+              ? `These are the ones you said ${recipientFirst} would love — they're counted on the group's tally now.`
+              : occasionLabel
+                ? `Based on your swipes, here's what ${inviterName} can shop from for your ${occasionLabel}.`
+                : `Based on your swipes, here's what ${inviterName} can shop from.`}
           </p>
         </div>
 

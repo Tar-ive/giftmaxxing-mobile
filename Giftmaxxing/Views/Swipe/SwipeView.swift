@@ -200,29 +200,123 @@ struct SwipeView: View {
     @ObservedObject private var swipeList = SwipeListStore.shared
     @Environment(\.modelContext) private var modelContext
 
-    private enum DeckMode: String, CaseIterable {
-        case forYou = "For you"
-        case myList = "My list"
+    // One swiping mechanic, three gifting contexts:
+    //   • For me      — self-gifting: train your taste, find your own things.
+    //   • For someone — one recipient: send THEM a swipe challenge to learn
+    //                   their taste, or curate a deck from your list.
+    //   • Group gift  — the friend group swipes the same deck FOR a third
+    //                   person; the tally converges, then everyone pledges.
+    private enum GiftContext: String, CaseIterable {
+        case me = "For me"
+        case someone = "For someone"
+        case group = "Group gift"
+    }
+    @State private var context: GiftContext = .me
+
+    private enum DeckMode {
+        case forYou
+        case myList
     }
     @State private var mode: DeckMode = .forYou
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Deck picker — recommendations vs. the list you're curating
-                // for a friend.
-                Picker("Deck", selection: $mode) {
-                    ForEach(DeckMode.allCases, id: \.self) { deck in
-                        Text(deck == .myList && !swipeList.posts.isEmpty
-                             ? "\(deck.rawValue) (\(swipeList.posts.count))"
-                             : deck.rawValue)
-                            .tag(deck)
+                // Context picker — who is this swiping session for?
+                Picker("Context", selection: $context) {
+                    ForEach(GiftContext.allCases, id: \.self) { ctx in
+                        Text(ctx.rawValue).tag(ctx)
                     }
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal, 20)
                 .padding(.top, 6)
 
+                if context == .group {
+                    GroupGiftSection()
+                } else if context == .someone {
+                    // The single-recipient toolkit: learn their taste via a
+                    // challenge, or hand-pick a deck from your saved list.
+                    NavigationLink(destination: ChallengeView()) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "person.crop.circle.badge.questionmark")
+                                .font(.system(size: 24))
+                                .foregroundStyle(Color.coral)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Find their taste — send a swipe challenge")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(Color.ink)
+                                Text("They swipe in their browser; their gift taste lands here.")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(12)
+                        .background(Color.coralSoft.opacity(0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+
+                    deckBody
+                } else {
+                    deckBody
+                }
+            }
+            .background(Color.cream)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Swipe")
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    if context == .someone {
+                        // Send the curated deck — the whole point of the list.
+                        ShareLink(item: swipeList.shareMessage) {
+                            Image(systemName: "paperplane.fill")
+                                .font(.system(size: 16))
+                                .foregroundStyle(swipeList.posts.isEmpty ? Color.secondary : Color.coral)
+                        }
+                        .disabled(swipeList.posts.isEmpty)
+                    } else if context == .me {
+                        NavigationLink(destination: ChallengeView()) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 16))
+                                .foregroundStyle(Color.coral)
+                        }
+                    }
+                }
+            }
+        }
+        .onChange(of: context) { _, newContext in
+            switch newContext {
+            case .me:
+                mode = .forYou
+                Task { await viewModel.loadCards() }
+            case .someone:
+                mode = .myList
+                viewModel.loadMyList()
+            case .group:
+                break // GroupGiftSection manages itself
+            }
+        }
+        .task {
+            if viewModel.cards.isEmpty {
+                AnalyticsEngine.shared.trackScreenView(screen: "swipe")
+                await viewModel.loadCards()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var deckBody: some View {
+        Group {
                 if mode == .myList && swipeList.posts.isEmpty && viewModel.cards.isEmpty {
                     VStack(spacing: 14) {
                         Spacer()
@@ -337,47 +431,8 @@ struct SwipeView: View {
                         .font(.labelBold)
                         .foregroundStyle(Color.coral)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-            }
-            .background(Color.cream)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("Swipe")
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    if mode == .myList {
-                        // Send the curated deck — the whole point of the list.
-                        ShareLink(item: swipeList.shareMessage) {
-                            Image(systemName: "paperplane.fill")
-                                .font(.system(size: 16))
-                                .foregroundStyle(swipeList.posts.isEmpty ? Color.secondary : Color.coral)
-                        }
-                        .disabled(swipeList.posts.isEmpty)
-                    } else {
-                        NavigationLink(destination: ChallengeView()) {
-                            Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 16))
-                                .foregroundStyle(Color.coral)
-                        }
-                    }
-                }
-            }
-        }
-        .onChange(of: mode) { _, newMode in
-            switch newMode {
-            case .myList:
-                viewModel.loadMyList()
-            case .forYou:
-                Task { await viewModel.loadCards() }
-            }
-        }
-        .task {
-            if viewModel.cards.isEmpty {
-                AnalyticsEngine.shared.trackScreenView(screen: "swipe")
-                await viewModel.loadCards()
-            }
         }
     }
 }

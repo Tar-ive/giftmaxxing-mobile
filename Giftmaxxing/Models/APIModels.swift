@@ -84,6 +84,36 @@ struct ChallengeCreateResponse: Codable {
     }
 }
 
+// GET /challenges/{id} — public status. Group mode carries the shared tally:
+// which cards the friends said yes to, and who has swiped so far.
+struct ChallengeStatusResponse: Codable {
+    var challengeId: String?
+    var inviterName: String?
+    var to: String?
+    var occasion: String?
+    var mode: String?
+    var responseCount: Int?
+    var deck: [ChallengeCreateResponse.ChallengeDeckItem]?
+    var groupPicks: [GroupPickItem]?
+    var responders: [String]?
+
+    struct GroupPickItem: Codable, Identifiable {
+        var postId: String
+        var name: String?
+        var image: String?
+        var price: Double?
+        var category: String?
+        var yes: Int
+        var guests: [String]?
+
+        var id: String { postId }
+    }
+}
+
+struct ChallengeResponseAck: Codable {
+    var ok: Bool?
+}
+
 // GET /vectors — int8-quantized Titan embeddings for on-device similarity.
 struct VectorsResponse: Codable {
     var items: [QuantizedVectorItem]?

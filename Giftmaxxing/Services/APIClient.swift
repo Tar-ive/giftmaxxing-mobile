@@ -184,6 +184,7 @@ actor APIClient {
     // verdicts live entirely server-side from here.
     func createChallenge(
         senderId: String,
+        mode: String? = nil,
         seedImageBase64: String? = nil,
         seedPostId: String? = nil,
         seedKeys: [String]? = nil,
@@ -204,7 +205,28 @@ actor APIClient {
         if let to, !to.isEmpty { body["to"] = to }
         if let occasion, !occasion.isEmpty { body["occasion"] = occasion }
         if let date, !date.isEmpty { body["date"] = date }
+        if let mode, !mode.isEmpty { body["mode"] = mode }
         return try await post("/challenges", body: body)
+    }
+
+    // GET /challenges/{id} — the public view. For group gifts this carries the
+    // shared tally (groupPicks + responders) every friend can see.
+    func fetchChallengeStatus(challengeId: String) async throws -> ChallengeStatusResponse {
+        try await get("/challenges/\(challengeId)")
+    }
+
+    // POST /challenges/{id}/response — submit swipes on a challenge deck (the
+    // creator swiping their own group deck uses the same guest door friends do).
+    func submitChallengeResponse(
+        challengeId: String,
+        guestName: String,
+        swipes: [(id: String, dir: String)]
+    ) async throws {
+        let body: [String: Any] = [
+            "guest": ["name": guestName],
+            "swipes": swipes.map { ["id": $0.id, "dir": $0.dir] },
+        ]
+        let _: ChallengeResponseAck = try await post("/challenges/\(challengeId)/response", body: body)
     }
 
     // MARK: - On-device ranking support

@@ -535,6 +535,9 @@ export type ChallengePublic = {
   occasion?: string | null;
   date?: string | null;
   note?: string | null;
+  // "group" = friends swipe FOR a third-party recipient; the tally is shared.
+  mode?: string | null;
+  responseCount?: number;
   deck: ChallengeDeckItem[];
 };
 

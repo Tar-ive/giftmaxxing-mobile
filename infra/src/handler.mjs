@@ -2789,6 +2789,10 @@ export const handler = async (event) => {
             ? body.date
             : undefined,
         note: body.note ? String(body.note).slice(0, 280) : undefined,
+        // "group" = friends collaborate on a gift for a third party: every
+        // response is shared state (public tally on GET) instead of a private
+        // know-me verdict for the sender.
+        mode: body.mode === "group" ? "group" : undefined,
         seed: seedInfo,
         seedVec: packVector(seedVector),
         deck,
@@ -2817,10 +2821,48 @@ export const handler = async (event) => {
         occasion: meta.occasion ?? null,
         date: meta.date ?? null,
         note: meta.note ?? null,
+        mode: meta.mode ?? null,
         createdAt: meta.createdAt,
+        responseCount: meta.responseCount ?? 0,
         // Guests must not see which card is the ask: strip band + distance.
         deck: (meta.deck ?? []).map(({ band, distance, ...it }) => it),
       };
+      // Group gifting: the tally is the shared prize board — every holder of
+      // the link (creator + friends) sees which cards are winning and who
+      // voted. There is no hidden seed verdict to protect in this mode.
+      if (meta.mode === "group") {
+        const resp = await ddb.send(
+          new QueryCommand({
+            TableName: CHALLENGES,
+            KeyConditionExpression: "challengeId = :c AND begins_with(itemId, :r)",
+            ExpressionAttributeValues: { ":c": challengeId, ":r": "RESP#" },
+          })
+        );
+        const tally = new Map();
+        const responders = [];
+        for (const row of resp.Items ?? []) {
+          if (row.guestName && !responders.includes(row.guestName)) responders.push(row.guestName);
+          for (const s of row.swipes ?? []) {
+            if (s.dir !== "yes") continue;
+            const t = tally.get(s.id) ?? { yes: 0, guests: [] };
+            t.yes += 1;
+            if (row.guestName && !t.guests.includes(row.guestName) && t.guests.length < 8) {
+              t.guests.push(row.guestName);
+            }
+            tally.set(s.id, t);
+          }
+        }
+        base.responders = responders.slice(0, 24);
+        base.groupPicks = (meta.deck ?? [])
+          .filter((it) => tally.has(it.postId))
+          .map(({ band, distance, ...it }) => ({
+            ...it,
+            yes: tally.get(it.postId).yes,
+            guests: tally.get(it.postId).guests,
+          }))
+          .sort((a, b) => b.yes - a.yes)
+          .slice(0, 24);
+      }
       const auth = await authorizeRequest(event, method, path);
       if (auth.ok && (auth.via === "admin" || auth.sub === meta.senderId)) {
         const resp = await ddb.send(

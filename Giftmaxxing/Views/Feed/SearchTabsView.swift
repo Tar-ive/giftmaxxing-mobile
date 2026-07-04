@@ -190,6 +190,7 @@ struct SearchTabsView: View {
     @State private var showSourceDialog = false
     @State private var showCamera = false
     @State private var showChallengeSheet = false
+    @State private var showGroupGiftSheet = false
     @State private var showLibrary = false
 
     var body: some View {
@@ -271,6 +272,11 @@ struct SearchTabsView: View {
             .sheet(isPresented: $showChallengeSheet) {
                 NavigationStack {
                     ChallengeView(seedImage: viewModel.queryImage)
+                }
+            }
+            .sheet(isPresented: $showGroupGiftSheet) {
+                NavigationStack {
+                    GroupGiftCreateView(seedImage: viewModel.queryImage)
                 }
             }
             .task {
@@ -486,6 +492,23 @@ struct SearchTabsView: View {
                         HStack(spacing: 6) {
                             Image(systemName: "person.crop.circle.badge.questionmark")
                             Text("Would they love it? Challenge them")
+                        }
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.coral)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 9)
+                        .background(Color.coralSoft)
+                        .clipShape(Capsule())
+                    }
+
+                    // Same capture, group mode: the friend crew swipes a deck
+                    // built around this photo and pledges toward the winner.
+                    Button {
+                        showGroupGiftSheet = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "person.3.fill")
+                            Text("Gift it together — start a group gift")
                         }
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(Color.coral)

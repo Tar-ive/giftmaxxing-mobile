@@ -84,6 +84,32 @@ final class PoolsStore: ObservableObject {
         return pool
     }
 
+    // Group-gift pledge round: record a named pledge ("Sarah — $25") so the
+    // leaderboard reflects the whole friend group, not just this device.
+    // Payments/delivery are out of scope for now — this is the coordination
+    // layer the group settles up around.
+    func pledge(name: String, amount: Double, to poolId: String) {
+        guard amount > 0,
+              let idx = pools.firstIndex(where: { $0.id == poolId }) else { return }
+        var pool = pools[idx]
+        pool.currentAmount += amount
+        if let existing = pool.contributors.firstIndex(where: { $0.name == name }) {
+            pool.contributors[existing].amount += amount
+        } else {
+            let grads: [GradientStyle] = [.peach, .rose, .butter, .lilac, .sky, .sage, .coral]
+            pool.contributors.append(
+                PoolContributor(
+                    id: "pledge_\(Int(Date().timeIntervalSince1970 * 1000))",
+                    name: name,
+                    amount: amount,
+                    avatarGrad: name == "You" ? .coral : grads[abs(name.hashValue) % grads.count]
+                )
+            )
+        }
+        pools[idx] = pool
+        persist()
+    }
+
     // Mirrors web contributeToPool: bump raised total + record the contributor.
     func contribute(_ amount: Double, to poolId: String) {
         guard amount > 0,
