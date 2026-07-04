@@ -58,3 +58,6 @@ Package.resolved
 # CocoaPods
 Pods/
 *.xcworkspace
+
+# Ingest script backups — data snapshots, not source
+infra/ingest/*.backup.*.json
