@@ -85,11 +85,17 @@ function isPublicRoute(method, path) {
     // sender-only fields (seed, verdicts) are stripped unless the request
     // authenticates as the challenge's sender — see the route.
     if (/^\/challenges\/[^/]+$/.test(path)) return true;
+    // Circle page (family/friend group) — the share link IS the membership
+    // credential, same trust model as invite/challenge links.
+    if (/^\/circles\/[^/]+$/.test(path)) return true;
   }
   if (method === "POST" && (path === "/visual-search" || path === "/connections")) return true;
   // Challenge create (anon senders allowed, same trust as POST /connections;
   // Bedrock embed cost rides the aiEnabled() breaker) + the guest's response.
   if (method === "POST" && (path === "/challenges" || /^\/challenges\/[^/]+\/response$/.test(path))) return true;
+  // Circle create/join/events: anonymous family members add their birthday
+  // via the shared link — no account, exactly like guest challenge responses.
+  if (method === "POST" && (path === "/circles" || /^\/circles\/[^/]+\/(join|events|events\/delete)$/.test(path))) return true;
   return false;
 }
 
@@ -3304,6 +3310,182 @@ export const handler = async (event) => {
       }
 
       return json(404, { error: `no route for ${method} ${path}` });
+    }
+
+    // ── Gift circles — shared family/friend groups ────────────────────────
+    // One person creates a circle ("Sharma Family"), shares the link, and
+    // everyone adds their name + birthday. The circle page shows every
+    // member's next birthday and any shared occasions, so nobody misses a
+    // gift moment. Stored in the EVENTS table under one CIRCLE# partition:
+    //   { userId: CIRCLE#<id>, eventId: "META" }            circle name etc.
+    //   { userId: CIRCLE#<id>, eventId: "MEMBER#<mid>" }    name + birthday
+    //   { userId: CIRCLE#<id>, eventId: "EVT#<ts>#<id>" }   shared occasion
+    // The link is the credential (invite-link trust model): the id is
+    // unguessable, and the recipient of a gift never needs to see it.
+
+    // POST /circles  { name, creator: { name, birthday? } }
+    if (method === "POST" && path === "/circles") {
+      if (!EVENTS) return json(503, { error: "events table not configured" });
+      const name = String(body.name ?? "").trim().slice(0, 60);
+      if (!name) return json(400, { error: "name required" });
+      const circleId = `cir_${gid()}`;
+      const pk = `CIRCLE#${circleId}`;
+      const now = Date.now();
+      const emoji = String(body.emoji ?? "").slice(0, 8) || null;
+      await ddb.send(
+        new PutCommand({
+          TableName: EVENTS,
+          Item: { userId: pk, eventId: "META", scope: "circle", circleId, name, emoji, createdAt: now },
+        })
+      );
+      const creator = body.creator ?? {};
+      const creatorName = String(creator.name ?? "").trim().slice(0, 40);
+      if (creatorName) {
+        const birthday =
+          typeof creator.birthday === "string" && /^\d{4}-\d{2}-\d{2}$/.test(creator.birthday)
+            ? creator.birthday
+            : null;
+        await ddb.send(
+          new PutCommand({
+            TableName: EVENTS,
+            Item: {
+              userId: pk,
+              eventId: `MEMBER#${gid()}`,
+              scope: "circle",
+              name: creatorName,
+              birthday,
+              role: "creator",
+              joinedAt: now,
+            },
+          })
+        );
+      }
+      return json(200, { ok: true, circleId });
+    }
+
+    // GET /circles/{id}  — the whole circle in one query: meta + members + events.
+    if (method === "GET" && /^\/circles\/[^/]+$/.test(path)) {
+      if (!EVENTS) return json(404, { error: "not found" });
+      const circleId = decodeURIComponent(path.split("/")[2]);
+      const out = await ddb.send(
+        new QueryCommand({
+          TableName: EVENTS,
+          KeyConditionExpression: "userId = :u",
+          ExpressionAttributeValues: { ":u": `CIRCLE#${circleId}` },
+        })
+      );
+      const rows = out.Items ?? [];
+      const meta = rows.find((r) => r.eventId === "META");
+      if (!meta) return json(404, { error: "circle not found" });
+      const members = rows
+        .filter((r) => r.eventId.startsWith("MEMBER#"))
+        .map((r) => ({
+          memberId: r.eventId.slice(7),
+          name: r.name,
+          birthday: r.birthday ?? null,
+          role: r.role ?? "member",
+          joinedAt: r.joinedAt ?? 0,
+        }))
+        .sort((a, b) => a.joinedAt - b.joinedAt);
+      const events = rows
+        .filter((r) => r.eventId.startsWith("EVT#"))
+        .map((r) => ({
+          eventId: r.eventId,
+          title: r.title,
+          date: r.date,
+          type: r.type ?? "occasion",
+          forName: r.forName ?? null,
+          addedBy: r.addedBy ?? null,
+          createdAt: r.createdAt ?? 0,
+        }))
+        .sort((a, b) => (a.date < b.date ? -1 : 1));
+      return json(200, {
+        circle: { circleId, name: meta.name, emoji: meta.emoji ?? null, createdAt: meta.createdAt },
+        members,
+        events,
+      });
+    }
+
+    // POST /circles/{id}/join  { name, birthday? }  — upsert by name so
+    // re-joining from the same link just updates your birthday.
+    if (method === "POST" && /^\/circles\/[^/]+\/join$/.test(path)) {
+      if (!EVENTS) return json(503, { error: "events table not configured" });
+      const circleId = decodeURIComponent(path.split("/")[2]);
+      const pk = `CIRCLE#${circleId}`;
+      const name = String(body.name ?? "").trim().slice(0, 40);
+      if (!name) return json(400, { error: "name required" });
+      const birthday =
+        typeof body.birthday === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.birthday)
+          ? body.birthday
+          : null;
+      const out = await ddb.send(
+        new QueryCommand({
+          TableName: EVENTS,
+          KeyConditionExpression: "userId = :u",
+          ExpressionAttributeValues: { ":u": pk },
+        })
+      );
+      const rows = out.Items ?? [];
+      if (!rows.some((r) => r.eventId === "META")) return json(404, { error: "circle not found" });
+      const membersNow = rows.filter((r) => r.eventId.startsWith("MEMBER#"));
+      if (membersNow.length >= 100) return json(400, { error: "circle is full" });
+      const existing = membersNow.find(
+        (r) => String(r.name ?? "").toLowerCase() === name.toLowerCase()
+      );
+      const item = existing
+        ? { ...existing, birthday: birthday ?? existing.birthday ?? null }
+        : {
+            userId: pk,
+            eventId: `MEMBER#${gid()}`,
+            scope: "circle",
+            name,
+            birthday,
+            role: "member",
+            joinedAt: Date.now(),
+          };
+      await ddb.send(new PutCommand({ TableName: EVENTS, Item: item }));
+      return json(200, { ok: true, memberId: item.eventId.slice(7) });
+    }
+
+    // POST /circles/{id}/events  { title, date, type?, forName?, addedBy? }
+    if (method === "POST" && /^\/circles\/[^/]+\/events$/.test(path)) {
+      if (!EVENTS) return json(503, { error: "events table not configured" });
+      const circleId = decodeURIComponent(path.split("/")[2]);
+      const pk = `CIRCLE#${circleId}`;
+      const title = String(body.title ?? "").trim().slice(0, 80);
+      const date = String(body.date ?? "");
+      if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return json(400, { error: "title and date (YYYY-MM-DD) required" });
+      }
+      const metaOut = await ddb.send(
+        new GetCommand({ TableName: EVENTS, Key: { userId: pk, eventId: "META" } })
+      );
+      if (!metaOut.Item) return json(404, { error: "circle not found" });
+      const item = {
+        userId: pk,
+        eventId: `EVT#${Date.now()}#${gid()}`,
+        scope: "circle",
+        title,
+        date,
+        type: String(body.type ?? "occasion").slice(0, 24),
+        forName: body.forName ? String(body.forName).slice(0, 40) : null,
+        addedBy: body.addedBy ? String(body.addedBy).slice(0, 40) : null,
+        createdAt: Date.now(),
+      };
+      await ddb.send(new PutCommand({ TableName: EVENTS, Item: item }));
+      return json(200, { ok: true, eventId: item.eventId });
+    }
+
+    // POST /circles/{id}/events/delete  { eventId }
+    if (method === "POST" && /^\/circles\/[^/]+\/events\/delete$/.test(path)) {
+      if (!EVENTS) return json(503, { error: "events table not configured" });
+      const circleId = decodeURIComponent(path.split("/")[2]);
+      const eventId = String(body.eventId ?? "");
+      if (!eventId.startsWith("EVT#")) return json(400, { error: "eventId required" });
+      await ddb.send(
+        new DeleteCommand({ TableName: EVENTS, Key: { userId: `CIRCLE#${circleId}`, eventId } })
+      );
+      return json(200, { ok: true });
     }
 
     // ── Unified events (personal milestones + shared occasions/soft profiles) ──

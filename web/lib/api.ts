@@ -172,6 +172,7 @@ export function mapApiPost(api: ApiPost): Post {
     productUrl: api.productUrl ?? null,
     rec: api.rec ?? true,
     reason: api.reason,
+    category: api.category,
   };
 }
 

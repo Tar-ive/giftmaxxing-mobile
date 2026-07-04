@@ -43,6 +43,7 @@ export type Post = {
   productUrl?: string | null; // off-site product link
   rec?: boolean; // surfaced by the recommendation engine
   reason?: string; // human-readable "why you're seeing this"
+  category?: string; // catalog category facet (drives the gift-consult ranking)
 };
 
 export const POSTS: Post[] = [

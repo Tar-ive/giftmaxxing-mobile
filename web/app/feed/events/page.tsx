@@ -42,11 +42,12 @@ import {
   deleteEvent,
 } from "@/lib/api";
 import { loadProfile } from "@/lib/onboarding";
+import { CirclesPanel } from "@/components/app/circles-panel";
 import { GiftPromptCards } from "@/components/app/gift-prompt-card";
 import { Maxi } from "@/components/ui";
 import Link from "next/link";
 
-type TopTab = "personal" | "shared";
+type TopTab = "personal" | "shared" | "circles";
 
 export default function EventsPage() {
   const [topTab, setTopTab] = useState<TopTab>("personal");
@@ -62,7 +63,7 @@ export default function EventsPage() {
   // Honor a deep-link tab (?tab=shared|personal) from the right-rail Events widget.
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get("tab");
-    if (t === "shared" || t === "personal") {
+    if (t === "shared" || t === "personal" || t === "circles") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setTopTab(t);
     }
@@ -152,7 +153,7 @@ export default function EventsPage() {
         <div>
           <h1 className="font-display text-2xl font-extrabold text-ink sm:text-3xl">Events</h1>
           <p className="mt-1 text-ink-soft">
-            Your milestones, upcoming occasions, and shared dates.
+            Your milestones, shared dates, and family gift circles.
           </p>
         </div>
         {topTab === "personal" && (
@@ -165,9 +166,9 @@ export default function EventsPage() {
         )}
       </header>
 
-      {/* Top-level tabs: Personal / Shared */}
+      {/* Top-level tabs: Personal / Shared / Circles */}
       <div className="mb-5 flex gap-1 rounded-xl border border-line bg-cream p-1">
-        {(["personal", "shared"] as TopTab[]).map((t) => (
+        {(["personal", "shared", "circles"] as TopTab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTopTab(t)}
@@ -181,6 +182,8 @@ export default function EventsPage() {
           </button>
         ))}
       </div>
+
+      {topTab === "circles" && <CirclesPanel />}
 
       {topTab === "personal" && (
         <>
