@@ -218,10 +218,16 @@ export function HeroSection() {
             <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
           </Link>
           <Link
-            href="/challenge"
+            href="/gift"
             className="inline-flex items-center gap-2 border border-foreground/20 hover:border-foreground/40 bg-background/60 backdrop-blur-sm text-foreground font-semibold px-8 h-14 rounded-full text-base transition-colors"
           >
-            Share a challenge
+            🎁 Find a gift in 60 seconds
+          </Link>
+          <Link
+            href="/challenge"
+            className="inline-flex items-center gap-2 text-foreground/70 hover:text-foreground font-semibold px-4 h-14 rounded-full text-base transition-colors"
+          >
+            or share a challenge
           </Link>
         </div>
         </div>

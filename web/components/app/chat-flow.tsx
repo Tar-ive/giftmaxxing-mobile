@@ -114,21 +114,18 @@ export function ChatFlow({
     [speak, steps],
   );
 
-  // Mount: play the intro, then ask the first question. (Strict-mode double
-  // effect is defused by the cleanup clearing timers + messages.)
+  // Mount: play the intro, then ask the first question. Kickoff rides a 0ms
+  // timer so no setState happens synchronously in the effect body (and the
+  // strict-mode double-mount is defused by the cleanup clearing timers +
+  // the reset happening inside the surviving timer).
   useEffect(() => {
-    setMessages([]);
-    if (intro?.length) {
-      speak(intro, undefined);
-      timersRef.current.push(
-        window.setTimeout(
-          () => askStep(0),
-          intro.reduce((ms, l) => ms + TYPE_MS + Math.min(600, l.length * 6) + 140, 260),
-        ),
-      );
-    } else {
-      askStep(0);
-    }
+    timersRef.current.push(
+      window.setTimeout(() => {
+        setMessages([]);
+        if (intro?.length) speak(intro, () => askStep(0));
+        else askStep(0);
+      }, 0),
+    );
     return clearTimers;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -218,7 +215,8 @@ export function ChatFlow({
   }, [step, picks, advance]);
 
   const showText = step && (step.input === "text" || (step.allowText && step.input === "chips"));
-  const canUndo = historyRef.current.length > 0 && !!step;
+  // Derived from state (not the history ref) so it re-renders correctly.
+  const canUndo = !!step && messages.some((m) => m.from === "you");
 
   const chipBase =
     "flex items-center gap-1.5 rounded-full border-2 px-4 py-2 text-sm font-semibold transition-all active:scale-95";

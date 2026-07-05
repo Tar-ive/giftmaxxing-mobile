@@ -7,6 +7,7 @@ import { RightRail } from "@/components/app/right-rail";
 import { FeedPoolCard } from "@/components/app/feed-pool-card";
 import { EventBanner } from "@/components/app/event-banner";
 import { GiftPromptCards } from "@/components/app/gift-prompt-card";
+import { ConsultCta } from "@/components/app/consult-cta";
 import { MilestoneBanner } from "@/components/app/milestone-banner";
 import { useStore } from "@/components/app/store";
 import { type Fundraiser, loadFundraisers } from "@/lib/fundraisers";
@@ -42,6 +43,7 @@ export default function FeedPage() {
       <div className="w-full max-w-[470px] space-y-5">
         <EventBanner />
         <GiftPromptCards />
+        <ConsultCta />
         <MilestoneBanner />
         <StoriesTray />
 

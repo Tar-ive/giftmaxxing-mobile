@@ -123,6 +123,68 @@ function startOfDay(from: Date): Date {
   return new Date(from.getFullYear(), from.getMonth(), from.getDate());
 }
 
+// ── Natural-language date entry ("3/14", "March 14", "14 march 1998") ────────
+// Used by the conversational onboarding's events loop. Bare dates and past
+// years (birth years) roll forward to the next occurrence; an explicit
+// current/future year is preserved and reported via futureYearGiven so the
+// caller can decide between annual and one-off recurrence.
+
+const MONTH_ABBR = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+const MONTH_FULL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+export type ParsedDateText = { iso: string; label: string; futureYearGiven: boolean };
+
+export function parseEventDateText(raw: string, now = new Date()): ParsedDateText | null {
+  const t = raw.trim().toLowerCase();
+  let m: number | null = null;
+  let d: number | null = null;
+  let y: number | null = null;
+
+  let match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t); // ISO
+  if (match) [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  if (m == null) {
+    match = /^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?$/.exec(t); // 3/14[/1998]
+    if (match) {
+      m = Number(match[1]);
+      d = Number(match[2]);
+      y = match[3] && match[3].length === 4 ? Number(match[3]) : null;
+    }
+  }
+  if (m == null) {
+    // "march 14 [1998]" or "14 march [1998]"
+    match = /^([a-z]+)\s+(\d{1,2})(?:\s*,?\s*(\d{4}))?$/.exec(t) ?? null;
+    let monthToken: string | undefined;
+    let dayToken: string | undefined;
+    let yearToken: string | undefined;
+    if (match) [monthToken, dayToken, yearToken] = [match[1], match[2], match[3]];
+    else {
+      match = /^(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([a-z]+)(?:\s*,?\s*(\d{4}))?$/.exec(t);
+      if (match) [dayToken, monthToken, yearToken] = [match[1], match[2], match[3]];
+    }
+    if (monthToken && dayToken) {
+      const mi = MONTH_ABBR.findIndex((mn) => monthToken.startsWith(mn));
+      if (mi >= 0) {
+        m = mi + 1;
+        d = Number(dayToken);
+        y = yearToken ? Number(yearToken) : null;
+      }
+    }
+  }
+
+  if (m == null || d == null || m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const futureYearGiven = y != null && y >= now.getFullYear();
+  if (y == null || y < now.getFullYear()) {
+    const today = startOfDay(now);
+    y =
+      new Date(now.getFullYear(), m - 1, d).getTime() < today.getTime()
+        ? now.getFullYear() + 1
+        : now.getFullYear();
+  }
+  const iso = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const label = `${MONTH_FULL[m - 1]} ${d}${futureYearGiven ? `, ${y}` : ""}`;
+  return { iso, label, futureYearGiven };
+}
+
 export function parseISODate(iso: string): { y: number; m: number; d: number } | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec((iso ?? "").trim());
   if (!match) return null;
