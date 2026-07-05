@@ -76,9 +76,20 @@ final class FeedViewModel: ObservableObject {
         isLoadingMore = false
     }
 
-    // One generic candidate fetch + full local ranking pass.
+    // One candidate fetch + full local ranking pass. The fetch stays cheap and
+    // cacheable, but carries the consult's cold-start signals (genderPref →
+    // recipient facet, world vibes) so a brand-new user's very first page
+    // already leans their way — the on-device ranker needs interactions the
+    // user doesn't have yet.
     private func fetchAndRankNextPage() async throws {
-        let page = try await api.fetchFeed(cursor: cursor, limit: networkPageSize)
+        let consultVibes = PersonalizationStore.consultVibes
+        let page = try await api.fetchFeed(
+            cursor: cursor,
+            limit: networkPageSize,
+            vibes: consultVibes.isEmpty ? nil : consultVibes,
+            recipient: PersonalizationStore.feedRecipient,
+            userId: userId
+        )
         cursor = page.cursor
         if page.cursor == nil || page.posts.isEmpty { exhausted = true }
 

@@ -10,7 +10,7 @@
 // the pick among ~14 cards. If the recipient swipes right on it, the server
 // reports a confirmed match — they chose it without knowing it was the ask.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChatFlow, type ChatAnswers, type ChatStep } from "@/components/app/chat-flow";
 import { Maxi, Icons } from "@/components/ui";
@@ -55,6 +55,22 @@ function firstName(a: ChatAnswers): string | null {
 }
 const they = (a: ChatAnswers) => firstName(a) ?? "they";
 const them = (a: ChatAnswers) => firstName(a) ?? "them";
+
+// Onboarding-only opener: this one is about the USER, not the recipient — it
+// sets the recipient facet their own feed leans toward (him → "men", …).
+const GENDER_STEP: ChatStep = {
+  id: "genderPref",
+  prompts: () => [
+    "One thing about YOU first — whose gifts should your feed lean toward?",
+    "This shapes what I show you day-to-day. The consults work for anyone either way.",
+  ],
+  input: "chips",
+  options: [
+    { value: "him", label: "Gifts for him", emoji: "🤵" },
+    { value: "her", label: "Gifts for her", emoji: "👩" },
+    { value: "any", label: "Mix of everyone", emoji: "🎁" },
+  ],
+};
 
 const STEPS: ChatStep[] = [
   {
@@ -168,6 +184,7 @@ export function GiftConsult({ onboarding = false }: { onboarding?: boolean }) {
   const [gifts, setGifts] = useState<RankedGift[]>([]);
   const [pool, setPool] = useState<Post[]>([]);
   const [flowKey, setFlowKey] = useState(0); // remount ChatFlow on "start over"
+  const genderPrefRef = useRef<"him" | "her" | "any" | undefined>(undefined);
 
   const runConsult = useCallback(
     async (a: ConsultAnswers) => {
@@ -175,7 +192,9 @@ export function GiftConsult({ onboarding = false }: { onboarding?: boolean }) {
       setPhase("thinking");
       // Onboarding: the consult answers ARE the taste profile — persist it so
       // the gate opens and the feed personalizes from the same signals.
-      if (onboarding) saveProfile(deriveProfileFromConsult(a, getCurrentUser().name));
+      if (onboarding) {
+        saveProfile(deriveProfileFromConsult(a, getCurrentUser().name, genderPrefRef.current));
+      }
       let posts: Post[] = [];
       if (isApiConfigured()) {
         const opts = consultFeedOpts(a);
@@ -197,6 +216,10 @@ export function GiftConsult({ onboarding = false }: { onboarding?: boolean }) {
 
   const onComplete = useCallback(
     (raw: ChatAnswers) => {
+      genderPrefRef.current =
+        raw.genderPref === "him" || raw.genderPref === "her" || raw.genderPref === "any"
+          ? raw.genderPref
+          : undefined;
       const budgetNum = Number(raw.budget);
       const a: ConsultAnswers = {
         relation: (raw.relation as ConsultRelation) ?? "other",
@@ -236,7 +259,7 @@ export function GiftConsult({ onboarding = false }: { onboarding?: boolean }) {
         <div className="min-h-0 flex-1">
           <ChatFlow
             key={flowKey}
-            steps={STEPS}
+            steps={onboarding ? [GENDER_STEP, ...STEPS] : STEPS}
             intro={onboarding ? INTRO_ONBOARDING : INTRO}
             onComplete={onComplete}
           />

@@ -184,6 +184,11 @@ struct UserProfile: Codable {
     var imageUrl: String?
     var recipients: [Recipient]?
     var events: [EventData]?
+    // Onboarding markers written by the concierge (web or iOS). completedAt
+    // present ⇒ this account has onboarded SOMEWHERE — don't re-gate it.
+    var completedAt: Double?
+    var interests: [String]?
+    var genderPref: String?
 
     struct Recipient: Codable, Identifiable {
         var id: String

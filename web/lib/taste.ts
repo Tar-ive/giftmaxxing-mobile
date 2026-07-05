@@ -97,6 +97,49 @@ export function tasteFromProfile(profile: UserProfile | null): Taste {
   };
 }
 
+// ── Profile → live-feed query params ────────────────────────────────────────
+// The bundled feed personalizes via scorePinForTaste; the LIVE API feed needs
+// its signals as /feed facets. Interests map onto the server's vibe vocabulary
+// (see infra scorePost), genderPref onto a catalog recipient facet.
+
+const INTEREST_TO_VIBE: Record<string, string> = {
+  cozy: "cozy",
+  minimalist: "minimal",
+  vintage: "retro",
+  luxury: "luxe",
+  outdoors: "outdoors",
+  foodie: "foodie",
+  wellness: "wellness",
+  photography: "tech",
+  sustainable: "calm",
+  diy: "diy",
+  "pop-culture": "retro",
+  plants: "home",
+  pets: "warm",
+  stationery: "stationery",
+  candles: "home",
+  "coffee-tea": "kitchen",
+};
+
+export function feedPersonalization(profile: UserProfile | null): {
+  vibes?: string[];
+  recipient?: string;
+} {
+  if (!profile) return {};
+  const vibes: string[] = [];
+  for (const tag of profile.interests ?? []) {
+    const v = INTEREST_TO_VIBE[String(tag).toLowerCase()];
+    if (v && !vibes.includes(v)) vibes.push(v);
+  }
+  // Catalog facets are relationship-flavored; "him" has a direct match.
+  const recipient =
+    profile.genderPref === "him" ? "men" : profile.genderPref === "her" ? "women" : undefined;
+  return {
+    vibes: vibes.length ? vibes.slice(0, 6) : undefined,
+    recipient,
+  };
+}
+
 // Affinity of a single pin to the taste. ~[-0.15, 1.5]; 0 when no signal.
 export function scorePinForTaste(
   pin: { category: string; price: number },

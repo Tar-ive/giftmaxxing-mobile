@@ -265,6 +265,18 @@ struct SearchTabsView: View {
                     Text("Search")
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                 }
+                // Search presents as a full-screen cover (not a tab) — it
+                // needs its own way out.
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        appState.showSearch = false
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.ink)
+                    }
+                    .accessibilityLabel("Close search")
+                }
             }
             .sheet(item: $selectedPost) { post in
                 PostDetailView(post: post)

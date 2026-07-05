@@ -63,6 +63,49 @@ export function saveFollows(follows: string[]): void {
   }
 }
 
+// ── Account ownership ────────────────────────────────────────────────────────
+// Local state (profile + likes/saves/follows) belongs to exactly one identity:
+// a signed-in userId, or "guest" data made while signed out. Signing in with a
+// DIFFERENT account must not inherit it — that's how a brand-new account was
+// skipping onboarding and seeing the previous session's feed. The owner mark
+// lets AccountSync detect the switch and reset to the cloud's truth.
+
+const OWNER_KEY = "giftmaxxing_state_owner";
+
+export function getStateOwner(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(OWNER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setStateOwner(userId: string | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (userId) localStorage.setItem(OWNER_KEY, userId);
+    else localStorage.removeItem(OWNER_KEY);
+  } catch {
+    /* quota */
+  }
+}
+
+// Wipe everything account-scoped so the next identity starts clean. The anon
+// id (challenge share attribution) is intentionally NOT cleared — claiming it
+// is handled separately by AccountSync.
+export function clearLocalAccountState(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem("giftmaxxing_onboarding");
+    localStorage.removeItem(POST_STATE_KEY);
+    localStorage.removeItem(FOLLOWS_KEY);
+    localStorage.removeItem(OWNER_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 // ── Cloud payload helpers ────────────────────────────────────────────────────
 
 // Shape stored under the /me endpoint (superset of UserProfile).

@@ -12,7 +12,7 @@ import {
 import { type Post, type GroupChat, GROUP_CHATS } from "@/lib/social";
 import { buildPinFeed } from "@/lib/feed-builder";
 import { loadProfile } from "@/lib/onboarding";
-import { tasteFromProfile } from "@/lib/taste";
+import { tasteFromProfile, feedPersonalization } from "@/lib/taste";
 import { fetchFeed, isApiConfigured, getMyUserId, recordInteraction, fetchInteractions } from "@/lib/api";
 import {
   loadPostState,
@@ -104,7 +104,12 @@ export function AppStore({ children }: { children: React.ReactNode }) {
   // is client-only (it renders behind OnboardingGate, which shows a spinner on
   // the server), so localStorage is available here and there's no SSR/CSR
   // hydration mismatch. This biases the bundled feed toward what the user picked.
-  const [taste] = useState(() => tasteFromProfile(loadProfile()));
+  const [taste, setTaste] = useState(() => tasteFromProfile(loadProfile()));
+  // Live-feed facets from the profile (interests → vibes, genderPref →
+  // recipient). Kept in a ref so fetch callbacks always see the latest without
+  // re-creating them; bumping profileVersion re-runs the API takeover fetch.
+  const feedFacetsRef = useRef(feedPersonalization(loadProfile()));
+  const [profileVersion, setProfileVersion] = useState(0);
   // Feed is built from the bundled Pinterest pins (real photos), ordered by the
   // user's taste. Initialize synchronously so it's never blank on first paint.
   // Prepend persisted user posts so they always appear at the top.
@@ -156,6 +161,19 @@ export function AppStore({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("giftmaxxing:interactions-restored", restore);
   }, []);
 
+  // The profile changed (onboarding finished, account switched, sign-out):
+  // recompute taste + live-feed facets and refetch the personalized page.
+  useEffect(() => {
+    const onProfile = () => {
+      const profile = loadProfile();
+      setTaste(tasteFromProfile(profile));
+      feedFacetsRef.current = feedPersonalization(profile);
+      setProfileVersion((v) => v + 1);
+    };
+    window.addEventListener("giftmaxxing:profile", onProfile);
+    return () => window.removeEventListener("giftmaxxing:profile", onProfile);
+  }, []);
+
   // On mount, try the live API feed (real, scalable — paginated from DynamoDB via
   // the byFeed GSI). If it returns enough real-photo posts, it takes over from the
   // bundled pins; otherwise we keep the bundled feed so the app never goes blank.
@@ -164,7 +182,11 @@ export function AppStore({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        const { posts: apiPosts, cursor } = await fetchFeed({ limit: 16, userId: getMyUserId() });
+        const { posts: apiPosts, cursor } = await fetchFeed({
+          limit: 16,
+          userId: getMyUserId(),
+          ...feedFacetsRef.current,
+        });
         const photos = apiPosts.filter(isPhoto);
         if (!cancelled && photos.length >= 6) {
           apiModeRef.current = true;
@@ -191,7 +213,9 @@ export function AppStore({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+    // profileVersion: a changed profile (new account, onboarding done) must
+    // re-pull the first page with the new facets — not keep the old feed.
+  }, [profileVersion]);
 
   // On mount, fetch persisted interactions (likes/saves/comments) from the API to
   // restore cross-device state. Merges into posts AND into localStorage so the
@@ -426,6 +450,7 @@ export function AppStore({ children }: { children: React.ReactNode }) {
             limit: 12,
             cursor: cursorRef.current,
             userId: getMyUserId(),
+            ...feedFacetsRef.current,
           });
           cursorRef.current = cursor;
           const photos = apiPosts.filter(isPhoto);

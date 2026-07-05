@@ -408,7 +408,11 @@ const WORLD_INTERESTS: Record<WorldKey, InterestTag[]> = {
   games: ["pop-culture"],
 };
 
-export function deriveProfileFromConsult(a: ConsultAnswers, userName?: string): UserProfile {
+export function deriveProfileFromConsult(
+  a: ConsultAnswers,
+  userName?: string,
+  genderPref?: "him" | "her" | "any",
+): UserProfile {
   const interests: InterestTag[] = [];
   for (const w of [...a.worlds, ...parseSunday(a.sunday ?? "")]) {
     for (const tag of WORLD_INTERESTS[w] ?? []) {
@@ -436,6 +440,7 @@ export function deriveProfileFromConsult(a: ConsultAnswers, userName?: string): 
       priceAlerts: false,
     },
     pinterestLinks: [],
+    genderPref,
     completedAt: Date.now(),
   };
 }

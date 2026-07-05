@@ -8,7 +8,14 @@ import { getAnonId, clearAnonId } from "@/lib/anon";
 import { markProfileSyncSettled } from "@/lib/profile-status";
 import { setClerkIdentityCache } from "@/lib/identity";
 import { ADMIN_BYPASS, ADMIN_USER_ID } from "@/lib/admin";
-import { buildCloudPayload, restoreInteractionData, syncToCloud } from "@/lib/sync";
+import {
+  buildCloudPayload,
+  restoreInteractionData,
+  syncToCloud,
+  getStateOwner,
+  setStateOwner,
+  clearLocalAccountState,
+} from "@/lib/sync";
 
 // Bridges Clerk auth → our profile store ("start storing this data").
 // When a user is signed in:
@@ -49,7 +56,14 @@ export function AccountSync() {
     };
 
     if (!isSignedIn || !user) {
-      // Signed out: nothing to restore — let the gate decide immediately.
+      // Signed out. If the local state belongs to an ACCOUNT (not guest data),
+      // wipe it — the next guest session must not browse someone's profile,
+      // likes, or feed personalization. Guest-owned data (no owner mark)
+      // stays: that's the try-before-signup flow.
+      if (getStateOwner()) {
+        clearLocalAccountState();
+        window.dispatchEvent(new Event("giftmaxxing:profile"));
+      }
       setMyUserId(null);
       setClerkIdentityCache(null, null);
       settle();
@@ -93,21 +107,29 @@ export function AccountSync() {
     const push = () => syncToCloud();
 
     (async () => {
-      const local = loadProfile();
-      if (local) {
-        // Push full payload (profile + likes/saves/follows) on sign-in.
+      const owner = getStateOwner();
+      if (owner === userId && loadProfile()) {
+        // Same account as the local state: local is authoritative (it may be
+        // ahead of the cloud) — push the full payload.
         const payload = buildCloudPayload();
         if (payload) await saveMe(userId, payload);
       } else {
-        // First sign-in on a fresh device: restore from the cloud if present.
+        // Different account (or no owned state): the CLOUD is the truth for
+        // this identity. Drop whatever the previous identity left behind,
+        // then restore. No cloud profile → local stays empty and the
+        // OnboardingGate routes this genuinely-new account to the concierge.
+        clearLocalAccountState();
         const remote = await fetchMe<UserProfile & Record<string, unknown>>(userId);
-        if (!cancelled && remote) {
+        if (!cancelled && remote && typeof remote.completedAt === "number") {
           saveProfile(remote as UserProfile);
           restoreInteractionData(remote);
+        }
+        if (!cancelled) {
           window.dispatchEvent(new Event("giftmaxxing:profile"));
           window.dispatchEvent(new Event("giftmaxxing:interactions-restored"));
         }
       }
+      if (!cancelled) setStateOwner(userId);
       settle();
     })();
 

@@ -3,6 +3,7 @@ import SwiftData
 
 struct FeedView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var authManager: AuthManager
     @EnvironmentObject private var syncEngine: SyncEngine
     @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel = FeedViewModel()
@@ -177,11 +178,23 @@ struct FeedView: View {
             .environmentObject(appState)
         }
         .task {
-            viewModel.userId = appState.currentUser?.id
+            // appState.currentUser is never populated — AuthManager owns identity.
+            viewModel.userId = authManager.userId
             if viewModel.posts.isEmpty {
                 AnalyticsEngine.shared.trackScreenView(screen: "feed")
                 await viewModel.loadFeed(context: modelContext)
             }
+        }
+        // Account switched: re-pull the feed under the new identity so its
+        // personalization (not the previous account's) shapes the page.
+        .onChange(of: authManager.userId) { _, newUserId in
+            viewModel.userId = newUserId
+            Task { await viewModel.loadFeed(context: modelContext) }
+        }
+        // The consult just wrote fresh signals (genderPref/vibes) — refetch so
+        // the very next Home page reflects them.
+        .onReceive(NotificationCenter.default.publisher(for: .consultProfileUpdated)) { _ in
+            Task { await viewModel.loadFeed(context: modelContext) }
         }
         .onChange(of: scenePhase) { _, phase in
             // Push any locally queued interaction events before we lose runtime.

@@ -110,6 +110,16 @@ actor APIClient {
 
     // MARK: - User Profile
 
+    // POST /me/identity — name/email ping that MERGES server-side. Never use
+    // PUT /me for sign-in pings: that REPLACES the row and wipes the profile
+    // the web app saved (interests, events, genderPref …).
+    func identify(userId: String, name: String? = nil, email: String? = nil) async {
+        var body: [String: Any] = ["userId": userId]
+        if let name, !name.isEmpty { body["name"] = name }
+        if let email, !email.isEmpty { body["email"] = email }
+        let _: EmptyResponse? = try? await post("/me/identity", body: body)
+    }
+
     func fetchMe(userId: String) async throws -> UserProfile? {
         let response: UserProfileResponse = try await get("/me", params: ["userId": userId])
         return response.item
@@ -123,6 +133,15 @@ actor APIClient {
     func saveMe(userId: String, profile: [String: String]) async throws {
         var body: [String: Any] = ["userId": userId]
         body["profile"] = profile
+        let _: EmptyResponse = try await put("/me", body: body)
+    }
+
+    // PUT /me with an arbitrary payload — the web app's profile shape is a
+    // superset of our Codable UserProfile, so the concierge writes the full
+    // web-compatible dictionary. PUT REPLACES the row: callers must only use
+    // this when the account has no completed profile yet.
+    func saveMeRaw(userId: String, profile: [String: Any]) async throws {
+        let body: [String: Any] = ["userId": userId, "profile": profile]
         let _: EmptyResponse = try await put("/me", body: body)
     }
 

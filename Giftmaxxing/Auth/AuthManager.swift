@@ -95,9 +95,9 @@ final class AuthManager: ObservableObject {
 
             await APIClient.shared.setAuthToken(identity.idToken)
 
-            if let name = identity.name ?? identity.email {
-                try? await APIClient.shared.saveMe(userId: userIdValue, profile: ["name": name])
-            }
+            // Merge-safe identity ping — PUT /me would REPLACE the row and wipe
+            // the onboarding profile saved from any platform.
+            await APIClient.shared.identify(userId: userIdValue, name: identity.name, email: identity.email)
         } catch let signInError as GoogleSignInService.GoogleSignInError {
             switch signInError {
             case .cancelled:
@@ -138,9 +138,7 @@ final class AuthManager: ObservableObject {
 
             Task {
                 await APIClient.shared.setAuthToken(identityToken)
-                if let name = displayName ?? email {
-                    try? await APIClient.shared.saveMe(userId: userIdValue, profile: ["name": name])
-                }
+                await APIClient.shared.identify(userId: userIdValue, name: displayName, email: email)
             }
         } catch {
             self.error = "Couldn't save your session. Please try again."

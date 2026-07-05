@@ -106,4 +106,6 @@ extension Notification.Name {
     static let navigateToConnection = Notification.Name("navigateToConnection")
     static let navigateToEvent = Notification.Name("navigateToEvent")
     static let navigateToMaxi = Notification.Name("navigateToMaxi")
+    // The concierge consult saved fresh personalization signals — feeds refetch.
+    static let consultProfileUpdated = Notification.Name("consultProfileUpdated")
 }

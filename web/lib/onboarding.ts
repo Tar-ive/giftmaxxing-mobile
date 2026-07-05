@@ -94,6 +94,9 @@ export type UserProfile = {
   // Profile visibility (public/private). Absent on older saved profiles →
   // treated as "public" by the UI.
   visibility?: ProfileVisibility;
+  // Who their feed should lean toward ("show me gifts for him/her/mix") —
+  // asked by the concierge onboarding, mapped to a recipient facet on /feed.
+  genderPref?: "him" | "her" | "any";
   completedAt: number;
 };
 

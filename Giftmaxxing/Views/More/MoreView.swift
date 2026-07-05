@@ -59,21 +59,20 @@ struct MoreView: View {
                         .padding(.vertical, 16)
                     }
 
-                    // Features
+                    // Your gifting life. (Group gifting + challenges moved to
+                    // the Circles tab; the concierge has its own tab — this
+                    // screen is profile, dates, and shopping.)
                     VStack(spacing: 2) {
-                        MoreSectionHeader(title: "Features")
+                        MoreSectionHeader(title: "Your gifting")
 
-                        MoreRow(icon: "sparkles", title: "Maxi AI", subtitle: "Your gift concierge") {
-                            MaxiView()
-                        }
-                        MoreRow(icon: "paperplane.fill", title: "Gift Challenge", subtitle: "Learn a friend's taste") {
-                            ChallengeView()
-                        }
-                        MoreRow(icon: "person.2.fill", title: "Gift Pools", subtitle: "Group gifting") {
-                            PoolsView()
+                        MoreRow(icon: "calendar", title: "Events & reminders", subtitle: "Birthdays, occasions, lead-time nudges") {
+                            EventsView()
                         }
                         MoreRow(icon: "bag.fill", title: "Shop", subtitle: "Curated picks") {
                             ShopView()
+                        }
+                        MoreRow(icon: "sparkles", title: "Maxi AI", subtitle: "Chat with your gift agent") {
+                            MaxiView()
                         }
                     }
 

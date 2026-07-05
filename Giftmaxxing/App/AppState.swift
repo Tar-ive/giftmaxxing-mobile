@@ -11,8 +11,11 @@ final class AppState: ObservableObject {
     // button (Amazon Rufus-style) and the home top bar.
     @Published var showMaxi = false
 
-    // Set before jumping to the Search tab to land on a specific mode
+    // Search is a modal layer over any tab (HIG: search is a mode, not a
+    // destination — it kept a tab slot from features that matter more).
+    // Set pendingSearchTab before presenting to land on a specific mode
     // (e.g. the camera button opens Visual search directly).
+    @Published var showSearch = false
     @Published var pendingSearchTab: SearchTab?
 
     // Image captured via the share extension or the screenshots rail —
@@ -28,7 +31,7 @@ final class AppState: ObservableObject {
 
     func openSearch(_ tab: SearchTab) {
         pendingSearchTab = tab
-        selectedTab = .search
+        showSearch = true
     }
 
     // Route a capture (shared image/URL or tapped screenshot) by intent.
@@ -80,20 +83,27 @@ struct AppUser: Identifiable, Codable {
     var grad: String
 }
 
+// The tab bar IS the product statement (HIG: 3–5 tabs, every core journey
+// visible — nothing important behind a "More" screen):
+//   Home      — the personalized feed
+//   Swipe     — taste training (feeds personalization)
+//   Concierge — the signature act: tell Maxi about a person, get THE gift
+//   Circles   — gifting is social: group gifts, pools, swipe challenges
+//   You       — profile, events/reminders, orders, settings
 enum Tab: String, CaseIterable {
     case feed = "Home"
-    case search = "Search"
     case swipe = "Swipe"
-    case events = "Events"
-    case more = "More"
+    case concierge = "Concierge"
+    case circles = "Circles"
+    case you = "You"
 
     var icon: String {
         switch self {
         case .feed: return "house.fill"
-        case .search: return "magnifyingglass"
         case .swipe: return "rectangle.portrait.on.rectangle.portrait.angled.fill"
-        case .events: return "calendar"
-        case .more: return "ellipsis.circle"
+        case .concierge: return "wand.and.stars"
+        case .circles: return "person.2.fill"
+        case .you: return "person.crop.circle"
         }
     }
 }

@@ -32,13 +32,13 @@ struct GiftmaxxingApp: App {
                     )
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .navigateToMaxi)) { _ in
-                    appState.selectedTab = .more
+                    appState.showMaxi = true
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .navigateToEvent)) { _ in
-                    appState.selectedTab = .events
+                    appState.selectedTab = .you // Events live under You
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .navigateToPool)) { _ in
-                    appState.selectedTab = .more
+                    appState.selectedTab = .circles
                 }
         }
     }

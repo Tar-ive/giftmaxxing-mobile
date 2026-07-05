@@ -5,7 +5,10 @@ struct ContentView: View {
     @EnvironmentObject private var authManager: AuthManager
     @EnvironmentObject private var offlineQueue: OfflineQueue
     @Environment(\.scenePhase) private var scenePhase
-    @State private var showOnboarding = !UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
+    // Per-IDENTITY onboarding (see PersonalizationStore): evaluated on launch
+    // for the current identity and re-evaluated whenever the account changes —
+    // a brand-new sign-in runs its first consult even on a well-used device.
+    @State private var showOnboarding = false
     @State private var showSignIn = false
     @State private var showSplash = true
 
@@ -18,35 +21,36 @@ struct ContentView: View {
                     }
                     .tag(Tab.feed)
 
-                SearchTabsView()
-                    .tabItem {
-                        Label(Tab.search.rawValue, systemImage: Tab.search.icon)
-                    }
-                    .tag(Tab.search)
-
                 SwipeView()
                     .tabItem {
                         Label(Tab.swipe.rawValue, systemImage: Tab.swipe.icon)
                     }
                     .tag(Tab.swipe)
 
-                EventsView()
+                ConsultView()
                     .tabItem {
-                        Label(Tab.events.rawValue, systemImage: Tab.events.icon)
+                        Label(Tab.concierge.rawValue, systemImage: Tab.concierge.icon)
                     }
-                    .tag(Tab.events)
+                    .tag(Tab.concierge)
+
+                CirclesView()
+                    .tabItem {
+                        Label(Tab.circles.rawValue, systemImage: Tab.circles.icon)
+                    }
+                    .tag(Tab.circles)
 
                 MoreView()
                     .tabItem {
-                        Label(Tab.more.rawValue, systemImage: Tab.more.icon)
+                        Label(Tab.you.rawValue, systemImage: Tab.you.icon)
                     }
-                    .tag(Tab.more)
+                    .tag(Tab.you)
             }
             .tint(Color.coral)
 
             // Floating Maxi button (Amazon Rufus-style): the agent is one tap
-            // away on every tab — Maxi is the app's core interface.
-            if appState.selectedTab != .more {
+            // away on every tab — Maxi is the app's core interface. Hidden on
+            // Concierge (that IS Maxi) and You (settings don't need it).
+            if appState.selectedTab != .you && appState.selectedTab != .concierge {
                 VStack {
                     Spacer()
                     HStack {
@@ -102,13 +106,18 @@ struct ContentView: View {
             MaxiView()
                 .presentationDragIndicator(.visible)
         }
+        // Search is a modal layer (camera / products / screenshots), not a tab.
+        .fullScreenCover(isPresented: $appState.showSearch) {
+            SearchTabsView()
+                .environmentObject(appState)
+        }
         .sheet(isPresented: $showOnboarding) {
             OnboardingView(isOnboardingComplete: Binding(
                 get: { !showOnboarding },
                 set: { showOnboarding = !$0 }
             ))
             .onDisappear {
-                UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
+                PersonalizationStore.markOnboarded(identity: authManager.userId)
                 if !authManager.isAuthenticated {
                     showSignIn = true
                 }
@@ -138,6 +147,14 @@ struct ContentView: View {
         }
         .onAppear {
             drainCaptureInbox()
+            PersonalizationStore.migrateLegacyFlagIfNeeded()
+            evaluateOnboarding(for: authManager.userId)
+        }
+        // A DIFFERENT account signed in: decide onboarding for that identity —
+        // its own local flag first, then the cloud profile (completedAt set by
+        // the concierge on any platform). No profile anywhere → run the consult.
+        .onChange(of: authManager.userId) { _, newUserId in
+            evaluateOnboarding(for: newUserId)
         }
         // giftmaxxing://capture — the share extension hands off here right
         // after "Find similar gifts" / "Start a gift pool".
@@ -153,5 +170,30 @@ struct ContentView: View {
     private func drainCaptureInbox() {
         guard let capture = CaptureInbox.consume() else { return }
         appState.handleCapture(image: capture.image, url: capture.url, intent: capture.intent)
+    }
+
+    private func evaluateOnboarding(for userId: String?) {
+        if PersonalizationStore.hasOnboarded(identity: userId) {
+            showOnboarding = false
+            return
+        }
+        guard let userId else {
+            // Fresh guest — straight into the consult.
+            showOnboarding = true
+            return
+        }
+        // Signed-in identity we haven't onboarded on THIS device: the account
+        // may have onboarded elsewhere (web concierge) — check /me first so
+        // returning users are never re-gated, and hydrate their signals.
+        Task {
+            if let profile = try? await APIClient.shared.fetchMe(userId: userId),
+               profile.completedAt != nil {
+                if let pref = profile.genderPref { PersonalizationStore.genderPref = pref }
+                PersonalizationStore.markOnboarded(identity: userId)
+                showOnboarding = false
+            } else {
+                showOnboarding = true
+            }
+        }
     }
 }
