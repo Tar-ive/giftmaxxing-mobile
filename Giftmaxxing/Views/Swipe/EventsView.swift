@@ -41,26 +41,40 @@ final class EventsViewModel: ObservableObject {
         }
         isLoading = true
 
-        do {
-            let fetched = try await api.fetchUpcomingEvents(userId: userId)
-            let mapped = fetched.map { event -> GiftEvent in
-                GiftEvent(
-                    id: event.eventId ?? UUID().uuidString,
+        // Two server stores hold dates: /events/upcoming (occasions logged on
+        // the profile during onboarding) and /events (the unified table where
+        // user-added dates live). Merge both, dedupe by id.
+        async let upcomingTask = try? api.fetchUpcomingEvents(userId: userId)
+        async let unifiedTask = try? api.fetchEvents(userId: userId, scope: "personal")
+        let (upcoming, unified) = await (upcomingTask, unifiedTask)
+
+        if upcoming != nil || unified != nil {
+            var seen = Set<String>()
+            var mapped: [GiftEvent] = []
+            for event in (upcoming ?? []) + (unified ?? []) {
+                guard let date = event.date?.dateValue else { continue }
+                let id = event.eventId ?? UUID().uuidString
+                guard !seen.contains(id) else { continue }
+                seen.insert(id)
+                mapped.append(GiftEvent(
+                    id: id,
                     userId: userId,
                     type: event.type ?? "other",
-                    title: event.title ?? event.type ?? "Event",
-                    date: Date(timeIntervalSince1970: (event.date ?? 0) / 1000),
-                    recipientName: event.recipientName ?? "",
+                    title: event.title ?? event.recipientName.map { "\($0)'s \(event.type ?? "day")" } ?? event.type ?? "Event",
+                    date: date,
+                    recipientName: event.recipientName ?? event.recipient?.name ?? "",
+                    reminderLeadDays: event.reminderLeadDays,
+                    budget: event.budget,
                     scope: event.scope
-                )
+                ))
             }
             events = mapped
 
             if let context {
                 cacheEvents(mapped, userId: userId, context: context)
             }
-        } catch {
-            // keep cached data
+            // Deletions made elsewhere drop their notifications here too.
+            ReminderScheduler.resync(events: mapped)
         }
 
         isLoading = false
@@ -69,10 +83,28 @@ final class EventsViewModel: ObservableObject {
     func addEvent(_ event: GiftEvent, context: ModelContext?) {
         events.append(event)
 
+        // The reminder is local-first: scheduled the moment the event exists,
+        // no server round-trip needed.
+        ReminderScheduler.schedule(for: event)
+
         if let context {
             let cached = CachedEvent(from: event, userId: AuthManager.shared.userId ?? "", synced: false)
             context.insert(cached)
             try? context.save()
+
+            // POST /events expects { userId, event: {…} } with a YYYY-MM-DD
+            // date (a flat epoch-millis body silently stored an empty event).
+            var eventBody: [String: Any] = [
+                "eventId": event.id,
+                "title": event.title,
+                "type": event.type,
+                "date": FlexibleDate.ymdString(from: event.date),
+                "recipientName": event.recipientName,
+                "scope": "personal",
+            ]
+            if let lead = event.reminderLeadDays { eventBody["reminderLeadDays"] = lead }
+            if let budget = event.budget { eventBody["budget"] = budget }
+            if let notes = event.notes, !notes.isEmpty { eventBody["notes"] = notes }
 
             OfflineQueue.shared.enqueue(
                 context: context,
@@ -80,10 +112,7 @@ final class EventsViewModel: ObservableObject {
                 path: "/events",
                 body: [
                     "userId": AuthManager.shared.userId ?? "",
-                    "title": event.title,
-                    "type": event.type,
-                    "date": String(Int(event.date.timeIntervalSince1970 * 1000)),
-                    "recipientName": event.recipientName,
+                    "event": eventBody,
                 ]
             )
         }
@@ -91,6 +120,7 @@ final class EventsViewModel: ObservableObject {
 
     func deleteEvent(_ event: GiftEvent, context: ModelContext?) {
         events.removeAll { $0.id == event.id }
+        ReminderScheduler.cancel(eventId: event.id)
 
         if let context {
             let id = event.id
@@ -308,6 +338,9 @@ struct AddEventSheet: View {
     @State private var type = "birthday"
     @State private var date = Date()
     @State private var recipientName = ""
+    @State private var remind = true
+    @State private var reminderLeadDays = ReminderScheduler.defaultLeadDays
+    @State private var budgetText = ""
     var onAdd: ((GiftEvent) -> Void)?
 
     private let eventTypes = ["birthday", "anniversary", "holiday", "graduation", "wedding", "housewarming", "baby_shower", "other"]
@@ -328,13 +361,37 @@ struct AddEventSheet: View {
                 }
 
                 Section {
+                    Toggle("Remind me", isOn: $remind)
+                    if remind {
+                        Picker("When", selection: $reminderLeadDays) {
+                            ForEach(ReminderScheduler.leadChoices, id: \.days) { choice in
+                                Text(choice.label).tag(choice.days)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Reminder")
+                } footer: {
+                    Text(remind
+                         ? "A nudge lands on your phone with enough runway to actually get the gift — plus one on the day."
+                         : "No reminder — the date just lives in your list.")
+                }
+
+                Section("Budget (optional)") {
+                    TextField("e.g. 50", text: $budgetText)
+                        .keyboardType(.numberPad)
+                }
+
+                Section {
                     Button(action: {
                         let event = GiftEvent(
                             id: UUID().uuidString,
                             type: type,
                             title: title.isEmpty ? type.capitalized : title,
                             date: date,
-                            recipientName: recipientName
+                            recipientName: recipientName,
+                            reminderLeadDays: remind ? reminderLeadDays : nil,
+                            budget: Double(budgetText.trimmingCharacters(in: .whitespaces))
                         )
                         onAdd?(event)
                         dismiss()
@@ -357,6 +414,9 @@ struct AddEventSheet: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") { dismiss() }
                 }
+            }
+            .task {
+                await ReminderScheduler.requestPermissionIfNeeded()
             }
         }
     }

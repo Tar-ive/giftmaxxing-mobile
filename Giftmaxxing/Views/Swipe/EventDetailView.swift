@@ -57,6 +57,12 @@ struct EventDetailView: View {
                         Divider().padding(.leading, 44)
                     }
                     factRow(icon: "tag.fill", label: "Occasion", value: event.type.replacingOccurrences(of: "_", with: " ").capitalized)
+                    Divider().padding(.leading, 44)
+                    factRow(
+                        icon: "bell.fill",
+                        label: "Reminder",
+                        value: event.reminderLeadDays.map { $0 == 0 ? "On the day" : "\($0) \($0 == 1 ? "day" : "days") before + day of" } ?? "Off"
+                    )
                     if let budget = event.budget {
                         Divider().padding(.leading, 44)
                         factRow(icon: "dollarsign.circle.fill", label: "Budget", value: "$\(Int(budget))")
@@ -89,7 +95,10 @@ struct EventDetailView: View {
                     }
 
                     NavigationLink {
-                        PoolsView()
+                        GroupGiftCreateView(
+                            prefillRecipient: event.recipientName,
+                            prefillOccasion: event.type
+                        )
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "person.2.fill")

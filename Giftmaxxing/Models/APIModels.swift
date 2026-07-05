@@ -217,7 +217,10 @@ struct UpcomingEvent: Identifiable, Codable {
     var recipientId: String?
     var type: String?
     var title: String?
-    var date: Double?
+    // The server stores dates as "YYYY-MM-DD" strings (web/lib/events.ts
+    // parity); older payloads used epoch millis. FlexibleDate decodes both —
+    // a plain Double here made the whole items array throw on real data.
+    var date: FlexibleDate?
     var recipientName: String?
     var recurrence: String?
     var reminderLeadDays: Int?
@@ -226,13 +229,105 @@ struct UpcomingEvent: Identifiable, Codable {
     var scope: String?
     var recipient: EventRecipient?
 
-    var id: String { eventId ?? "\(recipientId ?? "")-\(type ?? "")-\(date ?? 0)" }
+    var id: String { eventId ?? "\(recipientId ?? "")-\(type ?? "")-\(date?.dateValue?.timeIntervalSince1970 ?? 0)" }
 
     struct EventRecipient: Codable {
         var id: String
         var name: String
         var relation: String
         var sourceUser: String?
+    }
+}
+
+// Decodes a date that may arrive as "YYYY-MM-DD" or epoch milliseconds.
+struct FlexibleDate: Codable {
+    var dateValue: Date?
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let millis = try? container.decode(Double.self) {
+            dateValue = Date(timeIntervalSince1970: millis / 1000)
+        } else if let str = try? container.decode(String.self) {
+            dateValue = FlexibleDate.parseYMD(str)
+        } else {
+            dateValue = nil
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        if let dateValue {
+            try container.encode(FlexibleDate.ymdString(from: dateValue))
+        } else {
+            try container.encodeNil()
+        }
+    }
+
+    static func parseYMD(_ str: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = .current
+        return formatter.date(from: str)
+    }
+
+    static func ymdString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = .current
+        return formatter.string(from: date)
+    }
+}
+
+// ── Circles (shared family/friend groups; web/lib/circles.ts parity) ─────────
+// One EVENTS-table partition per circle: META + MEMBER# rows + EVT# rows.
+// The share link is the credential — same trust model as invite links.
+struct CircleCreateResponse: Codable {
+    var ok: Bool?
+    var circleId: String
+}
+
+struct CircleJoinResponse: Codable {
+    var ok: Bool?
+    var memberId: String?
+}
+
+struct CircleAck: Codable {
+    var ok: Bool?
+    var eventId: String?
+}
+
+struct CircleDataResponse: Codable {
+    var circle: CircleMeta
+    var members: [CircleMember]?
+    var events: [CircleEvent]?
+
+    struct CircleMeta: Codable {
+        var circleId: String
+        var name: String
+        var emoji: String?
+        var createdAt: Double?
+    }
+
+    struct CircleMember: Codable, Identifiable {
+        var memberId: String
+        var name: String
+        var birthday: String? // YYYY-MM-DD
+        var role: String?
+        var joinedAt: Double?
+
+        var id: String { memberId }
+    }
+
+    struct CircleEvent: Codable, Identifiable {
+        var eventId: String
+        var title: String
+        var date: String // YYYY-MM-DD
+        var type: String?
+        var forName: String?
+        var addedBy: String?
+        var createdAt: Double?
+
+        var id: String { eventId }
     }
 }
 

@@ -88,8 +88,9 @@ struct AppUser: Identifiable, Codable {
 //   Home      — the personalized feed
 //   Swipe     — taste training (feeds personalization)
 //   Concierge — the signature act: tell Maxi about a person, get THE gift
-//   Circles   — gifting is social: group gifts, pools, swipe challenges
-//   You       — profile, events/reminders, orders, settings
+//   Circles   — your people + their dates: circles, events & reminders,
+//               group gifts, pools, swipe challenges
+//   You       — profile, orders, settings
 enum Tab: String, CaseIterable {
     case feed = "Home"
     case swipe = "Swipe"

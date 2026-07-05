@@ -59,15 +59,12 @@ struct MoreView: View {
                         .padding(.vertical, 16)
                     }
 
-                    // Your gifting life. (Group gifting + challenges moved to
-                    // the Circles tab; the concierge has its own tab — this
-                    // screen is profile, dates, and shopping.)
+                    // Your gifting life. (Group gifting + challenges AND events
+                    // & reminders live in the Circles tab — dates belong with
+                    // the people they're for. This screen is profile + shopping.)
                     VStack(spacing: 2) {
                         MoreSectionHeader(title: "Your gifting")
 
-                        MoreRow(icon: "calendar", title: "Events & reminders", subtitle: "Birthdays, occasions, lead-time nudges") {
-                            EventsView()
-                        }
                         MoreRow(icon: "bag.fill", title: "Shop", subtitle: "Curated picks") {
                             ShopView()
                         }

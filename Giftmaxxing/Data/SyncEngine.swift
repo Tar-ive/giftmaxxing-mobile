@@ -79,13 +79,15 @@ final class SyncEngine: ObservableObject {
             let existingById = Dictionary(uniqueKeysWithValues: existing.map { ($0.eventId, $0) })
 
             for event in events {
-                if existingById[event.id] == nil {
+                if existingById[event.id] == nil, let date = event.date?.dateValue {
                     let gift = GiftEvent(
                         id: event.id,
                         type: event.type ?? "birthday",
                         title: event.title ?? event.recipientName ?? "Event",
-                        date: Date(timeIntervalSince1970: (event.date ?? 0) / 1000),
+                        date: date,
                         recipientName: event.recipientName ?? event.recipient?.name ?? "",
+                        reminderLeadDays: event.reminderLeadDays,
+                        budget: event.budget,
                         scope: event.scope
                     )
                     let cached = CachedEvent(from: gift, userId: userId)

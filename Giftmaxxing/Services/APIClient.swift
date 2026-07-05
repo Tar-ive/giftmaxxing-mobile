@@ -156,6 +156,63 @@ actor APIClient {
         return response.items ?? []
     }
 
+    // GET /events — the unified events table (user-added dates, scope-tagged).
+    // Distinct from /events/upcoming, which reads onboarding-logged occasions
+    // off the user profile; the Circles hub merges both.
+    func fetchEvents(userId: String, scope: String? = nil) async throws -> [UpcomingEvent] {
+        var params: [String: String] = ["userId": userId]
+        if let scope { params["scope"] = scope }
+        let response: UpcomingEventsResponse = try await get("/events", params: params)
+        return response.items ?? []
+    }
+
+    // MARK: - Circles (web/lib/circles.ts parity)
+    // A circle is a shared family/friend group: members add their name +
+    // birthday via the /circle/<id> web link (no account), and everyone sees
+    // one gift calendar. The link is the credential.
+
+    func createCircle(name: String, emoji: String?, creatorName: String?, creatorBirthday: String?) async throws -> CircleCreateResponse {
+        var body: [String: Any] = ["name": name]
+        if let emoji, !emoji.isEmpty { body["emoji"] = emoji }
+        if let creatorName, !creatorName.isEmpty {
+            var creator: [String: Any] = ["name": creatorName]
+            if let creatorBirthday, !creatorBirthday.isEmpty { creator["birthday"] = creatorBirthday }
+            body["creator"] = creator
+        }
+        return try await post("/circles", body: body)
+    }
+
+    func fetchCircle(circleId: String) async throws -> CircleDataResponse {
+        try await get("/circles/\(circleId)")
+    }
+
+    func joinCircle(circleId: String, name: String, birthday: String?) async throws -> CircleJoinResponse {
+        var body: [String: Any] = ["name": name]
+        if let birthday, !birthday.isEmpty { body["birthday"] = birthday }
+        return try await post("/circles/\(circleId)/join", body: body)
+    }
+
+    @discardableResult
+    func addCircleEvent(
+        circleId: String,
+        title: String,
+        date: String,
+        type: String? = nil,
+        forName: String? = nil,
+        addedBy: String? = nil
+    ) async throws -> CircleAck {
+        var body: [String: Any] = ["title": title, "date": date]
+        if let type, !type.isEmpty { body["type"] = type }
+        if let forName, !forName.isEmpty { body["forName"] = forName }
+        if let addedBy, !addedBy.isEmpty { body["addedBy"] = addedBy }
+        return try await post("/circles/\(circleId)/events", body: body)
+    }
+
+    @discardableResult
+    func deleteCircleEvent(circleId: String, eventId: String) async throws -> CircleAck {
+        try await post("/circles/\(circleId)/events/delete", body: ["eventId": eventId])
+    }
+
     // MARK: - Maxi Agent
 
     func askMaxi(userId: String?, name: String?, message: String, history: [(role: String, text: String)]) async throws -> MaxiAgentReply? {

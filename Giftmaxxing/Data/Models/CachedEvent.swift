@@ -11,6 +11,8 @@ final class CachedEvent {
     var eventType: String
     var notes: String?
     var scope: String
+    var reminderLeadDays: Int?
+    var budget: Double?
     var cachedAt: Date
     var synced: Bool
 
@@ -23,6 +25,8 @@ final class CachedEvent {
         self.eventType = event.type
         self.notes = event.notes
         self.scope = event.scope ?? "personal"
+        self.reminderLeadDays = event.reminderLeadDays
+        self.budget = event.budget
         self.cachedAt = Date()
         self.synced = synced
     }
@@ -34,6 +38,8 @@ final class CachedEvent {
             title: title,
             date: eventDate,
             recipientName: recipientName,
+            reminderLeadDays: reminderLeadDays,
+            budget: budget,
             notes: notes,
             scope: scope
         )

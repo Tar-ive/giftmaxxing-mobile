@@ -90,6 +90,11 @@ struct GroupGiftCreateView: View {
     // built around this image — "we all saw this post, gift them THIS vibe."
     var seedImage: UIImage? = nil
 
+    // Prefills from an event or circle moment ("Maya's birthday in 4 days" →
+    // recipient + occasion arrive filled in; the user just hits create).
+    var prefillRecipient: String? = nil
+    var prefillOccasion: String? = nil
+
     @State private var recipient = ""
     @State private var yourName = ""
     @State private var occasion = "birthday"
@@ -97,6 +102,7 @@ struct GroupGiftCreateView: View {
     @State private var createdGift: GroupGift?
     @State private var errorMessage: String?
     @State private var showSwipeSheet = false
+    @State private var didApplyPrefill = false
 
     private static let occasions: [(id: String, label: String)] = [
         ("birthday", "🎂 Birthday"), ("anniversary", "💝 Anniversary"),
@@ -130,6 +136,19 @@ struct GroupGiftCreateView: View {
         .sheet(isPresented: $showSwipeSheet) {
             if let gift = createdGift {
                 GroupSwipeSheet(gift: gift)
+            }
+        }
+        .onAppear {
+            guard !didApplyPrefill else { return }
+            didApplyPrefill = true
+            if let prefillRecipient, recipient.isEmpty {
+                recipient = prefillRecipient
+            }
+            if let prefillOccasion {
+                // Event types use snake_case ("baby_shower"); the picker ids
+                // are kebab-case. Unknown types land on "other".
+                let normalized = prefillOccasion.replacingOccurrences(of: "_", with: "-")
+                occasion = Self.occasions.contains { $0.id == normalized } ? normalized : "other"
             }
         }
     }
