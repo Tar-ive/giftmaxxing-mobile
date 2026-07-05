@@ -61,3 +61,4 @@ Pods/
 
 # Ingest script backups — data snapshots, not source
 infra/ingest/*.backup.*.json
+.next/
