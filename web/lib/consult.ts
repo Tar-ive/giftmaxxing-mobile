@@ -15,6 +15,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import type { Post } from "@/lib/social";
+import type { BudgetRange, InterestTag, UserProfile } from "@/lib/onboarding";
 
 // ── Answers collected by the consult ─────────────────────────────────────────
 
@@ -32,7 +33,7 @@ export type ConsultAnswers = {
   relation: ConsultRelation;
   name?: string; // what to call them ("Maya") — personalizes every line after
   occasion: string; // occasion facet key ("birthday" … "any")
-  budget: number; // dollars, hard ceiling ×1.15
+  budget?: number; // dollars, hard ceiling ×1.15 — absent = "just find the gift"
   worlds: WorldKey[]; // what fills their shelves/time
   sunday?: string; // free text: what they do with a free Sunday
   keeper: KeeperKey; // what they'd never leave behind in a move
@@ -146,7 +147,7 @@ export const CONSULT_KEEPERS: Record<
 export type ConsultSignals = {
   recipientKey: string; // recipient facet for GET /feed (soft boost)
   occasion: string; // occasion facet
-  budget: number;
+  budget?: number;
   categories: string[]; // ordered, deduped — strongest first
   vibes: string[];
   minimalist: boolean; // "travels light" → smaller, quieter, more useful gifts
@@ -302,7 +303,8 @@ export function rankGifts(posts: Post[], a: ConsultAnswers, n = 9): RankedGift[]
     if (seen.has(post.id)) continue;
     seen.add(post.id);
     const price = post.product.price;
-    if (!price || price > a.budget * BUDGET_CEILING) continue;
+    if (!price) continue;
+    if (a.budget != null && price > a.budget * BUDGET_CEILING) continue;
 
     const move = moveTest({ name: post.product.name, category: postCategory(post), price });
     // A consult never recommends something failing its own bar.
@@ -314,10 +316,13 @@ export function rankGifts(posts: Post[], a: ConsultAnswers, n = 9): RankedGift[]
     const interest = rank == null ? 0.25 : Math.max(0.4, 1 - rank * 0.15);
 
     // Budget fit: spending real budget beats a token spend on big budgets.
+    // No budget given → neutral fit; the move test + interests decide alone.
     const fit =
-      price <= a.budget
-        ? 0.7 + 0.3 * Math.min(1, price / (a.budget * 0.45))
-        : 0.55; // inside the stretch zone
+      a.budget == null
+        ? 0.7
+        : price <= a.budget
+          ? 0.7 + 0.3 * Math.min(1, price / (a.budget * 0.45))
+          : 0.55; // inside the stretch zone
 
     // Minimalists ("travels light") get extra move-test weight — the gift has
     // to EARN space in their life.
@@ -351,11 +356,11 @@ function postCategory(p: Post): string | null {
 function whyLine(post: Post, a: ConsultAnswers, matchedWorld: boolean): string {
   const who = a.name?.trim() || CONSULT_RELATIONS[a.relation].label.replace(/^my /i, "your ").toLowerCase();
   const price = post.product.price;
-  if (matchedWorld && price <= a.budget * 0.6) {
+  if (matchedWorld && a.budget != null && price <= a.budget * 0.6) {
     return `Right in ${who}'s world, with budget left for the card`;
   }
   if (matchedWorld) return `Squarely ${who}'s thing — and it passes the move test`;
-  if (price <= a.budget * 0.5) return `A keeper at half your budget`;
+  if (a.budget != null && price <= a.budget * 0.5) return `A keeper at half your budget`;
   return `Not the obvious pick — that's why it lands`;
 }
 
@@ -379,6 +384,59 @@ export function consultFeedOpts(a: ConsultAnswers): {
     budget: sig.budget,
     vibes: sig.vibes.length ? sig.vibes : undefined,
     limit: 50,
+  };
+}
+
+// ── Consult → UserProfile (the concierge IS onboarding) ─────────────────────
+// The consult replaces the profile wizard, so its answers must produce a
+// profile the rest of the app accepts (isUserProfile: ≥3 interests, full
+// dealPreferences). Worlds map onto the interest tags the feed already
+// understands; missing signals fall back to broad, safe defaults.
+
+const WORLD_INTERESTS: Record<WorldKey, InterestTag[]> = {
+  kitchen: ["foodie", "coffee-tea"],
+  home: ["cozy", "plants", "candles"],
+  style: ["minimalist", "vintage"],
+  jewelry: ["luxury"],
+  making: ["diy", "stationery"],
+  tech: ["photography", "pop-culture"],
+  outdoors: ["outdoors", "sustainable"],
+  wellness: ["wellness"],
+  books: ["stationery", "cozy"],
+  music: ["vintage", "pop-culture"],
+  pets: ["pets"],
+  games: ["pop-culture"],
+};
+
+export function deriveProfileFromConsult(a: ConsultAnswers, userName?: string): UserProfile {
+  const interests: InterestTag[] = [];
+  for (const w of [...a.worlds, ...parseSunday(a.sunday ?? "")]) {
+    for (const tag of WORLD_INTERESTS[w] ?? []) {
+      if (!interests.includes(tag)) interests.push(tag);
+    }
+  }
+  // isUserProfile requires ≥3 — pad with evergreen tags.
+  for (const tag of ["cozy", "foodie", "wellness"] as InterestTag[]) {
+    if (interests.length >= 3) break;
+    if (!interests.includes(tag)) interests.push(tag);
+  }
+  const budgetRange: BudgetRange =
+    a.budget == null ? "no-limit" : a.budget <= 40 ? "budget" : a.budget <= 120 ? "mid" : "premium";
+  return {
+    name: userName?.trim() || "Gifter",
+    role: "giver",
+    difficulty: "moderate",
+    style: "thoughtful",
+    materialisticCategories: [],
+    interests,
+    dealPreferences: {
+      sensitivity: "value-conscious",
+      budgetRange,
+      dealTypes: ["price-drops"],
+      priceAlerts: false,
+    },
+    pinterestLinks: [],
+    completedAt: Date.now(),
   };
 }
 

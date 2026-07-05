@@ -537,9 +537,18 @@ export type ChallengePublic = {
   date?: string | null;
   note?: string | null;
   // "group" = friends swipe FOR a third-party recipient; the tally is shared.
+  // "verify" = concierge double-check; aggregate match summary is public.
   mode?: string | null;
   responseCount?: number;
   deck: ChallengeDeckItem[];
+  // Verify mode only: did they swipe right on the hidden pick?
+  verify?: {
+    responses: number;
+    matched: boolean;
+    by?: string | null;
+    label?: string | null;
+    score?: number | null;
+  };
 };
 
 // Sender-side: build the deck in the Lambda around a seed (taste keys on the
@@ -555,6 +564,7 @@ export async function createChallenge(opts: {
   to?: string;
   occasion?: string;
   date?: string;
+  mode?: "group" | "verify";
 }): Promise<string | null> {
   if (!isApiConfigured() || !opts.senderId) return null;
   const seed: Record<string, unknown> = {};
@@ -573,6 +583,7 @@ export async function createChallenge(opts: {
         ...(opts.to?.trim() ? { to: opts.to.trim() } : {}),
         ...(opts.occasion ? { occasion: opts.occasion } : {}),
         ...(opts.date ? { date: opts.date } : {}),
+        ...(opts.mode ? { mode: opts.mode } : {}),
       }),
     });
     if (!res.ok) return null;

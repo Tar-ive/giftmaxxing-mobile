@@ -2798,7 +2798,11 @@ export const handler = async (event) => {
         // "group" = friends collaborate on a gift for a third party: every
         // response is shared state (public tally on GET) instead of a private
         // know-me verdict for the sender.
-        mode: body.mode === "group" ? "group" : undefined,
+        // "verify" = the concierge double-check: the sender already has a pick
+        // (the hidden seed card) and only needs "did they swipe right on it?" —
+        // so an aggregate match summary is public to link holders, letting
+        // anonymous senders (web consult, no account) read the answer back.
+        mode: body.mode === "group" ? "group" : body.mode === "verify" ? "verify" : undefined,
         seed: seedInfo,
         seedVec: packVector(seedVector),
         deck,
@@ -2868,6 +2872,38 @@ export const handler = async (event) => {
           }))
           .sort((a, b) => b.yes - a.yes)
           .slice(0, 24);
+      }
+      // Verify mode: expose ONLY the aggregate answer to the sender's real
+      // question — "did they swipe right on my pick?" — never the per-card
+      // swipes. The unguessable challengeId is the capability, exactly like
+      // the group-mode tally above.
+      if (meta.mode === "verify") {
+        const resp = await ddb.send(
+          new QueryCommand({
+            TableName: CHALLENGES,
+            KeyConditionExpression: "challengeId = :c AND begins_with(itemId, :r)",
+            ExpressionAttributeValues: { ":c": challengeId, ":r": "RESP#" },
+          })
+        );
+        let matched = false;
+        let best = null;
+        let by = null;
+        for (const row of resp.Items ?? []) {
+          const v = row.verdict;
+          if (!v) continue;
+          if (v.directSeedSwipe === "yes") {
+            matched = true;
+            by = row.guestName ?? by;
+          }
+          if (!best || (v.score ?? 0) > (best.score ?? 0)) best = v;
+        }
+        base.verify = {
+          responses: (resp.Items ?? []).length,
+          matched,
+          by,
+          label: best?.label ?? null,
+          score: best?.score ?? null,
+        };
       }
       const auth = await authorizeRequest(event, method, path);
       if (auth.ok && (auth.via === "admin" || auth.sub === meta.senderId)) {
