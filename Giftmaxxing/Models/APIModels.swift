@@ -96,6 +96,17 @@ struct ChallengeStatusResponse: Codable {
     var deck: [ChallengeCreateResponse.ChallengeDeckItem]?
     var groupPicks: [GroupPickItem]?
     var responders: [String]?
+    // mode == "verify": did they swipe right on the hidden pick? Aggregate
+    // only — the per-card swipes stay sender-private on the server.
+    var verify: VerifySummary?
+
+    struct VerifySummary: Codable {
+        var responses: Int?
+        var matched: Bool?
+        var by: String?
+        var label: String?
+        var score: Double?
+    }
 
     struct GroupPickItem: Codable, Identifiable {
         var postId: String
