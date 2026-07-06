@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Used by .github/workflows/ios-testflight.yml (xcodebuild -exportArchive).
+	     destination=upload sends the signed build straight to App Store Connect /
+	     TestFlight in the same step — no separate altool/Transporter dance. -->
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>destination</key>
+	<string>upload</string>
+	<key>teamID</key>
+	<string>KJH66PARX6</string>
+	<!-- Xcode queries App Store Connect and bumps the build number to the next
+	     valid value before uploading — CI uploads can never collide with builds
+	     someone uploaded manually from Xcode. -->
+	<key>manageAppVersionAndBuildNumber</key>
+	<true/>
+	<key>uploadSymbols</key>
+	<true/>
+	<key>signingStyle</key>
+	<string>automatic</string>
+</dict>
+</plist>

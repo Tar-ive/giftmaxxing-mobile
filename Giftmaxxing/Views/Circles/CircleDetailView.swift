@@ -29,6 +29,11 @@ struct CircleDetailView: View {
             VStack(alignment: .leading, spacing: 20) {
                 if let data {
                     header(data)
+                    if myCircle?.joinedAs == nil {
+                        JoinCard(circleId: circleId, circle: data.circle) {
+                            Task { await refresh() }
+                        }
+                    }
                     momentsSection
                     membersSection(data)
                     occasionsSection(data)
@@ -38,12 +43,14 @@ struct CircleDetailView: View {
                         .padding(40)
                 } else if loadFailed {
                     VStack(spacing: 8) {
-                        Text("Couldn't load this circle")
+                        Text("This circle doesn't exist (anymore)")
                             .font(.displaySmall)
                             .foregroundStyle(Color.ink)
-                        Text("Pull to refresh, or check the link.")
+                            .multilineTextAlignment(.center)
+                        Text("Double-check the link, or ask whoever shared it to send a fresh one.")
                             .font(.bodyMedium)
                             .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(40)
@@ -79,7 +86,8 @@ struct CircleDetailView: View {
                     Text(data.circle.name)
                         .font(.system(size: 22, weight: .heavy, design: .rounded))
                         .foregroundStyle(Color.ink)
-                    Text("\(data.members?.count ?? 0) in the circle")
+                    let count = data.members?.count ?? 0
+                    Text("\(count) \(count == 1 ? "member" : "members") · a shared calendar of gift moments")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -87,21 +95,36 @@ struct CircleDetailView: View {
 
             // The share link IS the invite: family adds birthdays in the
             // browser, no account, no install.
-            if let url = CircleStore.shareURL(circleId: circleId) {
-                ShareLink(
-                    item: url,
-                    message: Text("Join our circle on Giftmaxxing — drop your birthday so nobody misses it 🎂")
-                ) {
-                    HStack {
-                        Spacer()
-                        Image(systemName: "paperplane.fill")
-                        Text("Invite to the circle").font(.labelBold)
-                        Spacer()
+            HStack(spacing: 8) {
+                if let url = CircleStore.shareURL(circleId: circleId) {
+                    ShareLink(
+                        item: url,
+                        message: Text("Join our \"\(data.circle.name)\" gift circle — add your birthday so nobody misses it �")
+                    ) {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "paperplane.fill")
+                            Text("Invite the group").font(.labelBold)
+                            Spacer()
+                        }
+                        .padding(.vertical, 13)
+                        .background(Color.coral)
+                        .foregroundStyle(.white)
+                        .clipShape(Capsule())
                     }
-                    .padding(.vertical, 13)
-                    .background(Color.coral)
-                    .foregroundStyle(.white)
-                    .clipShape(Capsule())
+                }
+                if myCircle?.joinedAs != nil {
+                    Button {
+                        showAddBirthday = true
+                    } label: {
+                        Text("Edit mine")
+                            .font(.labelBold)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 13)
+                            .background(Color.cream)
+                            .foregroundStyle(Color.ink)
+                            .clipShape(Capsule())
+                    }
                 }
             }
         }
@@ -109,13 +132,59 @@ struct CircleDetailView: View {
 
     @ViewBuilder
     private var momentsSection: some View {
-        if !moments.isEmpty {
+        // "Up next" hero — the single closest moment gets the spotlight
+        // (web parity), the rest queue up as a countdown list underneath.
+        if let next = moments.first {
+            VStack(spacing: 8) {
+                Text("UP NEXT")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Color.coral)
+                Text(next.emoji)
+                    .font(.system(size: 40))
+                Text(next.title)
+                    .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Color.ink)
+                    .multilineTextAlignment(.center)
+                Text(next.countdownPhrase + (next.turning.map { " — turning \($0)" } ?? ""))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.secondary)
+
+                NavigationLink {
+                    GroupGiftCreateView(
+                        prefillRecipient: next.who ?? "",
+                        prefillOccasion: next.occasionId
+                    )
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "gift.fill")
+                        Text(next.who.map { "Find \($0) a gift" } ?? "Find a gift")
+                    }
+                    .font(.labelBold)
+                    .foregroundStyle(Color.cream)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(Color.ink)
+                    .clipShape(Capsule())
+                }
+                .padding(.top, 4)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(20)
+            .background(Color.coralSoft.opacity(0.6))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Color.coral.opacity(0.25), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+        }
+
+        if moments.count > 1 {
             VStack(alignment: .leading, spacing: 10) {
-                Text("NEXT GIFT MOMENTS")
+                Text("COMING UP")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.secondary)
 
-                ForEach(moments.prefix(6)) { moment in
+                ForEach(moments.dropFirst().prefix(8)) { moment in
                     NavigationLink {
                         GroupGiftCreateView(
                             prefillRecipient: moment.who ?? "",
@@ -145,7 +214,7 @@ struct CircleDetailView: View {
                 Button {
                     showAddBirthday = true
                 } label: {
-                    Label("Add yours", systemImage: "birthday.cake")
+                    Label(myCircle?.joinedAs == nil ? "Add yours" : "Edit yours", systemImage: "birthday.cake")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(Color.coral)
                 }
@@ -155,11 +224,19 @@ struct CircleDetailView: View {
                 ForEach(Array((data.members ?? []).enumerated()), id: \.element.id) { index, member in
                     if index > 0 { Divider().padding(.leading, 56) }
                     HStack(spacing: 12) {
-                        AvatarView(name: member.name, grad: .lilac, size: 36)
+                        AvatarView(name: member.name, grad: Self.gradFor(member.name), size: 36)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(member.name)
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(Color.ink)
+                            HStack(spacing: 4) {
+                                Text(member.name)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(Color.ink)
+                                if let you = myCircle?.joinedAs,
+                                   member.name.lowercased() == you.lowercased() {
+                                    Text("(you)")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
                             Text(birthdayLabel(member))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -182,6 +259,17 @@ struct CircleDetailView: View {
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 14))
         }
+    }
+
+    // Same trick as the web page's gradFor(): hash the name onto the avatar
+    // palette so every member gets a stable, distinct color.
+    static func gradFor(_ name: String) -> GradientStyle {
+        let styles = GradientStyle.allCases
+        var h = 0
+        for u in name.unicodeScalars {
+            h = (h &* 31 &+ Int(u.value)) & 0x7fffffff
+        }
+        return styles[h % styles.count]
     }
 
     @ViewBuilder
@@ -270,8 +358,8 @@ struct CircleDetailView: View {
             return "no birthday yet"
         }
         let days = CircleMoment.daysUntil(next)
-        if days == 0 { return "birthday TODAY 🎂" }
-        return "birthday in \(days) \(days == 1 ? "day" : "days")"
+        if days == 0 { return "🎂 TODAY!" }
+        return "🎂 \(CircleMoment.monthDayString(next)) · in \(days) \(days == 1 ? "day" : "days")"
     }
 
     private func refresh() async {
@@ -305,7 +393,14 @@ struct CircleMoment: Identifiable {
     let emoji: String
     let date: Date
     let days: Int
+    let turning: Int? // age on the next birthday, when the year looks real
     let occasionId: String // GroupGiftCreateView occasion id
+
+    var countdownPhrase: String {
+        if days == 0 { return "It's today! 🎉" }
+        if days == 1 { return "Tomorrow!" }
+        return "In \(days) days"
+    }
 
     static func build(from data: CircleDataResponse, now: Date = Date()) -> [CircleMoment] {
         var out: [CircleMoment] = []
@@ -319,6 +414,7 @@ struct CircleMoment: Identifiable {
                 emoji: "🎂",
                 date: next,
                 days: daysUntil(next, from: now),
+                turning: turningAge(birthday: birthday, from: now),
                 occasionId: "birthday"
             ))
         }
@@ -331,10 +427,29 @@ struct CircleMoment: Identifiable {
                 emoji: emoji(forType: event.type ?? "occasion"),
                 date: next,
                 days: daysUntil(next, from: now),
+                turning: nil,
                 occasionId: occasionId(forType: event.type ?? "occasion")
             ))
         }
         return out.sorted { $0.days < $1.days }
+    }
+
+    // Age they'll turn on their next birthday — only when the year looks like
+    // a real birth year (web turningAge parity; members can enter Jan 1 of any
+    // year to keep their age private).
+    static func turningAge(birthday: String, from: Date = Date()) -> Int? {
+        let parts = birthday.split(separator: "-")
+        guard parts.count == 3, let year = Int(parts[0]) else { return nil }
+        let currentYear = Calendar.current.component(.year, from: from)
+        guard year >= 1900, year <= currentYear else { return nil }
+        guard let next = nextOccurrence(ofYMD: birthday, from: from) else { return nil }
+        return Calendar.current.component(.year, from: next) - year
+    }
+
+    static func monthDayString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("MMMMd")
+        return formatter.string(from: date)
     }
 
     // Next occurrence of the MM-DD on or after today (annual roll-forward,
@@ -393,46 +508,132 @@ struct CircleMoment: Identifiable {
 private struct MomentRow: View {
     let moment: CircleMoment
 
-    private var urgencyColor: Color {
-        if moment.days <= 3 { return .red }
-        if moment.days <= 7 { return .orange }
-        if moment.days <= 14 { return Color.coral }
-        return .secondary
-    }
-
     var body: some View {
         HStack(spacing: 12) {
             Text(moment.emoji)
-                .font(.system(size: 24))
-                .frame(width: 44, height: 44)
-                .background(Color.cream)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .font(.system(size: 20))
+                .frame(width: 40, height: 40)
+                .background(Color.coralSoft)
+                .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(moment.title)
+                (Text(moment.title)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.ink)
-                Text(moment.date, style: .date)
+                 + Text(moment.turning.map { " — turning \($0)" } ?? "")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary))
+                    .lineLimit(1)
+                Text(CircleMoment.monthDayString(moment.date))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Spacer()
 
-            VStack(spacing: 0) {
-                Text(moment.days == 0 ? "🎉" : "\(moment.days)")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(urgencyColor)
-                if moment.days > 0 {
-                    Text(moment.days == 1 ? "day" : "days")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                }
-            }
+            // Web-parity pill: coral inside two weeks, quiet otherwise.
+            Text(moment.days == 0 ? "Today!" : moment.days == 1 ? "Tomorrow" : "\(moment.days)d")
+                .font(.system(size: 12, weight: .bold))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(moment.days <= 14 ? Color.coral : Color.cream)
+                .foregroundStyle(moment.days <= 14 ? .white : Color.ink.opacity(0.6))
+                .clipShape(Capsule())
         }
         .padding(12)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+// The 15-second ask for new arrivals (web JoinCard parity): name + birthday,
+// no account. Shows inline whenever this device hasn't joined the circle yet —
+// including when someone lands here from a shared link.
+private struct JoinCard: View {
+    let circleId: String
+    let circle: CircleDataResponse.CircleMeta
+    var onJoined: () -> Void
+
+    @State private var name = ""
+    @State private var includeBirthday = true
+    @State private var birthday = Calendar.current.date(byAdding: .year, value: -25, to: Date()) ?? Date()
+    @State private var isJoining = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Add yourself to the circle")
+                .font(.system(size: 17, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color.ink)
+            Text("Your name and birthday — that's it. No account needed.")
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+
+            TextField("Your name", text: $name)
+                .textFieldStyle(.roundedBorder)
+
+            Toggle("Include my birthday", isOn: $includeBirthday)
+                .font(.system(size: 14))
+            if includeBirthday {
+                DatePicker("Birthday", selection: $birthday, displayedComponents: .date)
+                    .font(.system(size: 14))
+                Text("The year is only used for the \"turning N\" countdown — pick Jan 1 of any year if you'd rather not share it.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+            }
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            Button {
+                Task { await join() }
+            } label: {
+                HStack {
+                    Spacer()
+                    if isJoining {
+                        ProgressView().tint(.white)
+                    } else {
+                        Text("I'm in 🎁").font(.labelBold)
+                    }
+                    Spacer()
+                }
+                .padding(.vertical, 13)
+                .background(Color.coral)
+                .foregroundStyle(.white)
+                .clipShape(Capsule())
+            }
+            .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isJoining)
+        }
+        .padding(16)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
+    }
+
+    private func join() async {
+        isJoining = true
+        defer { isJoining = false }
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        do {
+            _ = try await APIClient.shared.joinCircle(
+                circleId: circleId,
+                name: trimmed,
+                birthday: includeBirthday ? FlexibleDate.ymdString(from: birthday) : nil
+            )
+            CircleStore.shared.remember(
+                circleId: circleId,
+                name: circle.name,
+                emoji: circle.emoji,
+                joinedAs: trimmed
+            )
+            AnalyticsEngine.shared.trackScreenView(screen: "circle_joined")
+            onJoined()
+        } catch {
+            errorMessage = "Couldn't join right now — try again in a moment."
+        }
     }
 }
 

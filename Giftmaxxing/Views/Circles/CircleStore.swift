@@ -35,6 +35,22 @@ final class CircleStore: ObservableObject {
         URL(string: "\(webOrigin)/circle/\(circleId)")
     }
 
+    // Pull a circle id out of anything shareable: giftmaxxing://circle/<id>
+    // (host is "circle") or https://<any-host>/circle/<id>. A "circle" path
+    // segment is required — substrings like ".../product/cir_notacircle"
+    // must not hijack routing.
+    static func circleId(fromURL url: URL) -> String? {
+        guard url.host == "circle" || url.pathComponents.contains("circle") else { return nil }
+        return circleId(fromText: url.absoluteString)
+    }
+
+    static func circleId(fromText text: String) -> String? {
+        if let range = text.range(of: #"cir_[A-Za-z0-9\-]+"#, options: .regularExpression) {
+            return String(text[range])
+        }
+        return nil
+    }
+
     func load() {
         if let data = UserDefaults.standard.data(forKey: Self.storageKey),
            let saved = try? JSONDecoder().decode([MyCircle].self, from: data) {

@@ -14,6 +14,7 @@ import SwiftData
 // were standalone destinations before), so they present as sheets here rather
 // than pushes — no nested-stack double toolbars.
 struct CirclesView: View {
+    @EnvironmentObject private var appState: AppState
     @ObservedObject private var groupGifts = GroupGiftStore.shared
     @ObservedObject private var circleStore = CircleStore.shared
     @StateObject private var eventsModel = EventsViewModel()
@@ -22,6 +23,8 @@ struct CirclesView: View {
     @State private var showChallenge = false
     @State private var showCreateCircle = false
     @State private var showAddEvent = false
+    @State private var showJoinByLink = false
+    @State private var openCircleId: String?
 
     var body: some View {
         NavigationStack {
@@ -81,7 +84,26 @@ struct CirclesView: View {
                     eventsModel.addEvent(event, context: modelContext)
                 }
             }
+            .sheet(isPresented: $showJoinByLink) {
+                JoinCircleByLinkSheet { circleId in
+                    openCircleId = circleId
+                }
+            }
+            // Deep link landing: giftmaxxing://circle/<id> or a pasted link.
+            .navigationDestination(item: $openCircleId) { circleId in
+                CircleDetailView(circleId: circleId)
+            }
+            .onChange(of: appState.pendingCircleId) { _, pending in
+                if let pending {
+                    openCircleId = pending
+                    appState.pendingCircleId = nil
+                }
+            }
             .task {
+                if let pending = appState.pendingCircleId {
+                    openCircleId = pending
+                    appState.pendingCircleId = nil
+                }
                 if eventsModel.events.isEmpty {
                     await eventsModel.loadEvents(context: modelContext)
                 }
@@ -246,6 +268,17 @@ struct CirclesView: View {
                     .buttonStyle(.plain)
                 }
             }
+
+            // Someone texted you a circle link? Paste it here — same landing
+            // the web /circle/<id> page gives new arrivals.
+            Button {
+                showJoinByLink = true
+            } label: {
+                Label("Got a circle link? Open it here", systemImage: "link")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.leading, 2)
         }
     }
 
@@ -281,6 +314,69 @@ struct CirclesView: View {
                 .clipShape(Capsule())
             }
         }
+    }
+}
+
+// Paste a shared circle link (or bare cir_… id) to open that circle — the
+// join card on the circle page takes it from there.
+private struct JoinCircleByLinkSheet: View {
+    var onOpen: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Paste the link from your group chat — it looks like giftmaxxing…/circle/cir_…")
+                    .font(.bodyMedium)
+                    .foregroundStyle(.secondary)
+
+                TextField("https://…/circle/cir_…", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+
+                Button {
+                    if let circleId = CircleStore.circleId(fromText: text) {
+                        dismiss()
+                        onOpen(circleId)
+                    } else {
+                        errorMessage = "That doesn't look like a circle link — it should contain \"cir_…\"."
+                    }
+                } label: {
+                    HStack {
+                        Spacer()
+                        Text("Open the circle").font(.labelBold)
+                        Spacer()
+                    }
+                    .padding(.vertical, 13)
+                    .background(Color.coral)
+                    .foregroundStyle(.white)
+                    .clipShape(Capsule())
+                }
+                .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                Spacer()
+            }
+            .padding(16)
+            .background(Color.surface)
+            .navigationTitle("Open a circle")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }
 

@@ -51,8 +51,14 @@ and became the hub it claimed to be.
 - **Circles** are real server entities (`POST /circles`, web parity with
   `web/lib/circles.ts`): create "Sharma Family", share the `/circle/<id>`
   link, members add name + birthday in the browser — no account. The circle
-  page (`CircleDetailView`) shows whose moment is next and jumps straight
-  into a prefilled group gift.
+  page (`CircleDetailView`) mirrors the web page 1:1: an "Up next" hero with
+  the turning-N age, a countdown list, gradient member avatars with a "(you)"
+  marker, an inline join card for new arrivals, and every moment jumps into
+  a prefilled group gift.
+- **Joining from iOS**: `giftmaxxing://circle/<id>` deep links route via
+  `ContentView.onOpenURL` → `AppState.openCircle`, and a pasted web link
+  works through "Got a circle link?" on the Circles tab
+  (`CircleStore.circleId(fromText:)`, pinned by `CircleLinkTests`).
 - **Events & reminders** live in the same tab (`EventsViewModel` +
   `AddEventSheet`): add a date, pick a lead time, and `ReminderScheduler`
   posts local notifications (lead-day + day-of, 9am) — no server needed,

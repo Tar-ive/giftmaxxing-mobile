@@ -158,7 +158,13 @@ struct ContentView: View {
         }
         // giftmaxxing://capture — the share extension hands off here right
         // after "Find similar gifts" / "Start a gift pool".
+        // giftmaxxing://circle/<id> (and https .../circle/<id>) — open the
+        // circle page, where the inline join card greets new arrivals.
         .onOpenURL { url in
+            if let circleId = CircleStore.circleId(fromURL: url) {
+                appState.openCircle(circleId)
+                return
+            }
             guard url.scheme == "giftmaxxing" else { return }
             drainCaptureInbox()
         }

@@ -29,6 +29,16 @@ final class AppState: ObservableObject {
     @Published var poolCaptureURL: String?
     @Published var showCreatePoolFromCapture = false
 
+    // Circle deep link (giftmaxxing://circle/<id> or a pasted /circle/<id>
+    // web URL) — CirclesView picks this up and pushes the circle page, where
+    // the inline join card handles new arrivals (web parity).
+    @Published var pendingCircleId: String?
+
+    func openCircle(_ circleId: String) {
+        selectedTab = .circles
+        pendingCircleId = circleId
+    }
+
     func openSearch(_ tab: SearchTab) {
         pendingSearchTab = tab
         showSearch = true
