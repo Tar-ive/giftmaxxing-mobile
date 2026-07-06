@@ -196,6 +196,7 @@ final class SwipeViewModel: ObservableObject {
 }
 
 struct SwipeView: View {
+    @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = SwipeViewModel()
     @ObservedObject private var swipeList = SwipeListStore.shared
     @Environment(\.modelContext) private var modelContext
@@ -204,8 +205,8 @@ struct SwipeView: View {
     //   • For me      — self-gifting: train your taste, find your own things.
     //   • For someone — one recipient: send THEM a swipe challenge to learn
     //                   their taste, or curate a deck from your list.
-    //   • Group gift  — the friend group swipes the same deck FOR a third
-    //                   person; the tally converges, then everyone pledges.
+    //   • Group gift  — lives in the Circles tab; picking the segment jumps
+    //                   there (embedding it here left a dead-end segment).
     private enum GiftContext: String, CaseIterable {
         case me = "For me"
         case someone = "For someone"
@@ -232,9 +233,7 @@ struct SwipeView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 6)
 
-                if context == .group {
-                    GroupGiftSection()
-                } else if context == .someone {
+                if context == .someone {
                     // The single-recipient toolkit: learn their taste via a
                     // challenge, or hand-pick a deck from your saved list.
                     NavigationLink(destination: ChallengeView()) {
@@ -303,7 +302,10 @@ struct SwipeView: View {
                 mode = .myList
                 viewModel.loadMyList()
             case .group:
-                break // GroupGiftSection manages itself
+                // Group gifting lives in Circles — hand off and reset the
+                // segment so Swipe isn't stuck on a blank context.
+                appState.selectedTab = .circles
+                context = .me
             }
         }
         .task {

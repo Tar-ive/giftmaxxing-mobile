@@ -39,6 +39,7 @@ resource "aws_lambda_function" "api" {
       EVENTS_TABLE       = aws_dynamodb_table.events.name
       GRAPH_TABLE        = aws_dynamodb_table.graph.name
       CONFIG_TABLE       = aws_dynamodb_table.config.name
+      ANALYTICS_TABLE    = aws_dynamodb_table.analytics.name
       # API auth (in-handler Clerk-JWT / x-admin-token gate; see handler.mjs).
       # AUTH_ENFORCE ships false so the code is dark until flipped on; flip back
       # to false for an instant rollback. ADMIN_API_SECRET is the admin/ingest

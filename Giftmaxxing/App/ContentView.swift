@@ -9,8 +9,17 @@ struct ContentView: View {
     // for the current identity and re-evaluated whenever the account changes —
     // a brand-new sign-in runs its first consult even on a well-used device.
     @State private var showOnboarding = false
-    @State private var showSignIn = false
     @State private var showSplash = true
+
+    // Accounts are required (except DEBUG guest mode): every tester gets a
+    // distinct profile so behavioral analytics attribute to real people.
+    // The cover is driven by auth state — it can only dismiss by signing in.
+    private var signInRequired: Binding<Bool> {
+        Binding(
+            get: { !authManager.isAuthenticated && !showSplash && !showOnboarding && !PersonalizationStore.debugGuestMode },
+            set: { _ in }
+        )
+    }
 
     var body: some View {
         ZStack {
@@ -118,14 +127,15 @@ struct ContentView: View {
             ))
             .onDisappear {
                 PersonalizationStore.markOnboarded(identity: authManager.userId)
-                if !authManager.isAuthenticated {
-                    showSignIn = true
-                }
             }
         }
-        .sheet(isPresented: $showSignIn) {
-            SignInView(showSignIn: $showSignIn)
-                .environmentObject(authManager)
+        .fullScreenCover(isPresented: signInRequired) {
+            SignInView(showSignIn: Binding(
+                get: { signInRequired.wrappedValue },
+                set: { if !$0 { PersonalizationStore.debugGuestMode = true } }
+            ))
+            .environmentObject(authManager)
+            .interactiveDismissDisabled()
         }
         .sheet(isPresented: $appState.showCreatePoolFromCapture) {
             CreatePoolFromCaptureView(

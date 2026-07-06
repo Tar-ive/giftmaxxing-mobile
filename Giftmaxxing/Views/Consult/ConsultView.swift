@@ -565,9 +565,11 @@ private struct IntroStep: View {
                     .font(.system(size: 26, weight: .heavy, design: .rounded))
                     .foregroundStyle(Color.ink)
                     .multilineTextAlignment(.center)
+                // The move test stays internal (it drives the ranking) — the
+                // intro just says what Maxi does, not the theory behind it.
                 Text(isOnboarding
-                    ? "My bar is simple: if they moved tomorrow, would it make it into the box? 📦\n\nThis is the whole app — tell me about a person, I find the gift. Let's run your first consult now."
-                    : "Owe someone a gift? Tell me about them — a few sharp questions, then a real pick that passes the move test. 📦")
+                    ? "This is the whole app — tell me about a person, I find the gift. Let's run your first consult now."
+                    : "Owe someone a gift? Tell me about them — a few sharp questions, then real picks from the live catalog.")
                     .font(.system(size: 15))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -593,7 +595,7 @@ private struct ThinkingStep: View {
                 .foregroundStyle(Color.ink)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
-            Text("Running the catalog through the move test…")
+            Text("Pulling real options from the live catalog…")
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
             ProgressView().padding(.top, 8)

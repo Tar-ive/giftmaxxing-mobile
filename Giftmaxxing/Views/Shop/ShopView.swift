@@ -14,9 +14,12 @@ struct ShopItem: Identifiable {
 
 @MainActor
 final class ShopViewModel: ObservableObject {
+    // Starts on the sample grid only until the live catalog answers — Shop
+    // shows REAL products with real photos, not emoji placeholders.
     @Published var items: [ShopItem] = ShopItem.samples
     @Published var selectedCategory: String?
     @Published var selectedItem: ShopItem?
+    @Published var isLive = false
 
     var categories: [String] {
         let cats = Set(items.compactMap { $0.category })
@@ -26,6 +29,41 @@ final class ShopViewModel: ObservableObject {
     var filteredItems: [ShopItem] {
         guard let category = selectedCategory else { return items }
         return items.filter { $0.category == category }
+    }
+
+    // Curate from the live feed: only items with a real photo make the shop
+    // grid, deduped by product, capped per category for a browsable spread.
+    func loadCatalog() async {
+        guard !isLive else { return }
+        guard let page = try? await APIClient.shared.fetchFeed(limit: 60) else { return }
+        var seen = Set<String>()
+        var byCategory: [String: Int] = [:]
+        var live: [ShopItem] = []
+        for post in page.posts {
+            guard let image = post.product.image, !image.isEmpty else { continue }
+            guard seen.insert(post.product.name).inserted else { continue }
+            let category = (post.category ?? "Gifts").capitalized
+            if byCategory[category, default: 0] >= 12 { continue }
+            byCategory[category, default: 0] += 1
+            let buyUrl = post.productUrl ?? post.url
+            live.append(ShopItem(
+                id: post.id,
+                title: post.product.name,
+                brand: BrandEnrichment.enrich(post: post),
+                price: post.product.price > 0 ? post.product.price : nil,
+                image: image,
+                category: category,
+                emoji: post.product.emoji,
+                grad: post.product.grad,
+                affiliateUrl: buyUrl
+            ))
+        }
+        guard live.count >= 8 else { return } // thin catalog → keep samples
+        items = live
+        isLive = true
+        if let selectedCategory, !categories.contains(selectedCategory) {
+            self.selectedCategory = nil
+        }
     }
 }
 
@@ -86,6 +124,11 @@ struct ShopView: View {
             .background(Color.surface)
             .navigationTitle("Shop")
             .navigationBarTitleDisplayMode(.large)
+            .task { await viewModel.loadCatalog() }
+            .refreshable {
+                viewModel.isLive = false
+                await viewModel.loadCatalog()
+            }
             .sheet(item: $viewModel.selectedItem) { item in
                 ShopItemDetail(item: item)
             }

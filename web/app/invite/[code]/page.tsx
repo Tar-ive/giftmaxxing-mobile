@@ -24,7 +24,6 @@ import { PoolInvite } from "@/components/app/pool-invite";
 import { EVENT_TYPE_META, type EventType, parseISODate } from "@/lib/events";
 import { saveLocalConnection } from "@/lib/local-connections";
 import { saveSoftProfile } from "@/lib/soft-profile";
-import { type GenderPref, GENDER_PREF_META } from "@/lib/gender-prefs";
 
 const clerkEnabled = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
@@ -59,7 +58,7 @@ function deckItemToPin(it: ChallengeDeckItem): Pin {
 }
 
 // ── Phases ──────────────────────────────────────────────────────────────────
-type Phase = "welcome" | "consent" | "preference" | "swipe" | "birthday" | "reveal";
+type Phase = "welcome" | "consent" | "swipe" | "birthday" | "reveal";
 
 export default function InvitePage() {
   const params = useParams<{ code: string }>();
@@ -81,7 +80,6 @@ export default function InvitePage() {
   const [phase, setPhase] = useState<Phase>("welcome");
   const [results, setResults] = useState<Pin[]>([]);
   const [birthday, setBirthday] = useState(invite?.date ?? "");
-  const [genderPref, setGenderPref] = useState<GenderPref | null>(null);
   const [transitioning, setTransitioning] = useState(false);
   const reportedRef = useRef(false);
 
@@ -140,10 +138,9 @@ export default function InvitePage() {
     transition("consent");
   }, [transition]);
 
-  const goToPreference = useCallback(() => {
-    transition("preference");
-  }, [transition]);
-
+  // No questions between consent and the deck — the guest just swipes. (The
+  // deck is already built server-side, so an up-front preference question
+  // couldn't change it anyway.)
   const startSwiping = useCallback(() => {
     saveInviteSession({ inviterName, code, startedAt: Date.now() });
     transition("swipe");
@@ -172,7 +169,7 @@ export default function InvitePage() {
       const fallbackSenderId = invite?.senderId;
       void submitChallengeResponse(
         invite.challengeId,
-        { name, birthday: guestBirthday, genderPref: genderPref ?? undefined },
+        { name, birthday: guestBirthday },
         challengeSwipes
       ).then((ok) => {
         if (!ok && fallbackSenderId) {
@@ -182,7 +179,6 @@ export default function InvitePage() {
             birthday: guestBirthday,
             vibes,
             seeds,
-            genderPref: genderPref ?? undefined,
             yesCount: swipes.filter((s) => s.dir === "yes").length,
             totalSwipes: swipes.length,
             dwellSignals: swipeTimingSignals(swipes),
@@ -195,7 +191,6 @@ export default function InvitePage() {
         birthday: guestBirthday,
         vibes,
         seeds,
-        genderPref: genderPref ?? undefined,
         yesCount: swipes.filter((s) => s.dir === "yes").length,
         totalSwipes: swipes.length,
         dwellSignals: swipeTimingSignals(swipes),
@@ -212,7 +207,6 @@ export default function InvitePage() {
       birthday: guestBirthday,
       vibes,
       seeds,
-      genderPref: genderPref ?? undefined,
       yesCount: swipes.filter((s) => s.dir === "yes").length,
       totalSwipes: swipes.length,
       seen: false,
@@ -224,13 +218,12 @@ export default function InvitePage() {
       vibes,
       seeds,
       birthday: guestBirthday,
-      genderPref: genderPref ?? undefined,
       inviterName,
       completedAt: Date.now(),
     });
 
     clearInviteSession();
-  }, [invite, birthday, inviterName, genderPref, groupMode, helperName]);
+  }, [invite, birthday, inviterName, groupMode, helperName]);
 
   const onSwipeDone = useCallback(() => {
     // Server-deck flow: the reveal shows what the guest actually said yes to;
@@ -380,7 +373,7 @@ export default function InvitePage() {
             </li>
           </ul>
           <button
-            onClick={goToPreference}
+            onClick={startSwiping}
             className="mt-6 w-full rounded-full bg-coral px-6 py-3 text-sm font-bold text-white shadow-lg shadow-coral/30 transition-opacity hover:opacity-90"
           >
             I&apos;m in — let&apos;s swipe
@@ -391,63 +384,6 @@ export default function InvitePage() {
               Privacy&nbsp;Policy
             </a>
             .
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Preference phase — gender/style toggle ─────────────────────────────────
-  if (phase === "preference") {
-    return (
-      <div className={`flex min-h-screen flex-col items-center justify-center bg-cream px-4 ${transitionClass}`}>
-        <div className="mx-auto max-w-md rounded-3xl border border-line bg-surface p-6 text-center shadow-lg">
-          <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-coral-soft text-2xl">✨</span>
-          <h2 className="mt-4 font-display text-xl font-extrabold text-ink">
-            What should we show you?
-          </h2>
-          <p className="mt-2 text-sm text-ink-soft">
-            Pick your vibe so we can show you more relevant gift ideas.
-          </p>
-          <div className="mt-5 space-y-2">
-            {(Object.keys(GENDER_PREF_META) as GenderPref[]).map((key) => {
-              const meta = GENDER_PREF_META[key];
-              const selected = genderPref === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => setGenderPref(key)}
-                  aria-pressed={selected}
-                  className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${
-                    selected
-                      ? "border-coral bg-coral-soft"
-                      : "border-line bg-cream hover:bg-coral-soft/40"
-                  }`}
-                >
-                  <span className="text-2xl">{meta.emoji}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-sm font-bold ${selected ? "text-coral" : "text-ink"}`}>
-                      {meta.label}
-                    </p>
-                    <p className="text-xs text-ink-faint">{meta.description}</p>
-                  </div>
-                  {selected && (
-                    <span className="text-coral">
-                      <Icons.check size={20} />
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <button
-            onClick={startSwiping}
-            className="mt-5 w-full rounded-full bg-coral px-6 py-3 text-sm font-bold text-white shadow-lg shadow-coral/30 transition-opacity hover:opacity-90"
-          >
-            {genderPref ? "Start swiping" : "Skip & start swiping"}
-          </button>
-          <p className="mt-3 text-[11px] text-ink-faint">
-            You can skip this — we&apos;ll show a mix of everything.
           </p>
         </div>
       </div>
@@ -481,7 +417,6 @@ export default function InvitePage() {
             ) : (
               <SwipeDeck
                 onMatchesReady={onSwipeDone}
-                genderPref={genderPref ?? undefined}
                 externalDeck={deckState === "ready" && serverDeck ? serverDeck : undefined}
                 onSwipe={challengeId ? onChallengeSwipe : undefined}
               />

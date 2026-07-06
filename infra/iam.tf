@@ -48,6 +48,8 @@ data "aws_iam_policy_document" "ddb_access" {
       "${aws_dynamodb_table.events.arn}/index/*",
       aws_dynamodb_table.graph.arn,
       "${aws_dynamodb_table.graph.arn}/index/*",
+      aws_dynamodb_table.analytics.arn,
+      "${aws_dynamodb_table.analytics.arn}/index/*",
     ]
   }
 }

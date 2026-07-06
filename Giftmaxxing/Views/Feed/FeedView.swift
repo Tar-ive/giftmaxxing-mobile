@@ -16,20 +16,24 @@ struct FeedView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 1) {
-                    // Compact custom header — the system toolbar is hidden on
-                    // Home (Liquid Glass capsules clipped the wordmark and ate
-                    // vertical space).
+                    // Compact custom header (system toolbar stays hidden on
+                    // Home) — ONE slim row: logo, search, messages. The bell
+                    // became the search icon; the screenshots/pools rails are
+                    // gone (Search owns visual search, Circles owns pools).
                     HStack(spacing: 6) {
                         MaxiIcon(size: 26)
                         Text("giftmaxxing")
                             .font(.system(size: 19, weight: .heavy, design: .rounded))
                             .foregroundStyle(Color.coral)
                         Spacer()
-                        NavigationLink(destination: ActivityView()) {
-                            Image(systemName: "heart")
-                                .font(.system(size: 20))
+                        Button {
+                            appState.openSearch(.products)
+                        } label: {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 20, weight: .medium))
                                 .foregroundStyle(Color.ink)
                         }
+                        .accessibilityLabel("Search")
                         NavigationLink(destination: MessagesView()) {
                             Image(systemName: "paperplane")
                                 .font(.system(size: 20))
@@ -40,27 +44,6 @@ struct FeedView: View {
                     .padding(.horizontal, 14)
                     .padding(.top, 6)
                     .padding(.bottom, 8)
-
-                    // Amazon-style top bar: search + camera (visual search) +
-                    // mic (talk to Maxi) — the agent-first entry points.
-                    HomeSearchBar(
-                        onSearchTap: { appState.openSearch(.products) },
-                        onCameraTap: { appState.openSearch(.visual) },
-                        onMicTap: { appState.showMaxi = true }
-                    )
-                    .padding(.horizontal, 14)
-                    .padding(.top, 4)
-                    .padding(.bottom, 6)
-
-                    // Instagram → Amazon bridge, half two: shop what you
-                    // already screenshotted.
-                    ScreenshotShopRail()
-                        .padding(.horizontal, 14)
-                        .padding(.bottom, 8)
-
-                    // Gift pools — the social object of the app (not stories).
-                    PoolsRail()
-                        .padding(.bottom, 8)
 
                     if viewModel.isLoading && viewModel.posts.isEmpty {
                         ForEach(0..<3, id: \.self) { _ in

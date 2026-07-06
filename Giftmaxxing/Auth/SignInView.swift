@@ -14,7 +14,7 @@ struct SignInView: View {
                     .font(.system(size: 32, weight: .heavy, design: .rounded))
                     .foregroundStyle(Color.coral)
 
-                Text("Sign in to save your preferences,\nsync across devices, and unlock\npersonalized recommendations.")
+                Text("Create your profile so your taste,\nsaved gifts, and reminders are yours —\non any device.")
                     .font(.system(size: 15))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -60,11 +60,15 @@ struct SignInView: View {
                     )
                 }
 
+                // Beta collects per-tester behavior — every tester gets a real,
+                // distinct profile. The guest door only exists in DEBUG builds.
+                #if DEBUG
                 Button("Continue as Guest") {
                     showSignIn = false
                 }
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(.secondary)
+                #endif
             }
             .padding(.horizontal, 40)
 

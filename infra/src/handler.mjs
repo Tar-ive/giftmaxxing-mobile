@@ -19,6 +19,7 @@ import {
 } from "@aws-sdk/client-s3vectors";
 import { BedrockRuntimeClient, InvokeModelCommand, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { classifyPin } from "./quality.mjs";
+import { analyticsRoutes } from "./analytics-routes.mjs";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
@@ -89,6 +90,9 @@ function isPublicRoute(method, path) {
     // credential, same trust model as invite/challenge links.
     if (/^\/circles\/[^/]+$/.test(path)) return true;
   }
+  // Behavioral analytics ingestion — events arrive before sign-in completes
+  // (and from guests), keyed by userId/anonymousId inside the payload.
+  if (method === "POST" && path === "/mobile/analytics") return true;
   if (method === "POST" && (path === "/visual-search" || path === "/connections")) return true;
   // Challenge create (anon senders allowed, same trust as POST /connections;
   // Bedrock embed cost rides the aiEnabled() breaker) + the guest's response.
@@ -2013,6 +2017,12 @@ export const handler = async (event) => {
   }
 
   try {
+    // Mobile behavioral analytics (POST ingest is public; GET summary rides
+    // the auth gate above like every other protected route).
+    if (path.startsWith("/mobile/analytics")) {
+      return await analyticsRoutes(method, path, body);
+    }
+
     // GET /feed?limit=&author=&cursor=&vibes=&recipient=&occasion=&category=
     // Cursor-paginated infinite feed; each page is ranked by scorePost().
     if (method === "GET" && path === "/feed") {

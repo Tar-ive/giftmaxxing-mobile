@@ -17,6 +17,10 @@ final class AuthManager: ObservableObject {
     private let tokenKey = "auth_id_token"
     private let refreshTokenKey = "auth_refresh_token"
     private let userIdKey = "auth_user_id"
+    // Apple only sends name/email on the FIRST authorization ever — persist
+    // them or the profile degrades to "Giftmaxxer" on the next launch.
+    private let displayNameKey = "auth_display_name"
+    private let emailKey = "auth_email"
 
     private init() {
         self.cognitoClientId = Bundle.main.object(forInfoDictionaryKey: "CognitoClientId") as? String ?? ""
@@ -39,6 +43,8 @@ final class AuthManager: ObservableObject {
             return
         }
         userId = savedUserId
+        displayName = KeychainStore.loadString(key: displayNameKey)
+        email = KeychainStore.loadString(key: emailKey)
         isAuthenticated = true
         if let token = KeychainStore.loadString(key: tokenKey), !isTokenExpired(token) {
             Task {
@@ -91,6 +97,8 @@ final class AuthManager: ObservableObject {
             userId = userIdValue
             displayName = identity.name
             email = identity.email
+            if let name = identity.name { try? KeychainStore.saveString(key: displayNameKey, value: name) }
+            if let email = identity.email { try? KeychainStore.saveString(key: emailKey, value: email) }
             isAuthenticated = true
 
             await APIClient.shared.setAuthToken(identity.idToken)
@@ -128,11 +136,19 @@ final class AuthManager: ObservableObject {
             userId = userIdValue
             if let name = credential.fullName {
                 let joined = [name.givenName, name.familyName].compactMap { $0 }.joined(separator: " ")
-                if !joined.isEmpty { displayName = joined }
+                if !joined.isEmpty {
+                    displayName = joined
+                    try? KeychainStore.saveString(key: displayNameKey, value: joined)
+                }
             }
             if let credentialEmail = credential.email {
                 email = credentialEmail
+                try? KeychainStore.saveString(key: emailKey, value: credentialEmail)
             }
+            // Re-authorization: Apple withholds name/email — fall back to the
+            // values persisted from the first grant.
+            if displayName == nil { displayName = KeychainStore.loadString(key: displayNameKey) }
+            if email == nil { email = KeychainStore.loadString(key: emailKey) }
             isAuthenticated = true
             error = nil
 
@@ -187,6 +203,8 @@ final class AuthManager: ObservableObject {
         KeychainStore.delete(key: tokenKey)
         KeychainStore.delete(key: refreshTokenKey)
         KeychainStore.delete(key: userIdKey)
+        KeychainStore.delete(key: displayNameKey)
+        KeychainStore.delete(key: emailKey)
         clearSession()
         Task {
             await APIClient.shared.setAuthToken(nil)

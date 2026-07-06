@@ -16,6 +16,19 @@ enum PersonalizationStore {
     private static let onboardedPrefix = "onboarded."
     private static let legacyKey = "hasSeenOnboarding"
 
+    // Set only by the DEBUG "Continue as Guest" button — release builds
+    // require a real account so analytics attribute to distinct testers.
+    static var debugGuestMode: Bool {
+        get {
+            #if DEBUG
+            return UserDefaults.standard.bool(forKey: "debug.guestMode")
+            #else
+            return false
+            #endif
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "debug.guestMode") }
+    }
+
     // MARK: - Consult signals
 
     static var genderPref: String? {

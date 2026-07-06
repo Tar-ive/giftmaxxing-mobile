@@ -22,6 +22,12 @@ struct ChallengeView: View {
     @State private var includeDate = false
     @State private var date = Date()
 
+    // Deck theme: seeding with ONE concrete gift keeps the whole deck coherent
+    // (the server packs it with twins + same-vibe items), so their swipes
+    // answer "would they like THIS kind of thing?" — colors, style and all.
+    @ObservedObject private var swipeList = SwipeListStore.shared
+    @State private var seedPostId: String?
+
     // Server-side challenge: deck + verdicts live in the backend; the link
     // just carries the challengeId. nil until created; invalidated on edits.
     @State private var challengeId: String?
@@ -82,11 +88,12 @@ struct ChallengeView: View {
                 .jpegData(compressionQuality: 0.8)?
                 .base64EncodedString()
         }
+        // Seed priority: chosen gift > captured photo > taste-key centroid.
         var seedKeys: [String] = []
-        if imageBase64 == nil {
+        if imageBase64 == nil && seedPostId == nil {
             seedKeys = await TasteProfileStore.shared.snapshot().seedKeys
         }
-        guard imageBase64 != nil || !seedKeys.isEmpty else {
+        guard imageBase64 != nil || seedPostId != nil || !seedKeys.isEmpty else {
             serverUnavailable = true
             return
         }
@@ -94,7 +101,8 @@ struct ChallengeView: View {
         do {
             let response = try await APIClient.shared.createChallenge(
                 senderId: senderId,
-                seedImageBase64: imageBase64,
+                seedImageBase64: seedPostId == nil ? imageBase64 : nil,
+                seedPostId: seedPostId,
                 seedKeys: seedKeys.isEmpty ? nil : seedKeys,
                 inviterName: inviterName,
                 to: theirName,
@@ -144,6 +152,39 @@ struct ChallengeView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.coralSoft.opacity(0.5))
                     .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+
+                // Theme picker — a saved gift idea anchors the deck.
+                if seedImage == nil && !swipeList.posts.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("BUILD THE DECK AROUND A GIFT IDEA")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.secondary)
+                        Text("Pick one of your saved finds — their deck fills with it and lookalikes, so their swipes tell you if the style and colors land.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach(swipeList.posts) { post in
+                                    SeedPickCard(
+                                        post: post,
+                                        isSelected: seedPostId == post.id
+                                    ) {
+                                        seedPostId = seedPostId == post.id ? nil : post.id
+                                        challengeId = nil
+                                    }
+                                }
+                            }
+                        }
+                        if seedPostId == nil {
+                            Text("Nothing picked — the deck falls back to your overall taste.")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .padding(16)
+                    .background(Color.cream)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
                 }
 
                 // Personalize card
@@ -224,7 +265,7 @@ struct ChallengeView: View {
 
                 if challengeId != nil {
                     Label(
-                        "Deck ready — built around \(seedImage != nil ? "your photo" : "your taste") from the live catalog. Their verdict lands in Responses.",
+                        "Deck ready — built around \(seedPostId != nil ? "your picked gift and lookalikes" : seedImage != nil ? "your photo" : "your taste") from the live catalog. Their verdict lands in Responses.",
                         systemImage: "checkmark.seal.fill"
                     )
                     .font(.system(size: 12, weight: .semibold))
@@ -375,5 +416,52 @@ struct ResponseRow: View {
         .padding(12)
         .background(Color.cream)
         .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+// Compact thumbnail card for picking the deck's seed gift.
+private struct SeedPickCard: View {
+    let post: Post
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 6) {
+                ZStack(alignment: .topTrailing) {
+                    if post.product.image != nil {
+                        CachedAsyncImage(url: post.product.image, width: 200)
+                            .frame(width: 100, height: 100)
+                            .clipped()
+                    } else {
+                        ZStack {
+                            Color.gradient(for: post.product.grad)
+                            Text(post.product.emoji).font(.system(size: 30))
+                        }
+                        .frame(width: 100, height: 100)
+                    }
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 18))
+                            .foregroundStyle(Color.coral)
+                            .background(Circle().fill(.white))
+                            .padding(5)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(isSelected ? Color.coral : Color.clear, lineWidth: 2.5)
+                )
+
+                Text(post.product.name)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .frame(width: 100, alignment: .leading)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }

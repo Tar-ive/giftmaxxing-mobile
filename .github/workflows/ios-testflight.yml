@@ -22,6 +22,8 @@
 #   ASC_KEY_ID              App Store Connect API key ID (e.g. 2X9R4HXF34)
 #   ASC_ISSUER_ID           Issuer ID from the same Integrations page
 #   ASC_KEY_P8              Full contents of the AuthKey_<KEYID>.p8 file
+#   GOOGLE_SERVICE_INFO_PLIST_B64  base64 of GoogleService-Info.plist (gitignored
+#                           locally — carries the Google OAuth client for Sign-In)
 # Optional (only if cloud signing is ever unavailable for the team):
 #   BUILD_CERTIFICATE_B64   base64 of an Apple Distribution .p12 export
 #   P12_PASSWORD            password chosen when exporting that .p12
@@ -93,6 +95,20 @@ jobs:
 
       - name: Install XcodeGen
         run: brew install xcodegen
+
+      # The plist is gitignored (it carries the Firebase/OAuth client config),
+      # so CI materializes it from a secret. Without it the build still works
+      # but Google Sign-In reports "not configured" — fail loudly instead.
+      - name: Install GoogleService-Info.plist
+        env:
+          GOOGLE_SERVICE_INFO_PLIST_B64: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST_B64 }}
+        run: |
+          if [ -z "$GOOGLE_SERVICE_INFO_PLIST_B64" ]; then
+            echo "::error::GOOGLE_SERVICE_INFO_PLIST_B64 secret is missing — Google Sign-In would be dead in this build"
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICE_INFO_PLIST_B64" | base64 --decode > Giftmaxxing/GoogleService-Info.plist
+          plutil -lint Giftmaxxing/GoogleService-Info.plist
 
       - name: Generate Xcode project
         run: xcodegen generate

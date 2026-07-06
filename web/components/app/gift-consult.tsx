@@ -161,15 +161,15 @@ const STEPS: ChatStep[] = [
   },
 ];
 
+// The move test is the app's PRIVATE quality bar (it drives rankGifts) — Maxi
+// doesn't lecture about it up front; the "keeper" question carries the idea.
 const INTRO = [
   "Hey — I'm Maxi. I find gifts people actually keep.",
-  "My bar is simple: if they moved tomorrow, would this make it into the box? 📦",
   "A few quick questions about your person and I'll pull real options.",
 ];
 
 const INTRO_ONBOARDING = [
   "Hey — I'm Maxi, your gift concierge. This is the whole app: you tell me about a person, I find the gift.",
-  "My bar: if they moved tomorrow, would it make it into the box? 📦",
   "Let's do your first consult right now — think of someone you owe a gift.",
 ];
 

@@ -32,6 +32,25 @@ final class AnalyticsEngine: ObservableObject {
     // os_signpost for precise interval measurement (Apple's recommended approach)
     private let signpostLog = OSLog(subsystem: "com.giftmaxxing.ios", category: "Analytics")
 
+    // Stable per-install identity for events that fire before sign-in (and to
+    // stitch pre/post-signin behavior into one tester). Keychain-backed so it
+    // survives reinstalls — TestFlight testers delete and re-add constantly.
+    static let anonymousId: String = {
+        let key = "analytics_anonymous_id"
+        if let existing = KeychainStore.loadString(key: key) { return existing }
+        let fresh = "anon_" + UUID().uuidString.lowercased()
+        try? KeychainStore.saveString(key: key, value: fresh)
+        return fresh
+    }()
+
+    private static let deviceModel: String = {
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        return withUnsafeBytes(of: &systemInfo.machine) { raw in
+            String(decoding: raw.prefix(while: { $0 != 0 }), as: UTF8.self)
+        }
+    }()
+
     // Swipe pattern tracking (Tinder-style)
     private var consecutiveRights = 0
     private var consecutiveLefts = 0
@@ -346,9 +365,13 @@ final class AnalyticsEngine: ObservableObject {
         var enriched = properties
         enriched["platform"] = .string("ios")
         enriched["appVersion"] = .string(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown")
-        if let userId = AuthManager.shared.userId {
-            enriched["userId"] = .string(userId)
-        }
+        enriched["buildNumber"] = .string(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0")
+        enriched["deviceModel"] = .string(Self.deviceModel)
+        enriched["osVersion"] = .string(UIDevice.current.systemVersion)
+        // userId = account when signed in, anonymous id otherwise; anonymousId
+        // rides along always so one tester's whole history stitches together.
+        enriched["anonymousId"] = .string(Self.anonymousId)
+        enriched["userId"] = .string(AuthManager.shared.userId ?? Self.anonymousId)
 
         let event = AnalyticsEvent(type: type, properties: enriched)
         eventBuffer.append(event)
