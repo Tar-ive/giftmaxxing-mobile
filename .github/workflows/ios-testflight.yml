@@ -81,8 +81,15 @@ jobs:
             echo "No .p12 provided — relying on Apple cloud signing via the API key"
           fi
 
-      - name: Show Xcode version
-        run: xcodebuild -version
+      # App Store Connect rejects uploads built with SDKs older than iOS 26,
+      # but the image's default Xcode is still 16.4 (iOS 18.5 SDK). Pick the
+      # newest installed Xcode dynamically so image updates keep working.
+      - name: Select latest Xcode
+        run: |
+          LATEST=$(find /Applications -maxdepth 1 -name 'Xcode_*.app' | sort -V | tail -1)
+          echo "Selecting $LATEST"
+          sudo xcode-select -s "$LATEST/Contents/Developer"
+          xcodebuild -version
 
       - name: Install XcodeGen
         run: brew install xcodegen
