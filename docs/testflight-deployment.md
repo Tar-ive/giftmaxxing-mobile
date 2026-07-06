@@ -14,47 +14,48 @@ To ship from a `production` branch instead of `main`, change one line
 | --- | --- | --- |
 | **Xcode Cloud** (Apple-native CI) | Zero secrets, signing fully managed, TestFlight-native, 25 free compute hrs/mo | Configured in App Store Connect UI, not in-repo; separate CI system from the GitHub Actions we already run |
 | **GitHub Actions + fastlane** (match/pilot) | Huge ecosystem, screenshots/metadata automation | Ruby toolchain + a cert repo to maintain; heavyweight for a single app |
-| **GitHub Actions + xcodebuild + ASC API key** ← chosen | In-repo, no extra tooling, 5 secrets, uses Apple's own cloud provisioning | You export one .p12 by hand at setup time |
+| **GitHub Actions + xcodebuild + ASC API key** ← chosen | In-repo, no extra tooling, 3 secrets, Apple cloud signing handles certs AND profiles | Cloud signing needs the API key to have App Manager role |
 
 The chosen path is Apple's modern recommendation: `xcodebuild` authenticated
-with an **App Store Connect API key** handles provisioning profiles on the fly
+with an **App Store Connect API key** uses cloud signing to create/fetch the
+Apple Distribution certificate and provisioning profiles on the fly
 (`-allowProvisioningUpdates`), and `ExportOptions.plist` with
 `destination: upload` makes the export step itself do the TestFlight upload —
-no `altool`, no Transporter.
+no `altool`, no Transporter, no .p12 wrangling.
 
 Note: if you'd rather have zero GitHub secrets, Xcode Cloud is the better
 pick — open Xcode → Product → Xcode Cloud → Create Workflow, select the
 GitHub repo, and set the workflow to "Archive → TestFlight (Internal)" on
 main. Both systems can coexist; they'd just produce two builds per push.
 
-## One-time setup (≈15 minutes)
+## One-time setup
 
 ### 1. App Store Connect API key → 3 secrets
 
+Status for this repo: `ASC_KEY_ID` and `ASC_KEY_P8` are **already set** (from
+the key at `~/.appstoreconnect/private_keys/AuthKey_254ZRKZ2HP.p8`); only
+`ASC_ISSUER_ID` remains.
+
 1. [App Store Connect](https://appstoreconnect.apple.com) → **Users and
-   Access** → **Integrations** → **App Store Connect API** → **Team Keys** →
-   **+**.
-2. Name it `github-actions`, role **App Manager** (needed so cloud
-   provisioning can register bundle ids / profiles).
-3. Download the `AuthKey_XXXXXXXXXX.p8` (downloadable **once**).
-4. Create the GitHub secrets (repo → Settings → Secrets and variables →
-   Actions):
-   - `ASC_KEY_ID` — the Key ID shown in the row (e.g. `2X9R4HXF34`)
-   - `ASC_ISSUER_ID` — Issuer ID at the top of that page (a UUID)
+   Access** → **Integrations** → **App Store Connect API** → **Team Keys**.
+   (Creating a key: **+**, name it, role **App Manager** — needed so cloud
+   signing can manage certs/bundle ids/profiles. The `.p8` downloads once.)
+2. Copy the **Issuer ID** shown at the top of that page (a UUID).
+3. Set the secrets (UI, or `gh secret set NAME`):
+   - `ASC_KEY_ID` — the Key ID shown in the key's row
+   - `ASC_ISSUER_ID` — the Issuer ID UUID
    - `ASC_KEY_P8` — the full text contents of the `.p8` file
 
-### 2. Apple Distribution certificate → 2 secrets
+### 2. Distribution certificate — NOT needed by default
 
-On any Mac that has the team's **Apple Distribution** certificate (Xcode →
-Settings → Accounts → Manage Certificates… → **+** → Apple Distribution if
-none exists yet):
+The workflow uses Apple **cloud signing**: with the API key authenticated,
+`xcodebuild -allowProvisioningUpdates` creates/uses a cloud-managed Apple
+Distribution certificate — no local cert, nothing to export.
 
-1. Open **Keychain Access** → My Certificates → right-click *Apple
-   Distribution: <team>* → **Export…** → `.p12`, choose a password.
-2. `base64 -i distribution.p12 | pbcopy`
-3. Create the secrets:
-   - `BUILD_CERTIFICATE_B64` — the base64 you just copied
-   - `P12_PASSWORD` — the export password
+Only if cloud signing ever fails for the team (rare; some older accounts),
+fall back to a classic .p12: Keychain Access → export *Apple Distribution:
+<team>* → `base64 -i distribution.p12 | pbcopy` → set `BUILD_CERTIFICATE_B64`
+and `P12_PASSWORD`. The workflow picks them up automatically when present.
 
 ### 3. App Store Connect app record (likely already done)
 

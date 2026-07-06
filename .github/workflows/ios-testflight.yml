@@ -7,11 +7,12 @@
 #
 # How signing works here (the no-fastlane, Apple-blessed path):
 #   • An App Store Connect API key (secrets, below) authenticates xcodebuild.
-#   • The Apple Distribution certificate (.p12 export) is imported into a
-#     throwaway keychain on the runner.
-#   • `-allowProvisioningUpdates` + the API key lets xcodebuild create/fetch
-#     provisioning profiles for both bundle ids (app + share extension) on
-#     the fly — no profiles stored in the repo or secrets.
+#   • `-allowProvisioningUpdates` + the API key lets xcodebuild use Apple's
+#     CLOUD SIGNING: it creates/fetches the Apple Distribution certificate
+#     and provisioning profiles for both bundle ids (app + share extension)
+#     on the fly — nothing stored in the repo, no .p12 required.
+#   • Optionally, a locally-exported .p12 can be supplied via the two cert
+#     secrets below; the import step then runs and xcodebuild prefers it.
 #   • ExportOptions.plist uses destination=upload, so exporting IS uploading;
 #     manageAppVersionAndBuildNumber=true makes Xcode pick the next free
 #     build number by asking App Store Connect — CI and manual Xcode uploads
@@ -21,6 +22,7 @@
 #   ASC_KEY_ID              App Store Connect API key ID (e.g. 2X9R4HXF34)
 #   ASC_ISSUER_ID           Issuer ID from the same Integrations page
 #   ASC_KEY_P8              Full contents of the AuthKey_<KEYID>.p8 file
+# Optional (only if cloud signing is ever unavailable for the team):
 #   BUILD_CERTIFICATE_B64   base64 of an Apple Distribution .p12 export
 #   P12_PASSWORD            password chosen when exporting that .p12
 # See docs/testflight-deployment.md for the step-by-step on creating each.
@@ -54,24 +56,29 @@ jobs:
           persist-credentials: false
 
       # Fail fast with a human-readable list instead of a cryptic signing error
-      # twenty minutes in.
+      # twenty minutes in. The .p12 pair is optional (cloud signing default).
       - name: Check signing secrets are configured
+        id: secrets
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
           BUILD_CERTIFICATE_B64: ${{ secrets.BUILD_CERTIFICATE_B64 }}
-          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
         run: |
           missing=()
-          [ -n "$ASC_KEY_ID" ]            || missing+=(ASC_KEY_ID)
-          [ -n "$ASC_ISSUER_ID" ]         || missing+=(ASC_ISSUER_ID)
-          [ -n "$ASC_KEY_P8" ]            || missing+=(ASC_KEY_P8)
-          [ -n "$BUILD_CERTIFICATE_B64" ] || missing+=(BUILD_CERTIFICATE_B64)
-          [ -n "$P12_PASSWORD" ]          || missing+=(P12_PASSWORD)
+          [ -n "$ASC_KEY_ID" ]    || missing+=(ASC_KEY_ID)
+          [ -n "$ASC_ISSUER_ID" ] || missing+=(ASC_ISSUER_ID)
+          [ -n "$ASC_KEY_P8" ]    || missing+=(ASC_KEY_P8)
           if [ ${#missing[@]} -gt 0 ]; then
             echo "::error::Missing repository secrets: ${missing[*]} — see docs/testflight-deployment.md"
             exit 1
+          fi
+          if [ -n "$BUILD_CERTIFICATE_B64" ]; then
+            echo "has_cert=true" >> "$GITHUB_OUTPUT"
+            echo "Using imported .p12 distribution certificate"
+          else
+            echo "has_cert=false" >> "$GITHUB_OUTPUT"
+            echo "No .p12 provided — relying on Apple cloud signing via the API key"
           fi
 
       - name: Show Xcode version
@@ -85,7 +92,9 @@ jobs:
 
       # Canonical Apple/GitHub recipe: throwaway keychain, imported .p12,
       # partition list so xcodebuild can use the key non-interactively.
+      # Skipped entirely when no .p12 secret is set (cloud signing path).
       - name: Import distribution certificate
+        if: steps.secrets.outputs.has_cert == 'true'
         env:
           BUILD_CERTIFICATE_B64: ${{ secrets.BUILD_CERTIFICATE_B64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
@@ -157,5 +166,7 @@ jobs:
       - name: Clean up signing material
         if: always()
         run: |
-          security delete-keychain "$RUNNER_TEMP/$KEYCHAIN_NAME" || true
+          if [ -f "$RUNNER_TEMP/$KEYCHAIN_NAME" ]; then
+            security delete-keychain "$RUNNER_TEMP/$KEYCHAIN_NAME" || true
+          fi
           rm -rf private_keys "$RUNNER_TEMP/distribution.p12"
