@@ -400,6 +400,13 @@ actor APIClient {
         }
     }
 
+    // MARK: - Birthday freebies
+
+    // Curated "free on your birthday" perks (see infra/src/birthday-freebies.mjs).
+    func fetchBirthdayFreebies() async throws -> BirthdayPerksResponse {
+        try await get("/birthday-freebies")
+    }
+
     // MARK: - Networking
 
     private func get<T: Decodable>(_ path: String, params: [String: String] = [:]) async throws -> T {

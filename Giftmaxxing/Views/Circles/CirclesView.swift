@@ -66,6 +66,10 @@ struct CirclesView: View {
                     ) { showChallenge = true }
                 }
                 .padding(16)
+                // Clearance for the floating tab bar — without it the last
+                // rows (the circle-link door, feature cards) scroll UNDER the
+                // bar and can't be tapped.
+                .padding(.bottom, 88)
             }
             .background(Color.surface)
             .navigationTitle("Circles")

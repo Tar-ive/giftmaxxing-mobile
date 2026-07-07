@@ -34,6 +34,10 @@ final class AppState: ObservableObject {
     // the inline join card handles new arrivals (web parity).
     @Published var pendingCircleId: String?
 
+    // Birthday-freebies notification tap — ContentView presents the perks
+    // sheet at root (works from any tab; Shop itself is nested under You).
+    @Published var showBirthdayPerks = false
+
     func openCircle(_ circleId: String) {
         selectedTab = .circles
         pendingCircleId = circleId

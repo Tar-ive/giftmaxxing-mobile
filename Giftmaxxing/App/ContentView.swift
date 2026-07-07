@@ -116,6 +116,10 @@ struct ContentView: View {
             MaxiView()
                 .presentationDragIndicator(.visible)
         }
+        // Birthday-freebies notification tap — straight to the perks list.
+        .sheet(isPresented: $appState.showBirthdayPerks) {
+            BirthdayPerksSheet()
+        }
         // Search is a modal layer (camera / products / screenshots), not a tab.
         .fullScreenCover(isPresented: $appState.showSearch) {
             SearchTabsView()

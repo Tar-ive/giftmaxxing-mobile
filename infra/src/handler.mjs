@@ -20,6 +20,7 @@ import {
 import { BedrockRuntimeClient, InvokeModelCommand, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { classifyPin } from "./quality.mjs";
 import { analyticsRoutes } from "./analytics-routes.mjs";
+import { birthdayFreebiesRoute } from "./birthday-freebies.mjs";
 import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
@@ -80,6 +81,7 @@ function isPublicRoute(method, path) {
   if (method === "GET") {
     if (path === "/feed" || path === "/recommendations" || path === "/pins") return true;
     if (path === "/recipients" || path === "/ideas") return true;
+    if (path === "/birthday-freebies") return true;
     if (path === "/vectors") return true;
     if (path.startsWith("/posts/")) return true;
     // Guest deck fetch (the invited friend swipes without an account). The
@@ -2194,6 +2196,12 @@ export const handler = async (event) => {
       }
       const token = await signSessionJwt(userId, identity.email, name);
       return json(200, { token, userId, email: identity.email, expiresIn: SESSION_TTL_SECONDS });
+    }
+
+    // GET /birthday-freebies?category= — curated "free on your birthday" perks
+    // (Sephora/Starbucks/Denny's...). Static in-code dataset, cacheable hard.
+    if (method === "GET" && path === "/birthday-freebies") {
+      return json(200, birthdayFreebiesRoute(qs), { "cache-control": "public, max-age=86400" });
     }
 
     // GET /feed?limit=&author=&cursor=&vibes=&recipient=&occasion=&category=
