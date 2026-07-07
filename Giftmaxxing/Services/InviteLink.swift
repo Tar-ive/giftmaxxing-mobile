@@ -25,8 +25,10 @@ struct InvitePayload: Codable {
 }
 
 enum InviteLink {
-    // Canonical public web origin (web/.env NEXT_PUBLIC_SITE_URL equivalent).
-    static let siteURL = "https://giftmaxxing.vercel.app"
+    // Canonical public web origin (web/.env NEXT_PUBLIC_SITE_URL equivalent):
+    // the giftmaxxing-web deployment serving this repo's web/ app, which knows
+    // how to handle server-side challengeId links.
+    static let siteURL = "https://giftmaxxing-web.vercel.app"
 
     static let shareText =
         "Would you want this gifted to you? 👀 Swipe to find your gift taste on Giftmaxxing"

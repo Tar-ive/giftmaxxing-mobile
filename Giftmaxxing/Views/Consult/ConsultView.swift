@@ -715,7 +715,7 @@ private struct SmallGiftCard: View {
     let gift: RankedGift
 
     var body: some View {
-        Link(destination: URL(string: gift.post.productUrl ?? gift.post.url ?? "") ?? URL(string: "https://giftmaxxing.vercel.app")!) {
+        Link(destination: URL(string: gift.post.productUrl ?? gift.post.url ?? "") ?? URL(string: InviteLink.siteURL)!) {
             VStack(alignment: .leading, spacing: 0) {
                 GiftImage(urlString: gift.post.product.image, emoji: gift.post.product.emoji, grad: gift.post.product.grad, height: 130)
                 VStack(alignment: .leading, spacing: 4) {

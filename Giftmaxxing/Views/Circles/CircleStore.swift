@@ -22,10 +22,9 @@ final class CircleStore: ObservableObject {
 
     private static let storageKey = "giftmaxxing_my_circles"
 
-    // The circle page lives on the NEW web app (giftmaxxing-web), not the
-    // legacy hackathon site InviteLink.siteURL still points at — /circle/<id>
-    // only exists there.
-    static let webOrigin = "https://giftmaxxing-web.vercel.app"
+    // Same giftmaxxing-web origin as InviteLink.siteURL — /circle/<id> lives
+    // on this repo's web app.
+    static let webOrigin = InviteLink.siteURL
 
     init() {
         load()
