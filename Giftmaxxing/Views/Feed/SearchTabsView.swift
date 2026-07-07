@@ -133,8 +133,16 @@ final class SearchTabsViewModel: ObservableObject {
             return
         }
 
+        // Titan MM embeds image+text jointly — on-device Vision labels
+        // ("couch", "sneaker") anchor the query semantically, which sharpens
+        // the kNN a lot for photos taken in the wild (screenshots, clutter).
+        let labels = await Self.classifyLabels(in: image)
+
         do {
-            let response = try await api.fetchVisualSearch(imageBase64: jpeg.base64EncodedString())
+            let response = try await api.fetchVisualSearch(
+                imageBase64: jpeg.base64EncodedString(),
+                text: labels.isEmpty ? nil : labels.joined(separator: ", ")
+            )
             guard generation == searchGeneration else { return }
             visualResults = response.items ?? []
         } catch {
@@ -152,6 +160,25 @@ final class SearchTabsViewModel: ObservableObject {
         visualLoading = false
         regionRects = []
         selectedRegion = nil
+    }
+
+    // On-device scene/object classification — the top few confident labels
+    // are sent alongside the image so the multimodal embedding is grounded in
+    // WHAT the object is, not just how it looks.
+    private static func classifyLabels(in image: UIImage) async -> [String] {
+        guard let cgImage = image.cgImage else { return [] }
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let request = VNClassifyImageRequest()
+                let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+                try? handler.perform([request])
+                let labels = (request.results ?? [])
+                    .filter { $0.confidence >= 0.3 }
+                    .prefix(3)
+                    .map { $0.identifier.replacingOccurrences(of: "_", with: " ") }
+                continuation.resume(returning: Array(labels))
+            }
+        }
     }
 
     // Vision objectness-based saliency — up to 3 salient object boxes,
@@ -595,7 +622,7 @@ struct SearchTabsView: View {
 
             if let results = viewModel.visualResults {
                 if results.isEmpty {
-                    emptyNote("No visual matches found. Try a different image.")
+                    emptyNote("No close matches in the gift catalog for this photo. Try a clearer product shot, or tap an object in the photo to search just that region.")
                 } else {
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible())], spacing: 12) {
                         ForEach(results) { item in

@@ -591,6 +591,9 @@ const CHALLENGE_DECK_SIZE = 14;
 // Cosine-DISTANCE bands over the Titan multimodal space: twins | same-vibe.
 const CHALLENGE_BAND_TWIN = 0.35;
 const CHALLENGE_BAND_VIBE = 0.55;
+// Visual search relevance gate — same cosine-distance space as the challenge
+// bands: anything past "same vibe" plus a small margin is not a visual match.
+const VISUAL_SEARCH_MAX_DISTANCE = Number(process.env.VISUAL_SEARCH_MAX_DISTANCE || 0.62);
 
 function cosSim(a, b) {
   let dot = 0, na = 0, nb = 0;
@@ -2414,6 +2417,10 @@ export const handler = async (event) => {
     // POST /visual-search  { imageBase64, text?, limit?, sourceUser? }
     // True "find gifts that look like this": embed the uploaded image with Titan
     // Multimodal, then kNN against the pin index. Returns post-shaped items.
+    // Results beyond VISUAL_SEARCH_MAX_DISTANCE are dropped: kNN always returns
+    // the K nearest vectors even when nothing in the catalog resembles the query
+    // (a couch photo "matching" jeans), so an explicit relevance gate is the
+    // difference between "no close matches" and confidently wrong results.
     if (method === "POST" && path === "/visual-search") {
       if (!(await aiEnabled())) return json(503, { error: "temporarily disabled (cost guard)" });
       if (!s3v) return json(503, { error: "vector store not configured" });
@@ -2438,7 +2445,13 @@ export const handler = async (event) => {
           filter: body.sourceUser ? { sourceUser: { $eq: body.sourceUser } } : undefined,
         })
       );
-      const items = (out.vectors ?? []).map(vecToItem).filter((it) => it.feedEligible).slice(0, limit);
+      const items = (out.vectors ?? [])
+        .map(vecToItem)
+        .filter(
+          (it) =>
+            it.feedEligible && (it._distance == null || it._distance <= VISUAL_SEARCH_MAX_DISTANCE)
+        )
+        .slice(0, limit);
       return json(200, { items, source: "visual" });
     }
 

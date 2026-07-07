@@ -234,6 +234,18 @@ struct ShopItemDetail: View {
     @Environment(\.dismiss) private var dismiss
     @State private var browserTarget: BrowserTarget?
 
+    private var isAmazon: Bool {
+        guard let url = item.affiliateUrl else { return false }
+        return Affiliate.isAmazonUrl(url)
+    }
+
+    // Human-readable merchant for the buy button: the link's host without "www.".
+    private func merchantName(for link: URL) -> String {
+        let host = (link.host ?? "").lowercased()
+        let name = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        return name.isEmpty ? "retailer site" : name
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -276,8 +288,11 @@ struct ShopItemDetail: View {
 
                         Divider()
 
-                        // Buy button — Amazon app when installed, in-app browser
-                        // fallback (and click analytics) via the outbound router.
+                        // Buy button — labeled for the ACTUAL retailer behind the
+                        // link (Amazon-orange only for Amazon; other merchants get
+                        // their own domain on a coral button). Amazon app when
+                        // installed, in-app browser fallback (and click analytics)
+                        // via the outbound router.
                         if let url = item.affiliateUrl, let link = URL(string: url) {
                             Button {
                                 OutboundRouter.open(link, postId: item.id, source: "shop") {
@@ -286,13 +301,13 @@ struct ShopItemDetail: View {
                             } label: {
                                 HStack {
                                     Image(systemName: "cart.fill")
-                                    Text("Buy on Amazon")
+                                    Text(isAmazon ? "Buy on Amazon" : "Shop on \(merchantName(for: link))")
                                 }
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
-                                .background(Color(hex: "#FF9900"))
+                                .background(isAmazon ? Color(hex: "#FF9900") : Color.coral)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
                             .sheet(item: $browserTarget) { target in
@@ -301,10 +316,12 @@ struct ShopItemDetail: View {
                             }
                         }
 
-                        // Affiliate note
-                        Text("As an Amazon Associate, giftmaxxing earns from qualifying purchases.")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
+                        // The Associates disclosure only applies to Amazon links.
+                        if isAmazon {
+                            Text("As an Amazon Associate, giftmaxxing earns from qualifying purchases.")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     .padding(.horizontal, 16)
                 }
