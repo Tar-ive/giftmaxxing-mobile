@@ -68,9 +68,6 @@ struct MoreView: View {
                         MoreRow(icon: "bag.fill", title: "Shop", subtitle: "Curated picks") {
                             ShopView()
                         }
-                        MoreRow(icon: "sparkles", title: "Maxi AI", subtitle: "Chat with your gift agent") {
-                            MaxiView()
-                        }
                     }
 
                     // Settings

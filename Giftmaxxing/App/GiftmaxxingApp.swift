@@ -39,7 +39,7 @@ struct GiftmaxxingApp: App {
                     )
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .navigateToMaxi)) { _ in
-                    appState.showMaxi = true
+                    appState.selectedTab = .maxi
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .navigateToEvent)) { _ in
                     appState.selectedTab = .you // Events live under You

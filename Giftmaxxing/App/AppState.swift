@@ -7,9 +7,6 @@ final class AppState: ObservableObject {
     @Published var currentUser: AppUser?
     @Published var cartItems: [CartItem] = []
 
-    // Maxi is the app's core agent — reachable from anywhere via the floating
-    // button (Amazon Rufus-style) and the home top bar.
-    @Published var showMaxi = false
 
     // Search is a modal layer over any tab (HIG: search is a mode, not a
     // destination — it kept a tab slot from features that matter more).
@@ -101,14 +98,15 @@ struct AppUser: Identifiable, Codable {
 // visible — nothing important behind a "More" screen):
 //   Home      — the personalized feed
 //   Swipe     — taste training (feeds personalization)
-//   Concierge — the signature act: tell Maxi about a person, get THE gift
+//   Maxi      — the AI search bar: ask for anyone, get THE gift. This is
+//               the ONLY place to talk to Maxi (no floating button).
 //   Circles   — your people + their dates: circles, events & reminders,
 //               group gifts, pools, swipe challenges
 //   You       — profile, orders, settings
 enum Tab: String, CaseIterable {
     case feed = "Home"
     case swipe = "Swipe"
-    case concierge = "Concierge"
+    case maxi = "Maxi"
     case circles = "Circles"
     case you = "You"
 
@@ -116,7 +114,7 @@ enum Tab: String, CaseIterable {
         switch self {
         case .feed: return "house.fill"
         case .swipe: return "rectangle.portrait.on.rectangle.portrait.angled.fill"
-        case .concierge: return "wand.and.stars"
+        case .maxi: return "sparkle.magnifyingglass"
         case .circles: return "person.2.fill"
         case .you: return "person.crop.circle"
         }

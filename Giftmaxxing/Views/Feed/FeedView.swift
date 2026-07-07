@@ -17,23 +17,21 @@ struct FeedView: View {
             ScrollView {
                 LazyVStack(spacing: 1) {
                     // Compact custom header (system toolbar stays hidden on
-                    // Home) — ONE slim row: logo, search, messages. The bell
-                    // became the search icon; the screenshots/pools rails are
-                    // gone (Search owns visual search, Circles owns pools).
+                    // Home) — ONE slim row: logo, shop, messages. Search moved
+                    // into the Maxi tab (the AI search bar IS the search);
+                    // the bag replaces the magnifier.
                     HStack(spacing: 6) {
                         MaxiIcon(size: 26)
                         Text("giftmaxxing")
                             .font(.system(size: 19, weight: .heavy, design: .rounded))
                             .foregroundStyle(Color.coral)
                         Spacer()
-                        Button {
-                            appState.openSearch(.products)
-                        } label: {
-                            Image(systemName: "magnifyingglass")
+                        NavigationLink(destination: ShopView()) {
+                            Image(systemName: "bag")
                                 .font(.system(size: 20, weight: .medium))
                                 .foregroundStyle(Color.ink)
                         }
-                        .accessibilityLabel("Search")
+                        .accessibilityLabel("Shop")
                         NavigationLink(destination: MessagesView()) {
                             Image(systemName: "paperplane")
                                 .font(.system(size: 20))

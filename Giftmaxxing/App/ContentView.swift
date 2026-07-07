@@ -37,11 +37,11 @@ struct ContentView: View {
                     }
                     .tag(Tab.swipe)
 
-                ConsultView()
+                MaxiView()
                     .tabItem {
-                        Label(Tab.concierge.rawValue, systemImage: Tab.concierge.icon)
+                        Label(Tab.maxi.rawValue, systemImage: Tab.maxi.icon)
                     }
-                    .tag(Tab.concierge)
+                    .tag(Tab.maxi)
 
                 CirclesView()
                     .tabItem {
@@ -56,23 +56,6 @@ struct ContentView: View {
                     .tag(Tab.you)
             }
             .tint(Color.coral)
-
-            // Floating Maxi button (Amazon Rufus-style): the agent is one tap
-            // away on every tab — Maxi is the app's core interface. Hidden on
-            // Concierge (that IS Maxi) and You (settings don't need it).
-            if appState.selectedTab != .you && appState.selectedTab != .concierge {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        MaxiFloatingButton {
-                            appState.showMaxi = true
-                        }
-                        .padding(.trailing, 16)
-                        .padding(.bottom, 62)
-                    }
-                }
-            }
 
             if !offlineQueue.isOnline {
                 VStack {
@@ -111,10 +94,6 @@ struct ContentView: View {
                 .transition(.opacity)
                 .zIndex(10)
             }
-        }
-        .sheet(isPresented: $appState.showMaxi) {
-            MaxiView()
-                .presentationDragIndicator(.visible)
         }
         // Birthday-freebies notification tap — straight to the perks list.
         .sheet(isPresented: $appState.showBirthdayPerks) {

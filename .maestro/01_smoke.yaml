@@ -33,7 +33,7 @@ tags:
     visible: "Swipe"
     timeout: 15000
 - tapOn: "Swipe"
-- tapOn: "Concierge"
+- tapOn: "Maxi"
 - tapOn: "Circles"
 - assertVisible: "Your people, their moments"
 - tapOn: "You"
