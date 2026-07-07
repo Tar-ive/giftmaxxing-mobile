@@ -155,6 +155,12 @@ jobs:
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
+      # Connectivity probe: proves the RUNNER can reach Cognito, so a sign-in
+      # failure in the flows points at the simulator/app, not the host network.
+      - name: Probe Cognito reachability
+        run: |
+          echo "runner → cognito-idp: HTTP $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 https://cognito-idp.us-east-1.amazonaws.com/ || echo 'FAILED')"
+
       - name: Run Maestro flows
         env:
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}

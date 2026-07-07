@@ -207,6 +207,7 @@ final class AuthManager: ObservableObject {
             let url = URL(string: "https://cognito-idp.\(cognitoRegion).amazonaws.com/")!
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
+            request.timeoutInterval = 15 // fail fast so the E2E retry loop can cycle
             request.setValue("application/x-amz-json-1.1", forHTTPHeaderField: "Content-Type")
             request.setValue("AWSCognitoIdentityProviderService.InitiateAuth", forHTTPHeaderField: "X-Amz-Target")
 
@@ -225,7 +226,8 @@ final class AuthManager: ObservableObject {
                   let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let authResult = json["AuthenticationResult"] as? [String: Any],
                   let idToken = authResult["IdToken"] as? String else {
-                self.error = "Email sign-in failed. Check the credentials."
+                let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+                self.error = "Email sign-in failed (HTTP \(status)). Check the credentials."
                 return
             }
 
@@ -250,7 +252,8 @@ final class AuthManager: ObservableObject {
             await APIClient.shared.setAuthToken(idToken)
             await APIClient.shared.identify(userId: userIdValue, name: name, email: email)
         } catch {
-            self.error = "Email sign-in failed. Please try again."
+            let nsError = error as NSError
+            self.error = "Email sign-in failed (\(nsError.domain) \(nsError.code)). Please try again."
         }
     }
 
