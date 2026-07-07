@@ -13,7 +13,7 @@ import {
   type ChallengeDeckItem,
   type ChallengeSwipe,
 } from "@/lib/api";
-import { swipeVibes, seedKeysFromSwipes, loadSwipes, localMatchesFromSwipes, swipeTimingSignals, type SwipeDir } from "@/lib/swipes";
+import { swipeVibes, seedKeysFromSwipes, localMatchesFromSwipes, swipeTimingSignals, type Swipe, type SwipeDir } from "@/lib/swipes";
 import { GRADIENTS, type Grad } from "@/lib/data";
 import { shortTitle } from "@/lib/feed-builder";
 import { type Pin } from "@/lib/pins";
@@ -146,17 +146,31 @@ export default function InvitePage() {
     transition("swipe");
   }, [inviterName, code, transition]);
 
+  // Guest swipes live only in this ref for the session — SwipeDeck no longer
+  // writes them to the device's localStorage (they'd corrupt the owner's own
+  // deck and stats), so all reporting reads from here.
+  const sessionSwipes = useCallback(
+    (): Swipe[] =>
+      [...new Map(challengeSwipesRef.current.map((s) => [s.id, s])).values()].map((s) => ({
+        id: s.id,
+        dir: s.dir,
+        at: Date.now(),
+        dwellMs: s.dwellMs,
+      })),
+    []
+  );
+
   const reportConnection = useCallback(() => {
     if (reportedRef.current) return;
     reportedRef.current = true;
-    const swipes = loadSwipes();
+    const swipes = sessionSwipes();
     // Group mode: credit the tally to the helper who swiped, not the recipient.
     const name = groupMode
       ? helperName.trim() || "A friend"
       : invite?.to?.trim() || "Friend";
     const guestBirthday = birthday || invite?.date || undefined;
-    const vibes = swipeVibes(5);
-    const seeds = seedKeysFromSwipes(8);
+    const vibes = swipeVibes(5, swipes);
+    const seeds = seedKeysFromSwipes(8, swipes);
 
     // Server-challenge path: post the deck swipes back — the Lambda computes
     // the verdict against the hidden seed AND mirrors a soft-profile
@@ -223,7 +237,7 @@ export default function InvitePage() {
     });
 
     clearInviteSession();
-  }, [invite, birthday, inviterName, groupMode, helperName]);
+  }, [invite, birthday, inviterName, groupMode, helperName, sessionSwipes]);
 
   const onSwipeDone = useCallback(() => {
     // Server-deck flow: the reveal shows what the guest actually said yes to;
@@ -234,7 +248,7 @@ export default function InvitePage() {
         .map((s) => s.id)
     );
     const serverYes = (serverDeck ?? []).filter((p) => yesIds.has(p.id));
-    setResults(serverYes.length ? serverYes.slice(0, 9) : localMatchesFromSwipes(9));
+    setResults(serverYes.length ? serverYes.slice(0, 9) : localMatchesFromSwipes(9, sessionSwipes()));
     // Group helpers aren't the giftee — their birthday is irrelevant. Same if
     // the sender pre-set the date.
     if (groupMode || invite?.date) {
@@ -243,7 +257,7 @@ export default function InvitePage() {
     } else {
       transition("birthday");
     }
-  }, [invite, transition, reportConnection, serverDeck, groupMode]);
+  }, [invite, transition, reportConnection, serverDeck, groupMode, sessionSwipes]);
 
   const finishChallenge = useCallback(() => {
     reportConnection();
@@ -418,7 +432,7 @@ export default function InvitePage() {
               <SwipeDeck
                 onMatchesReady={onSwipeDone}
                 externalDeck={deckState === "ready" && serverDeck ? serverDeck : undefined}
-                onSwipe={challengeId ? onChallengeSwipe : undefined}
+                onSwipe={onChallengeSwipe}
                 guestSession
               />
             )}

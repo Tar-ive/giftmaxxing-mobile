@@ -145,14 +145,21 @@ export function SwipeDeck({
       setFly(dir);
       // Calculate dwell time: how long the user looked at this card before swiping
       const dwellMs = Date.now() - cardShownAtRef.current;
-      recordSwipe(pin.id, dir, dwellMs);
       onSwipe?.(pin.id, dir, dwellMs);
-      // Persist the swipe to the DynamoDB interactions table (fire-and-forget,
-      // no-ops when the API isn't configured). A "yes" is a positive taste
-      // signal -> `like` (seeds the vector recommender + excludes from feed);
-      // a "no" is recorded as `seen` so it stops reappearing without becoming a
-      // positive seed.
-      recordInteraction(getMyUserId(), pin.id, dir === "yes" ? "like" : "seen");
+      // Guest sessions never touch this device's persistent taste data: the
+      // swipes belong to the visiting guest, not the device owner, so writing
+      // them to localStorage / the interactions table would remove cards from
+      // the owner's future decks and pollute their recommender seeds. The
+      // invite page collects guest swipes itself via onSwipe.
+      if (!guest) {
+        recordSwipe(pin.id, dir, dwellMs);
+        // Persist the swipe to the DynamoDB interactions table (fire-and-forget,
+        // no-ops when the API isn't configured). A "yes" is a positive taste
+        // signal -> `like` (seeds the vector recommender + excludes from feed);
+        // a "no" is recorded as `seen` so it stops reappearing without becoming a
+        // positive seed.
+        recordInteraction(getMyUserId(), pin.id, dir === "yes" ? "like" : "seen");
+      }
       if (guest) {
         // Challenge/invite session: count only this deck's swipes (global
         // stats include past local sessions on this device).

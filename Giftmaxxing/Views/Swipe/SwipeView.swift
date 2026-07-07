@@ -224,7 +224,13 @@ struct SwipeView: View {
     // its items, and the friend gets a swipeable browser link — not a text blob.
     @State private var listInviteURL: URL?
     @State private var buildingListLink = false
-    @State private var listLinkItemCount = 0
+    // Which exact set of items the cached link was built for — the link goes
+    // stale the moment the list's contents change, not just its count.
+    @State private var listLinkKey = ""
+
+    private var currentListKey: String {
+        swipeList.posts.map(\.id).joined(separator: "|")
+    }
 
     private var senderId: String {
         appState.currentUser?.id ?? InteractionQueue.anonymousUserId
@@ -251,7 +257,7 @@ struct SwipeView: View {
             senderId: senderId,
             challengeId: challengeId
         )
-        listLinkItemCount = posts.count
+        listLinkKey = posts.map(\.id).joined(separator: "|")
     }
 
     var body: some View {
@@ -315,7 +321,7 @@ struct SwipeView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     if context == .someone {
                         // Send the curated deck — the whole point of the list.
-                        if let url = listInviteURL, listLinkItemCount == swipeList.posts.count {
+                        if let url = listInviteURL, listLinkKey == currentListKey {
                             ShareLink(item: url, message: Text(InviteLink.shareText)) {
                                 Image(systemName: "paperplane.fill")
                                     .font(.system(size: 16))
@@ -369,7 +375,7 @@ struct SwipeView: View {
     @ViewBuilder
     private var sendListCard: some View {
         Group {
-            if let url = listInviteURL, listLinkItemCount == swipeList.posts.count {
+            if let url = listInviteURL, listLinkKey == currentListKey {
                 ShareLink(item: url, message: Text(InviteLink.shareText)) {
                     sendListLabel(
                         title: "Send the swipe link",
