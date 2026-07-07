@@ -133,6 +133,9 @@ jobs:
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
 
+      # NOTE: signing stays ON (simulator ad-hoc, no certs needed) — an
+      # unsigned app can't touch the keychain (errSecMissingEntitlement),
+      # which breaks AuthManager's session storage during E2E sign-in.
       - name: Build app (Debug, iOS Simulator)
         run: |
           set -o pipefail
@@ -142,9 +145,9 @@ jobs:
             -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -configuration Debug \
             -derivedDataPath dd \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="-" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM="" \
             | xcpretty --color
 
       - name: Install app on simulator
