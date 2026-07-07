@@ -46,8 +46,12 @@ function hash(s: string): number {
   return h;
 }
 
-function buildDeck(): Pin[] {
-  const swiped = swipedIdSet();
+function buildDeck(includeSwiped = false): Pin[] {
+  // Guest challenge/invite sessions must NOT inherit the device owner's swipe
+  // history — otherwise a sender who tests their own link (or any returning
+  // visitor) lands on an empty deck ("you swiped all 0 finds") with someone
+  // else's tally. includeSwiped keeps the full deck for those fresh sessions.
+  const swiped = includeSwiped ? new Set<string>() : swipedIdSet();
   return PINS.filter((p) => !swiped.has(p.id)).sort(
     (a, b) => hash(a.id) - hash(b.id)
   );
@@ -86,6 +90,7 @@ export function SwipeDeck({
   genderPref,
   externalDeck,
   onSwipe,
+  guestSession,
 }: {
   compact?: boolean;
   onMatchesReady?: () => void;
@@ -96,6 +101,10 @@ export function SwipeDeck({
   /** Per-swipe callback with dwell time — the challenge page collects these
    *  to POST /challenges/{id}/response. */
   onSwipe?: (id: string, dir: SwipeDir, dwellMs: number) => void;
+  /** Guest (invite/challenge) session: build a fresh deck ignoring this
+   *  device's swipe history and count only this session's swipes, so a
+   *  recipient never sees already-swiped cards or a stranger's tally. */
+  guestSession?: boolean;
 }) {
   const [mounted, setMounted] = useState(false);
   const [deck, setDeck] = useState<Pin[]>([]);
@@ -113,15 +122,19 @@ export function SwipeDeck({
   // Track when the current card was first shown (for dwell time measurement)
   const cardShownAtRef = useRef<number>(0);
 
+  // A guest session is any invite/challenge deck: an explicit server deck, or
+  // a local fallback flagged as a guest visit. Both get a fresh tally.
+  const guest = !!(externalDeck?.length || guestSession);
+
   useEffect(() => {
     // SSR-safe: read localStorage only after mount.
-    const rawDeck = externalDeck?.length ? externalDeck : buildDeck();
+    const rawDeck = externalDeck?.length ? externalDeck : buildDeck(guest);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDeck(!externalDeck?.length && genderPref ? sortByGenderPref(rawDeck, genderPref) : rawDeck);
-    setStats(externalDeck?.length ? { yes: 0, no: 0, total: 0 } : swipeStats());
+    setStats(guest ? { yes: 0, no: 0, total: 0 } : swipeStats());
     setMounted(true);
     cardShownAtRef.current = Date.now();
-  }, [genderPref, externalDeck]);
+  }, [genderPref, externalDeck, guest]);
 
   const eligible = stats.yes >= GOAL || (mounted && deck.length > 0 && idx >= deck.length);
 
@@ -140,9 +153,9 @@ export function SwipeDeck({
       // a "no" is recorded as `seen` so it stops reappearing without becoming a
       // positive seed.
       recordInteraction(getMyUserId(), pin.id, dir === "yes" ? "like" : "seen");
-      if (externalDeck?.length) {
-        // Challenge session: count only this deck's swipes (global stats
-        // include past local sessions).
+      if (guest) {
+        // Challenge/invite session: count only this deck's swipes (global
+        // stats include past local sessions on this device).
         setStats((s) => ({
           yes: s.yes + (dir === "yes" ? 1 : 0),
           no: s.no + (dir === "no" ? 1 : 0),
@@ -159,7 +172,7 @@ export function SwipeDeck({
         cardShownAtRef.current = Date.now();
       }, 230);
     },
-    [deck, idx, fly, onSwipe, externalDeck]
+    [deck, idx, fly, onSwipe, guest]
   );
 
   const undo = useCallback(() => {
@@ -282,9 +295,9 @@ export function SwipeDeck({
           <span className="font-semibold text-ink">
             <span className="text-coral">♥ {stats.yes}</span> want · {stats.no} pass
           </span>
-          {/* Undo rewinds localStorage swipes — not meaningful for a
-              server-deck challenge session, so it's hidden there. */}
-          {!externalDeck?.length && (
+          {/* Undo rewinds localStorage swipes — not meaningful for a guest
+              challenge/invite session, so it's hidden there. */}
+          {!guest && (
             <button
               onClick={undo}
               disabled={idx === 0}

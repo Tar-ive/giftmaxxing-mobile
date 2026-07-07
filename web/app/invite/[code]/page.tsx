@@ -419,6 +419,7 @@ export default function InvitePage() {
                 onMatchesReady={onSwipeDone}
                 externalDeck={deckState === "ready" && serverDeck ? serverDeck : undefined}
                 onSwipe={challengeId ? onChallengeSwipe : undefined}
+                guestSession
               />
             )}
           </div>

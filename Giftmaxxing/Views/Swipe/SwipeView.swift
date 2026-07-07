@@ -220,6 +220,40 @@ struct SwipeView: View {
     }
     @State private var mode: DeckMode = .forYou
 
+    // Swipe-list sharing: the list becomes a server-side challenge seeded with
+    // its items, and the friend gets a swipeable browser link — not a text blob.
+    @State private var listInviteURL: URL?
+    @State private var buildingListLink = false
+    @State private var listLinkItemCount = 0
+
+    private var senderId: String {
+        appState.currentUser?.id ?? InteractionQueue.anonymousUserId
+    }
+
+    @MainActor
+    private func buildListInviteLink() async {
+        let posts = swipeList.posts
+        guard !posts.isEmpty, !buildingListLink else { return }
+        buildingListLink = true
+        defer { buildingListLink = false }
+        let inviterName = appState.currentUser?.name ?? "A friend"
+        var challengeId: String?
+        if let response = try? await APIClient.shared.createChallenge(
+            senderId: senderId,
+            seedKeys: posts.map(\.id),
+            inviterName: inviterName
+        ) {
+            challengeId = response.challengeId
+        }
+        // Even if the server deck fails, the legacy local-deck link still works.
+        listInviteURL = InviteLink.buildURL(
+            inviterName: inviterName,
+            senderId: senderId,
+            challengeId: challengeId
+        )
+        listLinkItemCount = posts.count
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -236,6 +270,10 @@ struct SwipeView: View {
                 if context == .someone {
                     // The single-recipient toolkit: learn their taste via a
                     // challenge, or hand-pick a deck from your saved list.
+                    if !swipeList.posts.isEmpty {
+                        sendListCard
+                    }
+
                     NavigationLink(destination: ChallengeView()) {
                         HStack(spacing: 12) {
                             Image(systemName: "person.crop.circle.badge.questionmark")
@@ -277,12 +315,22 @@ struct SwipeView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     if context == .someone {
                         // Send the curated deck — the whole point of the list.
-                        ShareLink(item: swipeList.shareMessage) {
-                            Image(systemName: "paperplane.fill")
-                                .font(.system(size: 16))
-                                .foregroundStyle(swipeList.posts.isEmpty ? Color.secondary : Color.coral)
+                        if let url = listInviteURL, listLinkItemCount == swipeList.posts.count {
+                            ShareLink(item: url, message: Text(InviteLink.shareText)) {
+                                Image(systemName: "paperplane.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(Color.coral)
+                            }
+                        } else {
+                            Button {
+                                Task { await buildListInviteLink() }
+                            } label: {
+                                Image(systemName: "paperplane.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(swipeList.posts.isEmpty ? Color.secondary : Color.coral)
+                            }
+                            .disabled(swipeList.posts.isEmpty || buildingListLink)
                         }
-                        .disabled(swipeList.posts.isEmpty)
                     } else if context == .me {
                         NavigationLink(destination: ChallengeView()) {
                             Image(systemName: "square.and.arrow.up")
@@ -314,6 +362,66 @@ struct SwipeView: View {
                 await viewModel.loadCards()
             }
         }
+    }
+
+    // The "how do I GIVE this list?" answer, rendered right above the deck:
+    // one tap turns the list into a swipe link the friend opens in a browser.
+    @ViewBuilder
+    private var sendListCard: some View {
+        Group {
+            if let url = listInviteURL, listLinkItemCount == swipeList.posts.count {
+                ShareLink(item: url, message: Text(InviteLink.shareText)) {
+                    sendListLabel(
+                        title: "Send the swipe link",
+                        subtitle: "They swipe your \(swipeList.posts.count) picks in their browser — no app needed.",
+                        icon: "paperplane.fill"
+                    )
+                }
+                .buttonStyle(.plain)
+            } else {
+                Button {
+                    Task { await buildListInviteLink() }
+                } label: {
+                    sendListLabel(
+                        title: buildingListLink ? "Building their deck…" : "Send this list to a friend",
+                        subtitle: "Turns your \(swipeList.posts.count) picks into a swipeable link.",
+                        icon: "link"
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(buildingListLink)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+    }
+
+    private func sendListLabel(title: String, subtitle: String, icon: String) -> some View {
+        HStack(spacing: 12) {
+            if buildingListLink {
+                ProgressView()
+                    .frame(width: 24)
+            } else {
+                Image(systemName: icon)
+                    .font(.system(size: 20))
+                    .foregroundStyle(.white)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.white)
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.85))
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.7))
+        }
+        .padding(12)
+        .background(Color.coral)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
     @ViewBuilder
