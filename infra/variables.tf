@@ -230,6 +230,13 @@ variable "admin_api_secret" {
   sensitive   = true
 }
 
+variable "session_jwt_secret" {
+  description = "HS256 secret for first-party 30-day session JWTs minted at POST /auth/session (see handler.mjs). Empty keeps sessions dark."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "google_oauth_client_id" {
   description = "Google OAuth client id used as the JWT audience when the API verifies iOS Google Sign-In ID tokens. Must match GoogleOAuthConfig.clientID in the app. Empty (default) keeps Google-token auth dark; Cognito (Sign in with Apple) works regardless."
   type        = string

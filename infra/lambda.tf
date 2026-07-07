@@ -44,9 +44,10 @@ resource "aws_lambda_function" "api" {
       # AUTH_ENFORCE ships false so the code is dark until flipped on; flip back
       # to false for an instant rollback. ADMIN_API_SECRET is the admin/ingest
       # "password"; CLERK_ISSUER verifies real users' session JWTs.
-      AUTH_ENFORCE     = var.auth_enforce ? "1" : "0"
-      ADMIN_API_SECRET = var.admin_api_secret
-      CLERK_ISSUER     = var.clerk_issuer
+      AUTH_ENFORCE       = var.auth_enforce ? "1" : "0"
+      ADMIN_API_SECRET   = var.admin_api_secret
+      CLERK_ISSUER       = var.clerk_issuer
+      SESSION_JWT_SECRET = var.session_jwt_secret
       # iOS-app identities (handler verifies alongside Clerk): Cognito pool JWTs
       # (Sign in with Apple) + Google ID tokens (empty client id = dark).
       COGNITO_ISSUER         = "https://${aws_cognito_user_pool.mobile.endpoint}"

@@ -20,7 +20,7 @@ import {
 import { BedrockRuntimeClient, InvokeModelCommand, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { classifyPin } from "./quality.mjs";
 import { analyticsRoutes } from "./analytics-routes.mjs";
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
@@ -93,6 +93,9 @@ function isPublicRoute(method, path) {
   // Behavioral analytics ingestion — events arrive before sign-in completes
   // (and from guests), keyed by userId/anonymousId inside the payload.
   if (method === "POST" && path === "/mobile/analytics") return true;
+  // Session mint: authenticates via the PROVIDER token in the bearer header
+  // (verified inside the route), so the route itself is public.
+  if (method === "POST" && path === "/auth/session") return true;
   if (method === "POST" && (path === "/visual-search" || path === "/connections")) return true;
   // Challenge create (anon senders allowed, same trust as POST /connections;
   // Bedrock embed cost rides the aiEnabled() breaker) + the guest's response.
@@ -181,11 +184,116 @@ async function verifyCognitoJwt(event) {
   }
 }
 
-// /seed is admin-only (ingest). Other protected routes accept a Clerk JWT (web),
-// a Google/Cognito ID token (iOS app), OR the admin token.
+// ── First-party sessions ──────────────────────────────────────────────────────────────────
+// POST /auth/session exchanges a VERIFIED provider identity (Google ID token
+// or Sign in with Apple identity token) for a 30-day HS256 session JWT.
+// Why: Apple identity tokens die in ~10 minutes and Google's in ~1 hour, so
+// signed-in iOS users kept falling out of the auth-gated routes (/maxi, /me)
+// mid-session. The session token's sub is the CANONICAL user id — whichever
+// identity claimed the (token-verified) email first — so a tester who onboards
+// on the web (Clerk) and later installs the app lands in the SAME account.
+const SESSION_JWT_SECRET = process.env.SESSION_JWT_SECRET || "";
+const SESSION_TTL_SECONDS = 30 * 24 * 3600;
+const APPLE_BUNDLE_ID = process.env.APPLE_BUNDLE_ID || "com.giftmaxxing.ios";
+const _appleJwks = createRemoteJWKSet(new URL("https://appleid.apple.com/auth/keys"));
+
+async function verifyProviderToken(token) {
+  if (_googleJwks) {
+    try {
+      const { payload } = await jwtVerify(token, _googleJwks, {
+        issuer: ["https://accounts.google.com", "accounts.google.com"],
+        audience: GOOGLE_OAUTH_CLIENT_ID,
+      });
+      if (payload?.sub) {
+        return {
+          providerId: `google_${payload.sub}`,
+          // Only a VERIFIED email may drive account merging — an unverified
+          // one would let anyone claim anyone's account.
+          email: payload.email_verified && payload.email ? String(payload.email).toLowerCase() : null,
+          name: payload.name ? String(payload.name) : null,
+        };
+      }
+    } catch {}
+  }
+  try {
+    const { payload } = await jwtVerify(token, _appleJwks, {
+      issuer: "https://appleid.apple.com",
+      audience: APPLE_BUNDLE_ID,
+    });
+    if (payload?.sub) {
+      return {
+        providerId: `apple_${payload.sub}`,
+        // Apple emails (incl. private relay) are verified by Apple.
+        email: payload.email ? String(payload.email).toLowerCase() : null,
+        name: null,
+      };
+    }
+  } catch {}
+  return null;
+}
+
+const emailAliasKey = (email) => `email#${String(email).trim().toLowerCase()}`;
+
+// First identity to claim a verified email becomes canonical for it; every
+// later identity with the same email ADOPTS that user id. Alias rows live in
+// the users table under "email#<addr>" — web Clerk sign-ins write the same
+// rows via POST /me/identity, which is what makes web ↔ iOS data seamless.
+async function resolveCanonicalUserId(providerId, email) {
+  if (!email || !USERS) return providerId;
+  const key = emailAliasKey(email);
+  try {
+    const existing = await ddb.send(new GetCommand({ TableName: USERS, Key: { userId: key } }));
+    if (existing.Item?.canonicalUserId) return existing.Item.canonicalUserId;
+    await ddb.send(
+      new PutCommand({
+        TableName: USERS,
+        Item: { userId: key, canonicalUserId: providerId, alias: true, createdAt: Date.now() },
+        ConditionExpression: "attribute_not_exists(userId)",
+      })
+    );
+    return providerId;
+  } catch {
+    // Lost a concurrent claim race — read back the winner.
+    try {
+      const again = await ddb.send(new GetCommand({ TableName: USERS, Key: { userId: key } }));
+      if (again.Item?.canonicalUserId) return again.Item.canonicalUserId;
+    } catch {}
+    return providerId;
+  }
+}
+
+async function signSessionJwt(sub, email, name) {
+  const jwt = new SignJWT({ email: email || undefined, name: name || undefined })
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(sub)
+    .setIssuer("giftmaxxing")
+    .setIssuedAt()
+    .setExpirationTime(`${SESSION_TTL_SECONDS}s`);
+  return jwt.sign(new TextEncoder().encode(SESSION_JWT_SECRET));
+}
+
+async function verifySessionJwt(event) {
+  if (!SESSION_JWT_SECRET) return null;
+  const token = bearerToken(event);
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(SESSION_JWT_SECRET), {
+      issuer: "giftmaxxing",
+    });
+    return payload?.sub ? String(payload.sub) : null;
+  } catch {
+    return null;
+  }
+}
+
+// /seed is admin-only (ingest). Other protected routes accept a first-party
+// session JWT (iOS), a Clerk JWT (web), a Google/Cognito ID token (iOS app),
+// OR the admin token.
 async function authorizeRequest(event, method, path) {
   if (hasAdminToken(event)) return { ok: true, sub: "admin", via: "admin" };
   if (method === "POST" && path === "/seed") return { ok: false };
+  const sessionSub = await verifySessionJwt(event);
+  if (sessionSub) return { ok: true, sub: sessionSub, via: "session" };
   const clerkSub = await verifyClerkJwt(event);
   if (clerkSub) return { ok: true, sub: clerkSub, via: "clerk" };
   const googleSub = await verifyGoogleIdToken(event);
@@ -299,7 +407,18 @@ function scorePost(p, { vibes = [], recipient, occasion, category, budget, event
   // Recipient/occasion matches count for more as a logged event approaches
   // (eventBoost ramps 0→1 over ~45 days; see web/lib/events.ts).
   const occMult = 1 + Math.max(0, Math.min(1, eventBoost));
-  if (recipient && recipient !== "anyone" && p.recipient === recipient) s += 0.2 * occMult;
+  // Recipient is a SOFT preference: most of the catalog is tagged "anyone",
+  // so hard-filtering on it used to blank the whole feed for anyone whose
+  // consult said "for him"/"for her". Boost matches (recipient tag or the
+  // ingest's attrs.audience), gently demote the explicit opposite.
+  if (recipient && recipient !== "anyone") {
+    const audience = p.attrs?.audience;
+    if (p.recipient === recipient || audience === recipient) {
+      s += 0.2 * occMult;
+    } else if ((audience === "men" || audience === "women") && audience !== recipient) {
+      s -= 0.12;
+    }
+  }
   if (occasion && occasion !== "any" && p.occasion === occasion) s += 0.15 * occMult;
   if (category && p.category === category) s += 0.2;
   // Budget fit: reward at/under the event's target, gently penalize over-budget.
@@ -2023,6 +2142,37 @@ export const handler = async (event) => {
       return await analyticsRoutes(method, path, body);
     }
 
+    // POST /auth/session — provider ID token (bearer) → 30-day session JWT
+    // with the canonical (email-merged) user id. See the sessions block above.
+    if (method === "POST" && path === "/auth/session") {
+      if (!SESSION_JWT_SECRET) return json(503, { error: "sessions not configured" });
+      const providerToken = bearerToken(event);
+      if (!providerToken) return json(401, { error: "provider token required as bearer" });
+      const identity = await verifyProviderToken(providerToken);
+      if (!identity) return json(401, { error: "invalid provider token" });
+      const userId = await resolveCanonicalUserId(identity.providerId, identity.email);
+      const name = typeof body.name === "string" && body.name.trim() ? body.name.trim().slice(0, 80) : identity.name;
+      // Keep the users row warm (merge-safe, same shape as POST /me/identity).
+      try {
+        await ddb.send(
+          new UpdateCommand({
+            TableName: USERS,
+            Key: { userId },
+            UpdateExpression: "SET #id = :id, lastSeenAt = :now, createdAt = if_not_exists(createdAt, :now)",
+            ExpressionAttributeNames: { "#id": "identity" },
+            ExpressionAttributeValues: {
+              ":id": { email: identity.email ?? null, name: name ?? null, imageUrl: null },
+              ":now": Date.now(),
+            },
+          })
+        );
+      } catch (err) {
+        console.warn("session identity upsert failed:", err.message);
+      }
+      const token = await signSessionJwt(userId, identity.email, name);
+      return json(200, { token, userId, email: identity.email, expiresIn: SESSION_TTL_SECONDS });
+    }
+
     // GET /feed?limit=&author=&cursor=&vibes=&recipient=&occasion=&category=
     // Cursor-paginated infinite feed; each page is ranked by scorePost().
     if (method === "GET" && path === "/feed") {
@@ -2063,7 +2213,7 @@ export const handler = async (event) => {
         try {
           const filters = [];
           const baseEav = {};
-          if (qs.recipient && qs.recipient !== "anyone") { filters.push("recipient = :r"); baseEav[":r"] = qs.recipient; }
+          // recipient intentionally NOT a filter — soft-ranked in scorePost().
           if (qs.occasion && qs.occasion !== "any") { filters.push("occasion = :o"); baseEav[":o"] = qs.occasion; }
           if (qs.category) { filters.push("category = :c"); baseEav[":c"] = String(qs.category).toLowerCase(); }
           const keys = feedShardKeys();
@@ -2096,7 +2246,8 @@ export const handler = async (event) => {
           }
           ranked.sort((a, b) => b._score - a._score);
           let offset = start?._offset ?? 0;
-          if (!start && !filters.length && qs.fresh !== "0" && ranked.length > limit) {
+          const personalized = qs.recipient && qs.recipient !== "anyone";
+          if (!start && !filters.length && !personalized && qs.fresh !== "0" && ranked.length > limit) {
             offset = Math.floor(Math.random() * Math.max(1, ranked.length - limit));
           }
           const page = ranked.slice(offset, offset + limit);
@@ -2116,7 +2267,7 @@ export const handler = async (event) => {
         if (FEED_SHARDS > 1) throw new Error("sharded: use scan fallback");
         const eav = { ":f": "all" };
         const filters = [];
-        if (qs.recipient && qs.recipient !== "anyone") { filters.push("recipient = :r"); eav[":r"] = qs.recipient; }
+        // recipient intentionally NOT a filter — soft-ranked in scorePost().
         if (qs.occasion && qs.occasion !== "any") { filters.push("occasion = :o"); eav[":o"] = qs.occasion; }
         if (qs.category) { filters.push("category = :c"); eav[":c"] = qs.category; }
         // Over-read: the quality + de-dup filters below remove listicles/guides
@@ -2126,7 +2277,7 @@ export const handler = async (event) => {
         // spot in the catalog instead of always the newest head. Paginated loads
         // (cursor present) continue deterministically from there.
         let kce = "feedPk = :f";
-        if (!start && !filters.length && qs.fresh !== "0") {
+        if (!start && !filters.length && qs.fresh !== "0" && !(qs.recipient && qs.recipient !== "anyone")) {
           const b = await getFeedBounds();
           if (b.max > b.min) {
             eav[":seek"] = b.min + Math.floor((0.1 + Math.random() * 0.9) * (b.max - b.min));
@@ -3699,6 +3850,12 @@ export const handler = async (event) => {
         email: email || undefined,
         imageUrl: imageUrl || undefined,
       });
+      // Claim the email alias (first-writer-wins) so a later iOS sign-in with
+      // the same address adopts THIS account — the web→app sync contract.
+      // Web callers arrive Clerk-authenticated; Clerk has verified the email.
+      if (email && typeof email === "string" && email.includes("@")) {
+        await resolveCanonicalUserId(userId, email);
+      }
       return json(200, { ok: true });
     }
 

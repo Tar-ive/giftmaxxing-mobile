@@ -110,6 +110,24 @@ actor APIClient {
 
     // MARK: - User Profile
 
+    // POST /auth/session — trade the (short-lived) provider ID token currently
+    // set as the bearer for a 30-day first-party session JWT. The returned
+    // userId is the CANONICAL identity: if this email already has an account
+    // (e.g. created on the web), that account's id comes back and the app
+    // adopts it — the web → iOS "all my data is here" handshake.
+    struct SessionResponse: Codable {
+        let token: String
+        let userId: String
+        let email: String?
+        let expiresIn: Double?
+    }
+
+    func establishSession(name: String? = nil) async throws -> SessionResponse {
+        var body: [String: Any] = [:]
+        if let name { body["name"] = name }
+        return try await post("/auth/session", body: body)
+    }
+
     // POST /me/identity — name/email ping that MERGES server-side. Never use
     // PUT /me for sign-in pings: that REPLACES the row and wipes the profile
     // the web app saved (interests, events, genderPref …).

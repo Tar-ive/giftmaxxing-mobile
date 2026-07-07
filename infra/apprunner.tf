@@ -111,10 +111,12 @@ resource "aws_apprunner_service" "api" {
           EVENTS_TABLE       = aws_dynamodb_table.events.name
           GRAPH_TABLE        = aws_dynamodb_table.graph.name
           CONFIG_TABLE       = aws_dynamodb_table.config.name
+          ANALYTICS_TABLE    = aws_dynamodb_table.analytics.name
 
-          AUTH_ENFORCE     = var.auth_enforce ? "1" : "0"
-          ADMIN_API_SECRET = var.admin_api_secret
-          CLERK_ISSUER     = var.clerk_issuer
+          AUTH_ENFORCE       = var.auth_enforce ? "1" : "0"
+          ADMIN_API_SECRET   = var.admin_api_secret
+          CLERK_ISSUER       = var.clerk_issuer
+          SESSION_JWT_SECRET = var.session_jwt_secret
           # iOS-app identities (mirrors lambda.tf — see handler.mjs verifiers).
           COGNITO_ISSUER         = "https://${aws_cognito_user_pool.mobile.endpoint}"
           GOOGLE_OAUTH_CLIENT_ID = var.google_oauth_client_id
