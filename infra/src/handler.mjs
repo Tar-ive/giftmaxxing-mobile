@@ -396,6 +396,22 @@ const parseList = (s) => (s ? String(s).split(",").map((x) => x.trim()).filter(B
 // Content-based score over the enriched facets (mirrors web/lib/recommend.ts).
 // Surfaces real giftable products (find/made) over idea-requests, blends in
 // social proof, taste (vibes), explicit facet matches, and mild recency.
+// Who is this product actually FOR? Most pins carry no audience tag (the
+// catalog skews feminine), so recipient personalization needs text inference:
+// one-sided keywords only — ambiguous items stay null (neutral) so unisex
+// gifts are never excluded. Mirrors AudienceClassifier.swift; keep in sync.
+const WOMEN_RE = /\b(her|hers|woman|women|womens|girl|girls|girly|girlfriend|wife|mom|mama|mother|sister|aunt|auntie|grandma|nana|bride|bridal|bridesmaid|princess|queen|goddess|babe|lady|ladies|feminine)\b|makeup|skincare|lipstick|lip gloss|lip oil|lip tint|lip butter|mascara|eyeshadow|eyelash|nail polish|press.?on nail|manicure|scrunchie|claw clip|hair clip|barrette|handbag|purse|crossbody|shoulder bag|mini bag|baggu|heels\b|floral|rose gold|blush|dainty|bling|glitter|sparkl|kawaii|perfume|parfum|eau de|fragrance|body mist|earring|necklace|pendant|charm bracelet|bralette|leggings?\b|bodysuit|\bdress\b|skirt\b/gi;
+const MEN_RE = /\b(him|his|man|men|mens|guy|guys|dude|boyfriend|husband|dad|father|papa|grandpa|uncle|brother|groom|groomsman|groomsmen|gentleman|gentlemen|masculine)\b|beard|mustache|shaving|aftershave|cologne|whiskey|whisky|bourbon|scotch|cigar|\bedc\b|tactical|multi.?tool|pocket knife|cufflink|necktie|tie clip|tie bar|\bbbq\b|grilling|garage|woodworking|decanter|flask|pint glass|\bbeer\b|jerky|hot sauce|poker|golf\b|fishing|camping|hatchet|dopp kit|leather wallet|leather belt|suspenders|humidor/gi;
+
+function inferAudience(text) {
+  if (!text) return null;
+  const women = (String(text).match(WOMEN_RE) || []).length;
+  const men = (String(text).match(MEN_RE) || []).length;
+  if (women > men) return "women";
+  if (men > women) return "men";
+  return null;
+}
+
 function scorePost(p, { vibes = [], recipient, occasion, category, budget, eventBoost = 0, now = Date.now() } = {}) {
   let s = 0;
   s += Math.min(1, (p.likes ?? 0) / 500) * 0.35; // social proof
@@ -409,15 +425,19 @@ function scorePost(p, { vibes = [], recipient, occasion, category, budget, event
   const occMult = 1 + Math.max(0, Math.min(1, eventBoost));
   // Recipient is a SOFT preference: most of the catalog is tagged "anyone",
   // so hard-filtering on it used to blank the whole feed for anyone whose
-  // consult said "for him"/"for her". Boost matches (recipient tag or the
-  // ingest's attrs.audience), gently demote the explicit opposite.
-  if (recipient && recipient !== "anyone") {
-    const audience = p.attrs?.audience;
+  // consult said "for him"/"for her". Match on the recipient tag, the ingest's
+  // attrs.audience, or (since most pins are untagged) the TEXT-inferred
+  // audience; clear opposites sink hard — a "for him" feed was still serving
+  // bling phone cases and makeup kits on social proof alone.
+  if (recipient === "men" || recipient === "women") {
+    const audience = p.attrs?.audience || inferAudience(`${p.caption ?? ""} ${p.product?.name ?? ""}`);
     if (p.recipient === recipient || audience === recipient) {
       s += 0.2 * occMult;
-    } else if ((audience === "men" || audience === "women") && audience !== recipient) {
-      s -= 0.12;
+    } else if (audience === "men" || audience === "women" || p.recipient === "men" || p.recipient === "women") {
+      s -= 0.3;
     }
+  } else if (recipient && recipient !== "anyone" && p.recipient === recipient) {
+    s += 0.2 * occMult;
   }
   if (occasion && occasion !== "any" && p.occasion === occasion) s += 0.15 * occMult;
   if (category && p.category === category) s += 0.2;

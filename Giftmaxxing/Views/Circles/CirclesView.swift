@@ -25,6 +25,8 @@ struct CirclesView: View {
     @State private var showAddEvent = false
     @State private var showJoinByLink = false
     @State private var openCircleId: String?
+    @State private var calendarMonth = Date()
+    @State private var selectedCalendarDay: Date?
 
     var body: some View {
         NavigationStack {
@@ -40,6 +42,7 @@ struct CirclesView: View {
                             .foregroundStyle(.secondary)
                     }
 
+                    calendarSection
                     comingUpSection
                     circlesSection
                     groupGiftsSection
@@ -77,7 +80,11 @@ struct CirclesView: View {
                 }
             }
             .sheet(isPresented: $showPools) { PoolsView() }
-            .sheet(isPresented: $showChallenge) { ChallengeView() }
+            // The SAME swipe-challenge flow the Swipe tab uses — wrapped in a
+            // stack with an explicit close so the sheet is never a dead end.
+            .sheet(isPresented: $showChallenge) {
+                NavigationStack { ChallengeView(showsClose: true) }
+            }
             .sheet(isPresented: $showCreateCircle) { CreateCircleSheet() }
             .sheet(isPresented: $showAddEvent) {
                 AddEventSheet { event in
@@ -111,6 +118,39 @@ struct CirclesView: View {
             }
             .refreshable {
                 await eventsModel.loadEvents(context: modelContext)
+            }
+        }
+    }
+
+    // ── Calendar: the month at a glance, dots where moments live ───────────
+
+    @ViewBuilder
+    private var calendarSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("CALENDAR")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+
+            MonthCalendarCard(
+                month: $calendarMonth,
+                selectedDay: $selectedCalendarDay,
+                events: eventsModel.events
+            )
+
+            // Tapping a dotted day lists that day's moments right below.
+            if let day = selectedCalendarDay {
+                let dayEvents = eventsModel.events.filter {
+                    Calendar.current.isDate($0.date, inSameDayAs: day)
+                }
+                ForEach(dayEvents) { event in
+                    NavigationLink {
+                        EventDetailView(event: event)
+                    } label: {
+                        UpcomingDateRow(event: event)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
     }
@@ -287,20 +327,8 @@ struct CirclesView: View {
     @ViewBuilder
     private var groupGiftsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if !groupGifts.gifts.isEmpty {
-                Text("GROUP GIFTS IN FLIGHT")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 4)
-
-                ForEach(groupGifts.gifts) { gift in
-                    NavigationLink(destination: GroupGiftDetailView(giftId: gift.id)) {
-                        CircleRow(gift: gift)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
+            // In-flight campaigns now live on Home's gifting tray (stories-
+            // style bubbles) — Circles keeps only the starting point.
             NavigationLink(destination: GroupGiftCreateView()) {
                 HStack {
                     Spacer()
@@ -433,6 +461,129 @@ private struct UpcomingDateRow: View {
         .padding(12)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+// ── Month calendar: dots where moments live ──────────────────────────────────
+// A dependency-free month grid. Coral ring = today, coral dot = a tracked
+// date lands there; tapping a dotted day lists its events under the card.
+struct MonthCalendarCard: View {
+    @Binding var month: Date
+    @Binding var selectedDay: Date?
+    let events: [GiftEvent]
+
+    private var calendar: Calendar { Calendar.current }
+
+    private var monthTitle: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter.string(from: month)
+    }
+
+    private var weekdaySymbols: [String] {
+        // Rotate so the row starts on the user's first weekday (Sun vs Mon).
+        let symbols = calendar.veryShortWeekdaySymbols
+        let first = calendar.firstWeekday - 1
+        return Array(symbols[first...] + symbols[..<first])
+    }
+
+    // The month laid out as grid slots: nil = leading blank before day 1.
+    private var daySlots: [Date?] {
+        guard
+            let interval = calendar.dateInterval(of: .month, for: month),
+            let dayCount = calendar.range(of: .day, in: .month, for: month)?.count
+        else { return [] }
+        let firstWeekday = calendar.component(.weekday, from: interval.start)
+        let leading = (firstWeekday - calendar.firstWeekday + 7) % 7
+        var slots = [Date?](repeating: nil, count: leading)
+        for day in 0..<dayCount {
+            slots.append(calendar.date(byAdding: .day, value: day, to: interval.start))
+        }
+        return slots
+    }
+
+    private func hasEvents(on day: Date) -> Bool {
+        events.contains { calendar.isDate($0.date, inSameDayAs: day) }
+    }
+
+    private func shiftMonth(_ delta: Int) {
+        if let next = calendar.date(byAdding: .month, value: delta, to: month) {
+            month = next
+            selectedDay = nil
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 10) {
+            HStack {
+                Button { shiftMonth(-1) } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.coral)
+                        .frame(width: 30, height: 30)
+                }
+                Spacer()
+                Text(monthTitle)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.ink)
+                Spacer()
+                Button { shiftMonth(1) } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.coral)
+                        .frame(width: 30, height: 30)
+                }
+            }
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 6) {
+                ForEach(weekdaySymbols, id: \.self) { symbol in
+                    Text(symbol)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(Array(daySlots.enumerated()), id: \.offset) { _, slot in
+                    if let day = slot {
+                        dayCell(day)
+                    } else {
+                        Color.clear.frame(height: 34)
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    @ViewBuilder
+    private func dayCell(_ day: Date) -> some View {
+        let isToday = calendar.isDateInToday(day)
+        let isSelected = selectedDay.map { calendar.isDate($0, inSameDayAs: day) } ?? false
+        let dotted = hasEvents(on: day)
+
+        Button {
+            selectedDay = isSelected ? nil : (dotted ? day : nil)
+        } label: {
+            VStack(spacing: 2) {
+                Text("\(calendar.component(.day, from: day))")
+                    .font(.system(size: 13, weight: isToday || isSelected ? .bold : .regular))
+                    .foregroundStyle(isSelected ? .white : isToday ? Color.coral : Color.ink)
+                Circle()
+                    .fill(dotted ? (isSelected ? Color.white : Color.coral) : Color.clear)
+                    .frame(width: 4, height: 4)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 34)
+            .background(
+                RoundedRectangle(cornerRadius: 9)
+                    .fill(isSelected ? Color.coral : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 9)
+                    .stroke(isToday && !isSelected ? Color.coral : Color.clear, lineWidth: 1.5)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 

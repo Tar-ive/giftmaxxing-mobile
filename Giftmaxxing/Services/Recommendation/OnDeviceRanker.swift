@@ -94,7 +94,21 @@ enum OnDeviceRanker {
             s += quality * W.quality
 
             let occMult = 1 + max(0, min(1, context.eventBoost))
-            if let r = context.recipient, r != "anyone", post.recipient == r {
+            // Recipient fit: the catalog's recipient tag when set, otherwise the
+            // text-inferred audience (most pins are untagged — without inference
+            // a "for him" feed still read overwhelmingly feminine). Clear
+            // opposites sink hard; neutral/unisex items ride on other signals.
+            if let r = context.recipient, r == "men" || r == "women" {
+                let inferred = AudienceClassifier.infer(for: post)
+                if post.recipient == r || inferred == r {
+                    s += W.recipient * occMult
+                    reasons.append((W.recipient * occMult, "Great for \(r == "men" ? "him" : "her")"))
+                } else if (post.recipient == "men" || post.recipient == "women") && post.recipient != r {
+                    s -= 0.3
+                } else if inferred != nil {
+                    s -= 0.3
+                }
+            } else if let r = context.recipient, r != "anyone", post.recipient == r {
                 s += W.recipient * occMult
                 reasons.append((W.recipient * occMult, "Great for your \(r)"))
             }

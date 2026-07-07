@@ -310,7 +310,7 @@ struct SearchTabsView: View {
             }
             .sheet(isPresented: $showChallengeSheet) {
                 NavigationStack {
-                    ChallengeView(seedImage: viewModel.queryImage)
+                    ChallengeView(seedImage: viewModel.queryImage, showsClose: true)
                 }
             }
             .sheet(isPresented: $showGroupGiftSheet) {

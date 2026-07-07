@@ -57,12 +57,14 @@ actor APIClient {
         cursor: String? = nil,
         limit: Int = 20,
         vibes: [String]? = nil,
+        recipient: String? = nil,
         userId: String? = nil
     ) async throws -> FeedPage {
         var params: [String: String] = [:]
         if let cursor { params["cursor"] = cursor }
         params["limit"] = String(limit)
         if let vibes, !vibes.isEmpty { params["vibes"] = vibes.joined(separator: ",") }
+        if let recipient { params["recipient"] = recipient }
         if let userId { params["userId"] = userId }
 
         let response: FeedResponse = try await get("/recommendations", params: params)
