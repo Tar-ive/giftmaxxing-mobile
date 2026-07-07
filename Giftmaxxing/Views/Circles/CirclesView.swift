@@ -5,8 +5,10 @@ import SwiftData
 //   • Circles — shared family/friend groups (server-backed): members add
 //     name + birthday via the share link, occasions live with the group
 //     (CircleDetailView). The circle IS the gift calendar.
-//   • Coming up — every date you track (yours + logged occasions), with
-//     add-a-date and local reminders (EventsViewModel + ReminderScheduler).
+//   • Coming up — a Luma-style vertical timeline of every future moment
+//     (your dates + every joined circle's birthdays and occasions), grouped
+//     by month, with add-a-date and local reminders (EventsViewModel +
+//     ReminderScheduler).
 //   • Group gifts — the swipe-to-converge campaigns (GroupGiftViews).
 //   • Pools & challenges — the other social plays, one card each.
 //
@@ -25,8 +27,7 @@ struct CirclesView: View {
     @State private var showAddEvent = false
     @State private var showJoinByLink = false
     @State private var openCircleId: String?
-    @State private var calendarMonth = Date()
-    @State private var selectedCalendarDay: Date?
+    @State private var circleMoments: [TimelineMoment] = []
 
     var body: some View {
         NavigationStack {
@@ -37,13 +38,12 @@ struct CirclesView: View {
                         Text("Your people, their moments")
                             .font(.system(size: 24, weight: .heavy, design: .rounded))
                             .foregroundStyle(Color.ink)
-                        Text("Keep every birthday and occasion in one place — then gift together when the day comes.")
+                        Text("Family, friends, work crews — invite yours once, and every birthday, graduation, and anniversary lands here. Then gift together when the day comes.")
                             .font(.bodyMedium)
                             .foregroundStyle(.secondary)
                     }
 
-                    calendarSection
-                    comingUpSection
+                    timelineSection
                     circlesSection
                     groupGiftsSection
 
@@ -118,51 +118,116 @@ struct CirclesView: View {
                 if eventsModel.events.isEmpty {
                     await eventsModel.loadEvents(context: modelContext)
                 }
+                await loadCircleMoments()
                 await ReminderScheduler.requestPermissionIfNeeded()
+            }
+            .onChange(of: circleStore.circles.count) { _, _ in
+                Task { await loadCircleMoments() }
             }
             .refreshable {
                 await eventsModel.loadEvents(context: modelContext)
+                await loadCircleMoments()
             }
         }
     }
 
-    // ── Calendar: the month at a glance, dots where moments live ───────────
+    // ── Coming up: a Luma-style timeline — every future moment, yours and
+    // your circles', grouped by month so the future is scrollable ────────────
 
-    @ViewBuilder
-    private var calendarSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("CALENDAR")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(.secondary)
-                .padding(.top, 4)
-
-            MonthCalendarCard(
-                month: $calendarMonth,
-                selectedDay: $selectedCalendarDay,
-                events: eventsModel.events
+    private var timelineMoments: [TimelineMoment] {
+        var items = eventsModel.upcomingEvents.map { event -> TimelineMoment in
+            let date = Self.nextOccurrence(for: event)
+            return TimelineMoment(
+                id: "personal-\(event.id)",
+                emoji: event.eventTypeIcon,
+                title: event.title,
+                sourceLabel: event.recipientName.isEmpty || event.title.localizedCaseInsensitiveContains(event.recipientName)
+                    ? "your list"
+                    : "for \(event.recipientName)",
+                hasReminder: event.reminderLeadDays != nil,
+                date: date,
+                days: Self.days(until: date),
+                kind: .personal(event)
             )
-
-            // Tapping a dotted day lists that day's moments right below.
-            if let day = selectedCalendarDay {
-                let dayEvents = eventsModel.events.filter {
-                    Calendar.current.isDate($0.date, inSameDayAs: day)
-                }
-                ForEach(dayEvents) { event in
-                    NavigationLink {
-                        EventDetailView(event: event)
-                    } label: {
-                        UpcomingDateRow(event: event)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
         }
+        items += circleMoments
+        return items.sorted { ($0.days, $0.title) < ($1.days, $1.title) }
     }
 
-    // ── Coming up: every tracked date, closest first ─────────────────────────
+    private var timelineMonths: [(id: String, title: String, items: [TimelineMoment])] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        var out: [(id: String, title: String, items: [TimelineMoment])] = []
+        for item in timelineMoments {
+            let title = formatter.string(from: item.date)
+            if out.last?.id == title {
+                out[out.count - 1].items.append(item)
+            } else {
+                out.append((id: title, title: title, items: [item]))
+            }
+        }
+        return out
+    }
+
+    // Birthdays and anniversaries roll forward to their next occurrence, so
+    // last week's party doesn't sit at the top as "today" forever.
+    private static func nextOccurrence(for event: GiftEvent) -> Date {
+        let yearly = event.recurrence == "yearly"
+            || event.type == "birthday"
+            || event.type == "anniversary"
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        var date = calendar.startOfDay(for: event.date)
+        while yearly, date < today,
+              let bumped = calendar.date(byAdding: .year, value: 1, to: date) {
+            date = bumped
+        }
+        return date
+    }
+
+    private static func days(until date: Date) -> Int {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: Date())
+        return max(0, calendar.dateComponents([.day], from: start, to: calendar.startOfDay(for: date)).day ?? 0)
+    }
+
+    // Every joined circle's member birthdays + occasions, fetched in parallel.
+    private func loadCircleMoments() async {
+        let saved = circleStore.circles
+        guard !saved.isEmpty else {
+            circleMoments = []
+            return
+        }
+        var collected: [TimelineMoment] = []
+        await withTaskGroup(of: [TimelineMoment].self) { group in
+            for circle in saved {
+                group.addTask {
+                    guard let data = try? await APIClient.shared.fetchCircle(circleId: circle.circleId) else {
+                        return []
+                    }
+                    return CircleMoment.build(from: data).map { moment in
+                        TimelineMoment(
+                            id: "\(circle.circleId)-\(moment.id)",
+                            emoji: moment.emoji,
+                            title: moment.turning.map { "\(moment.title) · turning \($0)" } ?? moment.title,
+                            sourceLabel: "\(data.circle.name) circle",
+                            hasReminder: false,
+                            date: moment.date,
+                            days: moment.days,
+                            kind: .circle(circleId: circle.circleId)
+                        )
+                    }
+                }
+            }
+            for await items in group {
+                collected += items
+            }
+        }
+        circleMoments = collected
+    }
 
     @ViewBuilder
-    private var comingUpSection: some View {
+    private var timelineSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("COMING UP")
@@ -179,7 +244,7 @@ struct CirclesView: View {
             }
             .padding(.top, 4)
 
-            if eventsModel.upcomingEvents.isEmpty {
+            if timelineMoments.isEmpty {
                 Button {
                     showAddEvent = true
                 } label: {
@@ -191,7 +256,7 @@ struct CirclesView: View {
                             Text("Never miss a birthday again")
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundStyle(Color.ink)
-                            Text("Add a date and we'll remind you in time to actually get the gift.")
+                            Text("Add a date — or join a circle below — and every moment shows up here.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.leading)
@@ -204,37 +269,44 @@ struct CirclesView: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                ForEach(eventsModel.upcomingEvents.prefix(4)) { event in
-                    NavigationLink {
-                        EventDetailView(event: event)
-                    } label: {
-                        UpcomingDateRow(event: event)
-                    }
-                    .buttonStyle(.plain)
-                    .contextMenu {
-                        Button(role: .destructive) {
-                            eventsModel.deleteEvent(event, context: modelContext)
-                        } label: {
-                            Label("Delete event", systemImage: "trash")
-                        }
-                    }
-                }
+                ForEach(timelineMonths, id: \.id) { month in
+                    Text(month.title.uppercased())
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.coral)
+                        .padding(.top, 2)
 
-                if eventsModel.upcomingEvents.count > 4 {
-                    NavigationLink {
-                        EventsView()
-                            .toolbar(.hidden, for: .tabBar)
-                    } label: {
-                        Text("All \(eventsModel.upcomingEvents.count) dates")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(Color.coral)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(Color.coralSoft)
-                            .clipShape(Capsule())
+                    ForEach(month.items) { item in
+                        timelineRow(item)
                     }
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func timelineRow(_ item: TimelineMoment) -> some View {
+        switch item.kind {
+        case .personal(let event):
+            NavigationLink {
+                EventDetailView(event: event)
+            } label: {
+                TimelineMomentRow(item: item)
+            }
+            .buttonStyle(.plain)
+            .contextMenu {
+                Button(role: .destructive) {
+                    eventsModel.deleteEvent(event, context: modelContext)
+                } label: {
+                    Label("Delete event", systemImage: "trash")
+                }
+            }
+        case .circle(let circleId):
+            NavigationLink {
+                CircleDetailView(circleId: circleId)
+            } label: {
+                TimelineMomentRow(item: item)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -412,36 +484,81 @@ private struct JoinCircleByLinkSheet: View {
     }
 }
 
-// Compact countdown row for the Coming up strip (denser than EventCard).
-private struct UpcomingDateRow: View {
-    let event: GiftEvent
+// One row of the Coming up timeline — a personal date or a circle moment,
+// unified so the future reads as a single scrollable feed.
+struct TimelineMoment: Identifiable {
+    enum Kind {
+        case personal(GiftEvent)
+        case circle(circleId: String)
+    }
+
+    let id: String
+    let emoji: String
+    let title: String
+    let sourceLabel: String
+    let hasReminder: Bool
+    let date: Date
+    let days: Int
+    let kind: Kind
+}
+
+// Luma-style event row: date tile on the left, moment + where it comes from
+// in the middle, countdown pill on the right.
+private struct TimelineMomentRow: View {
+    let item: TimelineMoment
 
     private var urgencyColor: Color {
-        let days = event.daysUntil
-        if days <= 3 { return .red }
-        if days <= 7 { return .orange }
-        if days <= 14 { return Color.coral }
+        if item.days <= 3 { return .red }
+        if item.days <= 7 { return .orange }
+        if item.days <= 14 { return Color.coral }
         return .secondary
+    }
+
+    private var dayNumber: String {
+        "\(Calendar.current.component(.day, from: item.date))"
+    }
+
+    private var weekday: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE"
+        return formatter.string(from: item.date).uppercased()
+    }
+
+    private var countdown: String {
+        if item.days == 0 { return "today 🎉" }
+        if item.days == 1 { return "tomorrow" }
+        return "in \(item.days)d"
     }
 
     var body: some View {
         HStack(spacing: 12) {
-            Text(event.eventTypeIcon)
-                .font(.system(size: 22))
-                .frame(width: 44, height: 44)
-                .background(Color.cream)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+            VStack(spacing: 1) {
+                Text(dayNumber)
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundStyle(item.days == 0 ? Color.coral : Color.ink)
+                Text(weekday)
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(width: 44, height: 44)
+            .background(Color.cream)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(event.title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.ink)
-                    .lineLimit(1)
+                HStack(spacing: 5) {
+                    Text(item.emoji)
+                        .font(.system(size: 13))
+                    Text(item.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.ink)
+                        .lineLimit(1)
+                }
                 HStack(spacing: 4) {
-                    Text(event.dateString)
+                    Text(item.sourceLabel)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    if event.reminderLeadDays != nil {
+                        .lineLimit(1)
+                    if item.hasReminder {
                         Image(systemName: "bell.fill")
                             .font(.system(size: 9))
                             .foregroundStyle(Color.coral)
@@ -451,143 +568,17 @@ private struct UpcomingDateRow: View {
 
             Spacer()
 
-            VStack(spacing: 0) {
-                Text(event.daysUntil == 0 ? "🎉" : "\(event.daysUntil)")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(urgencyColor)
-                if event.daysUntil > 0 {
-                    Text(event.daysUntil == 1 ? "day" : "days")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                }
-            }
+            Text(countdown)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(item.days == 0 ? Color.coral : urgencyColor)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background((item.days == 0 ? Color.coral : urgencyColor).opacity(0.12))
+                .clipShape(Capsule())
         }
         .padding(12)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 14))
-    }
-}
-
-// ── Month calendar: dots where moments live ──────────────────────────────────
-// A dependency-free month grid. Coral ring = today, coral dot = a tracked
-// date lands there; tapping a dotted day lists its events under the card.
-struct MonthCalendarCard: View {
-    @Binding var month: Date
-    @Binding var selectedDay: Date?
-    let events: [GiftEvent]
-
-    private var calendar: Calendar { Calendar.current }
-
-    private var monthTitle: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
-        return formatter.string(from: month)
-    }
-
-    private var weekdaySymbols: [String] {
-        // Rotate so the row starts on the user's first weekday (Sun vs Mon).
-        let symbols = calendar.veryShortWeekdaySymbols
-        let first = calendar.firstWeekday - 1
-        return Array(symbols[first...] + symbols[..<first])
-    }
-
-    // The month laid out as grid slots: nil = leading blank before day 1.
-    private var daySlots: [Date?] {
-        guard
-            let interval = calendar.dateInterval(of: .month, for: month),
-            let dayCount = calendar.range(of: .day, in: .month, for: month)?.count
-        else { return [] }
-        let firstWeekday = calendar.component(.weekday, from: interval.start)
-        let leading = (firstWeekday - calendar.firstWeekday + 7) % 7
-        var slots = [Date?](repeating: nil, count: leading)
-        for day in 0..<dayCount {
-            slots.append(calendar.date(byAdding: .day, value: day, to: interval.start))
-        }
-        return slots
-    }
-
-    private func hasEvents(on day: Date) -> Bool {
-        events.contains { calendar.isDate($0.date, inSameDayAs: day) }
-    }
-
-    private func shiftMonth(_ delta: Int) {
-        if let next = calendar.date(byAdding: .month, value: delta, to: month) {
-            month = next
-            selectedDay = nil
-        }
-    }
-
-    var body: some View {
-        VStack(spacing: 10) {
-            HStack {
-                Button { shiftMonth(-1) } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(Color.coral)
-                        .frame(width: 30, height: 30)
-                }
-                Spacer()
-                Text(monthTitle)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color.ink)
-                Spacer()
-                Button { shiftMonth(1) } label: {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(Color.coral)
-                        .frame(width: 30, height: 30)
-                }
-            }
-
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 6) {
-                ForEach(weekdaySymbols, id: \.self) { symbol in
-                    Text(symbol)
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(Array(daySlots.enumerated()), id: \.offset) { _, slot in
-                    if let day = slot {
-                        dayCell(day)
-                    } else {
-                        Color.clear.frame(height: 34)
-                    }
-                }
-            }
-        }
-        .padding(14)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
-
-    @ViewBuilder
-    private func dayCell(_ day: Date) -> some View {
-        let isToday = calendar.isDateInToday(day)
-        let isSelected = selectedDay.map { calendar.isDate($0, inSameDayAs: day) } ?? false
-        let dotted = hasEvents(on: day)
-
-        Button {
-            selectedDay = isSelected ? nil : (dotted ? day : nil)
-        } label: {
-            VStack(spacing: 2) {
-                Text("\(calendar.component(.day, from: day))")
-                    .font(.system(size: 13, weight: isToday || isSelected ? .bold : .regular))
-                    .foregroundStyle(isSelected ? .white : isToday ? Color.coral : Color.ink)
-                Circle()
-                    .fill(dotted ? (isSelected ? Color.white : Color.coral) : Color.clear)
-                    .frame(width: 4, height: 4)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 34)
-            .background(
-                RoundedRectangle(cornerRadius: 9)
-                    .fill(isSelected ? Color.coral : Color.clear)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 9)
-                    .stroke(isToday && !isSelected ? Color.coral : Color.clear, lineWidth: 1.5)
-            )
-        }
-        .buttonStyle(.plain)
     }
 }
 
