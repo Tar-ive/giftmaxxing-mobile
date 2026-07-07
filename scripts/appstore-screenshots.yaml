@@ -1,0 +1,78 @@
+# App Store screenshot capture — run on an iPhone 16 Pro Max simulator
+# (6.9", 1320×2868 → APP_IPHONE_69). Drives the signed-in app through the
+# five marquee surfaces and saves PNGs to build/appstore-shots/.
+# Usage (repo root):
+#   maestro --device <PRO_MAX_UDID> test \
+#     -e E2E_EMAIL=... -e E2E_PASSWORD=... scripts/appstore-screenshots.yaml
+appId: com.giftmaxxing.ios
+name: appstore — screenshot capture
+tags:
+  - screenshots
+---
+- launchApp:
+    clearState: true
+    permissions:
+      notifications: allow
+    arguments:
+      e2eEmail: ${E2E_EMAIL}
+      e2ePassword: ${E2E_PASSWORD}
+
+- extendedWaitUntil:
+    optional: true
+    visible: "Skip for now"
+    timeout: 12000
+- runFlow:
+    when:
+      visible: "Skip for now"
+    commands:
+      - tapOn: "Skip for now"
+
+# Home — let the feed images finish loading before the shot.
+- extendedWaitUntil:
+    visible: "Home"
+    timeout: 15000
+- extendedWaitUntil:
+    optional: true
+    visible: "never-matches-just-waiting"
+    timeout: 6000
+- takeScreenshot: build/appstore-shots/01-home
+
+- tapOn: "Swipe"
+- extendedWaitUntil:
+    optional: true
+    visible: "never-matches-just-waiting"
+    timeout: 5000
+- takeScreenshot: build/appstore-shots/02-swipe
+
+- tapOn: "Concierge"
+- extendedWaitUntil:
+    optional: true
+    visible: "never-matches-just-waiting"
+    timeout: 3000
+- takeScreenshot: build/appstore-shots/03-concierge
+
+- tapOn: "Circles"
+- extendedWaitUntil:
+    visible: "Your people, their moments"
+    timeout: 10000
+- extendedWaitUntil:
+    optional: true
+    visible: "never-matches-just-waiting"
+    timeout: 3000
+- takeScreenshot: build/appstore-shots/04-circles
+
+- tapOn: "You"
+- extendedWaitUntil:
+    optional: true
+    visible: "Shop"
+    timeout: 8000
+- runFlow:
+    when:
+      visible: "Shop"
+    commands:
+      - tapOn: "Shop"
+      - extendedWaitUntil:
+          optional: true
+          visible: "never-matches-just-waiting"
+          timeout: 5000
+- takeScreenshot: build/appstore-shots/05-shop
