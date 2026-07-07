@@ -45,6 +45,11 @@ struct FeedView: View {
                     .padding(.top, 6)
                     .padding(.bottom, 8)
 
+                    // Gifting tray — group gifts in flight + pools as stories-
+                    // style bubbles (moved here from the Circles tab).
+                    GiftingTray()
+                        .padding(.bottom, 6)
+
                     if viewModel.isLoading && viewModel.posts.isEmpty {
                         ForEach(0..<3, id: \.self) { _ in
                             PostCardSkeleton()

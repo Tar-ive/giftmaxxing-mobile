@@ -101,7 +101,8 @@ final class FeedViewModel: ObservableObject {
             candidates: fresh,
             profile: profile,
             centroid: centroid,
-            vectorSimilarities: similarities
+            vectorSimilarities: similarities,
+            context: RankingContext(recipient: PersonalizationStore.feedRecipient)
         )
         rankedBuffer.append(contentsOf: ranked)
         // Re-sort across network pages so a strong late arrival can outrank a

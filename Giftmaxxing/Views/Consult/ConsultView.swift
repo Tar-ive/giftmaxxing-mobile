@@ -204,7 +204,7 @@ private enum ConsultRanker {
         return (score, verdict, reason ?? fallback)
     }
 
-    static func rank(posts: [Post], worlds: Set<String>, keeper: String?, budget: Double?, n: Int = 9) -> [RankedGift] {
+    static func rank(posts: [Post], worlds: Set<String>, keeper: String?, budget: Double?, audience: String? = nil, n: Int = 9) -> [RankedGift] {
         var categories: [String] = []
         var seenCat = Set<String>()
         for boost in ConsultMeta.keeperBoost[keeper ?? ""] ?? [] where !seenCat.contains(boost) {
@@ -232,6 +232,12 @@ private enum ConsultRanker {
             guard price > 0 else { continue }
             if let budget, price > budget * 1.15 { continue }
 
+            // The consult KNOWS who the gift is for — never show a "for him"
+            // asker something that reads unmistakably feminine (or vice versa).
+            // Neutral items (books, mugs, decks) pass; only clear opposites drop.
+            let inferredAudience = AudienceClassifier.infer(for: post)
+            if let audience, let inferredAudience, inferredAudience != audience { continue }
+
             let move = moveTest(name: post.product.name, category: post.category, price: price)
             guard move.verdict != "clutter" else { continue }
 
@@ -244,7 +250,10 @@ private enum ConsultRanker {
                 fit = 0.7
             }
             let wMove = minimalist ? 0.55 : 0.45
-            let score = wMove * move.score + 0.35 * interest + (1 - wMove - 0.35) * fit
+            var score = wMove * move.score + 0.35 * interest + (1 - wMove - 0.35) * fit
+            // Items that explicitly read as the right audience edge ahead of
+            // neutral ones ("men's leather journal" over "journal").
+            if let audience, inferredAudience == audience { score += 0.08 }
             out.append(RankedGift(post: post, score: score, packVerdict: move.verdict, reason: move.reason))
         }
         out.sort { $0.score > $1.score }
@@ -377,9 +386,27 @@ private final class ConsultViewModel: ObservableObject {
         }
     }
 
+    // The recipient's audience ("men"/"women") from the consult's own answers:
+    // the explicit him/her question first, the relation (dad/mom) as fallback.
+    // Drives both the catalog facet and the hard audience gate in the ranker.
+    var recipientAudience: String? {
+        switch genderPref {
+        case "him": return "men"
+        case "her": return "women"
+        default: break
+        }
+        switch relation {
+        case "dad": return "men"
+        case "mom": return "women"
+        default: return nil
+        }
+    }
+
     func runConsult() async {
         phase = .thinking
-        let recipient = ConsultMeta.recipientKey[relation ?? ""]
+        // The catalog's recipient facet only knows men/women/anyone — relation
+        // keys like "dad" match nothing, so prefer the derived audience.
+        let recipient = recipientAudience ?? ConsultMeta.recipientKey[relation ?? ""]
         let occ = occasion == "any" ? nil : occasion
         let category = worlds.compactMap { ConsultMeta.worldCategories[$0]?.first }.first
 
@@ -389,7 +416,7 @@ private final class ConsultViewModel: ObservableObject {
         async let broad = try? APIClient.shared.fetchFeed(limit: 50, budget: budget)
         let posts = ((await targeted)?.posts ?? []) + ((await broad)?.posts ?? [])
 
-        gifts = ConsultRanker.rank(posts: posts, worlds: worlds, keeper: keeper, budget: budget)
+        gifts = ConsultRanker.rank(posts: posts, worlds: worlds, keeper: keeper, budget: budget, audience: recipientAudience)
         try? await Task.sleep(nanoseconds: 1_200_000_000) // let the beat land
         phase = .results
     }

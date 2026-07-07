@@ -162,43 +162,50 @@ struct ShopItemCard: View {
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 8) {
-                // Image
-                ZStack {
-                    Color.gradient(for: item.grad)
+                // Image — the square sizes ITSELF (Color.clear), and everything
+                // else rides in an overlay. A `.fill` AsyncImage placed directly
+                // in the ZStack reports the photo's intrinsic size to layout,
+                // which inflated cells and shoved titles/prices onto the
+                // neighboring grid column.
+                Color.clear
+                    .aspectRatio(1, contentMode: .fit)
+                    .overlay {
+                        ZStack {
+                            Color.gradient(for: item.grad)
 
-                    Text(item.emoji)
-                        .font(.system(size: 36))
+                            Text(item.emoji)
+                                .font(.system(size: 36))
 
-                    if let image = item.image, let url = URL(string: image) {
-                        AsyncImage(url: url) { phase in
-                            if let image = phase.image {
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
+                            if let image = item.image, let url = URL(string: image) {
+                                AsyncImage(url: url) { phase in
+                                    if let image = phase.image {
+                                        image
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fill)
+                                    }
+                                }
+                            }
+
+                            // Category badge
+                            if let category = item.category {
+                                VStack {
+                                    HStack {
+                                        Text(category)
+                                            .font(.system(size: 9, weight: .bold))
+                                            .foregroundStyle(.white)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 3)
+                                            .background(.black.opacity(0.55))
+                                            .clipShape(Capsule())
+                                        Spacer()
+                                    }
+                                    Spacer()
+                                }
+                                .padding(8)
                             }
                         }
                     }
-
-                    // Category badge
-                    if let category = item.category {
-                        VStack {
-                            HStack {
-                                Text(category)
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 3)
-                                    .background(.black.opacity(0.55))
-                                    .clipShape(Capsule())
-                                Spacer()
-                            }
-                            Spacer()
-                        }
-                        .padding(8)
-                    }
-                }
-                .aspectRatio(1, contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
 
                 // Info
                 VStack(alignment: .leading, spacing: 2) {
@@ -223,6 +230,7 @@ struct ShopItemCard: View {
                             .foregroundStyle(Color.coral)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .buttonStyle(.plain)
@@ -251,23 +259,26 @@ struct ShopItemDetail: View {
             ScrollView {
                 VStack(spacing: 20) {
                     // Image
-                    ZStack {
-                        Color.gradient(for: item.grad)
-                        Text(item.emoji)
-                            .font(.system(size: 80))
-                        if let image = item.image, let url = URL(string: image) {
-                            AsyncImage(url: url) { phase in
-                                if let image = phase.image {
-                                    image
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fill)
+                    Color.clear
+                        .frame(height: 300)
+                        .overlay {
+                            ZStack {
+                                Color.gradient(for: item.grad)
+                                Text(item.emoji)
+                                    .font(.system(size: 80))
+                                if let image = item.image, let url = URL(string: image) {
+                                    AsyncImage(url: url) { phase in
+                                        if let image = phase.image {
+                                            image
+                                                .resizable()
+                                                .aspectRatio(contentMode: .fill)
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
-                    .frame(height: 300)
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
-                    .padding(.horizontal, 16)
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
+                        .padding(.horizontal, 16)
 
                     VStack(alignment: .leading, spacing: 12) {
                         Text(item.title)

@@ -47,7 +47,14 @@ final class SwipeViewModel: ObservableObject {
         isLoading = true
 
         do {
-            let page = try await api.fetchRecommendations(limit: 30)
+            // Carry the consult's cold-start signals (who they gift for, world
+            // vibes) so the deck leans the right way before any swipes exist.
+            let vibes = PersonalizationStore.consultVibes
+            let page = try await api.fetchRecommendations(
+                limit: 30,
+                vibes: vibes.isEmpty ? nil : vibes,
+                recipient: PersonalizationStore.feedRecipient
+            )
             cards = page.posts
             currentIndex = 0
             yesCount = 0

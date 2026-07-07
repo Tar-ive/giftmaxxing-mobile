@@ -11,10 +11,15 @@ import SwiftUI
 //     flow as the web).
 struct ChallengeView: View {
     @EnvironmentObject private var appState: AppState
+    @Environment(\.dismiss) private var dismiss
 
     // Optional image seed (share-extension / visual-search captures): the
     // server embeds it and builds the deck around it — "would they like THIS?"
     var seedImage: UIImage? = nil
+
+    // Sheet presentations set this so there's an explicit way OUT — without it
+    // a modally-presented challenge had no visible exit (swipe-down only).
+    var showsClose = false
 
     @State private var yourName = ""
     @State private var theirName = ""
@@ -293,6 +298,20 @@ struct ChallengeView: View {
         .background(Color.surface)
         .navigationTitle("Gift Challenge")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if showsClose {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityLabel("Close")
+                }
+            }
+        }
         // Personalization is baked into the server deck's META — editing any
         // field invalidates the created challenge so the next share rebuilds.
         .onChange(of: yourName) { _, _ in challengeId = nil }
