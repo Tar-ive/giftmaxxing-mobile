@@ -1,0 +1,23 @@
+included:
+  - Giftmaxxing
+  - GiftmaxxingShare
+  - GiftmaxxingTests
+
+disabled_rules:
+  - line_length
+  - file_length
+  - type_body_length
+  - function_body_length
+  - cyclomatic_complexity
+  - identifier_name
+  - todo
+  - trailing_whitespace
+  - large_tuple
+  - nesting
+  # Codebase style: trailing commas in collection literals (Swift 6-era style)
+  - trailing_comma
+  - multiple_closures_with_trailing_closure
+  - implicit_optional_initialization
+  - for_where
+
+opt_in_rules: []

@@ -5,16 +5,20 @@ on:
     branches: [main]
     paths:
       - 'Giftmaxxing/**'
+      - 'GiftmaxxingShare/**'
       - 'GiftmaxxingTests/**'
       - '.maestro/**'
+      - '.swiftlint.yml'
       - 'project.yml'
       - '.github/workflows/ios-build.yml'
   pull_request:
     branches: [main]
     paths:
       - 'Giftmaxxing/**'
+      - 'GiftmaxxingShare/**'
       - 'GiftmaxxingTests/**'
       - '.maestro/**'
+      - '.swiftlint.yml'
       - 'project.yml'
       - '.github/workflows/ios-build.yml'
 
@@ -23,6 +27,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Fast static lint on Linux — SwiftLint runs fine without Xcode, so this
+  # gives feedback in seconds while the macOS jobs spin up.
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      image: ghcr.io/realm/swiftlint:0.65.0
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: SwiftLint
+        run: swiftlint lint --reporter github-actions-logging
+
   build:
     runs-on: macos-15
     timeout-minutes: 30
