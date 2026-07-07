@@ -15,8 +15,12 @@ import Foundation
 // surface via UserDefaults. DEBUG builds only — Release ignores the hook
 // entirely, so no TestFlight/App Store build can ever be driven this way.
 enum E2ESupport {
+    // Runs BEFORE the first onboarding evaluation (ContentView awaits this),
+    // so the consult-vs-wall decision is always made for the signed-in E2E
+    // identity — iOS versions disagree on who wins simultaneous sheet/cover
+    // presentations, and this sequencing sidesteps the race entirely.
     @MainActor
-    static func autoSignInIfRequested(authManager: AuthManager) {
+    static func autoSignInIfRequested(authManager: AuthManager) async {
         #if DEBUG
         // Keychain sessions survive Maestro's clearState (app-container wipes
         // don't touch securityd) — `-e2eReset 1` forces a signed-out start.
@@ -27,8 +31,12 @@ enum E2ESupport {
               let email = UserDefaults.standard.string(forKey: "e2eEmail"),
               let password = UserDefaults.standard.string(forKey: "e2ePassword"),
               !email.isEmpty, !password.isEmpty else { return }
-        Task {
+        // Freshly-booted CI simulators drop the first network calls while the
+        // stack warms up — retry briefly instead of failing the whole run.
+        for attempt in 1...5 {
             await authManager.signInWithPassword(email: email, password: password)
+            if authManager.isAuthenticated { return }
+            try? await Task.sleep(for: .seconds(Double(attempt)))
         }
         #endif
     }

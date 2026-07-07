@@ -12,6 +12,19 @@ tags:
     arguments:
       # Keychain sessions outlive clearState; the DEBUG hook signs out first.
       e2eReset: "1"
+
+# A pristine guest may meet Maxi's consult before the wall (presentation
+# order varies by iOS version) — skip it to reach the account gate.
+- extendedWaitUntil:
+    optional: true
+    visible: "Skip for now"
+    timeout: 12000
+- runFlow:
+    when:
+      visible: "Skip for now"
+    commands:
+      - tapOn: "Skip for now"
+
 - extendedWaitUntil:
     visible: "Sign in with Apple"
     timeout: 20000

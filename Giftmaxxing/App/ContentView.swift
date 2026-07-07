@@ -159,8 +159,10 @@ struct ContentView: View {
         .onAppear {
             drainCaptureInbox()
             PersonalizationStore.migrateLegacyFlagIfNeeded()
-            E2ESupport.autoSignInIfRequested(authManager: authManager)
-            evaluateOnboarding(for: authManager.userId)
+            Task {
+                await E2ESupport.autoSignInIfRequested(authManager: authManager)
+                evaluateOnboarding(for: authManager.userId)
+            }
         }
         // A DIFFERENT account signed in: decide onboarding for that identity —
         // its own local flag first, then the cloud profile (completedAt set by
