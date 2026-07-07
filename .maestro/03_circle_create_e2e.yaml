@@ -1,0 +1,58 @@
+# Full round-trip: create a circle against the real backend, land on the
+# circle page, verify the creator shows up as a member.
+#
+# WRITES to the dev backend (POST /circles) — fine for dev data, but keep it
+# out of any loop that runs per-commit. Run explicitly:
+#   maestro test .maestro/03_circle_create_e2e.yaml
+appId: com.giftmaxxing.ios
+name: circles — create end-to-end (backend write)
+tags:
+  - e2e-write
+---
+- launchApp:
+    clearState: true
+    permissions:
+      notifications: allow
+    arguments:
+      e2eEmail: ${E2E_EMAIL}
+      e2ePassword: ${E2E_PASSWORD}
+
+# Consult only shows for identities without an onboarded cloud profile.
+- extendedWaitUntil:
+    optional: true
+    visible: "Skip for now"
+    timeout: 12000
+- runFlow:
+    when:
+      visible: "Skip for now"
+    commands:
+      - tapOn: "Skip for now"
+
+- extendedWaitUntil:
+    visible: "Circles"
+    timeout: 15000
+- tapOn: "Circles"
+- tapOn: "Start a circle"
+- assertVisible: "New circle"
+
+- tapOn: "e.g. Sharma Family, College crew"
+- inputText: "Maestro E2E"
+- tapOn: "Your name"
+- inputText: "Maestro Bot"
+- tapOn: "Create the circle"
+
+# Server round-trip — success screen, then Done drops us back on the tab.
+- extendedWaitUntil:
+    visible: "Maestro E2E is live"
+    timeout: 15000
+- tapOn: "Done"
+
+# The circle is remembered locally and opens to the detail page,
+# with the creator listed as a member.
+- assertVisible: "Maestro E2E"
+- tapOn: "Maestro E2E"
+- extendedWaitUntil:
+    visible: "WHO'S IN"
+    timeout: 10000
+- assertVisible: "Maestro Bot"
+- assertVisible: "(you)"

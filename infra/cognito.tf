@@ -92,6 +92,10 @@ resource "aws_cognito_user_pool_client" "ios" {
     # Admin-side password auth (needs AWS creds) — lets ops mint test JWTs:
     #   aws cognito-idp admin-initiate-auth --auth-flow ADMIN_USER_PASSWORD_AUTH ...
     "ALLOW_ADMIN_USER_PASSWORD_AUTH",
+    # Client-side email+password (InitiateAuth over TLS, no AWS creds) — the
+    # iOS E2E harness signs in the dedicated test user this way
+    # (AuthManager.signInWithPassword; no user-facing UI offers it).
+    "ALLOW_USER_PASSWORD_AUTH",
   ]
 
   token_validity_units {

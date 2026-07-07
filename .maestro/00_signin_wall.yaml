@@ -1,0 +1,19 @@
+# The account wall: Apple + Google only. The guest door must stay dead —
+# release testers each get a real, distinct profile.
+appId: com.giftmaxxing.ios
+name: sign-in wall — Apple/Google only, no guest door
+tags:
+  - smoke
+---
+- launchApp:
+    clearState: true
+    permissions:
+      notifications: allow
+    arguments:
+      # Keychain sessions outlive clearState; the DEBUG hook signs out first.
+      e2eReset: "1"
+- extendedWaitUntil:
+    visible: "Sign in with Apple"
+    timeout: 20000
+- assertVisible: "Continue with Google"
+- assertNotVisible: "Continue as Guest"

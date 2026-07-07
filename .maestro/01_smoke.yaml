@@ -1,0 +1,40 @@
+# Cold-start smoke: a credentialed launch (real Cognito email+password via
+# the DEBUG-only E2E hook) reaches all five tabs.
+#
+# Run (see .maestro/README.md for the env setup):
+#   maestro test -e E2E_EMAIL=... -e E2E_PASSWORD=... .maestro/01_smoke.yaml
+appId: com.giftmaxxing.ios
+name: smoke — cold start to all five tabs
+tags:
+  - smoke
+---
+- launchApp:
+    clearState: true
+    permissions:
+      notifications: allow
+    arguments:
+      e2eEmail: ${E2E_EMAIL}
+      e2ePassword: ${E2E_PASSWORD}
+
+# First run for a brand-new identity shows Maxi's consult; an identity whose
+# cloud profile is already onboarded goes straight in. Handle both.
+- extendedWaitUntil:
+    optional: true
+    visible: "Skip for now"
+    timeout: 12000
+- runFlow:
+    when:
+      visible: "Skip for now"
+    commands:
+      - tapOn: "Skip for now"
+
+# The tab bar is the app's spine — visit every room.
+- extendedWaitUntil:
+    visible: "Swipe"
+    timeout: 15000
+- tapOn: "Swipe"
+- tapOn: "Concierge"
+- tapOn: "Circles"
+- assertVisible: "Your people, their moments"
+- tapOn: "You"
+- tapOn: "Home"

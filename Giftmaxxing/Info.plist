@@ -29,6 +29,10 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>CognitoClientId</key>
+	<string>1i1d0pdrgcuh8vces1f4truubd</string>
+	<key>CognitoRegion</key>
+	<string>us-east-1</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>

@@ -26,6 +26,10 @@ targets:
         # Only standard HTTPS (exempt) — lets TestFlight builds go straight to
         # testers without the export-compliance questionnaire on every upload.
         ITSAppUsesNonExemptEncryption: false
+        # Cognito user pool app client (infra/cognito.tf outputs) — used for
+        # token refresh and the E2E harness's password sign-in.
+        CognitoClientId: 1i1d0pdrgcuh8vces1f4truubd
+        CognitoRegion: us-east-1
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.giftmaxxing.ios

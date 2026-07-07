@@ -21,6 +21,10 @@ final class AuthManager: ObservableObject {
     // them or the profile degrades to "Giftmaxxer" on the next launch.
     private let displayNameKey = "auth_display_name"
     private let emailKey = "auth_email"
+    // 30-day first-party session JWT from POST /auth/session — outlives the
+    // provider tokens (Apple ~10 min, Google ~1 h) that used to knock signed-in
+    // users out of /maxi and /me mid-session.
+    private let sessionTokenKey = "auth_session_token"
 
     private init() {
         self.cognitoClientId = Bundle.main.object(forInfoDictionaryKey: "CognitoClientId") as? String ?? ""
@@ -46,11 +50,36 @@ final class AuthManager: ObservableObject {
         displayName = KeychainStore.loadString(key: displayNameKey)
         email = KeychainStore.loadString(key: emailKey)
         isAuthenticated = true
-        if let token = KeychainStore.loadString(key: tokenKey), !isTokenExpired(token) {
+        // Prefer the long-lived session token; fall back to a still-fresh
+        // provider token and trade it for a session in the background.
+        if let sessionToken = KeychainStore.loadString(key: sessionTokenKey), !isTokenExpired(sessionToken) {
+            Task {
+                await APIClient.shared.setAuthToken(sessionToken)
+            }
+        } else if let token = KeychainStore.loadString(key: tokenKey), !isTokenExpired(token) {
             Task {
                 await APIClient.shared.setAuthToken(token)
+                await establishBackendSession()
             }
         }
+    }
+
+    // Trade the provider bearer for a first-party session and ADOPT the
+    // canonical identity it returns. If this Gmail already has an account
+    // from the web app, all its data (profile, events, taste) is now ours.
+    private func establishBackendSession() async {
+        guard let response = try? await APIClient.shared.establishSession(name: displayName) else { return }
+        try? KeychainStore.saveString(key: sessionTokenKey, value: response.token)
+        await APIClient.shared.setAuthToken(response.token)
+        if response.userId != userId {
+            try? KeychainStore.saveString(key: userIdKey, value: response.userId)
+            userId = response.userId // triggers per-identity onboarding + feed refetch
+        }
+        if email == nil, let sessionEmail = response.email {
+            email = sessionEmail
+            try? KeychainStore.saveString(key: emailKey, value: sessionEmail)
+        }
+        await APIClient.shared.identify(userId: response.userId, name: displayName, email: email)
     }
 
     func handleAppleSignIn(result: Result<ASAuthorization, Error>) {
@@ -73,7 +102,7 @@ final class AuthManager: ObservableObject {
             // entitlement isn't provisioned \u{2014} free personal dev teams can't
             // use it. Give an actionable message instead of the OS one.
             if (authError as NSError).code == ASAuthorizationError.unknown.rawValue {
-                self.error = "Sign in with Apple isn't available in this development build. Use Google or continue as guest."
+                self.error = "Sign in with Apple isn't available in this development build. Use Google instead."
             } else {
                 self.error = authError.localizedDescription
             }
@@ -106,12 +135,14 @@ final class AuthManager: ObservableObject {
             // Merge-safe identity ping — PUT /me would REPLACE the row and wipe
             // the onboarding profile saved from any platform.
             await APIClient.shared.identify(userId: userIdValue, name: identity.name, email: identity.email)
+            // Long-lived session + canonical (email-merged) identity adoption.
+            await establishBackendSession()
         } catch let signInError as GoogleSignInService.GoogleSignInError {
             switch signInError {
             case .cancelled:
                 break // user dismissed \u{2014} not an error
             case .notConfigured:
-                error = "Google Sign-In needs a one-time setup (OAuth client id). Continue as guest for now."
+                error = "Google Sign-In needs a one-time setup (OAuth client id)."
             case .exchangeFailed:
                 error = signInError.errorDescription
             }
@@ -155,9 +186,71 @@ final class AuthManager: ObservableObject {
             Task {
                 await APIClient.shared.setAuthToken(identityToken)
                 await APIClient.shared.identify(userId: userIdValue, name: displayName, email: email)
+                // Long-lived session + canonical (email-merged) identity adoption.
+                await establishBackendSession()
             }
         } catch {
             self.error = "Couldn't save your session. Please try again."
+        }
+    }
+
+    // Email + password against the Cognito user pool (USER_PASSWORD_AUTH).
+    // No UI offers this — it exists for the E2E harness (E2ESupport.swift),
+    // which signs in a real pool user so automated runs get a real, distinct
+    // profile just like any tester. Same session plumbing as Apple/Google.
+    func signInWithPassword(email: String, password: String) async {
+        isLoading = true
+        error = nil
+        defer { isLoading = false }
+
+        do {
+            let url = URL(string: "https://cognito-idp.\(cognitoRegion).amazonaws.com/")!
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("application/x-amz-json-1.1", forHTTPHeaderField: "Content-Type")
+            request.setValue("AWSCognitoIdentityProviderService.InitiateAuth", forHTTPHeaderField: "X-Amz-Target")
+
+            let body: [String: Any] = [
+                "AuthFlow": "USER_PASSWORD_AUTH",
+                "ClientId": cognitoClientId,
+                "AuthParameters": [
+                    "USERNAME": email,
+                    "PASSWORD": password,
+                ],
+            ]
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200,
+                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let authResult = json["AuthenticationResult"] as? [String: Any],
+                  let idToken = authResult["IdToken"] as? String else {
+                self.error = "Email sign-in failed. Check the credentials."
+                return
+            }
+
+            try KeychainStore.saveString(key: tokenKey, value: idToken)
+            if let refreshToken = authResult["RefreshToken"] as? String {
+                try? KeychainStore.saveString(key: refreshTokenKey, value: refreshToken)
+            }
+
+            let sub = extractSub(from: idToken) ?? email
+            let userIdValue = "cognito_\(sub)"
+            try KeychainStore.saveString(key: userIdKey, value: userIdValue)
+            try? KeychainStore.saveString(key: emailKey, value: email)
+
+            let name = extractClaim(from: idToken, key: "name") as? String
+            if let name { try? KeychainStore.saveString(key: displayNameKey, value: name) }
+
+            userId = userIdValue
+            displayName = name
+            self.email = email
+            isAuthenticated = true
+
+            await APIClient.shared.setAuthToken(idToken)
+            await APIClient.shared.identify(userId: userIdValue, name: name, email: email)
+        } catch {
+            self.error = "Email sign-in failed. Please try again."
         }
     }
 
@@ -205,6 +298,7 @@ final class AuthManager: ObservableObject {
         KeychainStore.delete(key: userIdKey)
         KeychainStore.delete(key: displayNameKey)
         KeychainStore.delete(key: emailKey)
+        KeychainStore.delete(key: sessionTokenKey)
         clearSession()
         Task {
             await APIClient.shared.setAuthToken(nil)

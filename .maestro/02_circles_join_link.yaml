@@ -1,0 +1,43 @@
+# Circles tab: the paste-a-link door rejects garbage and cancels cleanly.
+# No backend writes — safe to run anywhere.
+appId: com.giftmaxxing.ios
+name: circles — join-by-link validation
+tags:
+  - circles
+---
+- launchApp:
+    clearState: true
+    permissions:
+      notifications: allow
+    arguments:
+      e2eEmail: ${E2E_EMAIL}
+      e2ePassword: ${E2E_PASSWORD}
+
+# Consult only shows for identities without an onboarded cloud profile.
+- extendedWaitUntil:
+    optional: true
+    visible: "Skip for now"
+    timeout: 12000
+- runFlow:
+    when:
+      visible: "Skip for now"
+    commands:
+      - tapOn: "Skip for now"
+
+- extendedWaitUntil:
+    visible: "Circles"
+    timeout: 15000
+- tapOn: "Circles"
+- assertVisible: "Your people, their moments"
+
+# Garbage in → friendly error, not a crash.
+- tapOn: "Got a circle link? Open it here"
+- assertVisible: "Open a circle"
+- tapOn: "https://…/circle/cir_…"
+- inputText: "definitely not a circle link"
+- tapOn: "Open the circle"
+- assertVisible: ".*doesn't look like a circle link.*"
+- tapOn: "Cancel"
+
+# Back on the tab, the start-a-circle card is still there.
+- assertVisible: "Start a circle"

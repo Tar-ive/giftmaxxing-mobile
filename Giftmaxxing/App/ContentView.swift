@@ -11,12 +11,13 @@ struct ContentView: View {
     @State private var showOnboarding = false
     @State private var showSplash = true
 
-    // Accounts are required (except DEBUG guest mode): every tester gets a
-    // distinct profile so behavioral analytics attribute to real people.
-    // The cover is driven by auth state — it can only dismiss by signing in.
+    // Accounts are required: every tester gets a distinct profile so
+    // behavioral analytics attribute to real people. The cover is driven by
+    // auth state — it can only dismiss by signing in. (E2E builds sign in
+    // headlessly via launch arguments; see E2ESupport.swift.)
     private var signInRequired: Binding<Bool> {
         Binding(
-            get: { !authManager.isAuthenticated && !showSplash && !showOnboarding && !PersonalizationStore.debugGuestMode },
+            get: { !authManager.isAuthenticated && !showSplash && !showOnboarding },
             set: { _ in }
         )
     }
@@ -132,7 +133,7 @@ struct ContentView: View {
         .fullScreenCover(isPresented: signInRequired) {
             SignInView(showSignIn: Binding(
                 get: { signInRequired.wrappedValue },
-                set: { if !$0 { PersonalizationStore.debugGuestMode = true } }
+                set: { _ in } // dismisses only via real auth state changes
             ))
             .environmentObject(authManager)
             .interactiveDismissDisabled()
@@ -158,6 +159,7 @@ struct ContentView: View {
         .onAppear {
             drainCaptureInbox()
             PersonalizationStore.migrateLegacyFlagIfNeeded()
+            E2ESupport.autoSignInIfRequested(authManager: authManager)
             evaluateOnboarding(for: authManager.userId)
         }
         // A DIFFERENT account signed in: decide onboarding for that identity —
