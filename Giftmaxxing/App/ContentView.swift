@@ -37,11 +37,11 @@ struct ContentView: View {
                     }
                     .tag(Tab.swipe)
 
-                MaxiView()
+                ShopView()
                     .tabItem {
-                        Label(Tab.maxi.rawValue, systemImage: Tab.maxi.icon)
+                        Label(Tab.shop.rawValue, systemImage: Tab.shop.icon)
                     }
-                    .tag(Tab.maxi)
+                    .tag(Tab.shop)
 
                 CirclesView()
                     .tabItem {
@@ -56,6 +56,14 @@ struct ContentView: View {
                     .tag(Tab.you)
             }
             .tint(Color.coral)
+
+            // Maxi, the AI concierge, floats over every tab as an Amazon
+            // Rufus-style button (it's no longer a tab). Bottom-trailing,
+            // just above the tab bar — tap opens the Maxi chat as a sheet.
+            MaxiFloatingButton { appState.showMaxi = true }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                .padding(.trailing, 18)
+                .padding(.bottom, 66)
 
             if !offlineQueue.isOnline {
                 VStack {
@@ -98,6 +106,10 @@ struct ContentView: View {
         // Birthday-freebies notification tap — straight to the perks list.
         .sheet(isPresented: $appState.showBirthdayPerks) {
             BirthdayPerksSheet()
+        }
+        // Maxi concierge — presented from the floating button over any tab.
+        .sheet(isPresented: $appState.showMaxi) {
+            MaxiView()
         }
         // Search is a modal layer (camera / products / screenshots), not a tab.
         .fullScreenCover(isPresented: $appState.showSearch) {

@@ -44,12 +44,13 @@ tags:
     timeout: 5000
 - takeScreenshot: build/appstore-shots/02-swipe
 
-- tapOn: "Concierge"
+# Shop is now a first-class tab (real products + birthday freebies).
+- tapOn: "Shop"
 - extendedWaitUntil:
     optional: true
     visible: "never-matches-just-waiting"
-    timeout: 3000
-- takeScreenshot: build/appstore-shots/03-concierge
+    timeout: 5000
+- takeScreenshot: build/appstore-shots/03-shop
 
 - tapOn: "Circles"
 - extendedWaitUntil:
@@ -61,18 +62,15 @@ tags:
     timeout: 3000
 - takeScreenshot: build/appstore-shots/04-circles
 
-- tapOn: "You"
+# Maxi (the AI concierge) is now a floating button over every tab — tap it
+# to capture the concierge chat. (Maestro full-matches text; "Ask Maxi" is
+# the sheet's exact nav title.)
+- tapOn: "Ask Maxi"
+- extendedWaitUntil:
+    visible: "Ask Maxi"
+    timeout: 8000
 - extendedWaitUntil:
     optional: true
-    visible: "Shop"
-    timeout: 8000
-- runFlow:
-    when:
-      visible: "Shop"
-    commands:
-      - tapOn: "Shop"
-      - extendedWaitUntil:
-          optional: true
-          visible: "never-matches-just-waiting"
-          timeout: 5000
-- takeScreenshot: build/appstore-shots/05-shop
+    visible: "never-matches-just-waiting"
+    timeout: 3000
+- takeScreenshot: build/appstore-shots/05-concierge

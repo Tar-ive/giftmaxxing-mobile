@@ -32,8 +32,12 @@ final class AppState: ObservableObject {
     @Published var pendingCircleId: String?
 
     // Birthday-freebies notification tap — ContentView presents the perks
-    // sheet at root (works from any tab; Shop itself is nested under You).
+    // sheet at root (works from any tab).
     @Published var showBirthdayPerks = false
+
+    // Maxi (the AI concierge) is a floating button over every tab — not a tab
+    // of its own. ContentView presents MaxiView as a sheet when this is set.
+    @Published var showMaxi = false
 
     func openCircle(_ circleId: String) {
         selectedTab = .circles
@@ -98,15 +102,16 @@ struct AppUser: Identifiable, Codable {
 // visible — nothing important behind a "More" screen):
 //   Home      — the personalized feed
 //   Swipe     — taste training (feeds personalization)
-//   Maxi      — the AI search bar: ask for anyone, get THE gift. This is
-//               the ONLY place to talk to Maxi (no floating button).
+//   Shop      — the curated shop feed: real products + birthday freebies
 //   Circles   — your people + their dates: circles, events & reminders,
 //               group gifts, pools, swipe challenges
 //   You       — profile, orders, settings
+// Maxi (the AI concierge) is NOT a tab — it's a floating button over every
+// tab (MaxiFloatingButton in ContentView, driven by AppState.showMaxi).
 enum Tab: String, CaseIterable {
     case feed = "Home"
     case swipe = "Swipe"
-    case maxi = "Maxi"
+    case shop = "Shop"
     case circles = "Circles"
     case you = "You"
 
@@ -114,7 +119,7 @@ enum Tab: String, CaseIterable {
         switch self {
         case .feed: return "house.fill"
         case .swipe: return "rectangle.portrait.on.rectangle.portrait.angled.fill"
-        case .maxi: return "sparkle.magnifyingglass"
+        case .shop: return "bag.fill"
         case .circles: return "person.2.fill"
         case .you: return "person.crop.circle"
         }
