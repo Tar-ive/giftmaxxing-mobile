@@ -38,23 +38,30 @@ the `web/app/privacy/page.tsx` guard that CI enforces).
   check.
 
 ### infra/ toolchain (Terraform + AWS)
-- Deploying `infra/` needs the **AWS CLI v2** and **Terraform** (neither ships in the
-  base image). Both are installed into `/usr/local/bin` in the current VM snapshot
-  (aws-cli v2, terraform 1.9.x — provider is `hashicorp/aws ~> 5.60`). They are NOT in
-  the update script (system deps, not codebase deps); if a fresh VM lacks them,
-  reinstall aws-cli v2 and a Terraform `>= 1.6` binary.
-- State is **local** (no remote backend); `terraform init` in `infra/` just downloads
-  providers (no creds needed). Region/env default to `us-east-1` / `dev`.
-- **Auth via AWS SSO** (preferred over static keys): run `aws configure sso` once
-  (supply your SSO start URL + region, pick account `445056752928` + a role that can
-  manage the stack, name the profile e.g. `giftmaxxing`), then `aws sso login
-  --profile giftmaxxing`. This VM is headless, so the CLI prints a verification URL +
-  code to open in a browser on any device. Export `AWS_PROFILE=giftmaxxing` (or pass
-  `--profile`) for `aws`/`terraform`. SSO sessions are short-lived — re-run `aws sso
-  login` when `aws sts get-caller-identity` starts failing.
-- Standard Terraform workflow lives in `infra/README.md` (`terraform plan` /
-  `terraform apply`, then `terraform output`). `infra/ingest` scripts expect creds
-  loaded via `set -a; source ../../.env; set +a` OR an active `AWS_PROFILE`.
+- **Full portable runbook: `infra/DEPLOY-ANYWHERE.md`** (toolchain install, SSO auth,
+  state handling + S3-backend migration, plan/apply). Read it before touching `infra/`.
+- Deploying `infra/` needs the **AWS CLI v2** and **Terraform `>= 1.15.6`** (neither
+  ships in the base image). Both are installed into `/usr/local/bin` in the current VM
+  snapshot. **Terraform version matters:** the deployed state was written by 1.15.6, so
+  older Terraform will refuse to read it (`versions.tf` only pins `>= 1.6`, but the
+  state forces `>= 1.15.6`). AWS provider is `hashicorp/aws ~> 5.60`. These are system
+  deps, NOT in the update script; reinstall per `DEPLOY-ANYWHERE.md` if a VM lacks them.
+- **State is local + gitignored** (`infra/terraform.tfstate`, no remote backend yet), so
+  a fresh checkout has NO state and would try to re-create the ~98 live resources.
+  Before any apply, restore the real `terraform.tfstate` (+ `terraform.tfstate.backup`)
+  and the gitignored `terraform.tfvars` into `infra/`, then confirm `terraform plan`
+  shows **0 to add / 0 to destroy** (a few in-place Lambda `source_code_hash` updates
+  are expected drift). Consider migrating state to S3 (see the runbook) to end the
+  copy-the-tfstate dance.
+- **Auth via AWS SSO** (preferred over static keys): `aws configure sso` once (account
+  `445056752928`, admin-capable role, e.g. profile `giftmaxxing_dev_cursor_cloud`), then
+  `aws sso login --profile <name>`; headless VMs print a device-code URL. Export
+  `AWS_PROFILE` + `AWS_REGION=us-east-1`. SSO sessions expire — re-run `aws sso login`
+  when `aws sts get-caller-identity` fails.
+- Before `apply`, run `npm --prefix infra/src ci` so the Lambda bundle includes
+  `@aws-sdk/client-s3vectors` (not in the nodejs20.x runtime). Resource/route reference
+  + cost runbook: `infra/README.md`. `infra/ingest` scripts need creds via
+  `set -a; source ../../.env; set +a` OR an active `AWS_PROFILE`.
 
 ### Onboarding gate
 - The feed is gated behind onboarding (`web/components/app/onboarding-gate.tsx`): a
