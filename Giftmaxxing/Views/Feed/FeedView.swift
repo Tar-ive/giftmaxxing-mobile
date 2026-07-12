@@ -10,18 +10,13 @@ struct FeedView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedPost: Post?
     @State private var pledgingPost: Post?
+    @State private var viewingPool: Pool?
     @ObservedObject private var swipeList = SwipeListStore.shared
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Keep the horizontal tray outside the lazy feed scroll. This
-                // gives its NavigationLinks a reliable hit-testing surface.
-                GiftingTray()
-                    .padding(.bottom, 6)
-
-                ScrollView {
-                    LazyVStack(spacing: 1) {
+            ScrollView {
+                LazyVStack(spacing: 1) {
                     // Compact custom header (system toolbar stays hidden on
                     // Home) — ONE slim row: logo, shop, messages. Search moved
                     // into the Maxi tab (the AI search bar IS the search);
@@ -49,20 +44,10 @@ struct FeedView: View {
                     .padding(.top, 6)
                     .padding(.bottom, 8)
 
-                    if !viewModel.posts.isEmpty {
-                        CompactPledgeRail(
-                            posts: Array(viewModel.posts.prefix(8)),
-                            onPledge: { post in
-                                pledgingPost = post
-                                AnalyticsEngine.shared.trackContentAction(
-                                    .contentLike,
-                                    postId: post.id
-                                )
-                            },
-                            onProductTap: { post in
-                                selectedPost = post
-                            }
-                        )
+                    // Group-gift pledge cards (Amazon-style horizontal swipe).
+                    // Replaces the old circular avatar tray at the top of Home.
+                    CompactPledgeRail { pool in
+                        viewingPool = pool
                     }
 
                     if viewModel.isLoading && viewModel.posts.isEmpty {
@@ -139,7 +124,6 @@ struct FeedView: View {
                                 }
                         }
                     }
-                    }
                 }
                 .background(Color.surface)
                 .refreshable {
@@ -180,6 +164,9 @@ struct FeedView: View {
                 product: post.product
             )
             .environmentObject(appState)
+        }
+        .sheet(item: $viewingPool) { pool in
+            PoolDetailView(poolId: pool.id)
         }
         .task {
             // appState.currentUser is never populated — AuthManager owns identity.
