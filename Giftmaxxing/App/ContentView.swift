@@ -57,13 +57,14 @@ struct ContentView: View {
             }
             .tint(Color.coral)
 
-            // Maxi, the AI concierge, floats over every tab as an Amazon
-            // Rufus-style button (it's no longer a tab). Bottom-trailing,
-            // just above the tab bar — tap opens the Maxi chat as a sheet.
-            MaxiFloatingButton { appState.showMaxi = true }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                .padding(.trailing, 18)
-                .padding(.bottom, 66)
+            // Maxi is useful as a home-level concierge, not as an overlay on
+            // focused flows such as chat, challenge creation, and taste edits.
+            if appState.showsMaxiFAB {
+                MaxiFloatingButton { appState.showMaxi = true }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(.trailing, 18)
+                    .padding(.bottom, 66)
+            }
 
             if !offlineQueue.isOnline {
                 VStack {

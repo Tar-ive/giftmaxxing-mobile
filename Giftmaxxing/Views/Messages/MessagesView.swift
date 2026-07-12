@@ -73,6 +73,16 @@ final class MessagesStore: ObservableObject {
         }
     }
 
+    /// Demo group conversations are useful only before sign-in. They must never
+    /// masquerade as a real member's conversations after an account is active.
+    func reconcileAuthenticatedUser(_ userId: String?) {
+        guard userId != nil else { return }
+        let demoIds = Set(Self.seeds.map(\.id))
+        let before = chats.count
+        chats.removeAll { demoIds.contains($0.id) }
+        if chats.count != before { persist() }
+    }
+
     func send(_ text: String, to chatId: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty,
@@ -283,7 +293,12 @@ struct MessagesView: View {
             }
         }
         .task {
+            store.reconcileAuthenticatedUser(authManager.userId)
             await friendsStore.refresh(userId: authManager.userId)
+        }
+        .onChange(of: authManager.userId) { _, userId in
+            store.reconcileAuthenticatedUser(userId)
+            Task { await friendsStore.refresh(userId: userId) }
         }
         .onAppear {
             AnalyticsEngine.shared.trackScreenView(screen: "messages")
