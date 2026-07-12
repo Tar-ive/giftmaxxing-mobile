@@ -206,10 +206,98 @@ actor APIClient {
         try await get("/circles/\(circleId)")
     }
 
-    func joinCircle(circleId: String, name: String, birthday: String?) async throws -> CircleJoinResponse {
+    func joinCircle(circleId: String, name: String, birthday: String?, userId: String? = nil) async throws -> CircleJoinResponse {
         var body: [String: Any] = ["name": name]
         if let birthday, !birthday.isEmpty { body["birthday"] = birthday }
+        if let userId, !userId.isEmpty { body["userId"] = userId }
         return try await post("/circles/\(circleId)/join", body: body)
+    }
+
+    /// Link a signed-in account to a circle seat so other members can friend / message / gift you.
+    @discardableResult
+    func claimCircleSeat(circleId: String, userId: String, memberName: String) async throws -> CircleClaimResponse {
+        try await post(
+            "/circles/\(circleId)/claim",
+            body: ["userId": userId, "memberName": memberName]
+        )
+    }
+
+    // MARK: - Friends / people discovery / DMs
+
+    func searchPeople(query: String = "", limit: Int = 24) async throws -> [PublicPerson] {
+        var params: [String: String] = ["limit": String(limit)]
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { params["q"] = trimmed }
+        let response: PeopleSearchResponse = try await get("/people", params: params)
+        return response.items ?? []
+    }
+
+    func fetchPerson(userId: String) async throws -> PublicPerson? {
+        let response: PersonResponse = try await get("/people/\(userId)")
+        return response.item
+    }
+
+    func listFriends(userId: String, status: String? = nil) async throws -> [Friendship] {
+        var params: [String: String] = ["userId": userId]
+        if let status { params["status"] = status }
+        let response: FriendsListResponse = try await get("/friends", params: params)
+        return response.items ?? []
+    }
+
+    func friendshipStatus(userId: String, otherId: String) async throws -> FriendshipStatusResponse {
+        try await get("/friends/status", params: ["userId": userId, "otherId": otherId])
+    }
+
+    @discardableResult
+    func requestFriend(fromUserId: String, toUserId: String, circleId: String? = nil) async throws -> FriendActionResponse {
+        var body: [String: Any] = ["fromUserId": fromUserId, "toUserId": toUserId]
+        if let circleId { body["circleId"] = circleId }
+        return try await post("/friends/request", body: body)
+    }
+
+    @discardableResult
+    func acceptFriend(userId: String, fromUserId: String) async throws -> FriendActionResponse {
+        try await post("/friends/accept", body: ["userId": userId, "fromUserId": fromUserId])
+    }
+
+    @discardableResult
+    func removeFriend(userId: String, friendId: String) async throws -> FriendActionResponse {
+        try await post("/friends/remove", body: ["userId": userId, "fromUserId": friendId, "friendId": friendId])
+    }
+
+    func openDm(userId: String, otherUserId: String) async throws -> String {
+        let response: DmOpenResponse = try await post(
+            "/dms/open",
+            body: ["userId": userId, "otherUserId": otherUserId]
+        )
+        guard let threadId = response.threadId else {
+            throw APIError.invalidResponse
+        }
+        return threadId
+    }
+
+    func listDms(userId: String) async throws -> [DmThread] {
+        let response: DmListResponse = try await get("/dms", params: ["userId": userId])
+        return response.items ?? []
+    }
+
+    func fetchDmMessages(threadId: String) async throws -> [DmMessage] {
+        let encoded = threadId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? threadId
+        let response: DmMessagesResponse = try await get("/dms/\(encoded)/messages")
+        return response.items ?? []
+    }
+
+    @discardableResult
+    func sendDmMessage(threadId: String, userId: String, name: String, text: String) async throws -> DmMessage {
+        let encoded = threadId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? threadId
+        let response: DmSendResponse = try await post(
+            "/dms/\(encoded)/messages",
+            body: ["userId": userId, "name": name, "text": text]
+        )
+        guard let message = response.message else {
+            throw APIError.invalidResponse
+        }
+        return message
     }
 
     @discardableResult

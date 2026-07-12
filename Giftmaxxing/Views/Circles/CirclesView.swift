@@ -54,6 +54,12 @@ struct CirclesView: View {
                         .padding(.top, 4)
 
                     FeatureCard(
+                        icon: "person.2.fill",
+                        title: "Friends",
+                        subtitle: "Discover people on Giftmaxxing, connect in circles, message & gift."
+                    ) { showFriends = true }
+
+                    FeatureCard(
                         icon: "banknote.fill",
                         title: "Gift pools",
                         subtitle: "Chip in on something big — everyone contributes what they can."
