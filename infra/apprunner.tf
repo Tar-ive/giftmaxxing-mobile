@@ -108,6 +108,7 @@ resource "aws_apprunner_service" "api" {
           CONNECTIONS_TABLE  = aws_dynamodb_table.connections.name
           CHALLENGES_TABLE   = aws_dynamodb_table.challenges.name
           POOLS_TABLE        = aws_dynamodb_table.pools.name
+          FRIENDS_TABLE      = aws_dynamodb_table.friends.name
           EVENTS_TABLE       = aws_dynamodb_table.events.name
           GRAPH_TABLE        = aws_dynamodb_table.graph.name
           CONFIG_TABLE       = aws_dynamodb_table.config.name

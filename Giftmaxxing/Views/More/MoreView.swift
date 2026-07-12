@@ -65,11 +65,16 @@ struct MoreView: View {
                     VStack(spacing: 2) {
                         MoreSectionHeader(title: "Your gifting")
 
+                        MoreRow(icon: "person.2.fill", title: "Friends", subtitle: "Discover, connect, message") {
+                            FriendsView()
+                        }
+
+                        MoreRow(icon: "sparkles", title: "Edit taste", subtitle: "Hobbies, vibes, gift style") {
+                            OnboardingView()
+                        }
+
                         MoreRow(icon: "bag.fill", title: "Shop", subtitle: "Curated picks") {
                             ShopView()
-                        }
-                        MoreRow(icon: "sparkles", title: "Maxi AI", subtitle: "Chat with your gift agent") {
-                            MaxiView()
                         }
                     }
 

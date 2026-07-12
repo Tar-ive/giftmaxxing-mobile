@@ -20,6 +20,8 @@ import {
 import { BedrockRuntimeClient, InvokeModelCommand, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { classifyPin } from "./quality.mjs";
 import { analyticsRoutes } from "./analytics-routes.mjs";
+import { birthdayFreebiesRoute } from "./birthday-freebies.mjs";
+import { friendsRoutes } from "./friends-routes.mjs";
 import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
@@ -80,6 +82,7 @@ function isPublicRoute(method, path) {
   if (method === "GET") {
     if (path === "/feed" || path === "/recommendations" || path === "/pins") return true;
     if (path === "/recipients" || path === "/ideas") return true;
+    if (path === "/birthday-freebies") return true;
     if (path === "/vectors") return true;
     if (path.startsWith("/posts/")) return true;
     // Guest deck fetch (the invited friend swipes without an account). The
@@ -89,6 +92,8 @@ function isPublicRoute(method, path) {
     // Circle page (family/friend group) — the share link IS the membership
     // credential, same trust model as invite/challenge links.
     if (/^\/circles\/[^/]+$/.test(path)) return true;
+    // Public people directory — discover other Giftmaxxing users by name/handle.
+    if (path === "/people" || /^\/people\/[^/]+$/.test(path)) return true;
   }
   // Behavioral analytics ingestion — events arrive before sign-in completes
   // (and from guests), keyed by userId/anonymousId inside the payload.
@@ -102,6 +107,7 @@ function isPublicRoute(method, path) {
   if (method === "POST" && (path === "/challenges" || /^\/challenges\/[^/]+\/response$/.test(path))) return true;
   // Circle create/join/events: anonymous family members add their birthday
   // via the shared link — no account, exactly like guest challenge responses.
+  // `/claim` requires auth (links a signed-in account to a circle seat).
   if (method === "POST" && (path === "/circles" || /^\/circles\/[^/]+\/(join|events|events\/delete)$/.test(path))) return true;
   return false;
 }
@@ -2165,6 +2171,12 @@ export const handler = async (event) => {
       return await analyticsRoutes(method, path, body);
     }
 
+    // Friends / people discovery / 1:1 DMs / circle account claim.
+    {
+      const friendsRes = await friendsRoutes(method, path, body, qs, auth);
+      if (friendsRes) return friendsRes;
+    }
+
     // POST /auth/session — provider ID token (bearer) → 30-day session JWT
     // with the canonical (email-merged) user id. See the sessions block above.
     if (method === "POST" && path === "/auth/session") {
@@ -2194,6 +2206,12 @@ export const handler = async (event) => {
       }
       const token = await signSessionJwt(userId, identity.email, name);
       return json(200, { token, userId, email: identity.email, expiresIn: SESSION_TTL_SECONDS });
+    }
+
+    // GET /birthday-freebies?category= — curated "free on your birthday" perks
+    // (Sephora/Starbucks/Denny's...). Static in-code dataset, cacheable hard.
+    if (method === "GET" && path === "/birthday-freebies") {
+      return json(200, birthdayFreebiesRoute(qs), { "cache-control": "public, max-age=86400" });
     }
 
     // GET /feed?limit=&author=&cursor=&vibes=&recipient=&occasion=&category=
@@ -3615,6 +3633,11 @@ export const handler = async (event) => {
           birthday: r.birthday ?? null,
           role: r.role ?? "member",
           joinedAt: r.joinedAt ?? 0,
+          // Present when this seat is claimed by a signed-in Giftmaxxing account
+          // — other members can friend / message / gift them in-app.
+          linkedUserId: r.linkedUserId ?? null,
+          linkedHandle: r.linkedHandle ?? null,
+          linkedName: r.linkedName ?? null,
         }))
         .sort((a, b) => a.joinedAt - b.joinedAt);
       const events = rows
@@ -3663,7 +3686,17 @@ export const handler = async (event) => {
         (r) => String(r.name ?? "").toLowerCase() === name.toLowerCase()
       );
       const item = existing
-        ? { ...existing, birthday: birthday ?? existing.birthday ?? null }
+        ? {
+            ...existing,
+            birthday: birthday ?? existing.birthday ?? null,
+            // Optional: link a signed-in account when rejoining / updating.
+            ...(body.userId
+              ? {
+                  linkedUserId: String(body.userId).slice(0, 128),
+                  linkedAt: Date.now(),
+                }
+              : {}),
+          }
         : {
             userId: pk,
             eventId: `MEMBER#${gid()}`,
@@ -3672,9 +3705,19 @@ export const handler = async (event) => {
             birthday,
             role: "member",
             joinedAt: Date.now(),
+            ...(body.userId
+              ? {
+                  linkedUserId: String(body.userId).slice(0, 128),
+                  linkedAt: Date.now(),
+                }
+              : {}),
           };
       await ddb.send(new PutCommand({ TableName: EVENTS, Item: item }));
-      return json(200, { ok: true, memberId: item.eventId.slice(7) });
+      return json(200, {
+        ok: true,
+        memberId: item.eventId.slice(7),
+        linkedUserId: item.linkedUserId ?? null,
+      });
     }
 
     // POST /circles/{id}/events  { title, date, type?, forName?, addedBy? }

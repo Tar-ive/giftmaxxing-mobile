@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { USERS } from "@/lib/social";
 import { PINS, type Pin } from "@/lib/pins";
-import { isApiConfigured } from "@/lib/api";
+import { isApiConfigured, getMyUserId } from "@/lib/api";
 import { visualSearch } from "@/lib/visual-search";
 import { enrichBrand } from "@/lib/brand-enrichment";
 import { Avatar, Icons } from "@/components/ui";
@@ -17,6 +17,13 @@ import {
   CardGrid,
   EmptyNote,
 } from "@/components/app/explore-search";
+import {
+  FRIENDS_EVENT,
+  getFriendshipStatus,
+  requestFriend,
+  searchPeople,
+  type PublicPerson,
+} from "@/lib/friends";
 
 type SearchTab = "people" | "products" | "brands" | "visual";
 
@@ -28,7 +35,13 @@ export default function SearchPage() {
   const [vError, setVError] = useState<string | null>(null);
   const [queryImage, setQueryImage] = useState<string | null>(null);
   const [selectedPin, setSelectedPin] = useState<Pin | null>(null);
+  const [people, setPeople] = useState<PublicPerson[]>([]);
+  const [friendStatus, setFriendStatus] = useState<
+    Record<string, "none" | "pending" | "accepted">
+  >({});
+  const [busyId, setBusyId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const myId = getMyUserId() ?? "you";
 
   const selectItem = (card: SearchCard) => setSelectedPin(cardToPin(card));
 
@@ -37,16 +50,48 @@ export default function SearchPage() {
     return () => URL.revokeObjectURL(queryImage);
   }, [queryImage]);
 
-  const users = useMemo(
-    () =>
-      Object.values(USERS).filter(
-        (u) =>
-          u.id !== "you" &&
-          (u.name.toLowerCase().includes(q.toLowerCase()) ||
-            u.handle.toLowerCase().includes(q.toLowerCase()))
-      ),
-    [q]
-  );
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const items = await searchPeople(q, 30);
+      if (cancelled) return;
+      setPeople(items.filter((p) => p.userId !== myId));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [q, myId]);
+
+  useEffect(() => {
+    if (tab !== "people" || !people.length) return;
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        people.map(async (p) => {
+          const s = await getFriendshipStatus(myId, p.userId);
+          return [p.userId, s.status] as const;
+        })
+      );
+      if (cancelled) return;
+      setFriendStatus(Object.fromEntries(entries));
+    })();
+    const on = () => {
+      void (async () => {
+        const entries = await Promise.all(
+          people.map(async (p) => {
+            const s = await getFriendshipStatus(myId, p.userId);
+            return [p.userId, s.status] as const;
+          })
+        );
+        setFriendStatus(Object.fromEntries(entries));
+      })();
+    };
+    window.addEventListener(FRIENDS_EVENT, on);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(FRIENDS_EVENT, on);
+    };
+  }, [people, myId, tab]);
 
   const products = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -107,9 +152,6 @@ export default function SearchPage() {
     if (file) void runVisualSearch(file);
   }
 
-  // Paste an image anywhere on the page (⌘V / long-press → Paste) — the
-  // closest thing the web has to the iOS share extension: screenshot a post
-  // on Instagram/Pinterest, copy it, paste it here.
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
       const file = Array.from(e.clipboardData?.files ?? []).find((f) =>
@@ -133,6 +175,19 @@ export default function SearchPage() {
     if (file) void runVisualSearch(file);
   }
 
+  async function addFriend(p: PublicPerson) {
+    setBusyId(p.userId);
+    await requestFriend({
+      fromUserId: myId,
+      toUserId: p.userId,
+      toName: p.name,
+      toHandle: p.handle,
+    });
+    const s = await getFriendshipStatus(myId, p.userId);
+    setFriendStatus((prev) => ({ ...prev, [p.userId]: s.status }));
+    setBusyId(null);
+  }
+
   const TABS: { key: SearchTab; label: string }[] = [
     { key: "people", label: "People" },
     { key: "brands", label: "Brands" },
@@ -150,7 +205,6 @@ export default function SearchPage() {
       onDragLeave={() => setDragOver(false)}
       onDrop={onDrop}
     >
-      {/* Search bar */}
       <div className="mb-4 flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5">
         <Icons.search size={18} className="shrink-0 text-ink-faint" />
         <input
@@ -162,7 +216,10 @@ export default function SearchPage() {
         />
         {(q || queryImage) && (
           <button
-            onClick={() => { setQ(""); clearVisual(); }}
+            onClick={() => {
+              setQ("");
+              clearVisual();
+            }}
             aria-label="Clear search"
             className="shrink-0 text-ink-faint transition-colors hover:text-ink"
           >
@@ -182,16 +239,13 @@ export default function SearchPage() {
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
       </div>
 
-      {/* Tabs */}
       <div className="mb-5 flex gap-1 rounded-xl border border-line bg-cream p-1">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
-              tab === t.key
-                ? "bg-surface text-ink shadow-sm"
-                : "text-ink-soft hover:text-ink"
+              tab === t.key ? "bg-surface text-ink shadow-sm" : "text-ink-soft hover:text-ink"
             }`}
           >
             {t.label}
@@ -199,38 +253,72 @@ export default function SearchPage() {
         ))}
       </div>
 
-      {/* Tab content */}
       {tab === "people" && (
         <div className="space-y-1">
-          <p className="mb-2 px-1 text-sm font-bold text-ink-soft">
-            {q ? "Results" : "Suggested"}
-          </p>
-          {users.map((u) => (
-            <Link
-              key={u.id}
-              href={`/feed/${u.id}`}
-              className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-ink/5"
-            >
-              <Avatar grad={u.grad} label={u.name} size={44} />
-              <div>
-                <p className="text-sm font-bold text-ink">{u.handle}</p>
-                <p className="text-xs text-ink-faint">{u.name}</p>
-              </div>
+          <div className="mb-2 flex items-center justify-between px-1">
+            <p className="text-sm font-bold text-ink-soft">{q ? "Results" : "Discover people"}</p>
+            <Link href="/feed/friends" className="text-xs font-bold text-coral hover:underline">
+              Friends hub →
             </Link>
-          ))}
-          {users.length === 0 && <EmptyNote>No people found.</EmptyNote>}
+          </div>
+          {people.map((u) => {
+            const st = friendStatus[u.userId] ?? "none";
+            const grad = USERS[u.userId]?.grad ?? "coral";
+            return (
+              <div
+                key={u.userId}
+                className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-ink/5"
+              >
+                <Link href={`/feed/${u.userId}`} className="flex min-w-0 flex-1 items-center gap-3">
+                  <Avatar grad={grad} label={u.name} size={44} />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-ink">@{u.handle}</p>
+                    <p className="truncate text-xs text-ink-faint">{u.name}</p>
+                    {u.interests && u.interests.length > 0 && (
+                      <p className="truncate text-[11px] text-ink-soft">
+                        {u.interests.slice(0, 3).join(" · ")}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+                {st === "accepted" ? (
+                  <Link
+                    href="/feed/messages"
+                    className="shrink-0 rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-cream"
+                  >
+                    Message
+                  </Link>
+                ) : st === "pending" ? (
+                  <span className="shrink-0 text-xs font-semibold text-ink-faint">Requested</span>
+                ) : (
+                  <button
+                    disabled={busyId === u.userId}
+                    onClick={() => void addFriend(u)}
+                    className="shrink-0 rounded-full bg-coral px-3 py-1.5 text-xs font-bold text-white"
+                  >
+                    Add friend
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          {people.length === 0 && <EmptyNote>No people found.</EmptyNote>}
         </div>
       )}
 
       {tab === "products" && (
         <section>
           <p className="mb-3 px-1 text-sm font-bold text-ink-soft">
-            {q ? `${products.length} result${products.length === 1 ? "" : "s"} for "${q.trim()}"` : "Trending products"}
+            {q
+              ? `${products.length} result${products.length === 1 ? "" : "s"} for "${q.trim()}"`
+              : "Trending products"}
           </p>
           {products.length > 0 ? (
             <CardGrid cards={products} onSelect={selectItem} />
           ) : (
-            <EmptyNote>No products match &ldquo;{q.trim()}&rdquo;. Try a brand, category, or vibe.</EmptyNote>
+            <EmptyNote>
+              No products match &ldquo;{q.trim()}&rdquo;. Try a brand, category, or vibe.
+            </EmptyNote>
           )}
         </section>
       )}
@@ -269,7 +357,9 @@ export default function SearchPage() {
                 <div className="min-w-0 flex-1">
                   <p className="font-display text-lg font-bold text-ink">Visually similar</p>
                   <p className="truncate text-sm text-ink-soft">
-                    {vLoading ? "Searching the catalog…" : "Image → Titan embedding → S3 Vectors kNN"}
+                    {vLoading
+                      ? "Searching the catalog…"
+                      : "Image → Titan embedding → S3 Vectors kNN"}
                   </p>
                 </div>
                 <button
@@ -302,9 +392,9 @@ export default function SearchPage() {
               <div>
                 <p className="font-display text-lg font-bold text-ink">Search by image</p>
                 <p className="mt-1 text-sm text-ink-soft">
-                  Saw it on Instagram or Pinterest? Screenshot it, then upload,
-                  paste (⌘V), or drop the photo here — we&rsquo;ll find visually
-                  similar gifts you can actually buy.
+                  Saw it on Instagram or Pinterest? Screenshot it, then upload, paste (⌘V), or
+                  drop the photo here — we&rsquo;ll find visually similar gifts you can actually
+                  buy.
                 </p>
               </div>
               <button

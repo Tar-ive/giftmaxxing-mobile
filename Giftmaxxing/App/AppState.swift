@@ -7,9 +7,6 @@ final class AppState: ObservableObject {
     @Published var currentUser: AppUser?
     @Published var cartItems: [CartItem] = []
 
-    // Maxi is the app's core agent — reachable from anywhere via the floating
-    // button (Amazon Rufus-style) and the home top bar.
-    @Published var showMaxi = false
 
     // Search is a modal layer over any tab (HIG: search is a mode, not a
     // destination — it kept a tab slot from features that matter more).
@@ -33,6 +30,14 @@ final class AppState: ObservableObject {
     // web URL) — CirclesView picks this up and pushes the circle page, where
     // the inline join card handles new arrivals (web parity).
     @Published var pendingCircleId: String?
+
+    // Birthday-freebies notification tap — ContentView presents the perks
+    // sheet at root (works from any tab).
+    @Published var showBirthdayPerks = false
+
+    // Maxi (the AI concierge) is a floating button over every tab — not a tab
+    // of its own. ContentView presents MaxiView as a sheet when this is set.
+    @Published var showMaxi = false
 
     func openCircle(_ circleId: String) {
         selectedTab = .circles
@@ -97,14 +102,16 @@ struct AppUser: Identifiable, Codable {
 // visible — nothing important behind a "More" screen):
 //   Home      — the personalized feed
 //   Swipe     — taste training (feeds personalization)
-//   Concierge — the signature act: tell Maxi about a person, get THE gift
+//   Shop      — the curated shop feed: real products + birthday freebies
 //   Circles   — your people + their dates: circles, events & reminders,
 //               group gifts, pools, swipe challenges
 //   You       — profile, orders, settings
+// Maxi (the AI concierge) is NOT a tab — it's a floating button over every
+// tab (MaxiFloatingButton in ContentView, driven by AppState.showMaxi).
 enum Tab: String, CaseIterable {
     case feed = "Home"
     case swipe = "Swipe"
-    case concierge = "Concierge"
+    case shop = "Shop"
     case circles = "Circles"
     case you = "You"
 
@@ -112,7 +119,7 @@ enum Tab: String, CaseIterable {
         switch self {
         case .feed: return "house.fill"
         case .swipe: return "rectangle.portrait.on.rectangle.portrait.angled.fill"
-        case .concierge: return "wand.and.stars"
+        case .shop: return "bag.fill"
         case .circles: return "person.2.fill"
         case .you: return "person.crop.circle"
         }

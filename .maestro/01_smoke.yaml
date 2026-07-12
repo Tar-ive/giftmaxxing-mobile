@@ -33,8 +33,14 @@ tags:
     visible: "Swipe"
     timeout: 15000
 - tapOn: "Swipe"
-- tapOn: "Concierge"
+- tapOn: "Shop"
 - tapOn: "Circles"
 - assertVisible: "Your people, their moments"
 - tapOn: "You"
 - tapOn: "Home"
+
+# Maxi (the AI concierge) is now a floating button over every tab. Tapping
+# the FAB opens the chat sheet (its nav title is an exact "Ask Maxi").
+- tapOn: "Ask Maxi"
+- assertVisible: "Ask Maxi"
+- tapOn: "Close"

@@ -30,9 +30,18 @@ tags:
 - tapOn: "Circles"
 - assertVisible: "Your people, their moments"
 
-# Garbage in → friendly error, not a crash.
+# Garbage in → friendly error, not a crash. (Scroll first — the calendar
+# section can push this row below the fold, and Maestro taps at off-screen
+# coordinates land on the tab bar.)
+- scrollUntilVisible:
+    element:
+      text: "Got a circle link? Open it here"
+    direction: DOWN
+    centerElement: true
 - tapOn: "Got a circle link? Open it here"
-- assertVisible: "Open a circle"
+- extendedWaitUntil:
+    visible: "Open a circle"
+    timeout: 5000
 - tapOn: "https://…/circle/cir_…"
 - inputText: "definitely not a circle link"
 - tapOn: "Open the circle"
@@ -40,4 +49,9 @@ tags:
 - tapOn: "Cancel"
 
 # Back on the tab, the start-a-circle card is still there.
+- scrollUntilVisible:
+    element:
+      text: "Start a circle"
+    direction: DOWN
+    optional: true
 - assertVisible: "Start a circle"

@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 @main
 struct GiftmaxxingApp: App {
@@ -10,6 +11,12 @@ struct GiftmaxxingApp: App {
     @StateObject private var pushManager = PushManager.shared
 
     let dataController = DataController.shared
+
+    init() {
+        // Route taps on delivered notifications (local reminders + pushes)
+        // through PushManager.handleNotification — see its delegate extension.
+        UNUserNotificationCenter.current().delegate = PushManager.shared
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -39,6 +46,9 @@ struct GiftmaxxingApp: App {
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .navigateToPool)) { _ in
                     appState.selectedTab = .circles
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .navigateToShop)) { _ in
+                    appState.showBirthdayPerks = true
                 }
         }
     }

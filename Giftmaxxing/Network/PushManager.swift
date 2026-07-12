@@ -95,9 +95,40 @@ final class PushManager: NSObject, ObservableObject {
                 name: .navigateToMaxi,
                 object: nil
             )
+        case "birthday_freebies":
+            NotificationCenter.default.post(
+                name: .navigateToShop,
+                object: nil
+            )
         default:
             break
         }
+    }
+}
+
+// Notification-center delegate — without this, taps on delivered notifications
+// (local reminders AND remote pushes) never reached handleNotification at all.
+// GiftmaxxingApp sets `UNUserNotificationCenter.current().delegate` at launch.
+extension PushManager: UNUserNotificationCenterDelegate {
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let userInfo = response.notification.request.content.userInfo
+        Task { @MainActor in
+            self.handleNotification(userInfo: userInfo)
+            completionHandler()
+        }
+    }
+
+    // Keep banners visible while the app is foregrounded (default is silence).
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound])
     }
 }
 
@@ -106,6 +137,8 @@ extension Notification.Name {
     static let navigateToConnection = Notification.Name("navigateToConnection")
     static let navigateToEvent = Notification.Name("navigateToEvent")
     static let navigateToMaxi = Notification.Name("navigateToMaxi")
+    // Birthday-freebies notification tap — ContentView opens the perks sheet.
+    static let navigateToShop = Notification.Name("navigateToShop")
     // The concierge consult saved fresh personalization signals — feeds refetch.
     static let consultProfileUpdated = Notification.Name("consultProfileUpdated")
 }

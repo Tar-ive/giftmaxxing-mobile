@@ -26,6 +26,15 @@ import {
   isApiConfigured,
   type SoftConnection,
 } from "@/lib/api";
+import {
+  acceptFriend,
+  getFriendshipStatus,
+  listFriends,
+  openDm,
+  requestFriend,
+  type Friendship,
+} from "@/lib/friends";
+import Link from "next/link";
 
 const ROLE_META: Record<GiftRole, { label: string; emoji: string }> = {
   giver: { label: "Gift giver", emoji: "🎁" },
@@ -55,6 +64,9 @@ export default function ProfilePage() {
   // social graph and never expose the current user's connections.
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [friends, setFriends] = useState<SoftConnection[]>([]);
+  const [hardFriends, setHardFriends] = useState<Friendship[]>([]);
+  const [friendStatus, setFriendStatus] = useState<"none" | "pending" | "accepted" | "incoming">("none");
+  const [friendBusy, setFriendBusy] = useState(false);
   const [ownerSavedIds, setOwnerSavedIds] = useState<Set<string> | null>(null);
 
   useEffect(() => {
@@ -69,13 +81,34 @@ export default function ProfilePage() {
     if (!uid) return;
     let cancelled = false;
     (async () => {
-      const { items } = await fetchConnections(uid);
-      if (!cancelled) setFriends(items);
+      const [{ items }, hard] = await Promise.all([
+        fetchConnections(uid),
+        listFriends(uid, "accepted"),
+      ]);
+      if (!cancelled) {
+        setFriends(items);
+        setHardFriends(hard);
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, [isMe]);
+
+  useEffect(() => {
+    if (isMe) return;
+    const uid = getMyUserId() ?? "you";
+    let cancelled = false;
+    (async () => {
+      const s = await getFriendshipStatus(uid, userId);
+      if (cancelled) return;
+      if (s.status === "pending" && s.incoming) setFriendStatus("incoming");
+      else setFriendStatus(s.status);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isMe, userId]);
 
   // For non-self profiles: fetch the profile owner's saved item IDs from the API
   // so the Wishlist tab shows their saves (not the viewer's).
@@ -160,14 +193,23 @@ export default function ProfilePage() {
               {isMe ? (
                 <>
                   <button
+                    onClick={() => router.push("/onboarding")}
+                    className="rounded-lg bg-coral px-4 py-1.5 text-sm font-bold text-white"
+                  >
+                    Edit taste
+                  </button>
+                  <button
                     onClick={() => router.push("/feed/settings")}
                     className="rounded-lg bg-ink/5 px-4 py-1.5 text-sm font-bold text-ink"
                   >
-                    Edit profile
+                    Settings
                   </button>
-                  <button className="rounded-lg bg-ink/5 px-4 py-1.5 text-sm font-bold text-ink">
-                    Share profile
-                  </button>
+                  <Link
+                    href="/feed/friends"
+                    className="rounded-lg bg-ink/5 px-4 py-1.5 text-sm font-bold text-ink"
+                  >
+                    Friends
+                  </Link>
                 </>
               ) : (
                 <>
@@ -181,9 +223,73 @@ export default function ProfilePage() {
                   >
                     {isFollowing(u.id) ? "Following" : "Follow"}
                   </button>
-                  <button className="rounded-lg bg-ink/5 px-4 py-1.5 text-sm font-bold text-ink">
-                    Message
-                  </button>
+                  {friendStatus === "accepted" ? (
+                    <button
+                      disabled={friendBusy}
+                      onClick={() => {
+                        void (async () => {
+                          setFriendBusy(true);
+                          const tid = await openDm({
+                            userId: getMyUserId() ?? "you",
+                            otherUserId: u.id,
+                          });
+                          setFriendBusy(false);
+                          if (tid) router.push(`/feed/messages?dm=${encodeURIComponent(tid)}`);
+                        })();
+                      }}
+                      className="rounded-lg bg-ink px-4 py-1.5 text-sm font-bold text-cream"
+                    >
+                      Message
+                    </button>
+                  ) : friendStatus === "incoming" ? (
+                    <button
+                      disabled={friendBusy}
+                      onClick={() => {
+                        void (async () => {
+                          setFriendBusy(true);
+                          await acceptFriend({
+                            userId: getMyUserId() ?? "you",
+                            fromUserId: u.id,
+                          });
+                          setFriendStatus("accepted");
+                          setFriendBusy(false);
+                        })();
+                      }}
+                      className="rounded-lg bg-coral px-4 py-1.5 text-sm font-bold text-white"
+                    >
+                      Accept
+                    </button>
+                  ) : friendStatus === "pending" ? (
+                    <span className="rounded-lg bg-ink/5 px-4 py-1.5 text-sm font-bold text-ink-faint">
+                      Requested
+                    </span>
+                  ) : (
+                    <button
+                      disabled={friendBusy}
+                      onClick={() => {
+                        void (async () => {
+                          setFriendBusy(true);
+                          await requestFriend({
+                            fromUserId: getMyUserId() ?? "you",
+                            toUserId: u.id,
+                            toName: u.name,
+                            toHandle: u.handle,
+                          });
+                          setFriendStatus("pending");
+                          setFriendBusy(false);
+                        })();
+                      }}
+                      className="rounded-lg bg-coral px-4 py-1.5 text-sm font-bold text-white"
+                    >
+                      Add friend
+                    </button>
+                  )}
+                  <Link
+                    href={`/feed?giftFor=${encodeURIComponent(u.id)}`}
+                    className="rounded-lg bg-ink/5 px-4 py-1.5 text-sm font-bold text-ink"
+                  >
+                    Gift
+                  </Link>
                 </>
               )}
             </div>
@@ -192,7 +298,9 @@ export default function ProfilePage() {
           {/* stats — real posts + friends counts (no fake follower numbers) */}
           <div className="mt-5 flex justify-center gap-8 sm:justify-start">
             <Stat n={grid.length} label="posts" />
-            {isMe && <Stat n={friends.length} label="friends" />}
+            {isMe && (
+              <Stat n={hardFriends.length + friends.length} label="friends" />
+            )}
           </div>
 
           {/* name + taste summary */}
@@ -278,7 +386,7 @@ export default function ProfilePage() {
 
       {/* content */}
       {tab === "friends" ? (
-        <FriendsList friends={friends} />
+        <FriendsList soft={friends} hard={hardFriends} />
       ) : tab === "saved" ? (
         savedPosts.length === 0 ? (
           <p className="py-20 text-center text-sm text-ink-faint">
@@ -434,56 +542,110 @@ function VisibilityToggle({
   );
 }
 
-function FriendsList({ friends }: { friends: SoftConnection[] }) {
-  if (friends.length === 0) {
+function FriendsList({
+  soft,
+  hard,
+}: {
+  soft: SoftConnection[];
+  hard: Friendship[];
+}) {
+  if (soft.length === 0 && hard.length === 0) {
     return (
-      <p className="py-20 text-center text-sm text-ink-faint">
-        No friends yet. Share a swipe challenge — when someone finishes it, their
-        taste lands here as a soft profile.
-      </p>
+      <div className="py-16 text-center">
+        <p className="text-sm text-ink-faint">
+          No friends yet. Discover people on Giftmaxxing, connect inside a circle,
+          or share a swipe challenge.
+        </p>
+        <Link
+          href="/feed/friends"
+          className="mt-4 inline-flex rounded-full bg-coral px-5 py-2.5 text-sm font-bold text-white"
+        >
+          Find friends
+        </Link>
+      </div>
     );
   }
   return (
-    <div className="mt-2 divide-y divide-line">
-      {friends.map((f) => {
-        const tags = [...(f.vibes ?? []), ...(f.interests ?? [])].slice(0, 6);
-        return (
-          <div key={f.connectionId} className="flex items-start gap-3 py-4">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-coral-soft text-xl">
-              🎁
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-ink">
-                {f.guestName}
-                {f.guestHandle && (
-                  <span className="ml-1 font-normal text-ink-faint">
-                    @{f.guestHandle}
-                  </span>
-                )}
-              </p>
-              <p className="text-xs text-ink-faint">
-                Taste saved {relativeTime(f.createdAt) || "recently"}
-                {f.birthday ? ` · 🎂 ${f.birthday}` : ""}
-                {typeof f.yesCount === "number" && typeof f.totalSwipes === "number"
-                  ? ` · liked ${f.yesCount}/${f.totalSwipes}`
-                  : ""}
-              </p>
-              {tags.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {tags.map((t, i) => (
-                    <span
-                      key={i}
-                      className="rounded-full bg-ink/5 px-2 py-0.5 text-[11px] font-medium text-ink-soft"
-                    >
-                      {t}
-                    </span>
-                  ))}
+    <div className="mt-2">
+      {hard.length > 0 && (
+        <div className="mb-4">
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-faint">
+            On Giftmaxxing
+          </p>
+          <div className="divide-y divide-line">
+            {hard.map((f) => (
+              <div key={f.friendId} className="flex items-center gap-3 py-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-coral-soft text-sm font-extrabold text-ink">
+                  {(f.name ?? f.friendId).charAt(0).toUpperCase()}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-ink">
+                    {f.name ?? f.friendId}
+                    {f.handle && (
+                      <span className="ml-1 font-normal text-ink-faint">@{f.handle}</span>
+                    )}
+                  </p>
+                  <p className="text-xs text-ink-faint">Friends · message & gift</p>
                 </div>
-              )}
-            </div>
+                <Link
+                  href="/feed/messages"
+                  className="rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-cream"
+                >
+                  Message
+                </Link>
+              </div>
+            ))}
           </div>
-        );
-      })}
+        </div>
+      )}
+      {soft.length > 0 && (
+        <div>
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-faint">
+            Soft profiles (from challenges)
+          </p>
+          <div className="divide-y divide-line">
+            {soft.map((f) => {
+              const tags = [...(f.vibes ?? []), ...(f.interests ?? [])].slice(0, 6);
+              return (
+                <div key={f.connectionId} className="flex items-start gap-3 py-4">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-coral-soft text-xl">
+                    🎁
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-ink">
+                      {f.guestName}
+                      {f.guestHandle && (
+                        <span className="ml-1 font-normal text-ink-faint">
+                          @{f.guestHandle}
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-ink-faint">
+                      Taste saved {relativeTime(f.createdAt) || "recently"}
+                      {f.birthday ? ` · 🎂 ${f.birthday}` : ""}
+                      {typeof f.yesCount === "number" && typeof f.totalSwipes === "number"
+                        ? ` · liked ${f.yesCount}/${f.totalSwipes}`
+                        : ""}
+                    </p>
+                    {tags.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {tags.map((t, i) => (
+                          <span
+                            key={i}
+                            className="rounded-full bg-ink/5 px-2 py-0.5 text-[11px] font-medium text-ink-soft"
+                          >
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

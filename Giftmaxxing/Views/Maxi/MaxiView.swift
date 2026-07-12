@@ -108,6 +108,7 @@ final class MaxiViewModel: ObservableObject {
 struct MaxiView: View {
     @StateObject private var viewModel = MaxiViewModel()
     @StateObject private var speech = SpeechRecognizer()
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
@@ -216,6 +217,16 @@ struct MaxiView: View {
             .background(Color.surface)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Color.ink)
+                    }
+                    .accessibilityLabel("Close")
+                }
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: 6) {
                         MaxiIcon(size: 24)

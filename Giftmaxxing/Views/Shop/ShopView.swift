@@ -108,6 +108,11 @@ struct ShopView: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
 
+                    // Birthday freebies — free stuff brands give out every
+                    // birthday (Sephora/Starbucks/Denny's...), see
+                    // BirthdayPerksSection.swift.
+                    BirthdayPerksSection()
+
                     // Product grid
                     LazyVGrid(columns: columns, spacing: 12) {
                         ForEach(viewModel.filteredItems) { item in
