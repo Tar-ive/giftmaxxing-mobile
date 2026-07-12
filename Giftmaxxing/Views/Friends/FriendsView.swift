@@ -536,7 +536,7 @@ struct FriendDmThreadView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                 if let sharedURL {
                     Link(destination: sharedURL) {
-                        Label("Open gift challenge", systemImage: "gift.fill")
+                        Label("Open shared invite", systemImage: "arrow.up.right.square")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundStyle(Color.coral)
                             .padding(.horizontal, 12)
