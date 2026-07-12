@@ -52,10 +52,10 @@ function threadIdFor(a, b) {
   return `DM#${x}__${y}`;
 }
 
-function publicCard(item) {
+function publicCard(item, allowPrivate = false) {
   if (!item || !item.userId) return null;
   const visibility = item.visibility ?? "public";
-  if (visibility === "private") return null;
+  if (visibility === "private" && !allowPrivate) return null;
   const name = String(item.name ?? item.identity?.name ?? "").trim() || "Someone";
   const handle =
     String(item.handle ?? "")
@@ -80,7 +80,7 @@ function publicCard(item) {
       : [],
     style: item.style ?? null,
     role: item.role ?? null,
-    visibility: "public",
+    visibility,
   };
 }
 
@@ -147,8 +147,17 @@ async function searchPeople(qs) {
   return json(200, { items });
 }
 
-async function getPerson(userId) {
-  const card = await loadUserCard(userId);
+async function getPerson(userId, viewerId) {
+  if (!USERS || !userId) return json(404, { error: "not found" });
+  const out = await ddb.send(new GetCommand({ TableName: USERS, Key: { userId } }));
+  const profile = out.Item;
+  let card = publicCard(profile);
+  if (!card && profile?.visibility === "private" && viewerId) {
+    const friendship = await getFriendship(viewerId, userId);
+    if (friendship?.status === "accepted") {
+      card = publicCard(profile, true);
+    }
+  }
   if (!card) return json(404, { error: "not found or private" });
   return json(200, { item: card });
 }
@@ -566,7 +575,7 @@ export async function friendsRoutes(method, path, body, qs = {}, auth = null) {
   if (method === "GET" && path === "/people") return searchPeople(qs);
   // GET /people/{userId}
   if (method === "GET" && /^\/people\/[^/]+$/.test(path)) {
-    return getPerson(decodeURIComponent(path.split("/")[2]));
+    return getPerson(decodeURIComponent(path.split("/")[2]), auth?.sub ?? null);
   }
 
   // Friendships

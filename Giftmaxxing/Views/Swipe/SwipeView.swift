@@ -281,22 +281,18 @@ struct SwipeView: View {
                 .padding(.top, 6)
 
                 if context == .someone {
-                    // The single-recipient toolkit: learn their taste via a
-                    // challenge, or hand-pick a deck from your saved list.
-                    if !swipeList.posts.isEmpty {
-                        sendListCard
-                    }
-
+                    // One sharing path: the challenge can be externally shared
+                    // and can be seeded from saved finds inside its own flow.
                     NavigationLink(destination: ChallengeView()) {
                         HStack(spacing: 12) {
-                            Image(systemName: "person.crop.circle.badge.questionmark")
+                            Image(systemName: "gift.fill")
                                 .font(.system(size: 24))
                                 .foregroundStyle(Color.coral)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Find their taste — send a swipe challenge")
+                                Text("Share a gift challenge")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundStyle(Color.ink)
-                                Text("They swipe in their browser; their gift taste lands here.")
+                                Text("They swipe in their browser; their taste lands here.")
                                     .font(.system(size: 12))
                                     .foregroundStyle(.secondary)
                             }
@@ -326,31 +322,7 @@ struct SwipeView: View {
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    if context == .someone {
-                        // Send the curated deck — the whole point of the list.
-                        if let url = listInviteURL, listLinkKey == currentListKey {
-                            ShareLink(item: url, message: Text(InviteLink.shareText)) {
-                                Image(systemName: "paperplane.fill")
-                                    .font(.system(size: 16))
-                                    .foregroundStyle(Color.coral)
-                            }
-                        } else {
-                            Button {
-                                Task { await buildListInviteLink() }
-                            } label: {
-                                Image(systemName: "paperplane.fill")
-                                    .font(.system(size: 16))
-                                    .foregroundStyle(swipeList.posts.isEmpty ? Color.secondary : Color.coral)
-                            }
-                            .disabled(swipeList.posts.isEmpty || buildingListLink)
-                        }
-                    } else if context == .me {
-                        NavigationLink(destination: ChallengeView()) {
-                            Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 16))
-                                .foregroundStyle(Color.coral)
-                        }
-                    }
+                    EmptyView()
                 }
             }
         }
@@ -375,6 +347,8 @@ struct SwipeView: View {
                 await viewModel.loadCards()
             }
         }
+        .onAppear { appState.suppressMaxiFAB() }
+        .onDisappear { appState.unsuppressMaxiFAB() }
     }
 
     // The "how do I GIVE this list?" answer, rendered right above the deck:

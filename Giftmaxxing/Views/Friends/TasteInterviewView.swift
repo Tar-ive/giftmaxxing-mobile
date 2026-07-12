@@ -207,7 +207,15 @@ struct TasteInterviewView: View {
     }
 
     private func chipGrid(options: [String], selected: Binding<Set<String>>) -> some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 8)], spacing: 8) {
+        // Fixed columns keep labels from producing ragged rows or tiny,
+        // uneven capsules on narrow phones.
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(minimum: 0), spacing: 10),
+                GridItem(.flexible(minimum: 0), spacing: 10),
+            ],
+            spacing: 10
+        ) {
             ForEach(options, id: \.self) { opt in
                 let on = selected.wrappedValue.contains(opt)
                 Button {
@@ -218,10 +226,11 @@ struct TasteInterviewView: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(on ? Color.white : Color.ink)
                         .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 10)
                         .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44)
                         .background(on ? Color.coral : Color.white)
-                        .clipShape(Capsule())
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
             }

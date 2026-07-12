@@ -14,8 +14,14 @@ struct FeedView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                LazyVStack(spacing: 1) {
+            VStack(spacing: 0) {
+                // Keep the horizontal tray outside the lazy feed scroll. This
+                // gives its NavigationLinks a reliable hit-testing surface.
+                GiftingTray()
+                    .padding(.bottom, 6)
+
+                ScrollView {
+                    LazyVStack(spacing: 1) {
                     // Compact custom header (system toolbar stays hidden on
                     // Home) — ONE slim row: logo, shop, messages. Search moved
                     // into the Maxi tab (the AI search bar IS the search);
@@ -42,11 +48,6 @@ struct FeedView: View {
                     .padding(.horizontal, 14)
                     .padding(.top, 6)
                     .padding(.bottom, 8)
-
-                    // Gifting tray — group gifts in flight + pools as stories-
-                    // style bubbles (moved here from the Circles tab).
-                    GiftingTray()
-                        .padding(.bottom, 6)
 
                     if viewModel.isLoading && viewModel.posts.isEmpty {
                         ForEach(0..<3, id: \.self) { _ in
@@ -122,26 +123,27 @@ struct FeedView: View {
                                 }
                         }
                     }
-                }
-            }
-            .background(Color.surface)
-            .refreshable {
-                await viewModel.loadFeed(context: modelContext)
-            }
-            .toolbar(.hidden, for: .navigationBar)
-            .overlay(alignment: .top) {
-                if syncEngine.isSyncing {
-                    HStack(spacing: 4) {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                        Text("Syncing...")
-                            .font(.caption2)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Capsule())
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                .background(Color.surface)
+                .refreshable {
+                    await viewModel.loadFeed(context: modelContext)
+                }
+                .toolbar(.hidden, for: .navigationBar)
+                .overlay(alignment: .top) {
+                    if syncEngine.isSyncing {
+                        HStack(spacing: 4) {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                            Text("Syncing...")
+                                .font(.caption2)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                 }
             }
         }

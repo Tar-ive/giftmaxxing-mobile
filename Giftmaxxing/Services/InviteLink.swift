@@ -22,6 +22,15 @@ struct InvitePayload: Codable {
     // /challenges/{id}/response — deck + verdict fully server-side. Absent →
     // the legacy local-deck flow (old links keep working).
     var challengeId: String?
+    var pool: PoolInviteSnapshot?
+}
+
+struct PoolInviteSnapshot: Codable {
+    var id: String
+    var title: String
+    var occasion: String
+    var goal: Double
+    var image: String?
 }
 
 enum InviteLink {
@@ -55,6 +64,20 @@ enum InviteLink {
         if let occasion, !occasion.isEmpty { payload.occasion = occasion }
         if let date, !date.isEmpty { payload.date = date }
         if let challengeId, !challengeId.isEmpty { payload.challengeId = challengeId }
+        guard let code = encode(payload) else { return nil }
+        return URL(string: "\(siteURL)/invite/\(code)")
+    }
+
+    static func buildPoolURL(inviterName: String, pool: Pool) -> URL? {
+        var payload = InvitePayload(name: inviterName.trimmingCharacters(in: .whitespaces))
+        if payload.name.isEmpty { payload.name = "A friend" }
+        payload.pool = PoolInviteSnapshot(
+            id: pool.id,
+            title: pool.title,
+            occasion: pool.occasion ?? "",
+            goal: pool.targetAmount,
+            image: nil
+        )
         guard let code = encode(payload) else { return nil }
         return URL(string: "\(siteURL)/invite/\(code)")
     }

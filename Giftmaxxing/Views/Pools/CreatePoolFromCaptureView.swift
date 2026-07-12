@@ -138,12 +138,16 @@ struct CreatePoolFromCaptureView: View {
                 .multilineTextAlignment(.center)
 
             ShareLink(
-                item: "Chip in for \(pool.title)\(pool.forUser.isEmpty ? "" : " for \(pool.forUser)")! Target: $\(Int(pool.targetAmount)). Join the pool on Giftmaxxing 🎁",
-                subject: Text("Gift pool: \(pool.title)")
+                item: InviteLink.buildPoolURL(
+                    inviterName: appState.currentUser?.name ?? "A friend",
+                    pool: pool
+                ) ?? URL(string: InviteLink.siteURL)!,
+                subject: Text("Gift pool: \(pool.title)"),
+                message: Text("Chip in for \(pool.title)\(pool.forUser.isEmpty ? "" : " for \(pool.forUser)") — $\(Int(pool.targetAmount)) target. 🎁")
             ) {
                 HStack(spacing: 8) {
                     Image(systemName: "person.2.fill")
-                    Text("Invite friends to chip in")
+                    Text("Share pool invite")
                 }
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(.white)

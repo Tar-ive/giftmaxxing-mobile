@@ -189,6 +189,7 @@ struct UserProfile: Codable {
     var completedAt: Double?
     var interests: [String]?
     var genderPref: String?
+    var visibility: String?
 
     struct Recipient: Codable, Identifiable {
         var id: String

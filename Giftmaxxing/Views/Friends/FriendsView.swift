@@ -514,6 +514,11 @@ struct FriendDmThreadView: View {
 
     private func dmBubble(_ msg: DmMessage) -> some View {
         let isMe = msg.userId == authManager.userId || msg.userId == "you"
+        let sharedURL = Self.firstURL(in: msg.text)
+        let bodyText = msg.text
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { URL(string: $0)?.scheme == nil }
+            .joined(separator: " ")
         return HStack {
             if isMe { Spacer(minLength: 40) }
             VStack(alignment: isMe ? .trailing : .leading, spacing: 2) {
@@ -522,13 +527,24 @@ struct FriendDmThreadView: View {
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(.secondary)
                 }
-                Text(msg.text)
+                Text(bodyText.isEmpty ? "Shared a gift challenge" : bodyText)
                     .font(.system(size: 14))
                     .foregroundStyle(isMe ? Color.white : Color.ink)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(isMe ? Color.coral : Color.cream)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
+                if let sharedURL {
+                    Link(destination: sharedURL) {
+                        Label("Open gift challenge", systemImage: "gift.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Color.coral)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.coral.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                }
                 Text(Self.formatDmTime(msg.at))
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
@@ -572,5 +588,12 @@ struct FriendDmThreadView: View {
             return "Yesterday \(date.formatted(date: .omitted, time: .shortened))"
         }
         return date.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    private static func firstURL(in text: String) -> URL? {
+        text
+            .components(separatedBy: .whitespacesAndNewlines)
+            .compactMap(URL.init(string:))
+            .first(where: { $0.scheme == "https" || $0.scheme == "http" })
     }
 }
