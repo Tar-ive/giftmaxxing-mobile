@@ -46,13 +46,14 @@ the `web/app/privacy/page.tsx` guard that CI enforces).
   older Terraform will refuse to read it (`versions.tf` only pins `>= 1.6`, but the
   state forces `>= 1.15.6`). AWS provider is `hashicorp/aws ~> 5.60`. These are system
   deps, NOT in the update script; reinstall per `DEPLOY-ANYWHERE.md` if a VM lacks them.
-- **State is local + gitignored** (`infra/terraform.tfstate`, no remote backend yet), so
-  a fresh checkout has NO state and would try to re-create the ~98 live resources.
-  Before any apply, restore the real `terraform.tfstate` (+ `terraform.tfstate.backup`)
-  and the gitignored `terraform.tfvars` into `infra/`, then confirm `terraform plan`
-  shows **0 to add / 0 to destroy** (a few in-place Lambda `source_code_hash` updates
-  are expected drift). Consider migrating state to S3 (see the runbook) to end the
-  copy-the-tfstate dance.
+- **State is on an S3 remote backend** (configured in `versions.tf`): bucket
+  `giftmaxxing-tfstate-445056752928`, key `infra/dev/terraform.tfstate`, versioned +
+  SSE-S3, S3-native locking (`use_lockfile`, no DynamoDB table). Any machine just runs
+  `terraform init` to share the locked state — no more copying `terraform.tfstate`
+  around. You still need the gitignored `terraform.tfvars` locally. A healthy
+  `terraform plan` shows **0 to add / 0 to destroy** (a few in-place Lambda
+  `source_code_hash` updates are expected drift). If `plan` ever wants to CREATE the ~98
+  existing resources, the backend/state is misconfigured — do NOT apply.
 - **Auth via AWS SSO** (preferred over static keys): `aws configure sso` once (account
   `445056752928`, admin-capable role, e.g. profile `giftmaxxing_dev_cursor_cloud`), then
   `aws sso login --profile <name>`; headless VMs print a device-code URL. Export

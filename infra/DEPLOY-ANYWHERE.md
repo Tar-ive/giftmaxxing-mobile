@@ -74,66 +74,60 @@ test -f infra/terraform.tfvars && echo "tfvars OK" || echo "MISSING tfvars"
 
 ---
 
-## 4. Terraform state — the one thing that must be shared
+## 4. Terraform state — now on S3 (shared, no copying)
 
-### Today: local state, copied between machines
-The backend is the **default local** one (no `backend` block), so state lives in
-`infra/terraform.tfstate` and is **gitignored**. To work on a new machine you must
-bring the current state with you:
+State lives in an **S3 remote backend** (configured in `versions.tf`), so every machine
+just runs `terraform init` and shares one locked, versioned state — no more shipping
+`terraform.tfstate` around. Terraform 1.15's S3-native locking (`use_lockfile`) is used,
+so there is **no DynamoDB lock table**.
 
-```bash
-# On the machine that has the good state, package it:
-tar -czf terraform-state-backup.tar.gz -C infra \
-    terraform.tfstate terraform.tfstate.backup terraform.tfvars
+- **Bucket:** `giftmaxxing-tfstate-445056752928` (us-east-1) — versioned, SSE-S3
+  (AES256, bucket keys), public access fully blocked. Tagged `Project=giftmaxxing`.
+- **State key:** `infra/dev/terraform.tfstate`.
 
-# On the new machine, drop the files into infra/ and:
-cd infra && terraform init -input=false
-terraform plan            # must show 0 to add / 0 to destroy (only expected drift)
+```hcl
+# infra/versions.tf (already committed)
+backend "s3" {
+  bucket       = "giftmaxxing-tfstate-445056752928"
+  key          = "infra/dev/terraform.tfstate"
+  region       = "us-east-1"
+  encrypt      = true
+  use_lockfile = true   # S3-native locking (TF >= 1.10)
+}
 ```
 
-A healthy `plan` after restoring state shows **0 to add, 0 to destroy** — at most a
-few in-place Lambda `source_code_hash` updates (that just means `infra/src` here
-differs from what's currently deployed; applying redeploys the current code).
+On any machine:
 
-⚠️ **Never** `terraform apply` with EMPTY state — it will try to re-create the ~98
-already-existing resources and collide with the live stack.
+```bash
+cd infra
+terraform init      # pulls the shared remote state from S3
+terraform plan      # healthy = 0 to add / 0 to destroy (a few in-place Lambda
+                    # source_code_hash updates are expected: infra/src here just
+                    # differs from what's deployed; apply redeploys current code)
+```
 
-### Recommended: migrate state to an S3 remote backend (do this once)
-This removes the "ship the tfstate around" step forever — every machine then just runs
-`terraform init` and shares one locked, versioned state. Terraform 1.15+ supports S3
-**native** locking (`use_lockfile`), so no DynamoDB lock table is needed.
+You still need `terraform.tfvars` locally (§3) — only the tfstate is shared via S3.
 
-1. Create a versioned, encrypted, private state bucket (one-time):
-   ```bash
-   aws s3api create-bucket --bucket giftmaxxing-tfstate-445056752928 --region us-east-1
-   aws s3api put-bucket-versioning --bucket giftmaxxing-tfstate-445056752928 \
-       --versioning-configuration Status=Enabled
-   aws s3api put-bucket-encryption --bucket giftmaxxing-tfstate-445056752928 \
-       --server-side-encryption-configuration \
-       '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"aws:kms"}}]}'
-   aws s3api put-public-access-block --bucket giftmaxxing-tfstate-445056752928 \
-       --public-access-block-configuration \
-       BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
-   ```
-2. Add a backend block to `infra/versions.tf` (inside the existing `terraform {}`):
-   ```hcl
-   backend "s3" {
-     bucket       = "giftmaxxing-tfstate-445056752928"
-     key          = "infra/dev/terraform.tfstate"
-     region       = "us-east-1"
-     encrypt      = true
-     use_lockfile = true   # S3-native state locking (TF >= 1.10)
-   }
-   ```
-3. Migrate the existing local state up (run from the machine that HAS the good state):
-   ```bash
-   cd infra && terraform init -migrate-state   # answer "yes" to copy state to S3
-   ```
-4. From then on, on ANY machine: `terraform init` (pulls remote state) → `plan` / `apply`.
-   You still need `terraform.tfvars` locally (§3); only the tfstate moves to S3.
+> ⚠️ If `plan` ever wants to CREATE the ~98 existing resources, your backend/state is
+> misconfigured (e.g. `terraform init` didn't pick up the S3 backend, or you're pointed
+> at an empty state). Fix that before applying — never apply against empty state.
 
-> This is a real infra change (adds a backend + an S3 bucket). It's safe, but coordinate
-> so nobody is mid-apply during the migration.
+### How the bucket was bootstrapped (reference — already done)
+The state bucket can't live in the same state it stores (chicken-and-egg), so it was
+created once out-of-band with the AWS CLI:
+
+```bash
+B=giftmaxxing-tfstate-445056752928
+aws s3api create-bucket --bucket "$B" --region us-east-1
+aws s3api put-bucket-versioning --bucket "$B" --versioning-configuration Status=Enabled
+aws s3api put-bucket-encryption --bucket "$B" --server-side-encryption-configuration \
+  '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"},"BucketKeyEnabled":true}]}'
+aws s3api put-public-access-block --bucket "$B" --public-access-block-configuration \
+  BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+```
+
+Then the pre-existing local state was migrated up once with
+`terraform init -migrate-state`. You should not need to repeat this.
 
 ---
 
