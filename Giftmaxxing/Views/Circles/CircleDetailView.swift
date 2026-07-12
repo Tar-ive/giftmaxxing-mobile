@@ -113,7 +113,7 @@ struct CircleDetailView: View {
                 if let url = CircleStore.shareURL(circleId: circleId) {
                     ShareLink(
                         item: url,
-                        message: Text("Join our \"\(data.circle.name)\" gift circle — add your birthday so nobody misses it �")
+                        message: Text("Join our \"\(data.circle.name)\" gift circle — add your birthday so nobody misses it 🎁")
                     ) {
                         HStack {
                             Spacer()
