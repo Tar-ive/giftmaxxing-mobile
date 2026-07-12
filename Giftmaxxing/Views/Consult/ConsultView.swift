@@ -466,6 +466,7 @@ struct ConsultView: View {
     // Onboarding mode: gender question first, profile persisted on finish,
     // "Skip for now" escape hatch. Tab mode: an always-available concierge.
     var isOnboarding = false
+    var skipIntro = false
     var onDone: (() -> Void)? = nil
 
     @StateObject private var vm = ConsultViewModel()
@@ -475,9 +476,18 @@ struct ConsultView: View {
             header
 
             switch vm.phase {
-            case .intro: IntroStep(isOnboarding: isOnboarding) {
-                vm.phase = isOnboarding ? .gender : .relation
-            }
+            case .intro:
+                if skipIntro {
+                    // The glassmorphism intro in OnboardingView replaces this;
+                    // jump straight to the first question.
+                    Color.clear.onAppear {
+                        vm.phase = isOnboarding ? .gender : .relation
+                    }
+                } else {
+                    IntroStep(isOnboarding: isOnboarding) {
+                        vm.phase = isOnboarding ? .gender : .relation
+                    }
+                }
             case .thinking: ThinkingStep(vm: vm)
             case .results: ResultsStep(
                 vm: vm,
@@ -489,6 +499,7 @@ struct ConsultView: View {
         }
         .background(Color(hex: "#FFF9F5").ignoresSafeArea())
         .interactiveDismissDisabled(isOnboarding && vm.phase != .results)
+
     }
 
     private func complete() {
