@@ -519,3 +519,172 @@ per-cluster retrieval.)
   Psychology & Marketing 2024 — onlinelibrary.wiley.com/doi/10.1002/mar.22050
 - Mohseni, Sajedi & Hussain, *Gift recommendation systems: a review*, Electronic
   Commerce Research 2023 — link.springer.com/article/10.1007/s10660-023-09790-6
+
+---
+---
+
+# Part 2 — Cold start and the two entry modes (codebase signal audit)
+
+> Added after founder review of Part 1. Two directives: (1) we are not an established
+> platform, so the algorithm must be optimized for **brand-new users**; (2) users arrive
+> in exactly two postures — **as a recipient** (someone sent them a swipe challenge, and
+> their swipes deterministically sharpen our model of what they like) or **as a giver**
+> (they came to find a gift for a specific friend, or to pledge in a gift pool) — and the
+> recommender should specialize for each. Part 2 grounds that design in what the code
+> and Terraform tables *actually* collect today (audited Jul 2026, `infra/*.tf`,
+> `infra/src/handler.mjs`, `Giftmaxxing/` iOS app). It also corrects Part 1 where the
+> audit proved it stale.
+
+## 8. Signal inventory — what we already have and collect
+
+### 8.1 Corrections to Part 1 (the iOS app is further along than the web ranker)
+
+- **The retrieval→ranking funnel already exists — on the device.**
+  `Giftmaxxing/Services/Recommendation/OnDeviceRanker.swift` is an explicit 5-layer
+  Instagram-style ranker: server retrieval (byFeed window / S3 Vectors kNN) → integrity
+  gate (seen de-dup + `ContentQuality`) → `scorePost`-parity facets → personalization
+  (vibe taste, price fit, author affinity, negative-category penalty, **cosine to the
+  taste centroid over int8 vectors cached from `GET /vectors`**) → exploration + MMR
+  diversity (author/category spacing). Part 1's "P0: unify the funnel" is largely DONE,
+  client-side; what remains is making the *server* paths (`/recommendations`, challenge
+  decks) consistent with it.
+- **Time-decayed taste already exists.** `TasteProfileStore.swift` keeps decayed
+  aggregates with a **14-day half-life** — vibes, author affinity, category affinity,
+  price preference — plus a 3,000-item seen set and a 24-item `seedKeys` list (newest
+  strong signals first). Part 1's "P1: time-decay" is done in aggregate form; what's
+  missing is the *two-timescale* split (stable vs. right-now) and multi-cluster taste.
+- **Negative signals exist and are weighted** (hide −1.2, unlike −1.0, unsave −1.6) —
+  but left-swipe hides are **deliberately local-only** ("the strongest explicit negative
+  signal the app has — they feed the on-device taste profile but stay local",
+  `SwipeView.swift`). The server never sees them (see §8.4 privacy note).
+- **The interaction vocabulary changed.** The live verbs are: `impression` (on-device
+  only), `open`, `like`/`unlike` (a right/left swipe maps to like/hide), `save`/`unsave`,
+  plus **add-to-swipe-list** (queue an item to send a friend) and **pledge** (pool
+  contribution). Feed "likes/comments" as social UI are legacy; `scorePost`'s
+  social-proof term still reads seeded `likes` counts.
+
+### 8.2 The founder's five, mapped to reality
+
+| Founder's word | What it actually is in the stack | Persisted where |
+|---|---|---|
+| **Photos** | Share-extension captures (`GiftmaxxingShare` → app-group inbox → `CaptureInbox`) routed to `POST /visual-search` (Titan embed → kNN) or pool creation. **The query embedding is computed and then discarded** — see gap G3. | S3 media only if pooled; embedding: nowhere |
+| **Taste profile** | On-device `TasteProfileStore` (decayed vibes/author/category/price + seedKeys + seen) + consult cold-start (`PersonalizationStore`: genderPref, ≤6 vibes) + graph `interest` nodes with `LIKES` edges | Device JSON + `graph` table |
+| **Seen** | Impressions → on-device seen-set (feeds de-dup) + `analytics` `feed_impression`/`feed_dwell` (viewport dwell!) | Device + `analytics` (TTL'd) |
+| **Words** | Maxi chat (`maxi_message_sent`, server `/maxi` with long-term `MEM#` memory rows in the graph table) + `search_query` events | `graph` (MEM#) + `analytics` |
+| **Pledged** | Pool contributions — `pools` table `CONTRIB#<ts>` rows `{userId, name, amount, at}` under a pool META carrying occasion/title/goal | `pools` table |
+
+### 8.3 Full inventory (table → what's in it → does ranking use it today?)
+
+| Store | Contents relevant to recs | Used by ranking today? |
+|---|---|---|
+| `interactions` (DDB) | `open/like/unlike/save/unsave` with timestamps, batched from the phone, **under a stable anonymous id pre-signup** (`anon-<uuid>`, `InteractionQueue.anonymousUserId`) | Server vector path derives seeds from it; device profile is the richer copy |
+| `analytics` (DDB, byType GSI, TTL) | The full behavioral stream: session lifecycle, `feed_impression`, `feed_dwell`, scroll depth/velocity, `swipe_card_shown`, `swipe_right/left`, `swipe_decision_time`, `swipe_velocity`, `swipe_hesitation`, `swipe_deck_complete`, `swipe_undo`, `maxi_*`, `product_view`, `product_affiliate_click`, `search_query`, `search_result_tap` | **No** — collected, never folded into taste (gap G6) |
+| `challenges` (DDB) | Per challenge: seed item, **int8-packed seed vector**, banded deck snapshot (twin/vibe/probe + distances); per response: guest name/handle/**birthday**/genderPref, swipes `{id, dir, dwellMs}`, **verdict** `{score, label, weightedApproval, centroidDelta, topCategories, priceBand (min/median/max), favoriteId (max-dwell), variantPicks (yes-swiped twins = direct buy candidates)}` | Verdict shown to sender; **guest's own taste is not persisted for the guest** (gap G1) |
+| `connections` (DDB) | Soft profiles owned by the **sender**: guestName, birthday, genderPref, vibes (=topCategories), **`seeds` = up to 8 yes-swiped pin keys**, verdict stats; claimable anonId→userId (`/connections/claim`) | `seeds` usable as recipient kNN seeds; bundles endpoint reads birthday as deadline |
+| `graph` (DDB) | Nodes: user/recipient/event/interest/soft; edges: `LIKES` (→interest), `COLLECTED` (→soft); Maxi `MEM#` memories. "Hard onboarding + soft swipe-derived taste" | Read by `/graph` + Maxi; not by the ranker |
+| `events` (DDB) | Personal + shared occasions incl. **auto-captured soft-profile birthdays from challenges**, budgets; powers `/events/upcoming` → `eventBoost` | Yes — occasion facet ramps as dates approach |
+| `knowledge` (DDB) | **Reddit-mined ranked gift ideas + co-occurrence bundles per recipient type** (mom, coworker, couple…) | Maxi/bundles only — not in feed retrieval (gap G7) |
+| `pools` (DDB) | META (title/occasion/goal/raised) + MEMBER + **CONTRIB pledges** + chat MSGs | **No** (gap G8) |
+| `users` (DDB) | Onboarding `UserProfile`: role, difficulty, style, interests, dealPreferences, recipients (with `sourceUser`/`pinSeeds` slots), events, genderPref | Vibes → consult cold-start; deal prefs unused |
+| S3 Vectors `pins` | 1024-d Titan MM embeddings + metadata (title/price/domain/category/link) | Yes — kNN retrieval, challenge decks, visual search, on-device cosine |
+| Device: `TasteProfileStore` | Decayed vibe/author/category/price affinities (± signs), seen set, seedKeys(24) | **Yes — the primary personalization engine** |
+| Device: `SwipeListStore` | "Saw it, thought of you" queue — items a giver picked **for a specific friend** | Local-only, UserDefaults, no server sync (gap G5) |
+| Device: `VectorStore` | int8 vectors cached from `GET /vectors` for on-device cosine | Yes |
+
+The pre-signup anonymous identity + `/connections/claim` re-keying means **taste can
+accrue before an account exists and survive conversion** — the exact plumbing both entry
+modes need.
+
+## 9. Specializing the recommender for the two entry modes
+
+Detect the mode at session start from the deep link (challenge link / pool invite /
+event reminder / organic open) and log it as an `entry_mode` analytics property — every
+downstream choice (retrieval source, exploration dose, what to ask next) branches on it.
+
+### 9.1 Mode R — recipient-entry (they got a swipe challenge)
+
+One completed deck (~14 swipes with dwell) is worth more than weeks of passive feed
+impressions: each swipe is a **labeled point in embedding space** — this is active
+learning, and the banded deck (30% twins / 40% same-vibe / 30% probes) is already an
+information-gain design. The verdict machinery (`computeChallengeVerdict`) squeezes it
+properly: cos²-weighted approval, yes-vs-no centroid delta, dwell-max favorite.
+
+What to build on it (mostly wiring, not new ML):
+
+1. **Persist the guest's taste FOR THE GUEST** (today it's only mirrored to the
+   sender's `connections`). On response, write the same seeds/negatives under the
+   guest's anonId (the client already has one), and let signup claim it — instant warm
+   start, and the challenge becomes our primary user-acquisition loop with a
+   ready-made taste profile on day zero.
+2. **Seed the TasteObject deterministically:** `longTermClusters` ← yes-swiped item
+   embeddings (already in the index — the seeds are pin keys); `negativeCentroid` ←
+   no-swipes (weight fast, instant no's harder than hesitant no's via
+   `swipe_decision_time`/`dwellMs`); price prior ← verdict `priceBand`; facet priors ←
+   genderPref/birthday.
+3. **Their first feed:** retrieve per yes-cluster, exclude deck items, higher
+   exploration dose than normal (Thompson-style over the retrieved set) because 14
+   points can't cover taste — but *anchored* exploration: probes near the yes-clusters,
+   not uniform.
+4. **The reveal is the conversion moment:** they already get back
+   `{topCategories, priceBand}`; follow with one turn-taking question ("want your taste
+   board? add your birthday?") — the same conversational pattern the AI-adoption
+   research validated (§2.4) — and each answer lands in `events`/`graph`.
+
+### 9.2 Mode G — giver-entry (gift for a friend / pledge in a pool)
+
+The cardinal rule: **the giver's own taste is not the relevance signal — the
+recipient's is.** The giver contributes constraints (budget, deal prefs, occasion,
+relationship) and intent. Two structural consequences:
+
+- **Mode-tag interactions.** Everything browsed/saved while in gift mode should carry
+  `data: {mode:"gift", recipientRef}` on the `/interactions` write (the API already
+  accepts a `data` payload) so gift-mode behavior accrues to a **per-recipient taste
+  object**, not the giver's personal one. Alibaba's ComiRec saw gift shopping emerge as
+  its own interest cluster even unlabeled (§1.2) — we can label it at the source.
+- **Rank against the recipient-signal ladder** — use the highest rung available:
+  1. **Descriptor only** (relation, "for him/her", occasion, budget): retrieval =
+     `knowledge` table dyad priors (Reddit-mined ranked ideas per recipient type) +
+     trending/popular within budget. This is exactly what the adoption research
+     prescribes for socially distant recipients (§2.4), and it's a table we already
+     have that the feed never touches.
+  2. **A soft profile exists** (they completed a challenge; `connections.seeds`):
+     vector retrieval seeded by the recipient's yes-pins → serendipity band from Part 1
+     §3(d) — twin-band veto vs. their yes-history, **except** `variantPicks`, which are
+     explicit "buy this variant" candidates and should rank first, not be vetoed.
+  3. **A photo** (share-extension capture of something the recipient posted): visual
+     search whose query vector is **retained as a recipient seed** (gap G3), not a
+     one-shot query.
+  4. **No signal and stakes are high** → the product's move is not to guess better but
+     to *acquire signal*: prompt "send them a swipe challenge" or run Maxi's
+     turn-taking recipient interview. Route back to rung 2.
+- **Presentation:** deadline-driven givers convert on a **shortlist with one hero
+  pick** (recipients asking for one specific item beat lists in the explicitness
+  research, §2.5-adjacent) — not an infinite feed. Low exploration: a giver session is
+  the wrong place to probe; spend exploration budget in Mode R and organic feeds.
+- **Pledges as signals:** a `CONTRIB` row is a revealed dyad edge (giver↔recipient),
+  revealed budget (amount), and an occasion timestamp — write it into `graph` and the
+  giver's recipient roster so the next occasion for that person starts at rung 1+ with
+  a real budget prior.
+
+### 9.3 The cold-start ladder (both modes)
+
+Rule: **no session ends with zero seeds.** Every entry path must deposit a persisted
+seed set under *some* identity (anonId suffices): organic → consult vibes →
+`pickSeedPins`; challenge guest → deck swipes; giver → recipient descriptor + any
+photo/challenge-derived seeds; pledger → dyad + budget. Deezer-style cluster priors
+(§1.4) cover whatever remains: cluster onboarding profiles (vibes × budget × genderPref)
+and let new users inherit their cluster's bandit posterior until they outgrow it.
+
+## 10. Revised gap list (supersedes §5 ordering where they conflict)
+
+| # | Gap | Fix | Mode served |
+|---|---|---|---|
+| G1 | Challenge guest's taste only persists for the **sender** | Also write seeds/negatives under the guest's anonId; claim on signup | R |
+| G2 | Gift-mode browsing pollutes the giver's personal taste | `data:{mode,recipientRef}` on interactions; per-recipient taste objects (schema slots already exist: `Recipient.pinSeeds`, `connections.seeds`) | G |
+| G3 | Visual-search query vectors are discarded | `packVector` (already exists for challenge seeds) → store on the user/recipient record as a seed | R+G |
+| G4 | Hides never reach the server (deliberate privacy stance) | Keep raw hides local; consider uploading only the *aggregated* negative centroid (int8, like `GET /vectors`) so server retrieval can subtract it — or accept device-only negative ranking | R |
+| G5 | `SwipeListStore` ("saw it, thought of you") is device-local | Server-sync it: it's a labeled (item × giver × intended-friend) gift-intent triple — training gold nothing else captures | G |
+| G6 | Dwell/hesitation/decision-time collected but unused | Fold into taste weights (dwell-scaled impressions; instant-yes > hesitant-yes — verdict already uses dwell for `favoriteId`, extend to profile updates) | R+G |
+| G7 | `knowledge` dyad priors absent from feed retrieval | Add as a giver-mode candidate source (rung 1) | G |
+| G8 | Pledges not fed back into the graph/roster | CONTRIB → graph edge + recipient budget prior + occasion calendar | G |
+| G9 | Single-timescale, single-centroid taste | Part 1 §3(a)/(c): split stable vs. last-7-days centroids, k≤4 clusters — now on-device (`TasteProfileStore` is the natural home) | all |
