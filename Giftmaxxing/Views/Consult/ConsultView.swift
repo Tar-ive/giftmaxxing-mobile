@@ -497,7 +497,7 @@ struct ConsultView: View {
             default: questionSteps
             }
         }
-        .background(Color(hex: "#FFF9F5").ignoresSafeArea())
+        .background(Color.onboardingWash.ignoresSafeArea())
         .interactiveDismissDisabled(isOnboarding && vm.phase != .results)
 
     }

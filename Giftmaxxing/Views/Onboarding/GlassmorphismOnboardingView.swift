@@ -1,7 +1,6 @@
 import SwiftUI
 
-// Glassmorphism-style onboarding intro inspired by a Figma community design.
-// Replaces the sun orb with a gift icon and uses Maxi's onboarding copy.
+// Glassmorphism-style onboarding intro (DESIGN.md onboarding surface).
 // Shown before ConsultView; tapping "Get Started" advances to the consult.
 struct GlassmorphismOnboardingView: View {
     var onStart: () -> Void
@@ -17,22 +16,15 @@ struct GlassmorphismOnboardingView: View {
 
     var body: some View {
         ZStack {
-            // Warm gradient background
             LinearGradient(
-                colors: [
-                    Color(hex: "#FB6F52"),
-                    Color(hex: "#FF9A76"),
-                    Color(hex: "#FFC5A0"),
-                    Color(hex: "#FFF9F5"),
-                ],
+                colors: [.coral, .gradientEnd, .onboardingGlow, .onboardingWash],
                 startPoint: .top,
                 endPoint: .bottom
             )
             .ignoresSafeArea()
 
-            // Secondary ambient glow
             RadialGradient(
-                colors: [Color(hex: "#FFD4B8").opacity(0.5), .clear],
+                colors: [Color.onboardingGlow.opacity(0.5), .clear],
                 center: .center,
                 startRadius: 40,
                 endRadius: 260
@@ -45,26 +37,22 @@ struct GlassmorphismOnboardingView: View {
                 Spacer()
                     .frame(height: 60)
 
-                // Gift orb (replaces the sun)
                 giftOrb
 
                 Spacer()
 
-                // Frosted glass card
                 glassCard
 
                 Spacer()
 
-                // Get Started button
                 startButton
-                    .padding(.horizontal, 28)
+                    .padding(.horizontal, ThemeSpacing.xl)
                     .padding(.bottom, 50)
 
                 Spacer()
                     .frame(height: 8)
             }
 
-            // Shimmer sweep
             GeometryReader { geo in
                 LinearShimmer(width: geo.size.width)
                     .opacity(0.15)
@@ -72,22 +60,11 @@ struct GlassmorphismOnboardingView: View {
             }
             .allowsHitTesting(false)
         }
-        .onAppear {
-            animateIn()
-            // TEMP: auto-advance after 3s for screenshot capture
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                withAnimation(.easeOut(duration: 0.45)) {
-                    onStart()
-                }
-            }
-        }
+        .onAppear { animateIn() }
     }
-
-    // MARK: - Gift orb
 
     private var giftOrb: some View {
         ZStack {
-            // Outer glow
             Circle()
                 .fill(
                     RadialGradient(
@@ -100,7 +77,6 @@ struct GlassmorphismOnboardingView: View {
                 .frame(width: 300, height: 300)
                 .scaleEffect(glowScale)
 
-            // Main orb circle — frosted glass
             Circle()
                 .fill(
                     LinearGradient(
@@ -109,62 +85,53 @@ struct GlassmorphismOnboardingView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .background(
-                    Circle().fill(.ultraThinMaterial)
-                )
+                .background(Circle().fill(.ultraThinMaterial))
                 .overlay(
                     Circle()
                         .stroke(Color.white.opacity(0.6), lineWidth: 1.5)
                 )
                 .frame(width: 180, height: 180)
-                .shadow(color: Color(hex: "#FB6F52").opacity(0.35), radius: 30, y: 10)
+                .shadow(color: Color.coral.opacity(0.35), radius: 30, y: 10)
 
-            // Gift icon
-            VStack(spacing: 4) {
-                Text("🎁")
-                    .font(.system(size: 64))
-            }
+            Text("🎁")
+                .font(.displayLarge)
         }
         .scaleEffect(orbScale)
         .opacity(orbOpacity)
     }
 
-    // MARK: - Glass card
-
     private var glassCard: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: ThemeSpacing.sm) {
             Text("Hey — I'm Maxi.")
-                .font(.system(size: 28, weight: .heavy, design: .rounded))
+                .font(.displayLarge)
                 .foregroundStyle(.white)
 
             Text("I find gifts people actually keep.")
-                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .font(.bodyLarge.weight(.semibold))
                 .foregroundStyle(Color.white.opacity(0.9))
 
             Text("This is the whole app — tell me about a person, I find the gift. Let's run your first consult now.")
-                .font(.system(size: 14))
+                .font(.bodyMedium)
                 .foregroundStyle(Color.white.opacity(0.75))
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
+                .padding(.horizontal, ThemeSpacing.xl)
                 .lineSpacing(4)
         }
         .padding(.vertical, 36)
-        .padding(.horizontal, 20)
+        .padding(.horizontal, ThemeSpacing.lg)
         .background {
-            RoundedRectangle(cornerRadius: 28)
+            RoundedRectangle(cornerRadius: ThemeRadius.xl, style: .continuous)
                 .fill(.ultraThinMaterial)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 28)
+                    RoundedRectangle(cornerRadius: ThemeRadius.xl, style: .continuous)
                         .stroke(Color.white.opacity(0.3), lineWidth: 1)
                 )
         }
-        .shadow(color: Color.black.opacity(0.12), radius: 20, y: 8)
-        .padding(.horizontal, 28)
+        .cardElevation()
+        .padding(.horizontal, ThemeSpacing.xl)
         .opacity(cardOpacity)
         .offset(y: cardOffset)
     }
-
-    // MARK: - Start button
 
     private var startButton: some View {
         Button {
@@ -176,26 +143,26 @@ struct GlassmorphismOnboardingView: View {
                 onStart()
             }
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: ThemeSpacing.xs) {
                 Text("Get Started")
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .font(.displaySmall)
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.bodyLarge.weight(.bold))
             }
-            .foregroundStyle(Color(hex: "#FB6F52"))
+            .foregroundStyle(Color.coral)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 18)
             .background {
                 Capsule()
-                    .fill(Color.white)
-                    .shadow(color: Color(hex: "#FB6F52").opacity(0.35), radius: 14, y: 6)
+                    .fill(Color.surface)
+                    .shadow(color: Color.coral.opacity(0.35), radius: 14, y: 6)
             }
         }
+        .buttonStyle(.plain)
         .opacity(buttonOpacity)
         .offset(y: buttonOffset)
+        .accessibilityLabel("Get Started with Maxi")
     }
-
-    // MARK: - Animations
 
     private func animateIn() {
         withAnimation(.easeOut(duration: 0.9)) {
@@ -223,7 +190,6 @@ struct GlassmorphismOnboardingView: View {
     }
 }
 
-// Diagonal shimmer sweep overlay
 private struct LinearShimmer: View {
     let width: CGFloat
 
