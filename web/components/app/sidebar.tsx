@@ -51,6 +51,7 @@ type Item = {
 const ITEMS: Item[] = [
   { label: "Home", href: "/feed", icon: "home", activeIcon: "homeFill" },
   { label: "Search", href: "/feed/search", icon: "search" },
+  { label: "Friends", href: "/feed/friends", icon: "users" },
   { label: "Concierge", href: "/gift", icon: "sparkle" },
   { label: "Swipe", href: "/feed/swipe", icon: "cards" },
   { label: "Events", href: "/feed/events", icon: "calendar" },
@@ -139,6 +140,7 @@ export function Sidebar() {
 
 /* Items shown in the mobile "More" drawer (not in the bottom tab bar) */
 const DRAWER_ITEMS: Item[] = [
+  { label: "Friends", href: "/feed/friends", icon: "users" },
   { label: "Concierge", href: "/gift", icon: "sparkle" },
   { label: "Swipe", href: "/feed/swipe", icon: "cards" },
   { label: "Shop", href: "/feed/shop", icon: "gift" },
