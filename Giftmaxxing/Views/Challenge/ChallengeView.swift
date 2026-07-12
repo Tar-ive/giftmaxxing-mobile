@@ -21,6 +21,9 @@ struct ChallengeView: View {
     // a modally-presented challenge had no visible exit (swipe-down only).
     var showsClose = false
 
+    /// Prefill "who is this for?" when launched from Friends / DM / Circles.
+    var prefillTheirName: String = ""
+
     @State private var yourName = ""
     @State private var theirName = ""
     @State private var occasion = "birthday"
@@ -319,6 +322,14 @@ struct ChallengeView: View {
         .onChange(of: occasion) { _, _ in challengeId = nil }
         .onChange(of: includeDate) { _, _ in challengeId = nil }
         .onChange(of: date) { _, _ in challengeId = nil }
+        .onAppear {
+            if theirName.isEmpty, !prefillTheirName.isEmpty {
+                theirName = prefillTheirName
+            }
+            if yourName.isEmpty {
+                yourName = appState.currentUser?.name ?? ""
+            }
+        }
     }
 }
 

@@ -162,10 +162,12 @@ final class FriendsStore: ObservableObject {
     }
 
     func messages(for threadId: String) async -> [DmMessage] {
-        if let items = try? await api.fetchDmMessages(threadId: threadId), !items.isEmpty {
+        do {
+            let items = try await api.fetchDmMessages(threadId: threadId)
             return items
+        } catch {
+            return loadLocalDmStore()[threadId]?.messages ?? []
         }
-        return loadLocalDmStore()[threadId]?.messages ?? []
     }
 
     @discardableResult

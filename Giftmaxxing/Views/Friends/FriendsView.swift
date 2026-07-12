@@ -11,6 +11,8 @@ struct FriendsView: View {
     @State private var busyId: String?
     @State private var openThreadId: String?
     @State private var showDm = false
+    @State private var challengeFriendName: String?
+    @State private var showChallenge = false
 
     private enum FriendsTab: String, CaseIterable {
         case friends = "Friends"
@@ -77,6 +79,15 @@ struct FriendsView: View {
                 FriendDmThreadView(threadId: openThreadId)
             }
         }
+        .sheet(isPresented: $showChallenge) {
+            NavigationStack {
+                ChallengeView(
+                    showsClose: true,
+                    prefillTheirName: challengeFriendName ?? ""
+                )
+            }
+            .environmentObject(appState)
+        }
         .onAppear {
             AnalyticsEngine.shared.trackScreenView(screen: "friends")
         }
@@ -105,30 +116,41 @@ struct FriendsView: View {
             ) { tab = .discover }
         } else {
             ForEach(store.friends) { friend in
-                PersonRow(
-                    name: friend.name ?? friend.friendId,
-                    handle: friend.handle,
-                    interests: friend.interests,
-                    grad: SocialUsers.grad(for: friend.friendId)
-                ) {
-                    HStack(spacing: 6) {
-                        Button("Message") {
+                VStack(alignment: .leading, spacing: 10) {
+                    PersonRow(
+                        name: friend.name ?? friend.friendId,
+                        handle: friend.handle,
+                        interests: friend.interests,
+                        grad: SocialUsers.grad(for: friend.friendId)
+                    ) { EmptyView() }
+
+                    HStack(spacing: 8) {
+                        Button {
                             Task { await message(friend.friendId) }
+                        } label: {
+                            Label("Message", systemImage: "bubble.left.fill")
                         }
                         .buttonStyle(FriendPillStyle(filled: true))
                         .disabled(busyId == friend.friendId)
 
-                        Button("Gift") {
-                            appState.selectedTab = .feed
+                        Button {
+                            challengeFriendName = friend.name ?? friend.handle ?? friend.friendId
+                            showChallenge = true
+                        } label: {
+                            Label("Challenge", systemImage: "gift.fill")
                         }
                         .buttonStyle(FriendPillStyle(coral: true))
+
+                        Spacer(minLength: 0)
 
                         Button("Remove") {
                             Task { await remove(friend.friendId) }
                         }
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.secondary)
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 10)
                 }
             }
         }
@@ -191,7 +213,7 @@ struct FriendsView: View {
                 // Handled via NavigationLink below when needed
             }
             NavigationLink("Edit my taste") {
-                OnboardingView(isOnboardingComplete: .constant(false))
+                TasteInterviewView()
             }
             .font(.system(size: 14, weight: .bold))
             .foregroundStyle(Color.coral)
@@ -366,13 +388,19 @@ struct FriendDmThreadView: View {
     let threadId: String
 
     @EnvironmentObject private var authManager: AuthManager
+    @EnvironmentObject private var appState: AppState
     @ObservedObject private var store = FriendsStore.shared
     @State private var messages: [DmMessage] = []
     @State private var draft = ""
+    @State private var showChallenge = false
     @FocusState private var focused: Bool
 
     private var thread: DmThread? {
         store.dms.first { $0.threadId == threadId }
+    }
+
+    private var friendDisplayName: String {
+        thread?.otherName ?? thread?.otherUserId ?? "Friend"
     }
 
     var body: some View {
@@ -381,7 +409,7 @@ struct FriendDmThreadView: View {
                 ScrollView {
                     LazyVStack(spacing: 6) {
                         if messages.isEmpty {
-                            Text("You're friends — say hi, or gift them something from the feed.")
+                            Text("You're friends — say hi, or send a gift challenge so they swipe what they'd love.")
                                 .font(.bodyMedium)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
@@ -395,12 +423,32 @@ struct FriendDmThreadView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
                 }
+                .refreshable { await load() }
                 .onChange(of: messages.count) { _, _ in
                     if let last = messages.last?.id {
                         withAnimation { proxy.scrollTo(last, anchor: .bottom) }
                     }
                 }
             }
+
+            // Gift-challenge shortcut — same action as Friends "Challenge"
+            HStack(spacing: 8) {
+                Button {
+                    showChallenge = true
+                } label: {
+                    Label("Send gift challenge", systemImage: "gift.fill")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.coral)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.coral.opacity(0.12))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.bottom, 4)
 
             HStack(spacing: 10) {
                 TextField("Type a message…", text: $draft)
@@ -426,16 +474,34 @@ struct FriendDmThreadView: View {
             .background(Color.surface)
         }
         .background(Color.surface)
-        .navigationTitle(thread?.otherName ?? "Friend")
+        .navigationTitle(friendDisplayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Text("DM")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.secondary)
+                Button {
+                    showChallenge = true
+                } label: {
+                    Image(systemName: "gift.fill")
+                        .foregroundStyle(Color.coral)
+                }
+                .accessibilityLabel("Send gift challenge")
             }
         }
-        .task { await load() }
+        .sheet(isPresented: $showChallenge) {
+            NavigationStack {
+                ChallengeView(showsClose: true, prefillTheirName: friendDisplayName)
+            }
+            .environmentObject(appState)
+        }
+        .task {
+            await load()
+            // Near-real-time: poll while this chat is open so peer messages appear
+            // without leaving and coming back.
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 4_000_000_000)
+                await load(silent: true)
+            }
+        }
     }
 
     private func dmBubble(_ msg: DmMessage) -> some View {
@@ -455,13 +521,24 @@ struct FriendDmThreadView: View {
                     .padding(.vertical, 8)
                     .background(isMe ? Color.coral : Color.cream)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
+                Text(Self.formatDmTime(msg.at))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
             }
             if !isMe { Spacer(minLength: 40) }
         }
     }
 
-    private func load() async {
-        messages = await store.messages(for: threadId)
+    private func load(silent: Bool = false) async {
+        let fresh = await store.messages(for: threadId)
+        if silent {
+            // Merge by id so we don't flicker / lose optimistic local sends.
+            var byId = Dictionary(uniqueKeysWithValues: messages.map { ($0.id, $0) })
+            for m in fresh { byId[m.id] = m }
+            messages = byId.values.sorted { $0.at < $1.at }
+        } else {
+            messages = fresh.sorted { $0.at < $1.at }
+        }
     }
 
     private func send() async {
@@ -470,7 +547,22 @@ struct FriendDmThreadView: View {
         let text = draft
         draft = ""
         if let msg = await store.sendMessage(threadId: threadId, userId: userId, name: name, text: text) {
-            messages.append(msg)
+            if !messages.contains(where: { $0.id == msg.id }) {
+                messages.append(msg)
+            }
         }
+    }
+
+    /// `at` is epoch milliseconds from the API / local store.
+    static func formatDmTime(_ at: Double) -> String {
+        let date = Date(timeIntervalSince1970: at > 1_000_000_000_000 ? at / 1000 : at)
+        let cal = Calendar.current
+        if cal.isDateInToday(date) {
+            return date.formatted(date: .omitted, time: .shortened)
+        }
+        if cal.isDateInYesterday(date) {
+            return "Yesterday \(date.formatted(date: .omitted, time: .shortened))"
+        }
+        return date.formatted(date: .abbreviated, time: .shortened)
     }
 }
