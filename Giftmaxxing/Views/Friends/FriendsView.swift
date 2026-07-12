@@ -191,7 +191,7 @@ struct FriendsView: View {
                 // Handled via NavigationLink below when needed
             }
             NavigationLink("Edit my taste") {
-                OnboardingView()
+                OnboardingView(isOnboardingComplete: .constant(false))
             }
             .font(.system(size: 14, weight: .bold))
             .foregroundStyle(Color.coral)
