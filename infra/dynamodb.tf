@@ -262,6 +262,33 @@ resource "aws_dynamodb_table" "challenges" {
   }
 }
 
+# ── Friends (social graph + 1:1 DMs) ───────────────────────────────────────────
+# Hard friend connections between signed-in accounts (distinct from soft-profile
+# `connections` collected via swipe challenges). Single-table adjacency:
+#   pk = userId, sk = "FRIEND#<otherId>"  → pending|accepted edge (mirrored)
+#   pk = userId, sk = "DM#<threadId>"     → DM inbox pointer (lastText/lastAt)
+#   pk = "DM#<sortedPair>", sk = "META" | "MSG#<ts>#<id>"  → conversation
+# People discovery itself reads the users table (public profiles only).
+resource "aws_dynamodb_table" "friends" {
+  name         = "${local.prefix}-friends"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "pk"
+  range_key    = "sk"
+
+  attribute {
+    name = "pk"
+    type = "S"
+  }
+  attribute {
+    name = "sk"
+    type = "S"
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+}
+
 # ── Pools (group gifts) ───────────────────────────────────────────────────────
 # Backend-backed group-gift pools so contributions + the group chat sync across
 # everyone in the pool (the old localStorage pools were per-device only).

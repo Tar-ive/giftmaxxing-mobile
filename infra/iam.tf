@@ -44,6 +44,7 @@ data "aws_iam_policy_document" "ddb_access" {
       "${aws_dynamodb_table.challenges.arn}/index/*",
       aws_dynamodb_table.pools.arn,
       "${aws_dynamodb_table.pools.arn}/index/*",
+      aws_dynamodb_table.friends.arn,
       aws_dynamodb_table.events.arn,
       "${aws_dynamodb_table.events.arn}/index/*",
       aws_dynamodb_table.graph.arn,

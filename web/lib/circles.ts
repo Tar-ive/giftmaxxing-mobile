@@ -21,6 +21,10 @@ export type CircleMember = {
   birthday: string | null; // YYYY-MM-DD
   role: "creator" | "member";
   joinedAt: number;
+  /** Signed-in Giftmaxxing account linked to this seat (when claimed). */
+  linkedUserId?: string | null;
+  linkedHandle?: string | null;
+  linkedName?: string | null;
 };
 
 export type CircleEvent = {
@@ -83,7 +87,7 @@ export async function fetchCircle(circleId: string): Promise<CircleData | null> 
 
 export async function joinCircle(
   circleId: string,
-  member: { name: string; birthday?: string }
+  member: { name: string; birthday?: string; userId?: string }
 ): Promise<boolean> {
   if (!isApiConfigured()) return false;
   try {

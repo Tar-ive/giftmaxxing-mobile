@@ -8,8 +8,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   type CircleData,
+  type CircleMember,
   type UpcomingMoment,
   fetchCircle,
   joinCircle,
@@ -21,6 +23,15 @@ import {
   circleShareUrl,
 } from "@/lib/circles";
 import { Icons, Maxi } from "@/components/ui";
+import { getMyUserId } from "@/lib/api";
+import {
+  claimCircleSeat,
+  getFriendshipStatus,
+  loadLocalCircleClaims,
+  openDm,
+  requestFriend,
+} from "@/lib/friends";
+import { useCurrentUser } from "@/lib/identity";
 
 const AVATAR_GRADIENTS = [
   "linear-gradient(135deg,#FFD9C7,#FFB199)",
@@ -61,6 +72,10 @@ export function CircleClient({ circleId }: { circleId: string }) {
   const [showJoin, setShowJoin] = useState(false);
   const [showOccasion, setShowOccasion] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [claimed, setClaimed] = useState(false);
+  const [localClaims, setLocalClaims] = useState<Record<string, string>>({});
+  const myUserId = getMyUserId();
+  const me = useCurrentUser();
 
   const refresh = useCallback(async () => {
     const res = await fetchCircle(circleId);
@@ -79,11 +94,31 @@ export function CircleClient({ circleId }: { circleId: string }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setJoinedAs(mine?.joinedAs ?? null);
     setShowJoin(!mine?.joinedAs);
+    setLocalClaims(loadLocalCircleClaims(circleId));
     void refresh();
   }, [circleId, refresh]);
 
   const moments = useMemo(() => (data ? upcomingMoments(data) : []), [data]);
   const next = moments[0];
+
+  const membersWithLinks = useMemo(() => {
+    if (!data) return [];
+    return data.members.map((m) => {
+      const linked =
+        m.linkedUserId ??
+        localClaims[m.name.toLowerCase()] ??
+        null;
+      return { ...m, linkedUserId: linked };
+    });
+  }, [data, localClaims]);
+
+  const mySeatLinked =
+    !!myUserId &&
+    membersWithLinks.some(
+      (m) =>
+        m.linkedUserId === myUserId ||
+        (joinedAs && m.name.toLowerCase() === joinedAs.toLowerCase() && m.linkedUserId)
+    );
 
   const share = async () => {
     if (!data) return;
@@ -100,6 +135,20 @@ export function CircleClient({ circleId }: { circleId: string }) {
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const claimMySeat = async () => {
+    if (!joinedAs || !myUserId) return;
+    const ok = await claimCircleSeat({
+      circleId,
+      userId: myUserId,
+      memberName: joinedAs,
+    });
+    if (ok) {
+      setClaimed(true);
+      setLocalClaims(loadLocalCircleClaims(circleId));
+      void refresh();
+    }
   };
 
   if (state === "loading") {
@@ -133,7 +182,7 @@ export function CircleClient({ circleId }: { circleId: string }) {
     );
   }
 
-  const { circle, members, events } = data;
+  const { circle, events } = data;
 
   return (
     <div className="min-h-screen bg-cream">
@@ -145,7 +194,8 @@ export function CircleClient({ circleId }: { circleId: string }) {
             {circle.name}
           </h1>
           <p className="mt-1.5 text-sm text-ink-soft">
-            {members.length} {members.length === 1 ? "member" : "members"} · a shared
+            {membersWithLinks.length}{" "}
+            {membersWithLinks.length === 1 ? "member" : "members"} · a shared
             calendar of gift moments
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -161,6 +211,14 @@ export function CircleClient({ circleId }: { circleId: string }) {
                 className="rounded-full bg-surface px-5 py-2.5 text-sm font-bold text-ink transition-colors hover:bg-coral-soft"
               >
                 Edit my birthday
+              </button>
+            )}
+            {joinedAs && myUserId && !mySeatLinked && (
+              <button
+                onClick={() => void claimMySeat()}
+                className="rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-cream transition-opacity hover:opacity-90"
+              >
+                {claimed ? "Connected ✓" : `Link my account (${me.name})`}
               </button>
             )}
           </div>
@@ -234,31 +292,14 @@ export function CircleClient({ circleId }: { circleId: string }) {
             </button>
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {members.map((m) => (
-              <div
+            {membersWithLinks.map((m) => (
+              <MemberCard
                 key={m.memberId}
-                className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3"
-              >
-                <span
-                  className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-extrabold text-ink"
-                  style={{ background: gradFor(m.name) }}
-                >
-                  {initials(m.name)}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-ink">
-                    {m.name}
-                    {joinedAs && m.name.toLowerCase() === joinedAs.toLowerCase() && (
-                      <span className="text-ink-faint"> (you)</span>
-                    )}
-                  </p>
-                  <p className="text-xs text-ink-faint">
-                    {m.birthday
-                      ? `🎂 ${formatBirthday(m.birthday)}`
-                      : "no birthday yet"}
-                  </p>
-                </div>
-              </div>
+                member={m}
+                circleId={circleId}
+                joinedAs={joinedAs}
+                myUserId={myUserId}
+              />
             ))}
           </div>
         </section>
@@ -338,6 +379,117 @@ export function CircleClient({ circleId }: { circleId: string }) {
   );
 }
 
+function MemberCard({
+  member,
+  circleId,
+  joinedAs,
+  myUserId,
+}: {
+  member: CircleMember;
+  circleId: string;
+  joinedAs: string | null;
+  myUserId: string | null;
+}) {
+  const router = useRouter();
+  const [status, setStatus] = useState<"none" | "pending" | "accepted" | "loading">("loading");
+  const [busy, setBusy] = useState(false);
+  const isMe =
+    !!joinedAs && member.name.toLowerCase() === joinedAs.toLowerCase();
+  const linkedId = member.linkedUserId ?? null;
+  const canConnect = !!myUserId && !!linkedId && linkedId !== myUserId && !isMe;
+
+  useEffect(() => {
+    if (!canConnect || !myUserId || !linkedId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStatus("none");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const s = await getFriendshipStatus(myUserId, linkedId);
+      if (!cancelled) setStatus(s.status);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [canConnect, myUserId, linkedId]);
+
+  const connect = async () => {
+    if (!myUserId || !linkedId) return;
+    setBusy(true);
+    await requestFriend({
+      fromUserId: myUserId,
+      toUserId: linkedId,
+      circleId,
+      toName: member.linkedName ?? member.name,
+      toHandle: member.linkedHandle ?? undefined,
+    });
+    const s = await getFriendshipStatus(myUserId, linkedId);
+    setStatus(s.status);
+    setBusy(false);
+  };
+
+  const message = async () => {
+    if (!myUserId || !linkedId) return;
+    setBusy(true);
+    const tid = await openDm({ userId: myUserId, otherUserId: linkedId });
+    setBusy(false);
+    if (tid) router.push(`/feed/messages?dm=${encodeURIComponent(tid)}`);
+  };
+
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
+      <span
+        className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-extrabold text-ink"
+        style={{ background: gradFor(member.name) }}
+      >
+        {initials(member.name)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-bold text-ink">
+          {member.name}
+          {isMe && <span className="text-ink-faint"> (you)</span>}
+        </p>
+        <p className="text-xs text-ink-faint">
+          {member.birthday ? `🎂 ${formatBirthday(member.birthday)}` : "no birthday yet"}
+          {linkedId ? " · on Giftmaxxing" : ""}
+        </p>
+        {canConnect && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {status === "accepted" ? (
+              <>
+                <button
+                  disabled={busy}
+                  onClick={() => void message()}
+                  className="rounded-full bg-ink px-2.5 py-1 text-[11px] font-bold text-cream"
+                >
+                  Message
+                </button>
+                <Link
+                  href={`/feed?giftFor=${encodeURIComponent(linkedId)}`}
+                  className="rounded-full bg-coral px-2.5 py-1 text-[11px] font-bold text-white"
+                >
+                  Gift
+                </Link>
+              </>
+            ) : status === "pending" ? (
+              <span className="text-[11px] font-semibold text-ink-faint">Request sent</span>
+            ) : (
+              <button
+                disabled={busy || status === "loading"}
+                onClick={() => void connect()}
+                className="rounded-full bg-coral px-2.5 py-1 text-[11px] font-bold text-white"
+              >
+                Add friend
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MomentRow({ moment }: { moment: UpcomingMoment }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
@@ -389,9 +541,11 @@ function JoinCard({
     if (!trimmed || busy) return;
     setBusy(true);
     setError(null);
+    const userId = getMyUserId() ?? undefined;
     const ok = await joinCircle(circleId, {
       name: trimmed,
       birthday: birthday || undefined,
+      userId,
     });
     setBusy(false);
     if (!ok) {
@@ -404,6 +558,9 @@ function JoinCard({
       emoji: circleEmoji,
       joinedAs: trimmed,
     });
+    if (userId) {
+      await claimCircleSeat({ circleId, userId, memberName: trimmed });
+    }
     onJoined(trimmed);
   };
 
@@ -413,7 +570,8 @@ function JoinCard({
         {defaultName ? "Update your details" : "Add yourself to the circle"}
       </h2>
       <p className="mt-1 text-sm text-ink-soft">
-        Your name and birthday — that&apos;s it. No account needed.
+        Your name and birthday — that&apos;s it. If you&apos;re signed in,
+        we&apos;ll link your account so circle mates can friend and gift you.
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <input
