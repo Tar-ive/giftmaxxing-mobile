@@ -167,12 +167,12 @@ private struct GroupGiftPledgeCard: View {
                     .padding(10)
             }
             .frame(width: width, height: height)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous)
                     .stroke(.white.opacity(0.08), lineWidth: 1)
             }
-            .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
+            .cardElevation()
         }
         .buttonStyle(.plain)
         .scrollTransition(.animated, axis: .horizontal) { content, phase in

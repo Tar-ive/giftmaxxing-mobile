@@ -5,19 +5,20 @@ struct ContentView: View {
     @EnvironmentObject private var authManager: AuthManager
     @EnvironmentObject private var offlineQueue: OfflineQueue
     @Environment(\.scenePhase) private var scenePhase
-    // Per-IDENTITY onboarding (see PersonalizationStore): evaluated on launch
-    // for the current identity and re-evaluated whenever the account changes —
-    // a brand-new sign-in runs its first consult even on a well-used device.
     @State private var showOnboarding = false
     @State private var showSplash = true
+    @State private var gateResolved = false
 
-    // Accounts are required: every tester gets a distinct profile so
-    // behavioral analytics attribute to real people. The cover is driven by
-    // auth state — it can only dismiss by signing in. (E2E builds sign in
-    // headlessly via launch arguments; see E2ESupport.swift.)
+    // Accounts are required: the cover dismisses only via real auth. E2E builds
+    // sign in headlessly via launch arguments (see E2ESupport.swift).
     private var signInRequired: Binding<Bool> {
         Binding(
-            get: { !authManager.isAuthenticated && !showSplash && !showOnboarding },
+            get: {
+                gateResolved
+                    && !authManager.isAuthenticated
+                    && !showSplash
+                    && !showOnboarding
+            },
             set: { _ in }
         )
     }
@@ -57,8 +58,6 @@ struct ContentView: View {
             }
             .tint(Color.coral)
 
-            // Maxi is useful as a home-level concierge, not as an overlay on
-            // focused flows such as chat, challenge creation, and taste edits.
             if appState.showsMaxiFAB {
                 MaxiFloatingButton { appState.showMaxi = true }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
@@ -93,43 +92,47 @@ struct ContentView: View {
                 }
             }
 
-            // Amazon-style animated splash on cold launch.
             if showSplash {
                 SplashView {
-                    withAnimation(.easeOut(duration: 0.35)) {
-                        showSplash = false
-                    }
+                    Task { await finishSplashAndResolveGate() }
                 }
                 .transition(.opacity)
                 .zIndex(10)
+            } else if !gateResolved {
+                // Brief hold while we decide sign-in vs onboarding — prevents
+                // the main chrome from flashing under a cover.
+                Color.cream
+                    .ignoresSafeArea()
+                    .zIndex(9)
             }
         }
-        // Birthday-freebies notification tap — straight to the perks list.
         .sheet(isPresented: $appState.showBirthdayPerks) {
             BirthdayPerksSheet()
         }
-        // Maxi concierge — presented from the floating button over any tab.
         .sheet(isPresented: $appState.showMaxi) {
             MaxiView()
         }
-        // Search is a modal layer (camera / products / screenshots), not a tab.
         .fullScreenCover(isPresented: $appState.showSearch) {
             SearchTabsView()
                 .environmentObject(appState)
         }
-        .sheet(isPresented: $showOnboarding) {
+        // DESIGN.md flow: splash → sign-in → glass intro → consult → main.
+        // fullScreenCover avoids sheet/cover presentation races on iOS.
+        .fullScreenCover(isPresented: $showOnboarding) {
             OnboardingView(isOnboardingComplete: Binding(
                 get: { !showOnboarding },
-                set: { showOnboarding = !$0 }
+                set: { complete in
+                    guard complete else { return }
+                    PersonalizationStore.markOnboarded(identity: authManager.userId)
+                    showOnboarding = false
+                }
             ))
-            .onDisappear {
-                PersonalizationStore.markOnboarded(identity: authManager.userId)
-            }
+            .interactiveDismissDisabled()
         }
         .fullScreenCover(isPresented: signInRequired) {
             SignInView(showSignIn: Binding(
                 get: { signInRequired.wrappedValue },
-                set: { _ in } // dismisses only via real auth state changes
+                set: { _ in }
             ))
             .environmentObject(authManager)
             .interactiveDismissDisabled()
@@ -155,21 +158,11 @@ struct ContentView: View {
         .onAppear {
             drainCaptureInbox()
             PersonalizationStore.migrateLegacyFlagIfNeeded()
-            Task {
-                await E2ESupport.autoSignInIfRequested(authManager: authManager)
-                evaluateOnboarding(for: authManager.userId)
-            }
         }
-        // A DIFFERENT account signed in: decide onboarding for that identity —
-        // its own local flag first, then the cloud profile (completedAt set by
-        // the concierge on any platform). No profile anywhere → run the consult.
         .onChange(of: authManager.userId) { _, newUserId in
-            evaluateOnboarding(for: newUserId)
+            guard !showSplash else { return }
+            Task { await resolveAppGate(userId: newUserId) }
         }
-        // giftmaxxing://capture — the share extension hands off here right
-        // after "Find similar gifts" / "Start a gift pool".
-        // giftmaxxing://circle/<id> (and https .../circle/<id>) — open the
-        // circle page, where the inline join card greets new arrivals.
         .onOpenURL { url in
             if let circleId = CircleStore.circleId(fromURL: url) {
                 appState.openCircle(circleId)
@@ -180,36 +173,43 @@ struct ContentView: View {
         }
     }
 
-    // Share-extension bridge: anything sent to Giftmaxxing from another app
-    // lands in the app-group inbox and routes by the intent the user chose in
-    // the extension — visual search or a new gift pool.
-    private func drainCaptureInbox() {
-        guard let capture = CaptureInbox.consume() else { return }
-        appState.handleCapture(image: capture.image, url: capture.url, intent: capture.intent)
+    @MainActor
+    private func finishSplashAndResolveGate() async {
+        await E2ESupport.autoSignInIfRequested(authManager: authManager)
+        await resolveAppGate(userId: authManager.userId)
+        withAnimation(.easeOut(duration: 0.35)) {
+            showSplash = false
+        }
     }
 
-    private func evaluateOnboarding(for userId: String?) {
+    @MainActor
+    private func resolveAppGate(userId: String?) async {
+        gateResolved = false
+        defer { gateResolved = true }
+
         if PersonalizationStore.hasOnboarded(identity: userId) {
             showOnboarding = false
             return
         }
-        guard let userId else {
-            // Fresh guest — straight into the consult.
-            showOnboarding = true
+
+        // Accounts are required — onboarding only runs for a signed-in identity.
+        guard authManager.isAuthenticated, let userId else {
+            showOnboarding = false
             return
         }
-        // Signed-in identity we haven't onboarded on THIS device: the account
-        // may have onboarded elsewhere (web concierge) — check /me first so
-        // returning users are never re-gated, and hydrate their signals.
-        Task {
-            if let profile = try? await APIClient.shared.fetchMe(userId: userId),
-               profile.completedAt != nil {
-                if let pref = profile.genderPref { PersonalizationStore.genderPref = pref }
-                PersonalizationStore.markOnboarded(identity: userId)
-                showOnboarding = false
-            } else {
-                showOnboarding = true
-            }
+
+        if let profile = try? await APIClient.shared.fetchMe(userId: userId),
+           profile.completedAt != nil {
+            if let pref = profile.genderPref { PersonalizationStore.genderPref = pref }
+            PersonalizationStore.markOnboarded(identity: userId)
+            showOnboarding = false
+        } else {
+            showOnboarding = true
         }
+    }
+
+    private func drainCaptureInbox() {
+        guard let capture = CaptureInbox.consume() else { return }
+        appState.handleCapture(image: capture.image, url: capture.url, intent: capture.intent)
     }
 }
