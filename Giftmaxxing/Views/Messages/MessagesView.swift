@@ -196,6 +196,7 @@ final class MessagesStore: ObservableObject {
 
 struct MessagesView: View {
     @EnvironmentObject private var authManager: AuthManager
+    @EnvironmentObject private var appState: AppState
     @StateObject private var store = MessagesStore()
     @ObservedObject private var friendsStore = FriendsStore.shared
     @State private var openDmThreadId: String?
@@ -217,10 +218,18 @@ struct MessagesView: View {
                                     size: 48
                                 )
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(dm.otherName ?? dm.otherUserId)
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundStyle(Color.ink)
-                                    Text(dm.lastText ?? "Say hi — or gift them something")
+                                    HStack {
+                                        Text(dm.otherName ?? dm.otherUserId)
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundStyle(Color.ink)
+                                        Spacer(minLength: 8)
+                                        if let lastAt = dm.lastAt {
+                                            Text(FriendDmThreadView.formatDmTime(lastAt))
+                                                .font(.system(size: 11))
+                                                .foregroundStyle(.tertiary)
+                                        }
+                                    }
+                                    Text(dm.lastText ?? "Say hi — or send a gift challenge")
                                         .font(.system(size: 12))
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
@@ -269,6 +278,8 @@ struct MessagesView: View {
         .navigationDestination(isPresented: $showDm) {
             if let openDmThreadId {
                 FriendDmThreadView(threadId: openDmThreadId)
+                    .environmentObject(authManager)
+                    .environmentObject(appState)
             }
         }
         .task {

@@ -6,8 +6,6 @@ struct MoreView: View {
     @EnvironmentObject private var pushManager: PushManager
     @EnvironmentObject private var syncEngine: SyncEngine
     @State private var showSignIn = false
-    /// Binding for re-running taste onboarding from Edit taste (ConsultView sets it true on finish).
-    @State private var editTasteComplete = false
 
     var body: some View {
         NavigationStack {
@@ -71,8 +69,8 @@ struct MoreView: View {
                             FriendsView()
                         }
 
-                        MoreRow(icon: "sparkles", title: "Edit taste", subtitle: "Hobbies, vibes, gift style") {
-                            OnboardingView(isOnboardingComplete: $editTasteComplete)
+                        MoreRow(icon: "sparkles", title: "Edit taste", subtitle: "Maxi asks — sizes, vibes, dislikes") {
+                            TasteInterviewView()
                         }
 
                         MoreRow(icon: "bag.fill", title: "Shop", subtitle: "Curated picks") {

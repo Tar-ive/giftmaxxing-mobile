@@ -21,6 +21,8 @@ struct CircleDetailView: View {
     @State private var openDmThreadId: String?
     @State private var showDm = false
     @State private var memberStatuses: [String: String] = [:]
+    @State private var challengeName: String?
+    @State private var showChallenge = false
 
     private var myCircle: MyCircle? {
         store.circles.first { $0.circleId == circleId }
@@ -81,7 +83,14 @@ struct CircleDetailView: View {
             if let openDmThreadId {
                 FriendDmThreadView(threadId: openDmThreadId)
                     .environmentObject(authManager)
+                    .environmentObject(appState)
             }
+        }
+        .sheet(isPresented: $showChallenge) {
+            NavigationStack {
+                ChallengeView(showsClose: true, prefillTheirName: challengeName ?? "")
+            }
+            .environmentObject(appState)
         }
         .onAppear {
             AnalyticsEngine.shared.trackScreenView(screen: "circle_detail")
@@ -340,8 +349,9 @@ struct CircleDetailView: View {
                             .background(Color.ink)
                             .clipShape(Capsule())
 
-                            Button("Gift") {
-                                appState.selectedTab = .feed
+                            Button("Challenge") {
+                                challengeName = member.linkedName ?? member.name
+                                showChallenge = true
                             }
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(.white)
