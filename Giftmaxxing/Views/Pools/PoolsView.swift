@@ -343,7 +343,8 @@ extension Pool {
             currentAmount: 52,
             contributors: [
                 PoolContributor(id: "c1", name: "Jules", amount: 22, avatarGrad: .lilac),
-                PoolContributor(id: "c2", name: "Noor", amount: 30, avatarGrad: .butter),
+                PoolContributor(id: "c2", name: "Noor", amount: 18, avatarGrad: .butter),
+                PoolContributor(id: "c6", name: "Theo", amount: 12, avatarGrad: .sage),
             ],
             product: Product(id: "camera", name: "Mini Instant Camera", brand: "Halo", price: 89, grad: .sky, emoji: "📷")
         ),
@@ -360,6 +361,22 @@ extension Pool {
                 PoolContributor(id: "c5", name: "Jules", amount: 25, avatarGrad: .lilac),
             ],
             product: Product(id: "buds", name: "Wireless Buds Pro", brand: "Aera", price: 149, grad: .lilac, emoji: "🎧")
+        ),
+        Pool(
+            id: "pool3",
+            title: "Weekend Getaway Fund",
+            forUser: "Alex",
+            occasion: "Graduation",
+            targetAmount: 300,
+            currentAmount: 180,
+            contributors: [
+                PoolContributor(id: "c7", name: "Sam", amount: 40, avatarGrad: .sky),
+                PoolContributor(id: "c8", name: "Noor", amount: 50, avatarGrad: .butter),
+                PoolContributor(id: "c9", name: "Maya", amount: 45, avatarGrad: .rose),
+                PoolContributor(id: "c10", name: "Jules", amount: 25, avatarGrad: .lilac),
+                PoolContributor(id: "c11", name: "Theo", amount: 20, avatarGrad: .sage),
+            ],
+            product: Product(id: "trip", name: "Weekend Getaway Fund", brand: "Giftmaxxing", price: 300, grad: .coral, emoji: "✈️")
         ),
     ]
 }
