@@ -180,7 +180,7 @@ struct FeedView: View {
         // The consult just wrote fresh signals (genderPref/vibes) — refetch so
         // the very next Home page reflects them.
         .onReceive(NotificationCenter.default.publisher(for: .consultProfileUpdated)) { _ in
-            Task { await viewModel.loadFeed(context: modelContext) }
+            Task { await viewModel.reloadForPersonalization(context: modelContext) }
         }
         .onChange(of: scenePhase) { _, phase in
             // Push any locally queued interaction events before we lose runtime.

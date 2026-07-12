@@ -5,6 +5,7 @@ import SwiftUI
 /// prefs), but as chat chips with Maxi. Always persists locally + PUT /me.
 struct TasteInterviewView: View {
     @EnvironmentObject private var authManager: AuthManager
+    @EnvironmentObject private var appState: AppState
     @Environment(\.dismiss) private var dismiss
 
     @State private var step = 0
@@ -57,6 +58,7 @@ struct TasteInterviewView: View {
             }
         }
         .onAppear {
+            appState.suppressMaxiFAB()
             // Prefill from any prior interview / consult vibes.
             interests = Set(PersonalizationStore.consultVibes)
             if let sizes = PersonalizationStore.clothingSizes {
@@ -68,6 +70,7 @@ struct TasteInterviewView: View {
             dislikes = Set(PersonalizationStore.dislikes)
             note = PersonalizationStore.giftNote ?? ""
         }
+        .onDisappear { appState.unsuppressMaxiFAB() }
     }
 
     private var progressBar: some View {

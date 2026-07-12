@@ -87,6 +87,7 @@ struct FriendsView: View {
                 )
             }
             .environmentObject(appState)
+            .environmentObject(authManager)
         }
         .onAppear {
             AnalyticsEngine.shared.trackScreenView(screen: "friends")
@@ -489,11 +490,17 @@ struct FriendDmThreadView: View {
         }
         .sheet(isPresented: $showChallenge) {
             NavigationStack {
-                ChallengeView(showsClose: true, prefillTheirName: friendDisplayName)
+                ChallengeView(
+                    showsClose: true,
+                    prefillTheirName: friendDisplayName,
+                    dmThreadId: threadId
+                )
             }
             .environmentObject(appState)
+            .environmentObject(authManager)
         }
         .task {
+            appState.suppressMaxiFAB()
             await load()
             // Near-real-time: poll while this chat is open so peer messages appear
             // without leaving and coming back.
@@ -502,6 +509,7 @@ struct FriendDmThreadView: View {
                 await load(silent: true)
             }
         }
+        .onDisappear { appState.unsuppressMaxiFAB() }
     }
 
     private func dmBubble(_ msg: DmMessage) -> some View {
