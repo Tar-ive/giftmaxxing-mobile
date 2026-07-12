@@ -27,32 +27,30 @@ final class FriendsStore: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
-        async let peopleTask: [PublicPerson] = {
-            if let items = try? await api.searchPeople(query: query, limit: 30), !items.isEmpty {
-                return items
-            }
-            return Self.demoPeople(query: query, excluding: userId)
-        }()
+        // Keep this sequential on the main actor — `async let` closures are
+        // nonisolated and can't call our MainActor-isolated local helpers.
+        let people: [PublicPerson]
+        if let items = try? await api.searchPeople(query: query, limit: 30), !items.isEmpty {
+            people = items
+        } else {
+            people = Self.demoPeople(query: query, excluding: userId)
+        }
 
         guard let userId, !userId.isEmpty else {
-            discover = await peopleTask.filter { $0.userId != "you" }
+            discover = people.filter { $0.userId != "you" }
             friends = []
             pending = []
             dms = []
             return
         }
 
-        async let acceptedTask: [Friendship] = {
-            (try? await api.listFriends(userId: userId, status: "accepted")) ?? loadLocalFriends(userId: userId, status: "accepted")
-        }()
-        async let pendingTask: [Friendship] = {
-            (try? await api.listFriends(userId: userId, status: "pending")) ?? loadLocalFriends(userId: userId, status: "pending")
-        }()
-        async let dmsTask: [DmThread] = {
-            (try? await api.listDms(userId: userId)) ?? loadLocalDms(userId: userId)
-        }()
+        let accepted = (try? await api.listFriends(userId: userId, status: "accepted"))
+            ?? loadLocalFriends(userId: userId, status: "accepted")
+        let pend = (try? await api.listFriends(userId: userId, status: "pending"))
+            ?? loadLocalFriends(userId: userId, status: "pending")
+        let threads = (try? await api.listDms(userId: userId))
+            ?? loadLocalDms(userId: userId)
 
-        let (people, accepted, pend, threads) = await (peopleTask, acceptedTask, pendingTask, dmsTask)
         discover = people.filter { $0.userId != userId }
         friends = accepted
         pending = pend
@@ -236,10 +234,11 @@ final class FriendsStore: ObservableObject {
 
     private func loadLocalFriends(userId: String) -> [Friendship] {
         guard let data = UserDefaults.standard.data(forKey: Self.friendsKey),
-              let store = try? JSONDecoder().decode(LocalEdgeStore.self, from: data) else {
+              let store = try? JSONDecoder().decode(LocalEdgeStore.self, from: data),
+              let edges = store.edges[userId] else {
             return []
         }
-        return Array(store.edges[userId]?.values ?? [])
+        return Array(edges.values)
     }
 
     private func upsertLocalEdge(
