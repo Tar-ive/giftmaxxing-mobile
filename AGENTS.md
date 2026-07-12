@@ -37,6 +37,25 @@ the `web/app/privacy/page.tsx` guard that CI enforces).
   `.github/workflows/ci.yml`), so it does not block; `npm run build` is the gating
   check.
 
+### infra/ toolchain (Terraform + AWS)
+- Deploying `infra/` needs the **AWS CLI v2** and **Terraform** (neither ships in the
+  base image). Both are installed into `/usr/local/bin` in the current VM snapshot
+  (aws-cli v2, terraform 1.9.x — provider is `hashicorp/aws ~> 5.60`). They are NOT in
+  the update script (system deps, not codebase deps); if a fresh VM lacks them,
+  reinstall aws-cli v2 and a Terraform `>= 1.6` binary.
+- State is **local** (no remote backend); `terraform init` in `infra/` just downloads
+  providers (no creds needed). Region/env default to `us-east-1` / `dev`.
+- **Auth via AWS SSO** (preferred over static keys): run `aws configure sso` once
+  (supply your SSO start URL + region, pick account `445056752928` + a role that can
+  manage the stack, name the profile e.g. `giftmaxxing`), then `aws sso login
+  --profile giftmaxxing`. This VM is headless, so the CLI prints a verification URL +
+  code to open in a browser on any device. Export `AWS_PROFILE=giftmaxxing` (or pass
+  `--profile`) for `aws`/`terraform`. SSO sessions are short-lived — re-run `aws sso
+  login` when `aws sts get-caller-identity` starts failing.
+- Standard Terraform workflow lives in `infra/README.md` (`terraform plan` /
+  `terraform apply`, then `terraform output`). `infra/ingest` scripts expect creds
+  loaded via `set -a; source ../../.env; set +a` OR an active `AWS_PROFILE`.
+
 ### Onboarding gate
 - The feed is gated behind onboarding (`web/components/app/onboarding-gate.tsx`): a
   fresh browser profile with no `localStorage` is redirected to `/onboarding`. To reach
