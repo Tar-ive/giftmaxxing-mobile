@@ -25,6 +25,8 @@ struct APIPost: Codable {
     var vibes: [String]?
     var qualityScore: Double?
     var contentType: String?
+    var mediaUrl: String?
+    var posterUrl: String?
     var feedEligible: Bool?
 }
 

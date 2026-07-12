@@ -597,7 +597,10 @@ actor APIClient {
             category: api.category,
             domain: api.domain ?? api.merchant,
             qualityScore: api.qualityScore,
-            feedEligible: api.feedEligible
+            feedEligible: api.feedEligible,
+            contentType: api.contentType,
+            mediaUrl: api.mediaUrl,
+            posterUrl: api.posterUrl
         )
     }
 

@@ -49,6 +49,22 @@ struct FeedView: View {
                     .padding(.top, 6)
                     .padding(.bottom, 8)
 
+                    if !viewModel.posts.isEmpty {
+                        CompactPledgeRail(
+                            posts: Array(viewModel.posts.prefix(8)),
+                            onPledge: { post in
+                                pledgingPost = post
+                                AnalyticsEngine.shared.trackContentAction(
+                                    .contentLike,
+                                    postId: post.id
+                                )
+                            },
+                            onProductTap: { post in
+                                selectedPost = post
+                            }
+                        )
+                    }
+
                     if viewModel.isLoading && viewModel.posts.isEmpty {
                         ForEach(0..<3, id: \.self) { _ in
                             PostCardSkeleton()
