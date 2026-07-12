@@ -23,6 +23,7 @@ struct GiftingTray: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .contentShape(Rectangle())
                 }
 
                 // Active pools — the ring is the funding progress.
@@ -45,6 +46,7 @@ struct GiftingTray: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .contentShape(Rectangle())
                 }
 
                 // Start bubbles — group gifts and pools begin right on Home.
@@ -54,6 +56,7 @@ struct GiftingTray: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .contentShape(Rectangle())
 
                 Button {
                     showPools = true
@@ -63,6 +66,7 @@ struct GiftingTray: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .contentShape(Rectangle())
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 4)
@@ -109,5 +113,6 @@ private struct TrayBubble<Content: View>: View {
                 .lineLimit(1)
                 .frame(maxWidth: 64)
         }
+        .contentShape(Rectangle())
     }
 }

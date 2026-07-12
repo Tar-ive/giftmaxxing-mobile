@@ -229,6 +229,13 @@ struct FriendsView: View {
                     interests: person.interests,
                     grad: SocialUsers.grad(for: person.userId)
                 ) {
+                    NavigationLink {
+                        PublicProfileView(person: person)
+                    } label: {
+                        Image(systemName: "person.crop.circle")
+                            .font(.system(size: 20))
+                            .foregroundStyle(Color.coral)
+                    }
                     if friendIds.contains(person.userId) {
                         Button("Message") {
                             Task { await message(person.userId) }
@@ -383,6 +390,57 @@ private struct FriendPillStyle: ButtonStyle {
     }
 }
 
+/// Public search results lead to this compact, share-safe profile. The API
+/// returns a private profile here only when the viewer is an accepted friend.
+private struct PublicProfileView: View {
+    let person: PublicPerson
+    @State private var profile: PublicPerson?
+
+    private var displayed: PublicPerson { profile ?? person }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                AvatarView(
+                    name: displayed.name,
+                    grad: SocialUsers.grad(for: displayed.userId),
+                    size: 84
+                )
+                Text(displayed.name)
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                Text("@\(displayed.handle)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                if let bio = displayed.bio, !bio.isEmpty {
+                    Text(bio)
+                        .font(.body)
+                        .multilineTextAlignment(.center)
+                }
+                if let interests = displayed.interests, !interests.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Gift vibes")
+                            .font(.system(size: 14, weight: .bold))
+                        Text(interests.joined(separator: " · "))
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(Color.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+            }
+            .padding(24)
+        }
+        .background(Color.cream)
+        .navigationTitle("Profile")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            profile = try? await APIClient.shared.fetchPerson(userId: person.userId)
+        }
+    }
+}
+
 // MARK: - DM thread
 
 struct FriendDmThreadView: View {
@@ -514,6 +572,11 @@ struct FriendDmThreadView: View {
 
     private func dmBubble(_ msg: DmMessage) -> some View {
         let isMe = msg.userId == authManager.userId || msg.userId == "you"
+        let sharedURL = Self.firstURL(in: msg.text)
+        let bodyText = msg.text
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { URL(string: $0)?.scheme == nil }
+            .joined(separator: " ")
         return HStack {
             if isMe { Spacer(minLength: 40) }
             VStack(alignment: isMe ? .trailing : .leading, spacing: 2) {
@@ -522,13 +585,24 @@ struct FriendDmThreadView: View {
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(.secondary)
                 }
-                Text(msg.text)
+                Text(bodyText.isEmpty ? "Shared a gift challenge" : bodyText)
                     .font(.system(size: 14))
                     .foregroundStyle(isMe ? Color.white : Color.ink)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(isMe ? Color.coral : Color.cream)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
+                if let sharedURL {
+                    Link(destination: sharedURL) {
+                        Label("Open shared invite", systemImage: "arrow.up.right.square")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Color.coral)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.coral.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                }
                 Text(Self.formatDmTime(msg.at))
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
@@ -572,5 +646,12 @@ struct FriendDmThreadView: View {
             return "Yesterday \(date.formatted(date: .omitted, time: .shortened))"
         }
         return date.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    private static func firstURL(in text: String) -> URL? {
+        text
+            .components(separatedBy: .whitespacesAndNewlines)
+            .compactMap(URL.init(string:))
+            .first(where: { $0.scheme == "https" || $0.scheme == "http" })
     }
 }

@@ -25,6 +25,8 @@ struct APIPost: Codable {
     var vibes: [String]?
     var qualityScore: Double?
     var contentType: String?
+    var mediaUrl: String?
+    var posterUrl: String?
     var feedEligible: Bool?
 }
 
@@ -189,6 +191,7 @@ struct UserProfile: Codable {
     var completedAt: Double?
     var interests: [String]?
     var genderPref: String?
+    var visibility: String?
 
     struct Recipient: Codable, Identifiable {
         var id: String

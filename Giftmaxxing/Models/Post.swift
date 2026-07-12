@@ -24,6 +24,9 @@ struct Post: Identifiable, Codable, Hashable {
     var domain: String?
     var qualityScore: Double?
     var feedEligible: Bool?
+    var contentType: String?
+    var mediaUrl: String?
+    var posterUrl: String?
 
     var displayCommentCount: Int {
         commentCount ?? comments.count
@@ -33,6 +36,7 @@ struct Post: Identifiable, Codable, Hashable {
         case id, user, time, product, caption, likes, liked, saved
         case comments, commentCount, source, url, productUrl, rec, reason
         case recipient, occasion, category, domain, qualityScore, feedEligible
+        case contentType, mediaUrl, posterUrl
     }
 
     init(
@@ -56,7 +60,10 @@ struct Post: Identifiable, Codable, Hashable {
         category: String? = nil,
         domain: String? = nil,
         qualityScore: Double? = nil,
-        feedEligible: Bool? = nil
+        feedEligible: Bool? = nil,
+        contentType: String? = nil,
+        mediaUrl: String? = nil,
+        posterUrl: String? = nil
     ) {
         self.id = id
         self.user = user
@@ -79,6 +86,9 @@ struct Post: Identifiable, Codable, Hashable {
         self.domain = domain
         self.qualityScore = qualityScore
         self.feedEligible = feedEligible
+        self.contentType = contentType
+        self.mediaUrl = mediaUrl
+        self.posterUrl = posterUrl
     }
 }
 

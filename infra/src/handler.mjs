@@ -2729,7 +2729,11 @@ export const handler = async (event) => {
       if (!userId || !profile || typeof profile !== "object") {
         return json(400, { error: "userId and profile required" });
       }
-      const item = { ...profile, userId, updatedAt: Date.now() };
+      // Clients update independent profile panels (taste, visibility, account)
+      // at different times. Merge their patch so changing visibility cannot
+      // erase recipients, events, or taste signals saved elsewhere.
+      const existing = await ddb.send(new GetCommand({ TableName: USERS, Key: { userId } }));
+      const item = { ...(existing.Item ?? {}), ...profile, userId, updatedAt: Date.now() };
       await ddb.send(new PutCommand({ TableName: USERS, Item: item }));
       // Fan out into the events table + network graph so nothing is missed.
       await captureProfile(userId, profile);
