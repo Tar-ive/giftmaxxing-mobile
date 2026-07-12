@@ -229,6 +229,13 @@ struct FriendsView: View {
                     interests: person.interests,
                     grad: SocialUsers.grad(for: person.userId)
                 ) {
+                    NavigationLink {
+                        PublicProfileView(person: person)
+                    } label: {
+                        Image(systemName: "person.crop.circle")
+                            .font(.system(size: 20))
+                            .foregroundStyle(Color.coral)
+                    }
                     if friendIds.contains(person.userId) {
                         Button("Message") {
                             Task { await message(person.userId) }
@@ -380,6 +387,57 @@ private struct FriendPillStyle: ButtonStyle {
             .background(coral ? Color.coral : (filled ? Color.ink : Color.cream))
             .clipShape(Capsule())
             .opacity(configuration.isPressed ? 0.85 : 1)
+    }
+}
+
+/// Public search results lead to this compact, share-safe profile. The API
+/// returns a private profile here only when the viewer is an accepted friend.
+private struct PublicProfileView: View {
+    let person: PublicPerson
+    @State private var profile: PublicPerson?
+
+    private var displayed: PublicPerson { profile ?? person }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                AvatarView(
+                    name: displayed.name,
+                    grad: SocialUsers.grad(for: displayed.userId),
+                    size: 84
+                )
+                Text(displayed.name)
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                Text("@\(displayed.handle)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                if let bio = displayed.bio, !bio.isEmpty {
+                    Text(bio)
+                        .font(.body)
+                        .multilineTextAlignment(.center)
+                }
+                if let interests = displayed.interests, !interests.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Gift vibes")
+                            .font(.system(size: 14, weight: .bold))
+                        Text(interests.joined(separator: " · "))
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(Color.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+            }
+            .padding(24)
+        }
+        .background(Color.cream)
+        .navigationTitle("Profile")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            profile = try? await APIClient.shared.fetchPerson(userId: person.userId)
+        }
     }
 }
 
