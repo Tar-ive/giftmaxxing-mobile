@@ -8,6 +8,9 @@ struct ContentView: View {
     @State private var showOnboarding = false
     @State private var showSplash = true
     @State private var gateResolved = false
+    // First-run navigation tour (TikTok-style coach marks) — queued the moment
+    // a NEW user finishes onboarding; never for grandfathered accounts.
+    @State private var showCoachMarks = false
 
     // Accounts are required: the cover dismisses only via real auth. E2E builds
     // sign in headlessly via launch arguments (see E2ESupport.swift).
@@ -92,6 +95,13 @@ struct ContentView: View {
                 }
             }
 
+            if showCoachMarks {
+                CoachMarksView {
+                    withAnimation(.easeOut(duration: 0.25)) { showCoachMarks = false }
+                }
+                .zIndex(8)
+            }
+
             if showSplash {
                 SplashView {
                     Task { await finishSplashAndResolveGate() }
@@ -125,6 +135,9 @@ struct ContentView: View {
                     guard complete else { return }
                     PersonalizationStore.markOnboarded(identity: authManager.userId)
                     showOnboarding = false
+                    // Fresh account, first landing on the main chrome — run the
+                    // navigation tour once.
+                    if !CoachMarks.seen { showCoachMarks = true }
                 }
             ))
             .interactiveDismissDisabled()
@@ -188,6 +201,9 @@ struct ContentView: View {
         defer { gateResolved = true }
 
         if PersonalizationStore.hasOnboarded(identity: userId) {
+            // Grandfather accounts that onboarded before the tour shipped —
+            // the coach marks are a NEW-user ritual, not a changelog.
+            CoachMarks.seen = true
             showOnboarding = false
             return
         }
@@ -202,6 +218,7 @@ struct ContentView: View {
            profile.completedAt != nil {
             if let pref = profile.genderPref { PersonalizationStore.genderPref = pref }
             PersonalizationStore.markOnboarded(identity: userId)
+            CoachMarks.seen = true // onboarded elsewhere (web) — skip the tour
             showOnboarding = false
         } else {
             showOnboarding = true

@@ -90,7 +90,8 @@ struct PostCardView: View {
                         }
                     }
                 }
-                .aspectRatio(1, contentMode: .fit)
+                // Instagram's 4:5 portrait — taller media, same edge-to-edge card.
+                .aspectRatio(4.0 / 5.0, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 2))
             }
             .buttonStyle(.plain)

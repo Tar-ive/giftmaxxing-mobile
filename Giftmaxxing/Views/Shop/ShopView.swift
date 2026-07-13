@@ -10,6 +10,9 @@ struct ShopItem: Identifiable {
     var emoji: String
     var grad: GradientStyle
     var affiliateUrl: String?
+    // Social proof for the grid ("N saved") — the marketplace-style nudge
+    // next to the price.
+    var likes: Int = 0
 }
 
 @MainActor
@@ -55,7 +58,8 @@ final class ShopViewModel: ObservableObject {
                 category: category,
                 emoji: post.product.emoji,
                 grad: post.product.grad,
-                affiliateUrl: buyUrl
+                affiliateUrl: buyUrl,
+                likes: post.likes
             ))
         }
         guard live.count >= 8 else { return } // thin catalog → keep samples
@@ -212,27 +216,32 @@ struct ShopItemCard: View {
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 14))
 
-                // Info
-                VStack(alignment: .leading, spacing: 2) {
+                // Info — marketplace-style: title, then a prominent price with
+                // social proof beside it (the brand lives in the detail sheet;
+                // dropping it here keeps the grid image-first and scannable).
+                VStack(alignment: .leading, spacing: 3) {
                     Text(item.title)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Color.ink)
                         .lineLimit(2)
+                        .multilineTextAlignment(.leading)
 
-                    if let brand = item.brand {
-                        Text(brand)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                    }
-
-                    if let price = item.price {
-                        Text("$\(Int(price))")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(Color.coral)
-                    } else {
-                        Text("See price on Amazon")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Color.coral)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        if let price = item.price {
+                            Text("$\(Int(price))")
+                                .font(.system(size: 16, weight: .heavy, design: .rounded))
+                                .foregroundStyle(Color.coral)
+                        } else {
+                            Text("See price on Amazon")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(Color.coral)
+                        }
+                        if item.likes > 0 {
+                            Text("\(item.likes) saved")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
