@@ -41,6 +41,8 @@ struct APIProduct: Codable {
     var grad: String?
     var emoji: String?
     var image: String?
+    // Product-page gallery written by infra/ingest/enrich-images.mjs.
+    var images: [String]?
 }
 
 struct FeedResponse: Codable {

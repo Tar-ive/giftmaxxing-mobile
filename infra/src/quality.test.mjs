@@ -29,6 +29,26 @@ test("washer fluid reservoir is non_gift despite retailer + price (live feed exa
   assert.equal(q.feedEligible, false);
 });
 
+test("door lock actuator is non_gift (live feed example)", () => {
+  const q = classifyPin({
+    title: "Door Lock Actuator Motor Dorman 937-080",
+    domain: "ebay.com",
+    price: 232,
+  });
+  assert.equal(q.contentType, "non_gift");
+  assert.equal(q.feedEligible, false);
+});
+
+test("wheel stud with auto brand is non_gift (live feed example)", () => {
+  const q = classifyPin({
+    title: "Dorman 610368.1 Wheel Stud",
+    domain: "ebay.com",
+    price: 12,
+  });
+  assert.equal(q.contentType, "non_gift");
+  assert.equal(q.feedEligible, false);
+});
+
 test("plumbing hardware is non_gift", () => {
   const q = classifyPin({
     title: "Kitchen Sink Strainer Drain Assembly, Stainless Steel",

@@ -9,6 +9,16 @@ struct Product: Identifiable, Codable, Hashable {
     var grad: GradientStyle
     var emoji: String
     var image: String?
+    // Full product-page gallery (retailer listings carry 5-10 shots; we
+    // historically kept one). Populated by infra/ingest/enrich-images.mjs;
+    // `image` stays the cover for every single-image surface.
+    var images: [String]?
+
+    // Every photo we have, cover first, deduped — the detail carousel's source.
+    var gallery: [String] {
+        var seen = Set<String>()
+        return ([image].compactMap { $0 } + (images ?? [])).filter { seen.insert($0).inserted }
+    }
 
     var hasDiscount: Bool { was != nil && was! > price }
     var discountPercent: Int? {

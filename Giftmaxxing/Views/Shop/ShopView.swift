@@ -245,11 +245,38 @@ struct ShopItemCard: View {
 struct ShopItemDetail: View {
     let item: ShopItem
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var appState: AppState
     @State private var browserTarget: BrowserTarget?
+    @State private var showListPicker = false
+    @State private var showPoolSheet = false
+    @ObservedObject private var swipeLists = SwipeListStore.shared
 
     private var isAmazon: Bool {
         guard let url = item.affiliateUrl else { return false }
         return Affiliate.isAmazonUrl(url)
+    }
+
+    // Shop items ride the same gifting rails as feed posts (swipe lists and
+    // gift pools both speak Post) — synthesize one from the catalog item.
+    private var asPost: Post {
+        Post(
+            id: item.id,
+            user: "giftmaxxing_shop",
+            time: "",
+            product: Product(
+                id: item.id,
+                name: item.title,
+                brand: item.brand ?? "Giftmaxxing",
+                price: item.price ?? 0,
+                grad: item.grad,
+                emoji: item.emoji,
+                image: item.image
+            ),
+            caption: "",
+            likes: 0,
+            productUrl: item.affiliateUrl,
+            category: item.category
+        )
     }
 
     // Human-readable merchant for the buy button: the link's host without "www.".
@@ -332,6 +359,48 @@ struct ShopItemDetail: View {
                             }
                         }
 
+                        // Gifting rails — same two actions as a feed card: file
+                        // it into a person's swipe list, or open a gift pool
+                        // friends can chip into.
+                        HStack(spacing: 8) {
+                            Button {
+                                showListPicker = true
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: swipeLists.contains(asPost)
+                                          ? "checkmark" : "rectangle.stack.badge.plus")
+                                        .font(.system(size: 12, weight: .semibold))
+                                    Text(swipeLists.contains(asPost) ? "On swipe list" : "Swipe list")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .lineLimit(1)
+                                }
+                                .foregroundStyle(Color.coral)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 38)
+                                .background(Color.coralSoft)
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+
+                            Button {
+                                showPoolSheet = true
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "person.2.fill")
+                                        .font(.system(size: 12, weight: .semibold))
+                                    Text("Gift pool")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .lineLimit(1)
+                                }
+                                .foregroundStyle(Color.coral)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 38)
+                                .background(Color.coralSoft)
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+
                         // The Associates disclosure only applies to Amazon links.
                         if isAmazon {
                             Text("As an Amazon Associate, giftmaxxing earns from qualifying purchases.")
@@ -348,6 +417,17 @@ struct ShopItemDetail: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                 }
+            }
+            .sheet(isPresented: $showListPicker) {
+                SwipeListPickerSheet(post: asPost)
+            }
+            .sheet(isPresented: $showPoolSheet) {
+                CreatePoolFromCaptureView(
+                    image: nil,
+                    sourceURL: item.affiliateUrl,
+                    product: asPost.product
+                )
+                .environmentObject(appState)
             }
         }
     }
