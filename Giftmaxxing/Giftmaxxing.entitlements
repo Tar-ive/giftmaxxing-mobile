@@ -10,7 +10,10 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<!-- TestFlight/App Store builds ride the PRODUCTION APNs gateway; the
+	     distribution profile expects this value to match. Debug builds use
+	     Giftmaxxing-dev.entitlements (development). -->
 	<key>aps-environment</key>
-	<string>development</string>
+	<string>production</string>
 </dict>
 </plist>

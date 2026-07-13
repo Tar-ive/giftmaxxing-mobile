@@ -83,3 +83,12 @@ data "aws_iam_policy_document" "mobile_push" {
     resources = ["*"]
   }
 }
+
+# Attach the push policy to the API Lambda role (also used by the reminders
+# Lambda — one attachment covers both). Without this the policy document above
+# was orphaned: registered tokens could never be read and publishes were denied.
+resource "aws_iam_role_policy" "mobile_push" {
+  name   = "${var.prefix}-mobile-push"
+  role   = aws_iam_role.api_lambda.id
+  policy = data.aws_iam_policy_document.mobile_push.json
+}

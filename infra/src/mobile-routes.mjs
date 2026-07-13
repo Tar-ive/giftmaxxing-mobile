@@ -40,23 +40,9 @@ async function registerDevice(body) {
   const now = Date.now();
   const ttl = Math.floor(now / 1000) + 90 * 86400; // 90 days
 
-  // Store token in DynamoDB
-  if (DEVICES_TABLE) {
-    await ddb.send(new PutCommand({
-      TableName: DEVICES_TABLE,
-      Item: {
-        userId,
-        deviceId,
-        platform: platform || "ios",
-        token,
-        createdAt: now,
-        updatedAt: now,
-        expiresAt: ttl,
-      },
-    }));
-  }
-
-  // Create SNS platform endpoint for push delivery
+  // Create the SNS platform endpoint FIRST so its ARN persists with the token
+  // (it used to be created after the Put and thrown away — every send had to
+  // re-create it). No-ops until the APNs key is supplied to Terraform.
   let endpointArn = null;
   if (SNS_PLATFORM_APP_ARN && token) {
     try {
@@ -69,6 +55,22 @@ async function registerDevice(body) {
     } catch (e) {
       console.warn("SNS CreatePlatformEndpoint failed:", e.message);
     }
+  }
+
+  if (DEVICES_TABLE) {
+    await ddb.send(new PutCommand({
+      TableName: DEVICES_TABLE,
+      Item: {
+        userId,
+        deviceId,
+        platform: platform || "ios",
+        token,
+        ...(endpointArn ? { endpointArn } : {}),
+        createdAt: now,
+        updatedAt: now,
+        expiresAt: ttl,
+      },
+    }));
   }
 
   return json(200, { ok: true, deviceId, endpointArn });
