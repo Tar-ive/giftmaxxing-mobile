@@ -33,6 +33,8 @@
 	<string>1i1d0pdrgcuh8vces1f4truubd</string>
 	<key>CognitoRegion</key>
 	<string>us-east-1</string>
+	<key>GoogleOAuthClientID</key>
+	<string>641193240796-iu86sunkraeuf5ks755ipcf10kvutugv.apps.googleusercontent.com</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>
