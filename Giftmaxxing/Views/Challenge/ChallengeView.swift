@@ -187,7 +187,7 @@ struct ChallengeView: View {
                 }
 
                 // Theme picker — a saved gift idea anchors the deck.
-                if seedImage == nil && !swipeList.posts.isEmpty {
+                if seedImage == nil && !swipeList.allPosts.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("BUILD THE DECK AROUND A GIFT IDEA")
                             .font(.system(size: 11, weight: .bold))
@@ -197,7 +197,7 @@ struct ChallengeView: View {
                             .foregroundStyle(.secondary)
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 10) {
-                                ForEach(swipeList.posts) { post in
+                                ForEach(swipeList.allPosts) { post in
                                     SeedPickCard(
                                         post: post,
                                         isSelected: seedPostId == post.id

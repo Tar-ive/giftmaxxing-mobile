@@ -18,7 +18,7 @@ import {
   ListVectorsCommand,
 } from "@aws-sdk/client-s3vectors";
 import { BedrockRuntimeClient, InvokeModelCommand, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
-import { classifyPin } from "./quality.mjs";
+import { classifyPin, isMajorUSRetailer } from "./quality.mjs";
 import { sendPushToUser } from "./push.mjs";
 import { mobileRoutes } from "./mobile-routes.mjs";
 import { analyticsRoutes } from "./analytics-routes.mjs";
@@ -2626,12 +2626,18 @@ export const handler = async (event) => {
           filter: body.sourceUser ? { sourceUser: { $eq: body.sourceUser } } : undefined,
         })
       );
+      // Among near-equal visual matches, float major US retailers (Amazon /
+      // Target / Walmart…) above niche shops — a match the shopper can
+      // actually buy beats an aesthetic twin on a boutique domain.
+      const rankDistance = (it) =>
+        (it._distance ?? 1) - (isMajorUSRetailer(it.domain) ? 0.05 : 0);
       const items = (out.vectors ?? [])
         .map(vecToItem)
         .filter(
           (it) =>
             it.feedEligible && (it._distance == null || it._distance <= VISUAL_SEARCH_MAX_DISTANCE)
         )
+        .sort((a, b) => rankDistance(a) - rankDistance(b))
         .slice(0, limit);
 
       // A photo someone searches is one of the strongest taste/intent signals
@@ -3147,6 +3153,10 @@ export const handler = async (event) => {
       }
       const seed = body.seed ?? {};
       const deckSize = Math.max(6, Math.min(Number(body.deckSize) || CHALLENGE_DECK_SIZE, 24));
+      // "exact" decks (shared swipe lists): the guest swipes EXACTLY the items
+      // the sender curated — no lookalike padding, no hidden seed card, no
+      // service probes. Their yes/no per card IS the deliverable.
+      const exactDeck = body.deckMode === "exact";
 
       // Resolve the seed vector: an uploaded image (share-extension flow), one
       // catalog pin, or a set of taste keys (centroid).
@@ -3154,6 +3164,7 @@ export const handler = async (event) => {
       let seedInfo = null;
       let seedCard = null; // the seed itself, slipped into the deck when it's a catalog pin
       let exclude = [];
+      let seedVecsByKey = new Map(); // exact decks reuse the fetched vectors as cards
       try {
         if (seed.imageBase64) {
           seedVector = await embedImage(seed.imageBase64, seed.text);
@@ -3161,9 +3172,10 @@ export const handler = async (event) => {
         } else if (seed.postId || (Array.isArray(seed.seedKeys) && seed.seedKeys.length)) {
           const keys = seed.postId
             ? [String(seed.postId)]
-            : seed.seedKeys.slice(0, 8).map(String);
+            : seed.seedKeys.slice(0, exactDeck ? 40 : 8).map(String);
           exclude = keys;
           const vecs = await getVectorsByKeys(keys);
+          seedVecsByKey = vecs;
           if (vecs.size) {
             const dim = vecs.values().next().value.data.float32.length;
             const c = new Array(dim).fill(0);
@@ -3172,29 +3184,88 @@ export const handler = async (event) => {
             seedVector = c;
             const first = seed.postId ? vecs.get(String(seed.postId)) : null;
             seedInfo = {
-              kind: seed.postId ? "post" : "keys",
+              kind: exactDeck ? "list" : seed.postId ? "post" : "keys",
               keys,
               title: first?.metadata?.title || null,
               image: first?.metadata?.imageUrl || null,
             };
             // A pin-seeded challenge hides the seed card IN the deck: a direct
             // swipe on it is the strongest possible signal for the sender.
-            if (first) seedCard = deckSnapshot(vecToItem(first), "seed");
+            if (first && !exactDeck) seedCard = deckSnapshot(vecToItem(first), "seed");
           }
         }
       } catch (e) {
         console.warn("challenge seed resolve failed:", e.message);
       }
-      if (!seedVector) {
-        return json(400, { error: "seed required: imageBase64, postId, or seedKeys" });
-      }
 
-      const deck = await buildChallengeDeck(seedVector, {
-        size: seedCard ? deckSize - 1 : deckSize,
-        excludeKeys: exclude,
-      });
-      if (seedCard) deck.splice(Math.floor(Math.random() * (deck.length + 1)), 0, seedCard);
-      if (deck.length < 4) return json(422, { error: "not enough similar catalog items" });
+      let deck;
+      if (exactDeck) {
+        // Card sources, in preference order: the vector index (rich metadata),
+        // then client-supplied snapshots — swipe lists can hold catalog/feed
+        // items that were never embedded, and those must not silently vanish
+        // from the deck the recipient sees.
+        const sanitizeUrl = (u) =>
+          typeof u === "string" && /^https?:\/\//i.test(u) ? u.slice(0, 500) : null;
+        const clientCards = new Map();
+        for (const c of Array.isArray(body.cards) ? body.cards.slice(0, 40) : []) {
+          const id = String(c?.postId || "").slice(0, 120);
+          if (!id) continue;
+          const price = Number(c.price) || 0;
+          clientCards.set(id, {
+            postId: id,
+            name: String(c.name || "").slice(0, 200),
+            image: sanitizeUrl(c.image),
+            price,
+            priceDisplay: price > 0 ? `$${price}` : null,
+            category: String(c.category || "").slice(0, 40),
+            domain: String(c.domain || "").slice(0, 120),
+            url: sanitizeUrl(c.url) ?? "",
+            giftType: c.giftType === "service" ? "service" : "product",
+            ...(c.serviceDuration ? { serviceDuration: String(c.serviceDuration).slice(0, 40) } : {}),
+            // "list" (not "seed"): every card is the ask, so no single card may
+            // trigger the directSeedSwipe verdict override.
+            band: "list",
+          });
+        }
+        const keys = exclude.length ? exclude : [...clientCards.keys()];
+        deck = keys
+          .map((k) => {
+            const v = seedVecsByKey.get(k);
+            if (v) {
+              const snap = deckSnapshot(vecToItem(v), "list");
+              // The vector item never carries a price of its own for catalog
+              // posts — let a client snapshot fill gaps, not overwrite.
+              const c = clientCards.get(k);
+              if (c) {
+                if (!snap.name && c.name) snap.name = c.name;
+                if (!snap.image && c.image) snap.image = c.image;
+                if (!snap.price && c.price) {
+                  snap.price = c.price;
+                  snap.priceDisplay = c.priceDisplay;
+                }
+                if (!snap.url && c.url) snap.url = c.url;
+              }
+              return snap;
+            }
+            return clientCards.get(k) ?? null;
+          })
+          .filter(Boolean)
+          .slice(0, 40);
+        if (deck.length < 2) {
+          return json(422, { error: "exact deck needs at least 2 resolvable items" });
+        }
+        if (!seedInfo) seedInfo = { kind: "list", keys: deck.map((d) => d.postId) };
+      } else {
+        if (!seedVector) {
+          return json(400, { error: "seed required: imageBase64, postId, or seedKeys" });
+        }
+        deck = await buildChallengeDeck(seedVector, {
+          size: seedCard ? deckSize - 1 : deckSize,
+          excludeKeys: exclude,
+        });
+        if (seedCard) deck.splice(Math.floor(Math.random() * (deck.length + 1)), 0, seedCard);
+        if (deck.length < 4) return json(422, { error: "not enough similar catalog items" });
+      }
 
       const challengeId = `chal_${gid()}`;
       const meta = {
@@ -3218,8 +3289,12 @@ export const handler = async (event) => {
         // so an aggregate match summary is public to link holders, letting
         // anonymous senders (web consult, no account) read the answer back.
         mode: body.mode === "group" ? "group" : body.mode === "verify" ? "verify" : undefined,
+        deckMode: exactDeck ? "exact" : undefined,
         seed: seedInfo,
-        seedVec: packVector(seedVector),
+        // Exact decks may resolve zero index vectors (all-client cards) — the
+        // response route already falls back to the facet verdict when seedVec
+        // is absent.
+        seedVec: seedVector ? packVector(seedVector) : undefined,
         deck,
         responseCount: 0,
       };

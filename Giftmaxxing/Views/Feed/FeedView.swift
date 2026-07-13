@@ -11,6 +11,9 @@ struct FeedView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedPost: Post?
     @State private var pledgingPost: Post?
+    // "Add to swipe list" opens the Instagram-collections-style picker: choose
+    // WHOSE list this find belongs to (or make one) instead of a blind toggle.
+    @State private var listPickerPost: Post?
     @State private var viewingPool: Pool?
     @State private var showSearch = false
     @State private var showNotifications = false
@@ -109,9 +112,9 @@ struct FeedView: View {
                                     )
                                 },
                                 onAddToSwipeList: {
-                                    swipeList.toggle(post)
+                                    listPickerPost = post
                                     AnalyticsEngine.shared.trackContentAction(
-                                        swipeList.contains(post) ? .contentSave : .contentUnsave,
+                                        .contentSave,
                                         postId: post.id
                                     )
                                 },
@@ -194,6 +197,9 @@ struct FeedView: View {
                 onLike: { viewModel.toggleLike(for: live, context: modelContext) },
                 onSave: { viewModel.toggleSave(for: live, context: modelContext) }
             )
+        }
+        .sheet(item: $listPickerPost) { post in
+            SwipeListPickerSheet(post: post)
         }
         .sheet(item: $pledgingPost) { post in
             // Pledge → pool creation prefilled with this post's product.

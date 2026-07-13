@@ -30,24 +30,8 @@ final class SwipeViewModel: ObservableObject {
         currentIndex >= cards.count && !cards.isEmpty
     }
 
-    // "My list" deck — the posts you queued from the feed for a friend.
-    // Swiping left prunes the item off the list before you send it.
-    var isMyListMode = false
-
-    func loadMyList() {
-        isMyListMode = true
-        cards = SwipeListStore.shared.posts
-        currentIndex = 0
-        yesCount = 0
-        noCount = 0
-        offset = .zero
-        cardShownAt = Date()
-        prefetchNextImages()
-    }
-
     func loadCards() async {
         guard !isLoading else { return }
-        isMyListMode = false
         isLoading = true
 
         do {
@@ -140,9 +124,6 @@ final class SwipeViewModel: ObservableObject {
         // Left-swipes are the strongest explicit negative signal the app has —
         // they feed the on-device taste profile (and de-dup) but stay local.
         record(.hide, for: card, uploadAs: nil, decisionMs: decisionMs())
-        if isMyListMode {
-            SwipeListStore.shared.remove(id: card.id)
-        }
 
         analytics.trackSwipeLeft(
             postId: card.id,
@@ -222,13 +203,13 @@ final class SwipeViewModel: ObservableObject {
 struct SwipeView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = SwipeViewModel()
-    @ObservedObject private var swipeList = SwipeListStore.shared
     @Environment(\.modelContext) private var modelContext
 
     // One swiping mechanic, three gifting contexts:
     //   • For me      — self-gifting: train your taste, find your own things.
-    //   • For someone — one recipient: send THEM a swipe challenge to learn
-    //                   their taste, or curate a deck from your list.
+    //   • For someone — your named swipe lists (one per person/occasion):
+    //                   curate, send as a swipe deck, read the answers back —
+    //                   plus the taste-learning challenge.
     //   • Group gift  — lives in the Circles tab; picking the segment jumps
     //                   there (embedding it here left a dead-end segment).
     private enum GiftContext: String, CaseIterable {
@@ -237,52 +218,6 @@ struct SwipeView: View {
         case group = "Group gift"
     }
     @State private var context: GiftContext = .me
-
-    private enum DeckMode {
-        case forYou
-        case myList
-    }
-    @State private var mode: DeckMode = .forYou
-
-    // Swipe-list sharing: the list becomes a server-side challenge seeded with
-    // its items, and the friend gets a swipeable browser link — not a text blob.
-    @State private var listInviteURL: URL?
-    @State private var buildingListLink = false
-    // Which exact set of items the cached link was built for — the link goes
-    // stale the moment the list's contents change, not just its count.
-    @State private var listLinkKey = ""
-
-    private var currentListKey: String {
-        swipeList.posts.map(\.id).joined(separator: "|")
-    }
-
-    private var senderId: String {
-        appState.currentUser?.id ?? InteractionQueue.anonymousUserId
-    }
-
-    @MainActor
-    private func buildListInviteLink() async {
-        let posts = swipeList.posts
-        guard !posts.isEmpty, !buildingListLink else { return }
-        buildingListLink = true
-        defer { buildingListLink = false }
-        let inviterName = appState.currentUser?.name ?? "A friend"
-        var challengeId: String?
-        if let response = try? await APIClient.shared.createChallenge(
-            senderId: senderId,
-            seedKeys: posts.map(\.id),
-            inviterName: inviterName
-        ) {
-            challengeId = response.challengeId
-        }
-        // Even if the server deck fails, the legacy local-deck link still works.
-        listInviteURL = InviteLink.buildURL(
-            inviterName: inviterName,
-            senderId: senderId,
-            challengeId: challengeId
-        )
-        listLinkKey = posts.map(\.id).joined(separator: "|")
-    }
 
     var body: some View {
         NavigationStack {
@@ -298,35 +233,38 @@ struct SwipeView: View {
                 .padding(.top, 6)
 
                 if context == .someone {
-                    // One sharing path: the challenge can be externally shared
-                    // and can be seeded from saved finds inside its own flow.
-                    NavigationLink(destination: ChallengeView()) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "gift.fill")
-                                .font(.system(size: 24))
-                                .foregroundStyle(Color.coral)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Share a gift challenge")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundStyle(Color.ink)
-                                Text("They swipe in their browser; their taste lands here.")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(.secondary)
+                    ScrollView {
+                        // Don't know their taste yet? The challenge learns it.
+                        NavigationLink(destination: ChallengeView()) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "gift.fill")
+                                    .font(.system(size: 24))
+                                    .foregroundStyle(Color.coral)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Share a gift challenge")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundStyle(Color.ink)
+                                    Text("They swipe in their browser; their taste lands here.")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.tertiary)
                             }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(.tertiary)
+                            .padding(12)
+                            .background(Color.coralSoft.opacity(0.5))
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
-                        .padding(12)
-                        .background(Color.coralSoft.opacity(0.5))
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 10)
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 10)
 
-                    deckBody
+                        // Already collecting ideas? The lists live here.
+                        SwipeListsHomeView()
+                            .padding(.bottom, 24)
+                    }
                 } else {
                     deckBody
                 }
@@ -346,11 +284,9 @@ struct SwipeView: View {
         .onChange(of: context) { _, newContext in
             switch newContext {
             case .me:
-                mode = .forYou
                 Task { await viewModel.loadCards() }
             case .someone:
-                mode = .myList
-                viewModel.loadMyList()
+                AnalyticsEngine.shared.trackScreenView(screen: "swipe_lists")
             case .group:
                 // Group gifting lives in Circles — hand off and reset the
                 // segment so Swipe isn't stuck on a blank context.
@@ -368,85 +304,10 @@ struct SwipeView: View {
         .onDisappear { appState.unsuppressMaxiFAB() }
     }
 
-    // The "how do I GIVE this list?" answer, rendered right above the deck:
-    // one tap turns the list into a swipe link the friend opens in a browser.
-    @ViewBuilder
-    private var sendListCard: some View {
-        Group {
-            if let url = listInviteURL, listLinkKey == currentListKey {
-                ShareLink(item: url, message: Text(InviteLink.shareText)) {
-                    sendListLabel(
-                        title: "Send the swipe link",
-                        subtitle: "They swipe your \(swipeList.posts.count) picks in their browser — no app needed.",
-                        icon: "paperplane.fill"
-                    )
-                }
-                .buttonStyle(.plain)
-            } else {
-                Button {
-                    Task { await buildListInviteLink() }
-                } label: {
-                    sendListLabel(
-                        title: buildingListLink ? "Building their deck…" : "Send this list to a friend",
-                        subtitle: "Turns your \(swipeList.posts.count) picks into a swipeable link.",
-                        icon: "link"
-                    )
-                }
-                .buttonStyle(.plain)
-                .disabled(buildingListLink)
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-    }
-
-    private func sendListLabel(title: String, subtitle: String, icon: String) -> some View {
-        HStack(spacing: 12) {
-            if buildingListLink {
-                ProgressView()
-                    .frame(width: 24)
-            } else {
-                Image(systemName: icon)
-                    .font(.system(size: 20))
-                    .foregroundStyle(.white)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
-                Text(subtitle)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.85))
-            }
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.7))
-        }
-        .padding(12)
-        .background(Color.coral)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-    }
-
     @ViewBuilder
     private var deckBody: some View {
         Group {
-                if mode == .myList && swipeList.posts.isEmpty && viewModel.cards.isEmpty {
-                    VStack(spacing: 14) {
-                        Spacer()
-                        Image(systemName: "rectangle.stack.badge.plus")
-                            .font(.system(size: 40))
-                            .foregroundStyle(.secondary)
-                        Text("Your swipe list is empty")
-                            .font(.displaySmall)
-                        Text("See something in the feed a friend might love?\nTap “Add to swipe list”, then send them the deck.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 30)
-                } else if viewModel.isLoading {
+                if viewModel.isLoading {
                     Spacer()
                     ProgressView("Loading gifts...")
                         .font(.bodyMedium)

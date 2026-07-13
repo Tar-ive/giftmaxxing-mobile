@@ -82,6 +82,67 @@ final class ContentQualityTests: XCTestCase {
         XCTAssertLessThan(q.qualityScore, 0.6)
     }
 
+    // ── Non-giftable merchandise gate (parity with quality.test.mjs) ─────────
+
+    func testReplacementAutoPartIsNonGiftDespiteRetailerAndPrice() {
+        // Live feed example (eBay import) — passed every commerce heuristic.
+        let q = ContentQuality.classify(
+            title: "Bm1240164 Replacement Front Driver Side Fender Fits 2014-2016 Bmw 428i",
+            domain: "ebay.com",
+            link: "https://www.ebay.com/itm/123",
+            price: 89
+        )
+        XCTAssertEqual(q.contentType, .nonGift)
+        XCTAssertFalse(q.feedEligible)
+    }
+
+    func testWasherFluidReservoirIsNonGift() {
+        let q = ContentQuality.classify(
+            title: "To1288213 Replacement Washer Fluid Reservoir Fits 2013-2018 Toyota Rav4",
+            domain: "ebay.com", link: nil, price: 49
+        )
+        XCTAssertEqual(q.contentType, .nonGift)
+        XCTAssertFalse(q.feedEligible)
+    }
+
+    func testPlumbingHardwareIsNonGift() {
+        let q = ContentQuality.classify(
+            title: "Kitchen Sink Strainer Drain Assembly, Stainless Steel",
+            domain: "lowes.com", link: nil, price: 18
+        )
+        XCTAssertEqual(q.contentType, .nonGift)
+        XCTAssertFalse(q.feedEligible)
+    }
+
+    func testDigitalPdfPatternIsNonGift() {
+        // Live feed example (Etsy import) — a $7 digital file, not a gift.
+        let q = ContentQuality.classify(
+            title: "PDF File for Crochet Pattern (English), Junction Beanie, Pictures and Video Tutorials Included",
+            domain: "etsy.me", link: nil, price: 7
+        )
+        XCTAssertEqual(q.contentType, .nonGift)
+        XCTAssertFalse(q.feedEligible)
+    }
+
+    func testFenderGuitarIsNotAnAutoPart() {
+        // "Fender" is ambiguous — without automotive context it must stay eligible.
+        let q = ContentQuality.classify(
+            title: "Vintage Fender Stratocaster Miniature Guitar Model",
+            domain: "etsy.com", link: nil, price: 30
+        )
+        XCTAssertEqual(q.contentType, .singleProduct)
+        XCTAssertTrue(q.feedEligible)
+    }
+
+    func testHandmadeCrochetBeanieIsNotADigitalPattern() {
+        let q = ContentQuality.classify(
+            title: "Crochet Beanie, Handmade Wool Hat",
+            domain: "etsy.com", link: nil, price: 24
+        )
+        XCTAssertEqual(q.contentType, .singleProduct)
+        XCTAssertTrue(q.feedEligible)
+    }
+
     func testQualityScoreIsClampedToOne() {
         let q = ContentQuality.classify(
             title: "Mug",

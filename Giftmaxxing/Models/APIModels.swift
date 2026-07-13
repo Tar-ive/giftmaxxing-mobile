@@ -118,6 +118,21 @@ struct ChallengeStatusResponse: Codable {
     // mode == "verify": did they swipe right on the hidden pick? Aggregate
     // only — the per-card swipes stay sender-private on the server.
     var verify: VerifySummary?
+    // Sender-only (requires authenticating as the challenge's sender): every
+    // guest response with per-card swipes. Powers the swipe-list "their
+    // answers" view — a shared list's whole point is per-item yes/no.
+    var responses: [ChallengeResponseRow]?
+
+    struct ChallengeResponseRow: Codable {
+        var guestName: String?
+        var swipes: [ChallengeSwipe]?
+        var createdAt: Double?
+
+        struct ChallengeSwipe: Codable {
+            var id: String
+            var dir: String
+        }
+    }
 
     struct VerifySummary: Codable {
         var responses: Int?

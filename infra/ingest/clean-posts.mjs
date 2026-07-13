@@ -11,10 +11,11 @@
 //   non-shoppable  link points at pinterest/instagram/facebook/tiktok/x/…
 //   landing        link is a bare homepage / root path (no product page)
 //   content        blog / recipe / spam domain (classifyPin: spam|recipe)
+//   non-gift       replacement auto/plumbing parts, digital pattern files
 //   guide          listicle / gift-guide / editorial / seasonal (opt-in)
 //   no-price       real shoppable deep link but missing a price (opt-in)
 //
-// Default DELETE set: dead-link, non-shoppable, landing, content.
+// Default DELETE set: dead-link, non-shoppable, landing, content, non-gift.
 // `guide` and `no-price` are reported but only deleted with the opt-in flags.
 //
 // Usage:
@@ -46,8 +47,8 @@ const NON_SHOPPABLE = [
   "linktw.in", "linktr.ee", "tumblr.com", "snapchat.com",
 ];
 
-const ALL_BUCKETS = ["dead-link", "non-shoppable", "landing", "content", "guide", "no-price"];
-const DEFAULT_DELETE = ["dead-link", "non-shoppable", "landing", "content"];
+const ALL_BUCKETS = ["dead-link", "non-shoppable", "landing", "content", "non-gift", "guide", "no-price"];
+const DEFAULT_DELETE = ["dead-link", "non-shoppable", "landing", "content", "non-gift"];
 
 function parseArgs(argv) {
   const args = { apply: false, includeGuides: false, includeNoPrice: false, verbose: false };
@@ -125,6 +126,8 @@ function bucketFor(post) {
   const q = classifyPin({ title, domain: domain || host, link, price });
   if (q.contentType === "spam" || q.contentType === "recipe")
     return { bucket: "content", title, link, price, reason: q.reasons.join(",") || q.contentType };
+  if (q.contentType === "non_gift")
+    return { bucket: "non-gift", title, link, price, reason: q.reasons.join(",") || q.contentType };
   if (!q.feedEligible)
     return { bucket: "guide", title, link, price, reason: `${q.contentType} (${q.reasons.join(",")})` };
   if (!(price > 0))

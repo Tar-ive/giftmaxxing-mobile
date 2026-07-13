@@ -14,6 +14,9 @@ enum ContentType: String {
     case recipe
     case seasonal
     case spam
+    // Real single products nobody GIFTS: replacement auto/plumbing parts,
+    // digital pattern files ("PDF File for Crochet Pattern…").
+    case nonGift = "non_gift"
 }
 
 struct ContentQuality {
@@ -53,6 +56,18 @@ struct ContentQuality {
     private static let diyGifts = "\\bdiy\\s+gifts?\\b"
     private static let adjGifts = "\\b(best|top|unique|prettiest|coolest|cutest|thoughtful|perfect|ultimate|cool|cheap|inexpensive|budget|last[- ]minute|amazing)\\b[\\w\\s]{0,15}\\bgifts\\b"
     private static let editorialWords = "\\b(ideas|inspiration|inspo|roundup|how to|tutorial|diy)\\b"
+
+    // Non-giftable merchandise (mirrors PART_NUMBER/FITS_YEARS/… in quality.mjs):
+    // auto/plumbing replacement parts and digital pattern files carry every
+    // commerce signal (price, retailer domain, PDP path), so the caption is the gate.
+    private static let partNumber = "^\\s*[A-Za-z]{1,4}\\d{5,}\\b"
+    private static let fitsYears = "\\bfits?\\b[^,;]{0,40}\\b(19|20)\\d{2}\\s*[-–]\\s*(19|20)?\\d{2}\\b"
+    private static let replacementPart = "\\breplacement\\b[\\w\\s]{0,30}\\b(part|fender|bumper|reservoir|assembly|housing|panel|filter|pump|motor|valve|sensor|cartridge|blade|belt|hose|lens|glass|screen)\\b"
+    private static let autoPart = "\\b(catalytic converter|muffler|alternator|carburetor|spark plugs?|brake (pads?|rotors?|calipers?)|shock absorbers?|drive\\s?shaft|crankshaft|camshaft|wiper blades?|washer fluid|coolant reservoir|fluid reservoir|ignition coil|timing belt|serpentine belt|exhaust (pipe|manifold)|hubcaps?|mud\\s?flaps?|obd2?\\s?(scanner|reader))\\b"
+    private static let autoPartAmbiguous = "\\b(fenders?|bumpers?|tail\\s?lights?|headlights?|headlamps?|grilles?|struts?|axles?|gaskets?|radiators?|fuel pumps?|starter motors?)\\b"
+    private static let autoContext = "\\b(car|cars|truck|suv|sedan|coupe|vehicle|auto(motive)?|driver'?s? side|passenger'?s? side|front (left|right)|rear (left|right)|oem)\\b"
+    private static let hardwarePart = "\\b(plumbing|faucet cartridge|sink strainer|drain (valve|plug|assembly|stopper|snake)|p-?trap|sump pump|shut-?off valve|pipe (fitting|wrench)|pvc (pipe|fitting)|toilet (flange|flapper|fill valve|seat|repair)|water heater (element|thermostat)|garbage disposal|caulk(ing)?|grout|drywall|circuit breaker|junction box|weather stripping|hvac|furnace filter|condenser coil|compressor unit)\\b"
+    private static let digitalFile = "\\b(pdf (file|pattern|download)|digital (download|file|print|pattern|planner)|printables?|instant download|svg (file|bundle|cut file)|cut files?|(crochet|knitting|knit|sewing|cross-?stitch|embroidery|quilt(ing)?|amigurumi) patterns?|clip\\s?art|cricut|silhouette cameo|lightroom presets?|procreate brush(es)?)\\b"
     private static let recipeWords = "\\b(recipe|recipes|soup|salad|casserole|smoothie|cocktail|appetizers?|brunch)\\b"
     private static let seasonalPromo = "\\b(father'?s|mother'?s|valentine'?s|christmas|halloween|thanksgiving)\\s+day\\b.*\\b(is|coming|almost|here|sale|\\d{1,2}(st|nd|rd|th)?)\\b"
     private static let pdpPath = "/(dp|gp/product|listing|products?|p|item|sku)/"
@@ -86,6 +101,16 @@ struct ContentQuality {
         // 1) Recipes — never giftable here.
         if dc == .recipe || (lt.matches(recipeWords) && p <= 0) {
             return result(.recipe, 0.05)
+        }
+
+        // 1.5) Non-giftable merchandise — checked before the listicle pass:
+        // these are real single products, just not gifts.
+        let partish = t.matches(partNumber) || t.matches(fitsYears)
+            || lt.matches(replacementPart) || lt.matches(autoPart)
+            || (lt.matches(autoPartAmbiguous) && lt.matches(autoContext))
+            || lt.matches(hardwarePart)
+        if partish || lt.matches(digitalFile) {
+            return result(.nonGift, 0.05)
         }
 
         // 2) Listicles / gift guides — kept off the scroll feed.

@@ -182,6 +182,7 @@ npm run clean:posts                 # APPLY: backup first, then BatchWrite-delet
 | `non-shoppable` | Link goes to pinterest/instagram/facebook/tiktok/… | delete   |
 | `landing`       | Bare homepage / root path (no product page)       | delete   |
 | `content`       | Blog / recipe / spam domain                       | delete   |
+| `non-gift`      | Replacement auto/plumbing parts, digital PDF/SVG pattern files | delete   |
 | `guide`         | Listicle / gift-guide / editorial / seasonal      | opt-in   |
 | `no-price`      | Real shoppable deep link but missing a price      | opt-in   |
 
