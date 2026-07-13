@@ -17,6 +17,9 @@ final class SwipeViewModel: ObservableObject {
     // Tinder-style: track drag start time for hesitation detection
     private(set) var dragStartTime: Date?
     private var dragStartTranslation: CGSize = .zero
+    // When the current card appeared — decision time (shown -> committed swipe)
+    // scales the taste weight: an instant no is a harder no than a hesitant one.
+    private var cardShownAt = Date()
 
     var currentCard: Post? {
         guard currentIndex < cards.count else { return nil }
@@ -38,6 +41,7 @@ final class SwipeViewModel: ObservableObject {
         yesCount = 0
         noCount = 0
         offset = .zero
+        cardShownAt = Date()
         prefetchNextImages()
     }
 
@@ -59,6 +63,7 @@ final class SwipeViewModel: ObservableObject {
             currentIndex = 0
             yesCount = 0
             noCount = 0
+            cardShownAt = Date()
             prefetchNextImages()
 
             if let first = cards.first {
@@ -113,7 +118,7 @@ final class SwipeViewModel: ObservableObject {
         yesCount += 1
         let card = cards[currentIndex]
         // Taste profile + batched upload (one Lambda invocation per ~10 swipes).
-        record(.like, for: card, uploadAs: "like")
+        record(.like, for: card, uploadAs: "like", decisionMs: decisionMs())
 
         analytics.trackSwipeRight(
             postId: card.id,
@@ -134,7 +139,7 @@ final class SwipeViewModel: ObservableObject {
         let card = cards[currentIndex]
         // Left-swipes are the strongest explicit negative signal the app has —
         // they feed the on-device taste profile (and de-dup) but stay local.
-        record(.hide, for: card, uploadAs: nil)
+        record(.hide, for: card, uploadAs: nil, decisionMs: decisionMs())
         if isMyListMode {
             SwipeListStore.shared.remove(id: card.id)
         }
@@ -151,19 +156,30 @@ final class SwipeViewModel: ObservableObject {
         advanceAfterDelay()
     }
 
-    private func record(_ kind: TasteEvent.Kind, for card: Post, uploadAs type: String?) {
+    private func decisionMs() -> Double {
+        Date().timeIntervalSince(cardShownAt) * 1000
+    }
+
+    private func record(_ kind: TasteEvent.Kind, for card: Post, uploadAs type: String?, decisionMs: Double = 0) {
         Task {
             let signals = TasteSignals.extract(from: card)
+            // Snap decisions carry more conviction than long deliberations:
+            // <1.2s scales the weight up (max 1.3×), >6s scales it down a bit.
+            let scale: Double = decisionMs <= 0 ? 1 : decisionMs < 1200 ? 1.3 : decisionMs > 6000 ? 0.85 : 1
             await TasteProfileStore.shared.record(TasteEvent(
                 kind: kind,
                 postId: card.id,
                 author: card.user,
                 price: card.product.price,
                 vibes: signals.vibes,
-                category: signals.category
+                category: signals.category,
+                giftType: card.giftType ?? "product",
+                weightScale: scale
             ))
             if let type {
-                await InteractionQueue.shared.enqueue(userId: nil, targetId: card.id, type: type)
+                var data: [String: String] = ["giftType": card.giftType ?? "product"]
+                if decisionMs > 0 { data["decisionMs"] = String(Int(decisionMs)) }
+                await InteractionQueue.shared.enqueue(userId: nil, targetId: card.id, type: type, data: data)
             }
         }
     }
@@ -174,6 +190,7 @@ final class SwipeViewModel: ObservableObject {
             self.currentIndex += 1
             self.offset = .zero
             self.isSwiping = false
+            self.cardShownAt = Date()
             self.prefetchNextImages()
 
             // Track next card shown (Tinder tracks every card impression)
@@ -559,6 +576,20 @@ struct SwipeCardView: View {
                     CachedAsyncImage(url: image, width: 600)
                         .frame(width: cardWidth, height: imageHeight)
                         .clipped()
+                }
+
+                // Service cards (a year of Spotify, a Costco membership) swipe
+                // exactly like products — the badge is the only tell, and the
+                // yes/no lands in the product-vs-service taste split.
+                if post.isService {
+                    VStack {
+                        HStack {
+                            ServiceBadge(duration: post.serviceDuration)
+                            Spacer()
+                        }
+                        Spacer()
+                    }
+                    .padding(12)
                 }
             }
             .frame(width: cardWidth, height: imageHeight)

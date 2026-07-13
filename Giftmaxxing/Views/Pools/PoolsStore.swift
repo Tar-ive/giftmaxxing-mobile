@@ -84,6 +84,43 @@ final class PoolsStore: ObservableObject {
         return pool
     }
 
+    // A pledge is real money behind a specific person + occasion — the
+    // strongest gift-intent signal the app collects. Batched upload (type
+    // "pledge", mode gift) + a gift-mode taste event on the pool's product.
+    private func recordPledgeSignal(pool: Pool, amount: Double) {
+        Task {
+            await InteractionQueue.shared.enqueue(
+                userId: nil,
+                targetId: pool.product?.id ?? pool.id,
+                type: "pledge",
+                data: [
+                    "mode": "gift",
+                    "poolId": pool.id,
+                    "amount": String(Int(amount)),
+                    "giftType": "product",
+                ]
+            )
+            guard let product = pool.product else { return }
+            let proxy = Post(
+                id: product.id,
+                user: "pool",
+                time: "",
+                product: product,
+                caption: pool.title,
+                likes: 0
+            )
+            let signals = TasteSignals.extract(from: proxy)
+            await TasteProfileStore.shared.record(TasteEvent(
+                kind: .pledge,
+                postId: product.id,
+                author: "pool",
+                price: product.price,
+                vibes: signals.vibes,
+                category: signals.category
+            ))
+        }
+    }
+
     // Group-gift pledge round: record a named pledge ("Sarah — $25") so the
     // leaderboard reflects the whole friend group, not just this device.
     // Payments/delivery are out of scope for now — this is the coordination
@@ -108,6 +145,7 @@ final class PoolsStore: ObservableObject {
         }
         pools[idx] = pool
         persist()
+        recordPledgeSignal(pool: pool, amount: amount)
     }
 
     // Mirrors web contributeToPool: bump raised total + record the contributor.
@@ -125,6 +163,7 @@ final class PoolsStore: ObservableObject {
         }
         pools[idx] = pool
         persist()
+        recordPledgeSignal(pool: pool, amount: amount)
     }
 
     private func persist() {

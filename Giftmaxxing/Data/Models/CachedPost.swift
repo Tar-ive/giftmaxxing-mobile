@@ -16,6 +16,10 @@ final class CachedPost {
     var productUrl: String?
     var rec: Bool
     var reason: String?
+    // Optional-with-default so existing stores migrate lightweight (no schema
+    // version bump): cached rows from before giftType simply read as products.
+    var giftType: String?
+    var serviceDuration: String?
 
     var productId: String
     var productName: String
@@ -43,6 +47,8 @@ final class CachedPost {
         self.productUrl = post.productUrl
         self.rec = post.rec ?? false
         self.reason = post.reason
+        self.giftType = post.giftType
+        self.serviceDuration = post.serviceDuration
         self.productId = post.product.id
         self.productName = post.product.name
         self.productBrand = post.product.brand
@@ -81,7 +87,9 @@ final class CachedPost {
             url: url,
             productUrl: productUrl,
             rec: rec,
-            reason: reason
+            reason: reason,
+            giftType: giftType,
+            serviceDuration: serviceDuration
         )
     }
 }

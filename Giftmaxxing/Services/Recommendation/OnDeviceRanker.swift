@@ -46,6 +46,8 @@ enum OnDeviceRanker {
         static let priceFit = 0.15
         static let author = 0.20
         static let vector = 0.35
+        static let vectorNeg = 0.25   // similarity to the HIDDEN-items centroid
+        static let giftTypeLean = 0.12 // product-vs-service preference
         static let explore = 0.06
     }
 
@@ -54,6 +56,7 @@ enum OnDeviceRanker {
         profile: TasteSnapshot,
         centroid: [Float]? = nil,
         vectorSimilarities: [String: Float] = [:],
+        negSimilarities: [String: Float] = [:],
         context: RankingContext = RankingContext()
     ) -> [RankedCandidate] {
 
@@ -159,6 +162,26 @@ enum OnDeviceRanker {
                 let v = Double(max(0, sim))
                 s += v * W.vector
                 if v > 0.55 { reasons.append((v * W.vector, "Similar to gifts you saved")) }
+            }
+            // Anti-centroid: similarity to what the user explicitly HID sinks
+            // the card — left-swipes never leave the device, but they rank here.
+            if let negSim = negSimilarities[post.id] {
+                s -= Double(max(0, negSim)) * W.vectorNeg
+            }
+
+            // Product-vs-service lean ("they'd rather get a year of Spotify
+            // than a thing") once there's enough signal to trust the split.
+            let productW = profile.giftTypeAffinity["product"] ?? 0
+            let serviceW = profile.giftTypeAffinity["service"] ?? 0
+            let leanDenom = abs(productW) + abs(serviceW)
+            if leanDenom > 1 {
+                let own = post.isService ? serviceW : productW
+                let other = post.isService ? productW : serviceW
+                let lean = max(-1, min(1, (own - other) / leanDenom))
+                s += lean * W.giftTypeLean
+                if post.isService, lean > 0.4 {
+                    reasons.append((lean * W.giftTypeLean, "You lean toward gift-able services"))
+                }
             }
 
             // Layer 5 input — light exploration so the feed never goes static.

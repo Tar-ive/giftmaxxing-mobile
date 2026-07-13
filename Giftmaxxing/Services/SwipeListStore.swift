@@ -24,13 +24,40 @@ final class SwipeListStore: ObservableObject {
 
     // Toggle: tapping again removes (undo without a separate manage screen).
     func toggle(_ post: Post) {
+        let removed: Bool
         if let idx = posts.firstIndex(where: { $0.id == post.id }) {
             posts.remove(at: idx)
+            removed = true
         } else {
             posts.insert(post, at: 0)
+            removed = false
             AnalyticsEngine.shared.trackScreenView(screen: "swipe_list_add")
         }
         persist()
+
+        // "Saw it, thought of you" is a labeled (item × giver × intended-friend)
+        // gift-intent triple nothing else captures — sync it (research gap G5)
+        // and fold it into taste tagged as GIFT-MODE so it informs the
+        // product-vs-service split without steering the personal centroid.
+        let kind: TasteEvent.Kind = removed ? .queueRemove : .queueAdd
+        Task {
+            let signals = TasteSignals.extract(from: post)
+            await TasteProfileStore.shared.record(TasteEvent(
+                kind: kind,
+                postId: post.id,
+                author: post.user,
+                price: post.product.price,
+                vibes: signals.vibes,
+                category: signals.category,
+                giftType: post.giftType ?? "product"
+            ))
+            await InteractionQueue.shared.enqueue(
+                userId: nil,
+                targetId: post.id,
+                type: removed ? "queue_remove" : "queue_add",
+                data: ["mode": "gift", "giftType": post.giftType ?? "product"]
+            )
+        }
     }
 
     func remove(id: String) {

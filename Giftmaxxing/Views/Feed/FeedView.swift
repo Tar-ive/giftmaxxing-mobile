@@ -102,8 +102,11 @@ struct FeedView: View {
                                 viewModel.recordImpression(for: post)
                                 viewModel.prefetchImages(around: index)
                             }
-                            // Instagram-style: track when each post enters/leaves viewport
-                            .trackImpression(postId: post.id, position: index, source: "feed")
+                            // Instagram-style: track when each post enters/leaves viewport;
+                            // dwell ≥ 3s upgrades the impression to a warm taste signal.
+                            .trackImpression(postId: post.id, position: index, source: "feed") { dwellMs in
+                                viewModel.recordDwell(for: post, dwellMs: dwellMs)
+                            }
                             // Scroll depth analytics
                             .trackScrollAnalytics(currentPosition: index)
 

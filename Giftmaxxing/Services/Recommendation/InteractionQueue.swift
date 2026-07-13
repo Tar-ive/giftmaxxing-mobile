@@ -14,6 +14,10 @@ actor InteractionQueue {
         let targetId: String
         let type: String
         let queuedAt: Double
+        // Optional context ({mode:"gift", giftType, decisionMs, amount…}) —
+        // rides to POST /interactions as `data` so gift-mode events can build
+        // per-recipient taste server-side. Optional: old queued files decode.
+        var data: [String: String]?
     }
 
     private var pending: [PendingInteraction] = []
@@ -35,14 +39,15 @@ actor InteractionQueue {
         return fresh
     }
 
-    func enqueue(userId: String?, targetId: String, type: String) {
+    func enqueue(userId: String?, targetId: String, type: String, data: [String: String]? = nil) {
         loadIfNeeded()
         let uid = userId ?? Self.anonymousUserId
         pending.append(PendingInteraction(
             userId: uid,
             targetId: targetId,
             type: type,
-            queuedAt: Date().timeIntervalSince1970
+            queuedAt: Date().timeIntervalSince1970,
+            data: data
         ))
         if pending.count > Self.queueCap {
             pending.removeFirst(pending.count - Self.queueCap)

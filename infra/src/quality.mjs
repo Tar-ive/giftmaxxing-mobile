@@ -72,7 +72,7 @@ function extractRecipient(t) {
  *   contentType: single_product | gift_guide | editorial | recipe | seasonal | spam
  *   route:       feed | recipient | group_gifts | drop
  */
-export function classifyPin({ title = "", domain = "", link = "", price = 0 } = {}) {
+export function classifyPin({ title = "", domain = "", link = "", price = 0, giftType = "" } = {}) {
   const t = String(title);
   const lt = t.toLowerCase();
   const dc = domainClass(domain);
@@ -88,6 +88,15 @@ export function classifyPin({ title = "", domain = "", link = "", price = 0 } = 
     qualityScore: Math.max(0, Math.min(1, qualityScore)),
     reasons,
   });
+
+  // 0) Curated SERVICES (a year of Netflix/Prime/Costco…) are hand-picked gift
+  // items, not scraped pins — every text/domain heuristic below misfires on
+  // them (e.g. youtube.com is a blocked content domain, "Membership — 1 Year"
+  // has no PDP path). Trust the ingest-time tag and keep them in the feed.
+  if (giftType === "service") {
+    reasons.push("curated_service");
+    return result("single_product", "feed", 0.85);
+  }
 
   // 1) Recipes — off-domain content, never giftable here.
   if (dc === "recipe" || (RECIPE_WORD.test(lt) && p <= 0)) {

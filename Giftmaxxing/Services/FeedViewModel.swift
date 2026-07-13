@@ -26,7 +26,11 @@ final class FeedViewModel: ObservableObject {
     private var rankedBuffer: [RankedCandidate] = []
     private var servedIds = Set<String>()
     private var impressedIds = Set<String>()
+    private var dwelledIds = Set<String>()
     private var centroid: [Float]?
+    // Anti-centroid over explicitly hidden items — hides never leave the
+    // device, but candidates similar to them still sink in ranking.
+    private var negCentroid: [Float]?
 
     private let networkPageSize = 40
     private let uiPageSize = 12
@@ -111,6 +115,7 @@ final class FeedViewModel: ObservableObject {
 
         let profile = await TasteProfileStore.shared.snapshot()
         let similarities = await vectorSimilarities(for: page.posts)
+        let negSimilarities = await negVectorSimilarities(for: page.posts)
 
         let fresh = page.posts.filter { !servedIds.contains($0.id) }
         let ranked = OnDeviceRanker.rank(
@@ -118,6 +123,7 @@ final class FeedViewModel: ObservableObject {
             profile: profile,
             centroid: centroid,
             vectorSimilarities: similarities,
+            negSimilarities: negSimilarities,
             context: RankingContext(recipient: PersonalizationStore.feedRecipient)
         )
         rankedBuffer.append(contentsOf: ranked)
@@ -143,9 +149,18 @@ final class FeedViewModel: ObservableObject {
     // on-device (vDSP); the network is touched only for vectors not yet cached.
     private func refreshTasteCentroid() async {
         let profile = await TasteProfileStore.shared.snapshot()
-        guard profile.seedKeys.count >= 3 else { return }
-        await ensureVectorsCached(keys: profile.seedKeys)
-        centroid = await VectorStore.shared.centroid(of: profile.seedKeys)
+        if profile.seedKeys.count >= 3 {
+            await ensureVectorsCached(keys: profile.seedKeys)
+            centroid = await VectorStore.shared.centroid(of: profile.seedKeys)
+        }
+        // Negative centroid needs less evidence: two hard no's already tell us
+        // a direction to avoid.
+        if profile.negSeedKeys.count >= 2 {
+            await ensureVectorsCached(keys: profile.negSeedKeys)
+            negCentroid = await VectorStore.shared.centroid(of: profile.negSeedKeys)
+        } else {
+            negCentroid = nil
+        }
     }
 
     private func vectorSimilarities(for candidates: [Post]) async -> [String: Float] {
@@ -153,6 +168,13 @@ final class FeedViewModel: ObservableObject {
         let keys = candidates.map(\.id)
         await ensureVectorsCached(keys: keys)
         return await VectorStore.shared.similarities(keys: keys, to: centroid)
+    }
+
+    private func negVectorSimilarities(for candidates: [Post]) async -> [String: Float] {
+        guard let negCentroid else { return [:] }
+        let keys = candidates.map(\.id)
+        await ensureVectorsCached(keys: keys) // no-op when the positive pass cached them
+        return await VectorStore.shared.similarities(keys: keys, to: negCentroid)
     }
 
     private func ensureVectorsCached(keys: [String]) async {
@@ -173,6 +195,20 @@ final class FeedViewModel: ObservableObject {
             await TasteProfileStore.shared.record(tasteEvent(.impression, post))
             // Impressions stay device-only (they exist for de-dup + taste decay);
             // uploading them would just buy DynamoDB writes for no ranking gain.
+        }
+    }
+
+    // Viewport dwell (from ImpressionTracker). ≥3s of attention is a real
+    // signal — scaled up to ~2× at 10s+; short glances are already counted by
+    // the impression. Device-only, once per post per session.
+    func recordDwell(for post: Post, dwellMs: Double) {
+        guard dwellMs >= 3000, !dwelledIds.contains(post.id) else { return }
+        dwelledIds.insert(post.id)
+        let scale = min(2, dwellMs / 5000)
+        Task {
+            var event = tasteEvent(.dwell, post)
+            event.weightScale = scale
+            await TasteProfileStore.shared.record(event)
         }
     }
 
@@ -274,7 +310,8 @@ final class FeedViewModel: ObservableObject {
             author: post.user,
             price: post.product.price,
             vibes: signals.vibes,
-            category: signals.category
+            category: signals.category,
+            giftType: post.giftType ?? "product"
         )
     }
 }

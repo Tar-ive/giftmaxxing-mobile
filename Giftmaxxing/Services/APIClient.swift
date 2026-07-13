@@ -356,9 +356,21 @@ actor APIClient {
 
     // Visual search: query image -> Titan MM embed -> kNN over S3 Vectors.
     // Mirrors web fetchVisualSearch (POST /visual-search {imageBase64, ...}).
-    func fetchVisualSearch(imageBase64: String, text: String? = nil, limit: Int = 18) async throws -> VectorResponse {
+    // userId (or the anonymous id) makes the server keep the photo's embedding
+    // as a graph photoseed; the response echoes it packed for on-device use.
+    func fetchVisualSearch(
+        imageBase64: String,
+        text: String? = nil,
+        limit: Int = 18,
+        userId: String? = nil,
+        intent: String? = nil,
+        recipientRef: String? = nil
+    ) async throws -> VectorResponse {
         var body: [String: Any] = ["imageBase64": imageBase64, "limit": limit]
         if let text, !text.isEmpty { body["text"] = text }
+        body["userId"] = userId ?? InteractionQueue.anonymousUserId
+        if let intent, !intent.isEmpty { body["intent"] = intent }
+        if let recipientRef, !recipientRef.isEmpty { body["recipientRef"] = recipientRef }
         return try await post("/visual-search", body: body)
     }
 
@@ -401,13 +413,18 @@ actor APIClient {
 
     // POST /challenges/{id}/response — submit swipes on a challenge deck (the
     // creator swiping their own group deck uses the same guest door friends do).
+    // Passing anonId makes the server persist the swiper's OWN taste under that
+    // id (claimed into their account at signup) — the recipient-entry warm start.
     func submitChallengeResponse(
         challengeId: String,
         guestName: String,
-        swipes: [(id: String, dir: String)]
+        swipes: [(id: String, dir: String)],
+        anonId: String? = nil
     ) async throws {
+        var guest: [String: Any] = ["name": guestName]
+        if let anonId, !anonId.isEmpty { guest["anonId"] = anonId }
         let body: [String: Any] = [
-            "guest": ["name": guestName],
+            "guest": guest,
             "swipes": swipes.map { ["id": $0.id, "dir": $0.dir] },
         ]
         let _: ChallengeResponseAck = try await post("/challenges/\(challengeId)/response", body: body)
@@ -428,7 +445,16 @@ actor APIClient {
     func sendInteractionsBatch(_ batch: [InteractionQueue.PendingInteraction]) async throws {
         guard !batch.isEmpty else { return }
         let items: [[String: Any]] = batch.map {
-            ["userId": $0.userId, "targetId": $0.targetId, "type": $0.type, "createdAt": Int($0.queuedAt * 1000)]
+            var item: [String: Any] = [
+                "userId": $0.userId,
+                "targetId": $0.targetId,
+                "type": $0.type,
+                "createdAt": Int($0.queuedAt * 1000),
+            ]
+            // Per-event context ({mode:"gift", giftType, decisionMs, …}) so
+            // gift-mode browsing can build per-recipient taste server-side.
+            if let data = $0.data, !data.isEmpty { item["data"] = data }
+            return item
         }
         let _: EmptyResponse = try await post("/interactions", body: ["items": items])
     }
@@ -598,6 +624,8 @@ actor APIClient {
             domain: api.domain ?? api.merchant,
             qualityScore: api.qualityScore,
             feedEligible: api.feedEligible,
+            giftType: api.giftType,
+            serviceDuration: api.serviceDuration,
             contentType: api.contentType,
             mediaUrl: api.mediaUrl,
             posterUrl: api.posterUrl
