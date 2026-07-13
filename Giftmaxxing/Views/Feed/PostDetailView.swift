@@ -16,6 +16,9 @@ struct PostDetailView: View {
     // sheet opens (feed, search, visual search results).
     @State private var showListPicker = false
     @ObservedObject private var swipeLists = SwipeListStore.shared
+    // Carousel position for the "n/N" counter; resets when the sheet swaps to
+    // a similar product in place.
+    @State private var galleryIndex = 0
 
     // The sheet can swap to a similar product in place (swipe-right-for-similar).
     private var activePost: Post { displayedPost ?? post }
@@ -24,23 +27,35 @@ struct PostDetailView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    // Product images — a swipeable carousel when the listing
-                    // carries a gallery (retailer pages have 5-10 shots), the
-                    // single cover otherwise.
+                    // Product images — Instagram-style: 4:5 portrait media, a
+                    // swipeable carousel with an "n/N" counter when the listing
+                    // carries a gallery, the single cover otherwise.
                     Group {
                         let gallery = activePost.product.gallery
                         if gallery.count > 1 {
-                            TabView {
-                                ForEach(gallery, id: \.self) { image in
-                                    ZStack {
-                                        Color.gradient(for: activePost.product.grad)
-                                        CachedAsyncImage(url: image, width: 900)
+                            ZStack(alignment: .topTrailing) {
+                                TabView(selection: $galleryIndex) {
+                                    ForEach(Array(gallery.enumerated()), id: \.offset) { idx, image in
+                                        ZStack {
+                                            Color.gradient(for: activePost.product.grad)
+                                            CachedAsyncImage(url: image, width: 900)
+                                        }
+                                        .clipped()
+                                        .tag(idx)
                                     }
-                                    .clipped()
                                 }
+                                .tabViewStyle(.page(indexDisplayMode: .always))
+                                .indexViewStyle(.page(backgroundDisplayMode: .interactive))
+
+                                Text("\(galleryIndex + 1)/\(gallery.count)")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(.black.opacity(0.6))
+                                    .clipShape(Capsule())
+                                    .padding(12)
                             }
-                            .tabViewStyle(.page(indexDisplayMode: .always))
-                            .indexViewStyle(.page(backgroundDisplayMode: .always))
                         } else {
                             ZStack {
                                 Color.gradient(for: activePost.product.grad)
@@ -53,7 +68,7 @@ struct PostDetailView: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
-                    .frame(height: 320)
+                    .aspectRatio(4.0 / 5.0, contentMode: .fit)
                     .clipped()
 
                     VStack(alignment: .leading, spacing: 12) {
@@ -294,6 +309,9 @@ struct PostDetailView: View {
             }
             .task {
                 await loadSimilar(for: post)
+            }
+            .onChange(of: activePost.id) { _, _ in
+                galleryIndex = 0
             }
         }
         .presentationDragIndicator(.visible)
