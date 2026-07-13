@@ -96,6 +96,34 @@ test("real gift products stay eligible", () => {
   }
 });
 
+test("a PRICE mentioning 'gift' is not a listicle (live AirPods regression)", () => {
+  const q = classifyPin({
+    title: "Open-ear comfort with real ANC — the under-$200 Apple gift.",
+    domain: "amazon.com",
+    price: 179,
+  });
+  assert.equal(q.contentType, "single_product");
+  assert.equal(q.feedEligible, true);
+});
+
+test("EVERY curated catalog item is feed-eligible (server-side classify)", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { fileURLToPath } = await import("node:url");
+  const { dirname, join } = await import("node:path");
+  const dir = dirname(fileURLToPath(import.meta.url));
+  const data = JSON.parse(await readFile(join(dir, "../ingest/catalog-basics.json"), "utf8"));
+  for (const it of data.items) {
+    const q = classifyPin({
+      title: it.caption || it.name,
+      domain: it.domain,
+      link: it.link,
+      price: it.price,
+      giftType: it.giftType,
+    });
+    assert.equal(q.feedEligible, true, `${it.id} dropped: ${q.contentType} (${q.reasons.join(",")})`);
+  }
+});
+
 test("curated services still bypass every gate", () => {
   const q = classifyPin({
     title: "Netflix Premium — 1 Year",

@@ -62,3 +62,6 @@ Pods/
 # Ingest script backups — data snapshots, not source
 infra/ingest/*.backup.*.json
 .next/
+
+# Ingest manifests — build artifacts (pins/shopify catalogs), not source
+infra/ingest/*.manifest.json

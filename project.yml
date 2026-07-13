@@ -32,6 +32,12 @@ targets:
         # token refresh and the E2E harness's password sign-in.
         CognitoClientId: 1i1d0pdrgcuh8vces1f4truubd
         CognitoRegion: us-east-1
+        # Google Sign-In OAuth iOS client id (Google Cloud Console → APIs &
+        # Services → Credentials → OAuth client ID, type iOS, bundle id
+        # com.giftmaxxing.ios). EMPTY = the Google button shows its "needs a
+        # one-time setup" notice — fill this and regenerate to enable it.
+        # e.g. "1234567890-abc123.apps.googleusercontent.com"
+        GoogleOAuthClientID: ""
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.giftmaxxing.ios

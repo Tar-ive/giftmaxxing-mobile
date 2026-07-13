@@ -143,6 +143,17 @@ final class ContentQualityTests: XCTestCase {
         XCTAssertFalse(q.feedEligible)
     }
 
+    func testPriceMentioningGiftIsNotAListicle() {
+        // Live regression: this AirPods caption was classified gift_guide by
+        // the N-gifts regex matching "$200 … gift" — a price, not a roundup.
+        let q = ContentQuality.classify(
+            title: "Open-ear comfort with real ANC — the under-$200 Apple gift.",
+            domain: "amazon.com", link: nil, price: 179
+        )
+        XCTAssertEqual(q.contentType, .singleProduct)
+        XCTAssertTrue(q.feedEligible)
+    }
+
     func testFenderGuitarIsNotAnAutoPart() {
         // "Fender" is ambiguous — without automotive context it must stay eligible.
         let q = ContentQuality.classify(

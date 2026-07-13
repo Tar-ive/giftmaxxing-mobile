@@ -26,7 +26,9 @@
     "ingest:catalog:dry": "node ingest-catalog.mjs --dry-run",
     "ingest:catalog": "node ingest-catalog.mjs --skip-existing",
     "enrich:images:dry": "node enrich-images.mjs --dry-run --limit 20",
-    "enrich:images": "node enrich-images.mjs"
+    "enrich:images": "node enrich-images.mjs",
+    "ingest:shopify:dry": "node ingest-shopify.mjs --dry-run --limit 10",
+    "ingest:shopify": "node ingest-shopify.mjs --seed"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.600.0",

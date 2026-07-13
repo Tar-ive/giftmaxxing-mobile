@@ -254,6 +254,45 @@ default throttle stays well inside both.
 
 ---
 
+# Shopify storefront catalog (`ingest-shopify.mjs`)
+
+The free product firehose: every Shopify store publishes `/products.json`
+(title, price, availability, **full image gallery**) publicly — no API key, no
+approval. Curated stores live in `shopify-stores.json` (SKIMS, Allbirds,
+Gymshark, Fashion Nova, Rothy's — all verified serving, 3-10 images/product).
+
+**Fetch from the internal `*.myshopify.com` host** (config `feed`): headless
+storefronts block `/products.json` on their custom domain but the internal
+address serves it. Outbound product links use the public storefront (`store`).
+Find a brand's internal host from its page source:
+
+```bash
+node ingest-shopify.mjs --discover https://brand.com
+```
+
+## Run
+
+```bash
+npm run ingest:shopify:dry          # fetch + quality-gate + report, manifest only
+set -a; source ../../.env; set +a   # ADMIN_API_SECRET (+ API_BASE optional)
+npm run ingest:shopify              # manifest + POST /seed (posts w/ galleries)
+node embed.mjs --manifest shopify.manifest.json   # vectors (needs AWS creds)
+```
+
+| Flag | Purpose |
+|------|---------|
+| `--discover URL` | Print a brand's internal myshopify feed host |
+| `--dry-run` / `--seed` | Report only / also POST to `/seed` |
+| `--limit N` / `--store substr` | Bound the run |
+| `--min-interval MS` | Politeness throttle (default 1200) |
+
+Products are gated through `classifyPin` (in-stock + priced + imaged only);
+posts carry `product.images` so the iOS carousel works immediately. NOTE for
+cloud/CCR containers: run with `NODE_USE_ENV_PROXY=1` so Node's fetch honors
+the egress proxy (curl does automatically; un-proxied requests get 429s).
+
+---
+
 # Amazon affiliate catalog (`import-asins.mjs` + `paapi-enrich.mjs`)
 
 Powers `/feed/shop`. The catalog lives in `web/lib/amazon-picks.json` and is the
