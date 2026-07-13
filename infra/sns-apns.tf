@@ -9,13 +9,16 @@
 # — SNS rejects partial/empty credentials and would fail the whole apply.
 # Platform "APNS" = production gateway (TestFlight / App Store builds).
 resource "aws_sns_platform_application" "ios_push" {
-  count = (var.apns_private_key != "" && var.apns_key_id != "" && var.apns_team_id != "") ? 1 : 0
+  # Values resolve from Secrets Manager (secrets.tf) with a tfvars fallback.
+  # nonsensitive() is required because count can't depend on sensitive values;
+  # we only expose the boolean "are all three present", never the values.
+  count = nonsensitive(local.apns_private_key != "" && local.apns_key_id != "" && local.apns_team_id != "") ? 1 : 0
 
   name                     = "${var.prefix}-ios-push"
   platform                 = "APNS"
-  platform_credential      = var.apns_private_key # .p8 signing key contents
-  platform_principal       = var.apns_key_id      # signing Key ID
-  apple_platform_team_id   = var.apns_team_id
+  platform_credential      = local.apns_private_key # .p8 signing key contents
+  platform_principal       = local.apns_key_id      # signing Key ID
+  apple_platform_team_id   = local.apns_team_id
   apple_platform_bundle_id = var.apns_bundle_id
 
   event_delivery_failure_topic_arn = aws_sns_topic.push_failures.arn
