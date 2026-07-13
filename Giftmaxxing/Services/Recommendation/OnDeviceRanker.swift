@@ -26,6 +26,9 @@ struct RankingContext {
     var eventBoost: Double = 0
     var recipient: String?
     var occasion: String?
+    // Consult-declared interests ("world vibes") — the cold-start taste signal
+    // for brand-new users whose profile has zero interactions yet.
+    var consultVibes: [String] = []
     var now: Date = Date()
 }
 
@@ -135,10 +138,26 @@ enum OnDeviceRanker {
                 // Negative vibe feedback pulls below neutral.
                 let neg = signals.vibes.reduce(0.0) { $0 + min(0, profile.vibes[$1] ?? 0) }
                 tasteMatch = max(0, tasteMatch + neg * 0.1)
+            } else if !context.consultVibes.isEmpty {
+                // Zero interactions yet — target by the consult's declared
+                // interests instead of treating every card as equally neutral.
+                let hits = signals.vibes.filter { context.consultVibes.contains($0) }.count
+                tasteMatch = min(1, 0.35 + Double(hits) * 0.3)
+                if hits > 0, let hit = signals.vibes.first(where: { context.consultVibes.contains($0) }) {
+                    reasons.append((tasteMatch * W.tasteVibes, "You said you're into \(hit)"))
+                }
             }
             s += tasteMatch * W.tasteVibes
-            if tasteMatch > 0.6, let top = signals.vibes.first(where: { (profile.vibes[$0] ?? 0) > 0 }) {
+            if profile.totalVibeWeight > 0, tasteMatch > 0.6,
+               let top = signals.vibes.first(where: { (profile.vibes[$0] ?? 0) > 0 }) {
                 reasons.append((tasteMatch * W.tasteVibes, "Matches your \(top) taste"))
+            }
+
+            // Photos are the product: an imageless PRODUCT card (catalog rows
+            // awaiting enrichment) shouldn't outrank a real photo at equal
+            // score. Services are exempt — their designed card is intentional.
+            if post.product.image == nil, !post.isService {
+                s -= 0.12
             }
 
             if let pref = profile.prefPrice, post.product.price > 0 {
@@ -193,7 +212,10 @@ enum OnDeviceRanker {
 
         // ── Layer 5: greedy diversity re-rank ───────────────────────────────
         // Penalize picking the same author/category back-to-back (MMR-style)
-        // so one Pinterest board can't monopolize a screenful.
+        // so one Pinterest board — or the whole giftmaxxing_catalog — can't
+        // monopolize a screenful. The 0.85 nudge wasn't enough when an entire
+        // candidate page shared one author: repeats now sink hard, and an
+        // author already holding 3 of the last 8 slots is halved on top.
         var pool = scored.sorted { $0.0.score > $1.0.score }
         var result: [RankedCandidate] = []
         result.reserveCapacity(pool.count)
@@ -205,7 +227,9 @@ enum OnDeviceRanker {
             var bestScore = -Double.infinity
             for (i, entry) in pool.prefix(12).enumerated() {
                 var s = entry.0.score
-                if recentAuthors.suffix(3).contains(entry.0.post.user) { s *= 0.85 }
+                let author = entry.0.post.user
+                if recentAuthors.suffix(3).contains(author) { s *= 0.6 }
+                if recentAuthors.filter({ $0 == author }).count >= 3 { s *= 0.5 }
                 if recentCategories.suffix(2).contains(entry.signals.category) { s *= 0.92 }
                 if s > bestScore { bestScore = s; bestIdx = i }
             }

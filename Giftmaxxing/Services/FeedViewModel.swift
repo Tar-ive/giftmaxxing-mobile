@@ -124,7 +124,10 @@ final class FeedViewModel: ObservableObject {
             centroid: centroid,
             vectorSimilarities: similarities,
             negSimilarities: negSimilarities,
-            context: RankingContext(recipient: PersonalizationStore.feedRecipient)
+            context: RankingContext(
+                recipient: PersonalizationStore.feedRecipient,
+                consultVibes: PersonalizationStore.consultVibes
+            )
         )
         rankedBuffer.append(contentsOf: ranked)
         // Re-sort across network pages so a strong late arrival can outrank a

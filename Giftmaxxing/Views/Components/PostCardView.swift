@@ -41,13 +41,13 @@ struct PostCardView: View {
             // Product card
             Button(action: { onProductTap?() }) {
                 ZStack {
-                    Color.gradient(for: post.product.grad)
-
-                    Text(post.product.emoji)
-                        .font(.system(size: 64))
-
+                    // Photo when we have one; the designed brand lockup when we
+                    // don't (catalog items pre-enrichment, services).
                     if let image = post.product.image {
+                        Color.gradient(for: post.product.grad)
                         CachedAsyncImage(url: image, width: 600)
+                    } else {
+                        ProductArtworkView(post: post)
                     }
 
                     // Services get a corner tag — same card, one subtle tell
