@@ -72,6 +72,28 @@ machine. Confirm it's present before applying:
 test -f infra/terraform.tfvars && echo "tfvars OK" || echo "MISSING tfvars"
 ```
 
+### 3a. APNs credentials — AWS Secrets Manager (no tfvars needed)
+
+The **APNs push credentials are NOT in `terraform.tfvars`** — they live in the AWS
+Secrets Manager secret **`giftmaxxing/dev/apns`** (JSON:
+`{apns_private_key, apns_key_id, apns_team_id}`). `secrets.tf` reads it at apply
+time (`var.apns_secret_name`, default `giftmaxxing/dev/apns`) and injects the values
+into the SNS platform application, so any machine with AWS access can `apply` without
+carrying the `.p8` around. Rotate by putting a new secret version — no code change:
+
+```bash
+# inspect (metadata only) / rotate
+aws secretsmanager describe-secret --secret-id giftmaxxing/dev/apns
+aws secretsmanager put-secret-value --secret-id giftmaxxing/dev/apns \
+  --secret-string file://apns.json   # {"apns_private_key":"-----BEGIN...","apns_key_id":"...","apns_team_id":"..."}
+```
+
+Set `apns_secret_name = ""` to fall back to `var.apns_*` in tfvars (e.g. a brand-new
+environment before the secret exists). NOTE: updating a token-based APNs platform app
+in place fails an AWS validation quirk — rotating the credential requires a
+`terraform apply -replace='aws_sns_platform_application.ios_push[0]'` (safe; recreate
+uses the working create path).
+
 ---
 
 ## 4. Terraform state — now on S3 (shared, no copying)
