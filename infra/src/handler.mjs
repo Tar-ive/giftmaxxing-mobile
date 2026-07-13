@@ -20,6 +20,7 @@ import {
 import { BedrockRuntimeClient, InvokeModelCommand, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { classifyPin } from "./quality.mjs";
 import { sendPushToUser } from "./push.mjs";
+import { mobileRoutes } from "./mobile-routes.mjs";
 import { analyticsRoutes } from "./analytics-routes.mjs";
 import { birthdayFreebiesRoute } from "./birthday-freebies.mjs";
 import { friendsRoutes } from "./friends-routes.mjs";
@@ -2298,6 +2299,17 @@ export const handler = async (event) => {
     // the auth gate above like every other protected route).
     if (path.startsWith("/mobile/analytics")) {
       return await analyticsRoutes(method, path, body);
+    }
+
+    // Mobile app routes: APNs device registration (public — see isPublicRoute),
+    // delta sync, and offline interaction batch upload. Without this dispatch the
+    // routes 404'd, so no device could ever register a push token.
+    if (
+      path === "/mobile/device" ||
+      path === "/mobile/sync" ||
+      path === "/mobile/interactions/batch"
+    ) {
+      return await mobileRoutes(method, path, body, qs);
     }
 
     // Friends / people discovery / 1:1 DMs / circle account claim.
