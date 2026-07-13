@@ -461,6 +461,14 @@ actor APIClient {
 
     // MARK: - Connections (swipe-challenge responses; auth-gated server-side)
 
+    // POST /connections/seen — clear the unseen flags (bell badge source).
+    // Omitting connectionIds marks everything unseen as seen.
+    func markConnectionsSeen(userId: String, connectionIds: [String]? = nil) async {
+        var body: [String: Any] = ["userId": userId]
+        if let connectionIds, !connectionIds.isEmpty { body["connectionIds"] = connectionIds }
+        let _: EmptyResponse? = try? await post("/connections/seen", body: body)
+    }
+
     func fetchConnections(userId: String, unseenOnly: Bool = false) async throws -> [SoftConnectionItem] {
         var params: [String: String] = ["userId": userId]
         if unseenOnly { params["unseenOnly"] = "1" }

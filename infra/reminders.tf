@@ -31,6 +31,10 @@ resource "aws_lambda_function" "reminders" {
     variables = {
       USERS_TABLE         = aws_dynamodb_table.users.name
       REMINDERS_TOPIC_ARN = aws_sns_topic.reminders.arn
+      # APNs push for due events (push.mjs). The ARN stays empty until the
+      # APNs key is supplied (var.apns_private_key) — the sender no-ops.
+      DEVICES_TABLE        = aws_dynamodb_table.devices.name
+      SNS_PLATFORM_APP_ARN = coalesce(one(aws_sns_platform_application.ios_push[*].arn), "")
     }
   }
 

@@ -5,12 +5,18 @@ struct FeedView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var authManager: AuthManager
     @EnvironmentObject private var syncEngine: SyncEngine
+    @EnvironmentObject private var pushManager: PushManager
     @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel = FeedViewModel()
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedPost: Post?
     @State private var pledgingPost: Post?
     @State private var viewingPool: Pool?
+    @State private var showSearch = false
+    @State private var showNotifications = false
+    @State private var showMessages = false
+    // Bell badge = incoming friend requests + unseen swipe activity.
+    @State private var notificationCount = 0
     @ObservedObject private var swipeList = SwipeListStore.shared
 
     var body: some View {
@@ -18,27 +24,46 @@ struct FeedView: View {
             ScrollView {
                 LazyVStack(spacing: 1) {
                     // Compact custom header (system toolbar stays hidden on
-                    // Home) — ONE slim row: logo, shop, messages. Search moved
-                    // into the Maxi tab (the AI search bar IS the search);
-                    // the bag replaces the magnifier.
-                    HStack(spacing: 6) {
-                        MaxiIcon(size: 26)
-                        Text("giftmaxxing")
-                            .font(.system(size: 19, weight: .heavy, design: .rounded))
-                            .foregroundStyle(Color.coral)
-                        Spacer()
-                        NavigationLink(destination: ShopView()) {
-                            Image(systemName: "bag")
-                                .font(.system(size: 20, weight: .medium))
-                                .foregroundStyle(Color.ink)
+                    // Home) — the search bar IS the identity row (Amazon-style),
+                    // with the notification bell and messages beside it. Shop
+                    // lives in the tab bar, not up here.
+                    HStack(spacing: 10) {
+                        HomeSearchBar(
+                            onSearchTap: { showSearch = true },
+                            onCameraTap: { showSearch = true },
+                            onMicTap: { appState.showMaxi = true }
+                        )
+
+                        Button {
+                            showNotifications = true
+                        } label: {
+                            ZStack(alignment: .topTrailing) {
+                                Image(systemName: "bell")
+                                    .font(.system(size: 20, weight: .medium))
+                                    .foregroundStyle(Color.ink)
+                                if notificationCount > 0 {
+                                    Text("\(min(notificationCount, 9))")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(.white)
+                                        .frame(width: 15, height: 15)
+                                        .background(Color.coral)
+                                        .clipShape(Circle())
+                                        .offset(x: 7, y: -6)
+                                }
+                            }
                         }
-                        .accessibilityLabel("Shop")
-                        NavigationLink(destination: MessagesView()) {
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Notifications")
+
+                        Button {
+                            showMessages = true
+                        } label: {
                             Image(systemName: "paperplane")
                                 .font(.system(size: 20))
                                 .foregroundStyle(Color.ink)
-                                .padding(.leading, 14)
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Messages")
                     }
                     .padding(.horizontal, 14)
                     .padding(.top, 6)
@@ -148,6 +173,17 @@ struct FeedView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                     }
                 }
+                // Programmatic pushes for the header controls. These must live
+                // INSIDE the NavigationStack to resolve.
+                .navigationDestination(isPresented: $showSearch) { SearchTabsView() }
+                .navigationDestination(isPresented: $showNotifications) {
+                    NotificationsView()
+                        .onDisappear {
+                            // Viewing clears the unseen flags — refresh the badge.
+                            Task { await refreshNotificationBadge() }
+                        }
+                }
+                .navigationDestination(isPresented: $showMessages) { MessagesView() }
             }
         }
         .sheet(item: $selectedPost) { post in
@@ -178,6 +214,20 @@ struct FeedView: View {
                 AnalyticsEngine.shared.trackScreenView(screen: "feed")
                 await viewModel.loadFeed(context: modelContext)
             }
+            await refreshNotificationBadge()
+            // First-run permission ask, right where its value is visible (the
+            // bell). Declines are respected — we never re-prompt, the bell's
+            // enable card inside NotificationsView takes over from there.
+            if pushManager.permissionStatus == .notDetermined {
+                await pushManager.requestPermission()
+            }
+        }
+        // Push taps route here (PushManager.handleNotification).
+        .onReceive(NotificationCenter.default.publisher(for: .navigateToNotifications)) { _ in
+            showNotifications = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .navigateToMessages)) { _ in
+            showMessages = true
         }
         // Account switched: re-pull the feed under the new identity so its
         // personalization (not the previous account's) shapes the page.
@@ -194,6 +244,17 @@ struct FeedView: View {
             // Push any locally queued interaction events before we lose runtime.
             if phase == .background { viewModel.flushInteractions() }
         }
+    }
+
+    // Bell badge = incoming pending friend requests + unseen swipe activity.
+    // Two cheap reads, fired on Home load and after the inbox is viewed.
+    private func refreshNotificationBadge() async {
+        let userId = authManager.userId ?? InteractionQueue.anonymousUserId
+        async let pending = try? APIClient.shared.listFriends(userId: userId, status: "pending")
+        async let unseen = try? APIClient.shared.fetchConnections(userId: userId, unseenOnly: true)
+        let incoming = (await pending ?? []).filter { $0.isPending && ($0.incoming ?? ($0.requestedBy != userId)) }
+        let unseenCount = (await unseen ?? []).count
+        notificationCount = incoming.count + unseenCount
     }
 }
 

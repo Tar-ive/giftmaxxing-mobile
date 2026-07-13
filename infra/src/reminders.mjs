@@ -8,6 +8,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, ScanCommand } from "@aws-sdk/lib-dynamodb";
 import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
+import { sendPushToUser } from "./push.mjs";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const sns = new SNSClient({});
@@ -96,6 +97,13 @@ async function runReminders() {
     } else {
       console.log("[reminder]", message);
     }
+    // Also push straight to the user's own devices ("circles & events" push).
+    // Best-effort; no-op until the APNs platform app is configured.
+    await sendPushToUser(r.userId, {
+      title: r.days === 0 ? `${who}'s ${r.event.type} is today 🎁` : `${who}'s ${r.event.type} is ${when}`,
+      body: `Open Giftmaxxing to find the perfect gift before ${r.event.date}.`,
+      data: { type: "event_reminder", eventId: String(r.event.id ?? "") },
+    });
   }
 
   return { ok: true, scanned: true, due: due.length };

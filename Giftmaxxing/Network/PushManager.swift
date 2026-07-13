@@ -48,8 +48,20 @@ final class PushManager: NSObject, ObservableObject {
         // APNs registration failed; push notifications won't work
     }
 
+    // Re-attach the cached token to the CURRENT identity — called on launch and
+    // whenever auth changes, so pushes follow account switches and tokens
+    // issued before sign-in don't strand on the anonymous id.
+    func registerCachedTokenIfNeeded() async {
+        guard permissionStatus == .authorized,
+              let token = UserDefaults.standard.string(forKey: deviceTokenKey), !token.isEmpty
+        else { return }
+        await registerTokenWithServer(token: token)
+    }
+
     private func registerTokenWithServer(token: String) async {
-        guard let userId = AuthManager.shared.userId else { return }
+        // Guests get pushes too (challenge responses land on the anon sender
+        // id) — the same id /connections/claim re-keys at signup.
+        let userId = AuthManager.shared.userId ?? InteractionQueue.anonymousUserId
 
         do {
             try await api.registerDevice(
@@ -90,6 +102,17 @@ final class PushManager: NSObject, ObservableObject {
                     userInfo: ["eventId": eventId]
                 )
             }
+        case "friend_request", "friend_accept", "challenge_response", "event_reminder_bell":
+            NotificationCenter.default.post(
+                name: .navigateToNotifications,
+                object: nil
+            )
+        case "dm":
+            NotificationCenter.default.post(
+                name: .navigateToMessages,
+                object: nil,
+                userInfo: ["threadId": userInfo["threadId"] as? String ?? ""]
+            )
         case "maxi_recommendation":
             NotificationCenter.default.post(
                 name: .navigateToMaxi,
@@ -139,6 +162,10 @@ extension Notification.Name {
     static let navigateToMaxi = Notification.Name("navigateToMaxi")
     // Birthday-freebies notification tap — ContentView opens the perks sheet.
     static let navigateToShop = Notification.Name("navigateToShop")
+    // Friend-request / activity pushes land on the Home bell.
+    static let navigateToNotifications = Notification.Name("navigateToNotifications")
+    // DM pushes open Messages.
+    static let navigateToMessages = Notification.Name("navigateToMessages")
     // The concierge consult saved fresh personalization signals — feeds refetch.
     static let consultProfileUpdated = Notification.Name("consultProfileUpdated")
 }

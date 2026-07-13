@@ -25,6 +25,7 @@ import {
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { sendPushToUser } from "./push.mjs";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
@@ -216,6 +217,12 @@ async function requestFriend(body, auth) {
     ddb.send(new PutCommand({ TableName: FRIENDS, Item: edgeA })),
     ddb.send(new PutCommand({ TableName: FRIENDS, Item: edgeB })),
   ]);
+  // Push to the person being asked (best-effort; no-op until APNs is wired).
+  await sendPushToUser(toUserId, {
+    title: "New friend request",
+    body: `${fromCard?.name ?? "Someone"} wants to be gift friends`,
+    data: { type: "friend_request", fromUserId },
+  });
   return json(200, { ok: true, status: "pending" });
 }
 
@@ -255,6 +262,12 @@ async function acceptFriend(body, auth) {
   ]);
   // Open a DM thread so they can message immediately.
   await ensureDmThread(userId, fromUserId);
+  const meCard = await loadUserCard(userId).catch(() => null);
+  await sendPushToUser(fromUserId, {
+    title: "Friend request accepted 🎉",
+    body: `${meCard?.name ?? "Your friend"} accepted — start planning gifts together`,
+    data: { type: "friend_accept", fromUserId: userId },
+  });
   return json(200, { ok: true, status: "accepted" });
 }
 
@@ -500,6 +513,12 @@ async function postDmMessage(threadId, body, auth) {
       })
     ),
   ]);
+
+  await sendPushToUser(otherId, {
+    title: name,
+    body: text.slice(0, 120),
+    data: { type: "dm", threadId: tid, fromUserId: userId },
+  });
 
   return json(200, {
     ok: true,

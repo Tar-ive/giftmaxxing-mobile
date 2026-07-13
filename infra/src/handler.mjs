@@ -19,6 +19,7 @@ import {
 } from "@aws-sdk/client-s3vectors";
 import { BedrockRuntimeClient, InvokeModelCommand, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
 import { classifyPin } from "./quality.mjs";
+import { sendPushToUser } from "./push.mjs";
 import { analyticsRoutes } from "./analytics-routes.mjs";
 import { birthdayFreebiesRoute } from "./birthday-freebies.mjs";
 import { friendsRoutes } from "./friends-routes.mjs";
@@ -98,6 +99,9 @@ function isPublicRoute(method, path) {
   // Behavioral analytics ingestion — events arrive before sign-in completes
   // (and from guests), keyed by userId/anonymousId inside the payload.
   if (method === "POST" && path === "/mobile/analytics") return true;
+  // APNs token registration — arrives before sign-in completes (guests/anon
+  // senders need pushes for challenge responses); token is opaque + harmless.
+  if (method === "POST" && path === "/mobile/device") return true;
   // Session mint: authenticates via the PROVIDER token in the bearer header
   // (verified inside the route), so the route itself is public.
   if (method === "POST" && path === "/auth/session") return true;
@@ -3430,6 +3434,11 @@ export const handler = async (event) => {
         };
         await ddb.send(new PutCommand({ TableName: CONNECTIONS, Item: item }));
         await captureConnection(item);
+        await sendPushToUser(meta.senderId, {
+          title: "Swipe challenge completed 🎁",
+          body: `${guestName} swiped on your challenge — verdict: ${verdict.label}`,
+          data: { type: "challenge_completed", connectionId: item.connectionId, challengeId },
+        });
       }
 
       // The guest's swipes are THEIR taste, not only the sender's intel. When
@@ -3775,6 +3784,13 @@ export const handler = async (event) => {
           }),
           gEdge(userId, "PLEDGED", "user", userId, "pool", poolId, { amount, at }),
         ]);
+        if (meta.Item.organizerId && meta.Item.organizerId !== userId) {
+          await sendPushToUser(meta.Item.organizerId, {
+            title: "New pledge 💸",
+            body: `${name} pledged $${amount} to “${meta.Item.title ?? "your gift pool"}”`,
+            data: { type: "pool_contribution", poolId },
+          });
+        }
         return json(200, { ok: true, raised: Number(upd.Attributes?.raised) || amount });
       }
 
