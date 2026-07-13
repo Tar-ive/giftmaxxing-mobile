@@ -1,0 +1,62 @@
+{
+  "_readme": [
+    "Curated Shopify storefronts for ingest-shopify.mjs. Every Shopify store",
+    "exposes a public, unauthenticated product feed at /products.json — title,",
+    "price, availability, and the FULL image gallery. No API key, no approval.",
+    "",
+    "IMPORTANT — fetch from the INTERNAL *.myshopify.com host, not the custom",
+    "domain: headless storefronts (Gymshark, Fashion Nova) block or drop",
+    "/products.json on their custom domain, but the internal address serves it.",
+    "Find a brand's internal host with:  node ingest-shopify.mjs --discover",
+    "https://brand.com  (it greps the homepage source for myshopify.com).",
+    "",
+    "  feed  = *.myshopify.com origin for /products.json (data)",
+    "  store = the public storefront origin (outbound product links users see)",
+    "",
+    "Probe results (Jul 2026, from cloud egress): all five feeds 200 with",
+    "3-10-image galleries. dior.com is NOT on Shopify (503, no internal host)",
+    "and was dropped. Politeness: 250 products/request, throttled, 429-aware."
+  ],
+  "stores": [
+    {
+      "store": "https://www.skims.com",
+      "feed": "https://skimsbody.myshopify.com",
+      "brand": "SKIMS",
+      "category": "apparel",
+      "vibes": ["cozy", "minimalist", "luxury"],
+      "maxProducts": 150
+    },
+    {
+      "store": "https://www.allbirds.com",
+      "feed": "https://weareallbirds.myshopify.com",
+      "brand": "Allbirds",
+      "category": "shoes",
+      "vibes": ["minimalist", "outdoorsy", "sustainable"],
+      "maxProducts": 150
+    },
+    {
+      "store": "https://www.gymshark.com",
+      "feed": "https://gymsharkusa.myshopify.com",
+      "brand": "Gymshark",
+      "category": "fitness",
+      "vibes": ["sporty", "fitness"],
+      "maxProducts": 150
+    },
+    {
+      "store": "https://www.fashionnova.com",
+      "feed": "https://fnova.myshopify.com",
+      "brand": "Fashion Nova",
+      "category": "apparel",
+      "vibes": ["trendy", "glam"],
+      "maxProducts": 150
+    },
+    {
+      "store": "https://rothys.com",
+      "feed": "https://rothys.myshopify.com",
+      "brand": "Rothy's",
+      "category": "shoes",
+      "vibes": ["minimalist", "sustainable", "classic"],
+      "maxProducts": 150
+    }
+  ]
+}

@@ -83,7 +83,10 @@ const DIGITAL_FILE = /\b(pdf (file|pattern|download)|digital (download|file|prin
 
 // ── Caption signals ──────────────────────────────────────────────────────────
 const STARTS_NUMBER = /^\s*\d{1,3}\b/; //                      "33 gifts for her…"
-const N_GIFTS = /\b\d{1,3}\s*\+?\s*[\w\s]{0,20}?\bgifts?\b/i; // "30 birthday gifts"
+// "30 birthday gifts" — a count of gifts, i.e. a roundup. Plural only, and
+// never a PRICE: "the under-$200 Apple gift" is product copy, not a listicle
+// (live false positive that dropped AirPods from the feed).
+const N_GIFTS = /(?<![$€£])\b\d{1,3}\s*\+?\s*[\w\s]{0,20}?\bgifts\b/i;
 const GIFT_GUIDE = /\bgift\s+(guide|ideas?|lists?|roundups?)\b/i;
 const GIFT_IDEA = /\bgift\s+ideas?\b/i; //                     "prettiest gift idea for…"
 const GIFTS_FOR = /\bgifts\s+(for|under|that|your|to|she|he|who)\b/i; // "gifts for him"

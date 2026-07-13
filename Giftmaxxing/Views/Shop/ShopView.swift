@@ -74,10 +74,26 @@ final class ShopViewModel: ObservableObject {
 struct ShopView: View {
     @StateObject private var viewModel = ShopViewModel()
 
-    private let columns = [
-        GridItem(.flexible(), spacing: 12),
-        GridItem(.flexible(), spacing: 12),
-    ]
+    // Masonry: two independent columns (marketplace style) — cards get varied
+    // image heights, and each item goes to the currently-shorter column so the
+    // columns stay balanced.
+    private var masonryColumns: (left: [ShopItem], right: [ShopItem]) {
+        var left: [ShopItem] = []
+        var right: [ShopItem] = []
+        var leftHeight = 0.0
+        var rightHeight = 0.0
+        for item in viewModel.filteredItems {
+            let h = ShopItemCard.imageAspect(for: item)
+            if leftHeight <= rightHeight {
+                left.append(item)
+                leftHeight += h
+            } else {
+                right.append(item)
+                rightHeight += h
+            }
+        }
+        return (left, right)
+    }
 
     var body: some View {
         NavigationStack {
@@ -117,11 +133,21 @@ struct ShopView: View {
                     // BirthdayPerksSection.swift.
                     BirthdayPerksSection()
 
-                    // Product grid
-                    LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(viewModel.filteredItems) { item in
-                            ShopItemCard(item: item) {
-                                viewModel.selectedItem = item
+                    // Product grid — masonry (staggered columns, image-first)
+                    let columns = masonryColumns
+                    HStack(alignment: .top, spacing: 12) {
+                        LazyVStack(spacing: 14) {
+                            ForEach(columns.left) { item in
+                                ShopItemCard(item: item) {
+                                    viewModel.selectedItem = item
+                                }
+                            }
+                        }
+                        LazyVStack(spacing: 14) {
+                            ForEach(columns.right) { item in
+                                ShopItemCard(item: item) {
+                                    viewModel.selectedItem = item
+                                }
                             }
                         }
                     }
@@ -168,16 +194,26 @@ struct ShopItemCard: View {
     let item: ShopItem
     var onTap: () -> Void
 
+    // Stable per-item image height/width for the masonry stagger: hash of the
+    // id picks from a small portrait-biased set, so the layout varies but any
+    // given item always renders the same shape.
+    static func imageAspect(for item: ShopItem) -> Double {
+        let ratios: [Double] = [1.0, 1.12, 1.25, 1.33]
+        var h: UInt64 = 5381
+        for byte in item.id.utf8 { h = (h &* 33) &+ UInt64(byte) }
+        return ratios[Int(h % UInt64(ratios.count))]
+    }
+
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 8) {
-                // Image — the square sizes ITSELF (Color.clear), and everything
+                // Image — the block sizes ITSELF (Color.clear), and everything
                 // else rides in an overlay. A `.fill` AsyncImage placed directly
                 // in the ZStack reports the photo's intrinsic size to layout,
                 // which inflated cells and shoved titles/prices onto the
                 // neighboring grid column.
                 Color.clear
-                    .aspectRatio(1, contentMode: .fit)
+                    .aspectRatio(1 / Self.imageAspect(for: item), contentMode: .fit)
                     .overlay {
                         ZStack {
                             Color.gradient(for: item.grad)

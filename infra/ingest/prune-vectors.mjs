@@ -80,6 +80,20 @@ function hostMatches(host, list) {
 
 // Quality bucket for a post that still exists (mirrors clean-posts.mjs).
 function postBucket(p) {
+  // CURATED items are hand-picked, not scraped — NEVER delete their vectors.
+  // Services legitimately live on "content" domains (a YouTube Premium year)
+  // and PA-API-pending catalog products legitimately lack images; both were
+  // once wrongly swept into bad-link / no-image, which silently dropped Apple
+  // products and every service from vector recommendations.
+  if (
+    p.giftType === "service" ||
+    String(p.author || "").startsWith("giftmaxxing_") ||
+    String(p.source || "").startsWith("Giftmaxxing/") ||
+    String(p.source || "").startsWith("Shopify/")
+  ) {
+    return "curated";
+  }
+
   const title = p.caption || p.product?.name || p.name || "";
   const link = p.url || p.productUrl || p.pinUrl || p.product?.url || "";
   const priceRaw = p.price ?? p.product?.price;
@@ -92,7 +106,7 @@ function postBucket(p) {
   if (hostMatches(host, NON_SHOPPABLE)) return "bad-link";
   if (url.pathname.replace(/\/+$/, "") === "") return "bad-link";
 
-  const q = classifyPin({ title, domain: p.domain || host, link, price });
+  const q = classifyPin({ title, domain: p.domain || host, link, price, giftType: p.giftType });
   if (q.contentType === "spam" || q.contentType === "recipe") return "bad-link";
 
   if (!parseLink(image)) return "no-image";
@@ -104,6 +118,9 @@ function postBucket(p) {
 // Which bucket does an ORPHANED vector belong to? (post row already deleted)
 function orphanBucket(key, metadata) {
   const src = String(metadata?.source ?? "").toLowerCase();
+  // Curated catalog/services/Shopify vectors serve recs from metadata alone —
+  // keep them even if their post row was removed (re-seed restores the row).
+  if (src === "catalog" || src === "shopify" || /^(cat|svc|shopify)-/.test(key)) return "curated";
   const sub = String(metadata?.subreddit ?? "");
   if (src.includes("reddit") || sub || /^t3_|^reddit-/.test(key)) return "orphan-reddit";
   if (src.includes("pinterest") || /^pin-/.test(key)) return "orphan-pinterest";
@@ -164,6 +181,7 @@ async function main() {
     "bad-link": [],
     "no-image": [],
     borderline: [],
+    curated: [], // hand-picked catalog/services/Shopify — never deletable
     good: [],
   };
 
@@ -190,9 +208,12 @@ async function main() {
     ...(INCLUDE_BORDERLINE ? ["borderline"] : []),
   ];
   const toDelete = deleteBuckets.flatMap((b) => buckets[b]);
+  const kept =
+    buckets.good.length + buckets.curated.length +
+    (INCLUDE_BORDERLINE ? 0 : buckets.borderline.length);
   console.log(
     `\n  → ${toDelete.length} vectors to delete (${deleteBuckets.join(", ")})` +
-      `\n  → ${buckets.good.length + (INCLUDE_BORDERLINE ? 0 : buckets.borderline.length)} vectors kept`
+      `\n  → ${kept} vectors kept`
   );
 
   if (!toDelete.length) {

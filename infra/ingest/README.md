@@ -210,30 +210,86 @@ via a `BatchWrite` Put, so the operation is reversible.
 # Product-page image galleries (`enrich-images.mjs`)
 
 Our pins carry ONE image, but the retailer listing behind them (eBay/Etsy/…)
-usually has 5-10 shots. This crawls each shoppable `productUrl`, extracts the
-gallery (JSON-LD `Product.image` → eBay/Etsy CDN references → `og:image`),
-and writes it to `product.images` on the posts row. `/feed` passes the field
-through untouched and the iOS detail sheet renders a swipeable carousel.
+usually has 5-10 shots. This fills `product.images` on the posts row; `/feed`
+passes the field through untouched and the iOS detail sheet renders a
+swipeable carousel.
+
+**Gallery source is chosen per domain** — eBay and Etsy sit behind Akamai Bot
+Manager / DataDome and 403 any plain fetch from cloud egress, so those two go
+through their **official APIs** (the sanctioned path, and it returns cleaner
+data anyway):
+
+| Domain | Source | Credentials (`.env`) |
+|---|---|---|
+| ebay.com | **eBay Browse API** `get_item_by_legacy_id` → `image` + `additionalImages` | `EBAY_CLIENT_ID` + `EBAY_CLIENT_SECRET` — free app keyset at <https://developer.ebay.com> (client-credentials OAuth, token auto-cached) |
+| etsy.com / etsy.me | **Etsy Open API v3** `/listings/{id}/images` | `ETSY_API_KEY` — free at <https://www.etsy.com/developers> |
+| everything else | plain HTML fetch: JSON-LD `Product.image` → CDN refs → `og:image` (verified working: uncommongoods.com, …) | — |
+
+Without the keys, eBay/Etsy posts are **skipped with a per-domain tally**
+(never hammered with doomed requests) — add the keys later and re-run; rows
+already enriched are not re-fetched.
 
 ```bash
-# Verify extraction on one page — no AWS needed:
+# Verify one URL end-to-end (uses the right provider; no AWS needed):
+node enrich-images.mjs --url "https://www.uncommongoods.com/product/..."
+set -a; source ../../.env; set +a          # + eBay/Etsy keys for those domains
 node enrich-images.mjs --url "https://www.ebay.com/itm/..."
 
-set -a; source ../../.env; set +a
 npm run enrich:images:dry        # scan + fetch 20, print galleries, no writes
-npm run enrich:images            # enrich every un-enriched post (throttled ~1.5s/page)
+npm run enrich:images            # enrich every un-enriched post (throttled ~1.5s/item)
 ```
 
 | Flag | Purpose |
 |------|---------|
-| `--url U` | Offline single-page mode: print the extracted gallery |
+| `--url U` | Single-URL mode: print provider + extracted gallery |
 | `--dry-run` | Fetch + report, write nothing |
-| `--limit N` / `--only-domain a,b` | Bound the crawl |
+| `--limit N` / `--only-domain a,b` | Bound the run |
 | `--force` | Re-fetch rows that already have `product.images` |
 | `--min-interval MS` | Politeness throttle (default 1500) |
 
 Idempotent (rows with `product.images` skip unless `--force`); thumbnails are
 upgraded to the largest CDN rendition (`s-l1600`, `il_1588xN`); capped at 8.
+Mind the free API quotas (eBay ~5k calls/day, Etsy 5/s + 10k/day) — the
+default throttle stays well inside both.
+
+---
+
+# Shopify storefront catalog (`ingest-shopify.mjs`)
+
+The free product firehose: every Shopify store publishes `/products.json`
+(title, price, availability, **full image gallery**) publicly — no API key, no
+approval. Curated stores live in `shopify-stores.json` (SKIMS, Allbirds,
+Gymshark, Fashion Nova, Rothy's — all verified serving, 3-10 images/product).
+
+**Fetch from the internal `*.myshopify.com` host** (config `feed`): headless
+storefronts block `/products.json` on their custom domain but the internal
+address serves it. Outbound product links use the public storefront (`store`).
+Find a brand's internal host from its page source:
+
+```bash
+node ingest-shopify.mjs --discover https://brand.com
+```
+
+## Run
+
+```bash
+npm run ingest:shopify:dry          # fetch + quality-gate + report, manifest only
+set -a; source ../../.env; set +a   # ADMIN_API_SECRET (+ API_BASE optional)
+npm run ingest:shopify              # manifest + POST /seed (posts w/ galleries)
+node embed.mjs --manifest shopify.manifest.json   # vectors (needs AWS creds)
+```
+
+| Flag | Purpose |
+|------|---------|
+| `--discover URL` | Print a brand's internal myshopify feed host |
+| `--dry-run` / `--seed` | Report only / also POST to `/seed` |
+| `--limit N` / `--store substr` | Bound the run |
+| `--min-interval MS` | Politeness throttle (default 1200) |
+
+Products are gated through `classifyPin` (in-stock + priced + imaged only);
+posts carry `product.images` so the iOS carousel works immediately. NOTE for
+cloud/CCR containers: run with `NODE_USE_ENV_PROXY=1` so Node's fetch honors
+the egress proxy (curl does automatically; un-proxied requests get 429s).
 
 ---
 

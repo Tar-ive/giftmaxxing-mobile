@@ -49,7 +49,9 @@ struct ContentQuality {
 
     // Caption signals (mirrors quality.mjs regexes).
     private static let startsNumber = "^\\s*\\d{1,3}\\b"
-    private static let nGifts = "\\b\\d{1,3}\\s*\\+?\\s*[\\w\\s]{0,20}?\\bgifts?\\b"
+    // Plural + not-a-price (mirrors N_GIFTS in quality.mjs): "30 birthday
+    // gifts" is a roundup; "the under-$200 Apple gift" is product copy.
+    private static let nGifts = "(?<![$€£])\\b\\d{1,3}\\s*\\+?\\s*[\\w\\s]{0,20}?\\bgifts\\b"
     private static let giftGuide = "\\bgift\\s+(guide|ideas?|lists?|roundups?)\\b"
     private static let giftIdea = "\\bgift\\s+ideas?\\b"
     private static let giftsFor = "\\bgifts\\s+(for|under|that|your|to|she|he|who)\\b"
