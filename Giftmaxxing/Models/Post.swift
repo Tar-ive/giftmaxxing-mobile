@@ -24,6 +24,13 @@ struct Post: Identifiable, Codable, Hashable {
     var domain: String?
     var qualityScore: Double?
     var feedEligible: Bool?
+    // A gift can be a THING or a YEAR OF SOMETHING (Netflix, Costco, Prime…).
+    // "service" items render the branded service card and feed the
+    // product-vs-service taste split (TasteProfileStore.giftTypeAffinity).
+    var giftType: String?
+    var serviceDuration: String?
+
+    var isService: Bool { giftType == "service" }
 
     var displayCommentCount: Int {
         commentCount ?? comments.count
@@ -33,6 +40,7 @@ struct Post: Identifiable, Codable, Hashable {
         case id, user, time, product, caption, likes, liked, saved
         case comments, commentCount, source, url, productUrl, rec, reason
         case recipient, occasion, category, domain, qualityScore, feedEligible
+        case giftType, serviceDuration
     }
 
     init(
@@ -56,7 +64,9 @@ struct Post: Identifiable, Codable, Hashable {
         category: String? = nil,
         domain: String? = nil,
         qualityScore: Double? = nil,
-        feedEligible: Bool? = nil
+        feedEligible: Bool? = nil,
+        giftType: String? = nil,
+        serviceDuration: String? = nil
     ) {
         self.id = id
         self.user = user
@@ -79,6 +89,8 @@ struct Post: Identifiable, Codable, Hashable {
         self.domain = domain
         self.qualityScore = qualityScore
         self.feedEligible = feedEligible
+        self.giftType = giftType
+        self.serviceDuration = serviceDuration
     }
 }
 

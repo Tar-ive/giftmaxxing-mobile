@@ -26,6 +26,9 @@ struct APIPost: Codable {
     var qualityScore: Double?
     var contentType: String?
     var feedEligible: Bool?
+    // Products vs gift-able services (a year of Netflix, a Costco membership…).
+    var giftType: String?
+    var serviceDuration: String?
 }
 
 struct APIProduct: Codable {
@@ -55,13 +58,25 @@ struct VectorItem: Identifiable, Codable {
     var price: Double?
     var merchant: String?
     var domain: String?
+    var giftType: String?
+    var serviceDuration: String?
 
     var id: String { postId }
+}
+
+// int8-quantized vector as the server packs it (same scheme as GET /vectors).
+struct PackedVector: Codable {
+    var dim: Int
+    var scale: Float
+    var data: String // base64-encoded int8 components
 }
 
 struct VectorResponse: Codable {
     var items: [VectorItem]?
     var source: String?
+    // /visual-search echoes the query image's embedding so the client can keep
+    // the photo as a taste seed instead of discarding it (research gap G3).
+    var queryVector: PackedVector?
 }
 
 struct InteractionsResponse: Codable {
@@ -81,6 +96,8 @@ struct ChallengeCreateResponse: Codable {
         var image: String?
         var price: Double?
         var category: String?
+        var giftType: String?
+        var serviceDuration: String?
     }
 }
 
@@ -155,6 +172,17 @@ struct ConnectionsResponse: Codable {
     var unseen: Int?
 }
 
+// How a challenge guest split their yesses between products and services —
+// "they'd rather get a membership than a thing" (server verdict.giftTypeSplit).
+struct GiftTypeSplit: Codable {
+    var productYes: Int?
+    var productTotal: Int?
+    var serviceYes: Int?
+    var serviceTotal: Int?
+    var productYesRate: Double?
+    var serviceYesRate: Double?
+}
+
 struct SoftConnectionItem: Codable, Identifiable {
     var userId: String?
     var connectionId: String
@@ -165,6 +193,8 @@ struct SoftConnectionItem: Codable, Identifiable {
     var genderPref: String?
     var vibes: [String]?
     var seeds: [String]?
+    var negSeeds: [String]?
+    var giftTypeSplit: GiftTypeSplit?
     var yesCount: Int?
     var totalSwipes: Int?
     var seen: Bool?

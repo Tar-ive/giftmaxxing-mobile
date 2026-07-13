@@ -12,27 +12,41 @@ import Foundation
 struct TasteEvent {
     enum Kind: String, Codable {
         case impression   // card scrolled into view
+        case dwell        // lingered on a card (viewport dwell ≥ threshold)
         case open         // tapped through to product
         case like
         case unlike
         case save
         case unsave
-        case hide         // explicit negative
+        case hide         // explicit negative (left swipe / hide)
+        case pledge       // put money into a pool for this item (gift-mode)
+        case queueAdd     // added to the swipe list for a friend (gift-mode)
+        case queueRemove
 
         var weight: Double {
             switch self {
             case .impression: return 0.03
+            case .dwell: return 0.12
             case .open: return 0.7
             case .like: return 1.0
             case .unlike: return -1.0
             case .save: return 1.6
             case .unsave: return -1.6
             case .hide: return -1.2
+            case .pledge: return 2.2
+            case .queueAdd: return 0.8
+            case .queueRemove: return -0.8
             }
         }
 
-        // Only strong positive signals should seed vector similarity.
+        // Only strong SELF signals seed vector similarity. Pledge/queueAdd are
+        // gift-mode (chosen for someone else) — they inform vibes and the
+        // product-vs-service split but must not steer the personal centroid
+        // (research doc gap G2).
         var isSeedSignal: Bool { self == .like || self == .save || self == .open }
+
+        // Explicit negatives feed the negative seed list (anti-centroid).
+        var isNegativeSeedSignal: Bool { self == .hide || self == .unlike || self == .unsave }
     }
 
     let kind: Kind
@@ -41,6 +55,12 @@ struct TasteEvent {
     let price: Double
     let vibes: [String]
     let category: String
+    // "product" | "service" — drives giftTypeAffinity ("they'd rather get a
+    // year of Spotify than a thing").
+    var giftType: String = "product"
+    // Scales the kind's base weight: an instant left-swipe (fast decision) is a
+    // harder no than a hesitant one; a long dwell is a warmer impression.
+    var weightScale: Double = 1
 }
 
 // Immutable snapshot handed to the ranker (safe to use off-actor).
@@ -50,8 +70,11 @@ struct TasteSnapshot: Sendable {
     var prefPrice: Double?
     var authorAffinity: [String: Double] = [:]
     var categoryAffinity: [String: Double] = [:]
+    // "product" / "service" decayed engagement weights (may be negative).
+    var giftTypeAffinity: [String: Double] = [:]
     var seen: Set<String> = []
-    var seedKeys: [String] = []   // recent liked/saved/opened post ids, newest first
+    var seedKeys: [String] = []      // recent liked/saved/opened post ids, newest first
+    var negSeedKeys: [String] = []   // recent hidden/unliked ids -> anti-centroid
     var topVibe: String? {
         vibes.max(by: { $0.value < $1.value })?.key
     }
@@ -66,10 +89,13 @@ actor TasteProfileStore {
         var vibes: [String: Double] = [:]
         var authorAffinity: [String: Double] = [:]
         var categoryAffinity: [String: Double] = [:]
+        // Decodes as [:] on stores written before the giftType split existed.
+        var giftTypeAffinity: [String: Double]? = [:]
         var priceSum: Double = 0
         var priceWeight: Double = 0
-        var seen: [String] = []       // insertion-ordered, capped
-        var seedKeys: [String] = []   // newest first, capped
+        var seen: [String] = []          // insertion-ordered, capped
+        var seedKeys: [String] = []      // newest first, capped
+        var negSeedKeys: [String]? = []  // newest first, capped (optional: old stores)
         var lastDecayAt: Double = Date().timeIntervalSince1970
     }
 
@@ -80,6 +106,7 @@ actor TasteProfileStore {
     private static let halfLifeDays = 14.0
     private static let seenCap = 3000
     private static let seedCap = 24
+    private static let negSeedCap = 24
 
     // MARK: - Recording
 
@@ -87,7 +114,7 @@ actor TasteProfileStore {
         loadIfNeeded()
         applyDecay()
 
-        let w = event.kind.weight
+        let w = event.kind.weight * max(0.25, min(2, event.weightScale))
         if event.kind == .impression {
             markSeen(event.postId)
         } else {
@@ -97,6 +124,12 @@ actor TasteProfileStore {
             }
             state.authorAffinity[event.author, default: 0] += w * 0.5
             state.categoryAffinity[event.category, default: 0] += w * 0.5
+            // Product-vs-service preference: every engagement votes for the
+            // gift type it happened on (dwell counts — lingering on service
+            // cards is a soft "I'd take a membership").
+            var gta = state.giftTypeAffinity ?? [:]
+            gta[event.giftType == "service" ? "service" : "product", default: 0] += w * 0.6
+            state.giftTypeAffinity = gta
             if w > 0, event.price > 0 {
                 state.priceSum += event.price * w
                 state.priceWeight += w
@@ -109,10 +142,32 @@ actor TasteProfileStore {
             if state.seedKeys.count > Self.seedCap {
                 state.seedKeys.removeLast(state.seedKeys.count - Self.seedCap)
             }
-        } else if event.kind == .unlike || event.kind == .unsave {
+            var neg = state.negSeedKeys ?? []
+            neg.removeAll { $0 == event.postId } // a fresh yes overrides an old no
+            state.negSeedKeys = neg
+        } else if event.kind.isNegativeSeedSignal {
             state.seedKeys.removeAll { $0 == event.postId }
+            var neg = state.negSeedKeys ?? []
+            neg.removeAll { $0 == event.postId }
+            neg.insert(event.postId, at: 0)
+            if neg.count > Self.negSeedCap {
+                neg.removeLast(neg.count - Self.negSeedCap)
+            }
+            state.negSeedKeys = neg
         }
 
+        scheduleSave()
+    }
+
+    // Fold a photo the user searched into taste as a seed key whose vector the
+    // caller has already cached in VectorStore (visual search, gap G3).
+    func addPhotoSeed(key: String) {
+        loadIfNeeded()
+        state.seedKeys.removeAll { $0 == key }
+        state.seedKeys.insert(key, at: 0)
+        if state.seedKeys.count > Self.seedCap {
+            state.seedKeys.removeLast(state.seedKeys.count - Self.seedCap)
+        }
         scheduleSave()
     }
 
@@ -125,8 +180,10 @@ actor TasteProfileStore {
         snap.prefPrice = state.priceWeight > 0.5 ? state.priceSum / state.priceWeight : nil
         snap.authorAffinity = state.authorAffinity
         snap.categoryAffinity = state.categoryAffinity
+        snap.giftTypeAffinity = state.giftTypeAffinity ?? [:]
         snap.seen = Set(state.seen)
         snap.seedKeys = state.seedKeys
+        snap.negSeedKeys = state.negSeedKeys ?? []
         return snap
     }
 
@@ -149,6 +206,7 @@ actor TasteProfileStore {
         state.vibes = state.vibes.compactMapValues { abs($0 * factor) < 0.01 ? nil : $0 * factor }
         state.authorAffinity = state.authorAffinity.compactMapValues { abs($0 * factor) < 0.01 ? nil : $0 * factor }
         state.categoryAffinity = state.categoryAffinity.compactMapValues { abs($0 * factor) < 0.01 ? nil : $0 * factor }
+        state.giftTypeAffinity = (state.giftTypeAffinity ?? [:]).compactMapValues { abs($0 * factor) < 0.01 ? nil : $0 * factor }
         state.priceSum *= factor
         state.priceWeight *= factor
         state.lastDecayAt = now

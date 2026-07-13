@@ -527,6 +527,11 @@ export type ChallengeDeckItem = {
   category?: string;
   domain?: string;
   url?: string;
+  // Products vs gift-able services (a year of Netflix, a Costco membership…):
+  // the deck mixes ~20% service probes so a guest's swipes also reveal whether
+  // they'd rather receive a membership than a thing (verdict.giftTypeSplit).
+  giftType?: "product" | "service";
+  serviceDuration?: string;
 };
 
 export type ChallengePublic = {
@@ -611,23 +616,45 @@ export async function fetchChallenge(challengeId: string): Promise<ChallengePubl
 
 export type ChallengeSwipe = { id: string; dir: "yes" | "no"; dwellMs?: number };
 
+// The guest's own reveal payload (never the sender's seed verdict): their top
+// categories, price band, product-vs-service split, and yes-seeds for warm-
+// starting vector recommendations before they have an account.
+export type ChallengeGuestTaste = {
+  topCategories?: string[];
+  priceBand?: { min: number; median: number; max: number } | null;
+  giftTypeSplit?: {
+    productYes?: number;
+    productTotal?: number;
+    serviceYes?: number;
+    serviceTotal?: number;
+    productYesRate?: number | null;
+    serviceYesRate?: number | null;
+  } | null;
+  seeds?: string[];
+};
+
 // Guest-side: submit swipes; the server scores the verdict against the hidden
-// seed and mirrors a soft-profile connection for the sender.
+// seed and mirrors a soft-profile connection for the sender. Passing
+// guest.anonId additionally persists the swiper's OWN taste under that id
+// server-side (claimed into their account at signup — the recipient-entry
+// warm start), and the response echoes that taste back for local seeding.
 export async function submitChallengeResponse(
   challengeId: string,
-  guest: { name?: string; handle?: string; birthday?: string; genderPref?: string },
+  guest: { name?: string; handle?: string; birthday?: string; genderPref?: string; anonId?: string },
   swipes: ChallengeSwipe[]
-): Promise<boolean> {
-  if (!isApiConfigured() || !challengeId || !swipes.length) return false;
+): Promise<{ ok: boolean; taste: ChallengeGuestTaste | null }> {
+  if (!isApiConfigured() || !challengeId || !swipes.length) return { ok: false, taste: null };
   try {
     const res = await apiFetch(`/challenges/${encodeURIComponent(challengeId)}/response`, {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
       body: JSON.stringify({ guest, swipes }),
     });
-    return res.ok;
+    if (!res.ok) return { ok: false, taste: null };
+    const data = (await res.json().catch(() => null)) as { taste?: ChallengeGuestTaste } | null;
+    return { ok: true, taste: data?.taste ?? null };
   } catch {
-    return false;
+    return { ok: false, taste: null };
   }
 }
 

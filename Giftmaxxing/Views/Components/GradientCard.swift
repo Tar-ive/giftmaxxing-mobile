@@ -33,6 +33,28 @@ struct GradientCard: View {
     }
 }
 
+// Capsule tag for gift-able services ("a year of Netflix") — services often
+// ship without a product photo, so the branded gradient + emoji IS the card
+// and this badge is what tells the user it's a subscription, not a thing.
+struct ServiceBadge: View {
+    var duration: String?
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "gift.circle.fill")
+                .font(.system(size: 11, weight: .bold))
+            Text(duration.map { "Service · \($0)" } ?? "Service")
+                .font(.system(size: 11, weight: .bold))
+                .textCase(.uppercase)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(.black.opacity(0.55))
+        .clipShape(Capsule())
+    }
+}
+
 struct AvatarView: View {
     let name: String
     let grad: GradientStyle

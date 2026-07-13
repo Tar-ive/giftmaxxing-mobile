@@ -539,9 +539,12 @@ function vecToItem(v) {
   const productUrl = m.link || m.pinUrl || "";
   const price = typeof m.price === "number" ? m.price : Number(m.price) || 0;
   const merchant = m.domain || m.sourceUser || "Pinterest";
-  const q = classifyPin({ title: m.title, domain: m.domain, link: productUrl, price });
+  const giftType = m.giftType === "service" ? "service" : "product";
+  const q = classifyPin({ title: m.title, domain: m.domain, link: productUrl, price, giftType });
   return {
     postId: v.key,
+    giftType,
+    ...(m.serviceDuration ? { serviceDuration: m.serviceDuration } : {}),
     author: m.sourceUser || "pinterest",
     image: m.imageUrl || "",
     s3Key: m.s3Key || "",
@@ -686,9 +689,56 @@ function deckSnapshot(it, band) {
     category: it.category,
     domain: it.domain,
     url: it.url,
+    // Products vs services split so guests render service cards correctly and
+    // the verdict can report "they're a services person" (giftTypeSplit).
+    giftType: it.giftType === "service" ? "service" : "product",
+    ...(it.serviceDuration ? { serviceDuration: it.serviceDuration } : {}),
     band,
     distance: it._distance,
   };
+}
+
+// A couple of gift-able SERVICES (a year of Netflix, a Costco membership, …)
+// mixed into every challenge deck as probes. Whether the guest swipes yes on
+// services vs products is itself a taste read (verdict.giftTypeSplit) — "they'd
+// rather get a membership than a thing" makes gifting materially easier.
+// Sourced from the posts byCategory GSI (category "services", written by
+// infra/ingest/ingest-catalog.mjs); returns [] when none are seeded yet.
+async function fetchServiceCards(count = 3) {
+  if (!POSTS || count <= 0) return [];
+  try {
+    const out = await ddb.send(
+      new QueryCommand({
+        TableName: POSTS,
+        IndexName: "byCategory",
+        KeyConditionExpression: "category = :c",
+        ExpressionAttributeValues: { ":c": "services" },
+        Limit: 24,
+      })
+    );
+    const rows = (out.Items ?? []).filter((p) => p.giftType === "service");
+    // Cheap shuffle so repeat challenges don't always probe the same services.
+    for (let i = rows.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [rows[i], rows[j]] = [rows[j], rows[i]];
+    }
+    return rows.slice(0, count).map((p) => ({
+      postId: p.postId,
+      name: p.product?.name || p.caption || "",
+      image: p.product?.image || null,
+      price: Number(p.price ?? p.product?.price) || 0,
+      priceDisplay: p.priceDisplay ?? null,
+      category: p.category || "services",
+      domain: p.domain || null,
+      url: p.productUrl || p.url || "",
+      giftType: "service",
+      ...(p.serviceDuration ? { serviceDuration: p.serviceDuration } : {}),
+      band: "probe",
+    }));
+  } catch (e) {
+    console.warn("fetchServiceCards failed (deck ships without services):", e.message);
+    return [];
+  }
 }
 
 // kNN around the seed, quality-filtered, then a banded diversity pass:
@@ -696,6 +746,15 @@ function deckSnapshot(it, band) {
 // capped per merchant + category, then shuffled so the deck order never leaks
 // the similarity gradient to the guest.
 async function buildChallengeDeck(seedVector, { size = CHALLENGE_DECK_SIZE, excludeKeys = [] } = {}) {
+  // Reserve ~20% of the deck for service probes (2–3 cards at default size).
+  // They come from the catalog, not the kNN, so the vibe/twin bands keep their
+  // meaning; if no services are seeded yet the deck fills entirely from kNN.
+  const serviceTarget = Math.max(0, Math.min(3, Math.round(size * 0.2)));
+  const serviceCards = (await fetchServiceCards(serviceTarget)).filter(
+    (c) => !excludeKeys.includes(c.postId)
+  );
+  size = Math.max(4, size - serviceCards.length);
+
   const out = await s3v.send(
     new QueryVectorsCommand({
       vectorBucketName: VECTOR_BUCKET,
@@ -738,6 +797,15 @@ async function buildChallengeDeck(seedVector, { size = CHALLENGE_DECK_SIZE, excl
   }
   // Backfill closest-first if any band under-delivered.
   for (const it of candidates) admit(it, it._band, false);
+
+  // Service probes join the pool before the shuffle so their position never
+  // gives them away (dedup on postId in case a service also matched the kNN).
+  for (const card of serviceCards) {
+    if (!pickedKeys.has(card.postId)) {
+      picked.push(card);
+      pickedKeys.add(card.postId);
+    }
+  }
 
   // Fisher-Yates so twins aren't clustered at the front of the deck.
   for (let i = picked.length - 1; i > 0; i--) {
@@ -791,6 +859,27 @@ function computeChallengeVerdict({ seedVec, swipes, vectorsByKey, deckByKey }) {
   if (directSeedSwipe === "no") score = Math.min(score, 0.25);
   const label = score >= 0.72 ? "love" : score >= 0.55 ? "like" : score >= 0.4 ? "unsure" : "pass";
 
+  // Product-vs-service read: services in the deck are probes (see
+  // fetchServiceCards) — a guest who says yes to "a year of Spotify" but no to
+  // objects is telling us the gift should be a SERVICE. Rates are null until
+  // that gift type actually appeared in the deck.
+  const split = { productYes: 0, productTotal: 0, serviceYes: 0, serviceTotal: 0 };
+  for (const s of swipes) {
+    const isService = deckByKey.get(s.id)?.giftType === "service";
+    if (isService) {
+      split.serviceTotal++;
+      if (s.dir === "yes") split.serviceYes++;
+    } else {
+      split.productTotal++;
+      if (s.dir === "yes") split.productYes++;
+    }
+  }
+  const giftTypeSplit = {
+    ...split,
+    productYesRate: split.productTotal ? Math.round((split.productYes / split.productTotal) * 100) / 100 : null,
+    serviceYesRate: split.serviceTotal ? Math.round((split.serviceYes / split.serviceTotal) * 100) / 100 : null,
+  };
+
   const likedItems = yes.map((s) => deckByKey.get(s.id)).filter(Boolean);
   const catCounts = {};
   for (const it of likedItems) if (it.category) catCounts[it.category] = (catCounts[it.category] ?? 0) + 1;
@@ -820,6 +909,7 @@ function computeChallengeVerdict({ seedVec, swipes, vectorsByKey, deckByKey }) {
     priceBand,
     favoriteId,
     variantPicks,
+    giftTypeSplit,
     yesCount: yes.length,
     swipeCount: swipes.length,
   };
@@ -2271,7 +2361,7 @@ export const handler = async (event) => {
           for (const p of pages.flat()) {
             if (!p.postId || seen.has(p.postId) || exclude.has(p.postId)) continue;
             seen.add(p.postId);
-            const q = classifyPin({ title: p.caption ?? p.product?.name, domain: p.domain ?? p.merchant, link: p.url ?? p.productUrl, price: p.price ?? p.product?.price });
+            const q = classifyPin({ title: p.caption ?? p.product?.name, domain: p.domain ?? p.merchant, link: p.url ?? p.productUrl, price: p.price ?? p.product?.price, giftType: p.giftType });
             if (!q.feedEligible) continue;
             ranked.push({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, feedEligible: true, _score: scorePost(p, opts) + q.qualityScore * 0.4 });
           }
@@ -2339,7 +2429,7 @@ export const handler = async (event) => {
         const take = (items) => {
           for (const p of items ?? []) {
             if (picked.has(p.postId) || exclude.has(p.postId)) continue;
-            const q = classifyPin({ title: p.caption ?? p.product?.name, domain: p.domain ?? p.merchant, link: p.url ?? p.productUrl, price: p.price ?? p.product?.price });
+            const q = classifyPin({ title: p.caption ?? p.product?.name, domain: p.domain ?? p.merchant, link: p.url ?? p.productUrl, price: p.price ?? p.product?.price, giftType: p.giftType });
             if (!q.feedEligible) continue;
             picked.add(p.postId);
             eligible.push({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, feedEligible: true, _score: scorePost(p, opts) + q.qualityScore * 0.4 });
@@ -2383,7 +2473,7 @@ export const handler = async (event) => {
         scanKey = out.LastEvaluatedKey;
       } while (scanKey);
       const ranked = allItems
-        .map((p) => ({ p, q: classifyPin({ title: p.caption ?? p.product?.name, domain: p.domain ?? p.merchant, link: p.url ?? p.productUrl, price: p.price ?? p.product?.price }) }))
+        .map((p) => ({ p, q: classifyPin({ title: p.caption ?? p.product?.name, domain: p.domain ?? p.merchant, link: p.url ?? p.productUrl, price: p.price ?? p.product?.price, giftType: p.giftType }) }))
         .filter((x) => x.q.feedEligible && !exclude.has(x.p.postId))
         .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 }))
         .sort((a, b) => b._score - a._score);
@@ -2480,7 +2570,32 @@ export const handler = async (event) => {
             it.feedEligible && (it._distance == null || it._distance <= VISUAL_SEARCH_MAX_DISTANCE)
         )
         .slice(0, limit);
-      return json(200, { items, source: "visual" });
+
+      // A photo someone searches is one of the strongest taste/intent signals
+      // we ever see — don't discard its embedding (research doc gap G3).
+      // (1) Return it packed (int8, ~1.4 KB — same scheme as GET /vectors) so
+      //     the client can fold it into its on-device centroid math.
+      // (2) When the caller identifies itself, persist a photoseed node in its
+      //     graph; recipientRef ties the seed to the person the photo is FOR
+      //     (e.g. a screenshot of something the recipient posted).
+      const packed = packVector(queryVector);
+      const seedOwner = String(body.userId || body.anonId || "").slice(0, 80);
+      if (seedOwner) {
+        const recipientRef = body.recipientRef ? String(body.recipientRef).slice(0, 80) : undefined;
+        await graphWrite([
+          gNode(seedOwner, "photoseed", gid(), {
+            scope: recipientRef ? "shared" : "personal",
+            label: body.text ? String(body.text).slice(0, 120) : "photo search",
+            data: {
+              vec: packed,
+              intent: body.intent ? String(body.intent).slice(0, 24) : "search",
+              ...(recipientRef ? { recipientRef } : {}),
+              topMatch: items[0]?.postId ?? null,
+            },
+          }),
+        ]);
+      }
+      return json(200, { items, source: "visual", queryVector: packed });
     }
 
     // GET /interactions?userId=&types=like,save,comment
@@ -2511,6 +2626,18 @@ export const handler = async (event) => {
     // The iOS client queues events locally and flushes them in batches (one
     // Lambda invocation per ~10-100 events instead of one per tap).
     if (method === "POST" && path === "/interactions") {
+      // Optional per-event context: {mode:"gift", recipientRef, giftType,
+      // decisionMs, amount, …} — the mode tag keeps gift-mode browsing out of
+      // the browser's own taste when per-recipient objects land (gap G2).
+      // Bounded so a hostile client can't stuff megabytes into a row.
+      const boundedData = (d) => {
+        if (!d || typeof d !== "object" || Array.isArray(d)) return undefined;
+        try {
+          return JSON.stringify(d).length <= 1024 ? d : undefined;
+        } catch {
+          return undefined;
+        }
+      };
       if (Array.isArray(body.items)) {
         const rows = [];
         const seenKeys = new Set(); // BatchWrite rejects duplicate keys in one request
@@ -2521,12 +2648,14 @@ export const handler = async (event) => {
           const key = `${userId}|${sk}`;
           if (seenKeys.has(key)) continue;
           seenKeys.add(key);
+          const data = boundedData(it.data);
           rows.push({
             userId,
             targetId: sk,
             type,
             target: targetId,
             createdAt: Number(it.createdAt) || Date.now(),
+            ...(data ? { data } : {}),
           });
         }
         if (!rows.length) return json(400, { error: "items must contain { userId, targetId, type }" });
@@ -2557,7 +2686,8 @@ export const handler = async (event) => {
         target: targetId,
         createdAt: Date.now(),
       };
-      if (data) item.data = data;
+      const bounded = boundedData(data);
+      if (bounded) item.data = bounded;
       await ddb.send(new PutCommand({ TableName: INTERACTIONS, Item: item }));
       return json(200, { ok: true });
     }
@@ -2626,6 +2756,11 @@ export const handler = async (event) => {
       }
 
       const limit = Math.min(Number(qs.limit) || 12, 50);
+      // ?giftTypes=product | service | product,service — restrict to one gift
+      // type ("only show me services"). Omitted or both -> the default blend.
+      const giftTypes = parseList(qs.giftTypes).filter((t) => t === "product" || t === "service");
+      const giftTypeOk = (it) =>
+        giftTypes.length !== 1 || giftTypes.includes(it.giftType === "service" ? "service" : "product");
 
       // Vector path: taste = centroid of the user's seed pins -> kNN in S3 Vectors.
       // Seeds come from ?seedKeys=pin-a,pin-b or from the user's interactions.
@@ -2635,7 +2770,7 @@ export const handler = async (event) => {
         try {
           const vitems = await vectorRecommend(seeds, { limit, sourceUser: qs.sourceUser });
           if (vitems && vitems.length) {
-            return json(200, { items: vitems, cursor: null, source: "vector" });
+            return json(200, { items: vitems.filter(giftTypeOk), cursor: null, source: "vector" });
           }
         } catch (e) {
           console.warn("vector recommend failed, falling back to facets:", e.message);
@@ -2658,7 +2793,8 @@ export const handler = async (event) => {
       const out = await ddb.send(new ScanCommand(scan));
       const items = (out.Items ?? [])
         .filter((p) => !likedTargets.has(p.postId) && p.author !== userId)
-        .map((p) => ({ p, q: classifyPin({ title: p.caption ?? p.product?.name, domain: p.domain ?? p.merchant, link: p.url ?? p.productUrl, price: p.price ?? p.product?.price }) }))
+        .filter(giftTypeOk)
+        .map((p) => ({ p, q: classifyPin({ title: p.caption ?? p.product?.name, domain: p.domain ?? p.merchant, link: p.url ?? p.productUrl, price: p.price ?? p.product?.price, giftType: p.giftType }) }))
         .filter((x) => x.q.feedEligible)
         .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 }))
         .sort((a, b) => b._score - a._score)
@@ -2860,7 +2996,12 @@ export const handler = async (event) => {
       const anonId = String(body.anonId || "");
       const claimUserId = String(body.userId || "");
       if (!anonId || !claimUserId) return json(400, { error: "anonId and userId required" });
-      if (!anonId.startsWith("anon_")) return json(400, { error: "invalid anonId" });
+      // Web mints "anon_…" (lib/anon.ts); the iOS InteractionQueue mints
+      // "anon-…". Both are claimable — rejecting the dash variant stranded
+      // every app-side guest taste profile at signup.
+      if (!anonId.startsWith("anon_") && !anonId.startsWith("anon-")) {
+        return json(400, { error: "invalid anonId" });
+      }
       // Only allow claiming INTO your own account (or admin/ingest).
       const auth = await authorizeRequest(event, method, path);
       if (!(auth.via === "admin" || auth.sub === claimUserId)) {
@@ -3223,6 +3364,7 @@ export const handler = async (event) => {
           genderPref: guest.genderPref ? String(guest.genderPref).slice(0, 12) : undefined,
           vibes: verdict.topCategories,
           seeds: swipes.filter((s) => s.dir === "yes").slice(0, 8).map((s) => s.id),
+          giftTypeSplit: verdict.giftTypeSplit,
           yesCount: verdict.yesCount,
           totalSwipes: verdict.swipeCount,
           verdictScore: verdict.score,
@@ -3234,11 +3376,72 @@ export const handler = async (event) => {
         await captureConnection(item);
       }
 
-      // The guest's reveal: their own taste only. No seed verdict — the point
-      // of the funnel is that the ask stays invisible.
+      // The guest's swipes are THEIR taste, not only the sender's intel. When
+      // the guest's browser/app supplies its anon id, persist a self-owned
+      // taste row under it — /connections/claim re-keys it into their real
+      // account on signup, so a challenge recipient converts with a warm
+      // profile instead of a cold start (research doc §9.1, gap G1).
+      const guestSeeds = swipes.filter((s) => s.dir === "yes").slice(0, 12).map((s) => s.id);
+      const guestNegSeeds = swipes.filter((s) => s.dir === "no").slice(0, 12).map((s) => s.id);
+      const anonId =
+        typeof guest.anonId === "string" && /^anon[-_][A-Za-z0-9-]{4,64}$/.test(guest.anonId)
+          ? guest.anonId
+          : null;
+      if (anonId && anonId !== meta.senderId) {
+        try {
+          await ddb.send(
+            new PutCommand({
+              TableName: CONNECTIONS,
+              Item: {
+                userId: anonId,
+                connectionId: `self_${respId}`,
+                soft: true,
+                kind: "self-challenge",
+                challengeId,
+                guestName,
+                vibes: verdict.topCategories,
+                seeds: guestSeeds,
+                negSeeds: guestNegSeeds,
+                giftTypeSplit: verdict.giftTypeSplit,
+                priceBand: verdict.priceBand ?? undefined,
+                yesCount: verdict.yesCount,
+                totalSwipes: verdict.swipeCount,
+                seen: true, // it's their own — never a sender notification
+                createdAt,
+              },
+            })
+          );
+          // Mirror into the guest's own subgraph so Maxi + /graph see the
+          // swipe-derived taste the moment they sign up and claim the anon id.
+          await graphWrite([
+            gNode(anonId, "self", "taste", {
+              scope: "personal",
+              label: "swipe taste",
+              data: {
+                seeds: guestSeeds,
+                negSeeds: guestNegSeeds,
+                vibes: verdict.topCategories,
+                giftTypeSplit: verdict.giftTypeSplit,
+                priceBand: verdict.priceBand ?? null,
+              },
+            }),
+            ...interestItems(anonId, "self", "taste", verdict.topCategories),
+          ]);
+        } catch (e) {
+          console.warn("guest self-taste persist failed:", e.message);
+        }
+      }
+
+      // The guest's reveal: their own taste only (plus their own yes-list as
+      // warm-start seeds). No seed verdict — the ask stays invisible.
       return json(200, {
         ok: true,
-        taste: { topCategories: verdict.topCategories, priceBand: verdict.priceBand },
+        taste: {
+          topCategories: verdict.topCategories,
+          priceBand: verdict.priceBand,
+          giftTypeSplit: verdict.giftTypeSplit,
+          seeds: guestSeeds,
+        },
       });
     }
 
@@ -3501,6 +3704,21 @@ export const handler = async (event) => {
             ReturnValues: "UPDATED_NEW",
           })
         );
+        // A pledge is real money behind a specific person + occasion — the
+        // strongest dyad signal we collect. Mirror it into the pledger's
+        // subgraph so recipient rosters/budget priors can read it later
+        // (research doc gap G8). Best-effort like every graph write.
+        await graphWrite([
+          gNode(userId, "pool", poolId, {
+            scope: "shared",
+            label: meta.Item.title,
+            data: {
+              occasion: meta.Item.occasion ?? null,
+              goal: Number(meta.Item.goal) || null,
+            },
+          }),
+          gEdge(userId, "PLEDGED", "user", userId, "pool", poolId, { amount, at }),
+        ]);
         return json(200, { ok: true, raised: Number(upd.Attributes?.raised) || amount });
       }
 

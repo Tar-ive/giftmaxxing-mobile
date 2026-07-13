@@ -893,7 +893,10 @@ struct GroupSwipeSheet: View {
             try await APIClient.shared.submitChallengeResponse(
                 challengeId: gift.id,
                 guestName: gift.inviterName,
-                swipes: swipes
+                swipes: swipes,
+                // The swiper's yes/no list is THEIR taste too — persist it
+                // under this device's anon id for a warm start at signup.
+                anonId: InteractionQueue.anonymousUserId
             )
             GroupGiftStore.shared.markSwiped(gift.id)
             submitted = true

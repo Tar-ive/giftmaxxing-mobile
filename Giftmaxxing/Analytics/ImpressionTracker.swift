@@ -9,10 +9,17 @@ struct ImpressionTracker: ViewModifier {
     let postId: String
     let position: Int
     let source: String
+    // Fires with the measured dwell (ms) when the view leaves the viewport —
+    // lets the taste profile weight impressions by attention, not just count
+    // them (analytics collected dwell for months; ranking never used it).
+    var onDwell: ((Double) -> Void)? = nil
+
+    @State private var appearedAt: Date?
 
     func body(content: Content) -> some View {
         content
             .onAppear {
+                appearedAt = Date()
                 AnalyticsEngine.shared.trackImpression(
                     postId: postId,
                     position: position,
@@ -24,13 +31,22 @@ struct ImpressionTracker: ViewModifier {
                     postId: postId,
                     position: position
                 )
+                if let start = appearedAt {
+                    onDwell?(Date().timeIntervalSince(start) * 1000)
+                }
+                appearedAt = nil
             }
     }
 }
 
 extension View {
-    func trackImpression(postId: String, position: Int, source: String = "feed") -> some View {
-        modifier(ImpressionTracker(postId: postId, position: position, source: source))
+    func trackImpression(
+        postId: String,
+        position: Int,
+        source: String = "feed",
+        onDwell: ((Double) -> Void)? = nil
+    ) -> some View {
+        modifier(ImpressionTracker(postId: postId, position: position, source: source, onDwell: onDwell))
     }
 }
 

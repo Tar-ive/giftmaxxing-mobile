@@ -50,6 +50,19 @@ struct PostCardView: View {
                         CachedAsyncImage(url: image, width: 600)
                     }
 
+                    // Services get a corner tag — same card, one subtle tell
+                    // (a year of Netflix sits beside AirPods, on purpose).
+                    if post.isService {
+                        VStack {
+                            HStack {
+                                ServiceBadge(duration: post.serviceDuration)
+                                Spacer()
+                            }
+                            Spacer()
+                        }
+                        .padding(12)
+                    }
+
                     // Price badge
                     VStack {
                         Spacer()

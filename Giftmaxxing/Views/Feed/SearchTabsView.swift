@@ -141,10 +141,21 @@ final class SearchTabsViewModel: ObservableObject {
         do {
             let response = try await api.fetchVisualSearch(
                 imageBase64: jpeg.base64EncodedString(),
-                text: labels.isEmpty ? nil : labels.joined(separator: ", ")
+                text: labels.isEmpty ? nil : labels.joined(separator: ", "),
+                intent: "search"
             )
             guard generation == searchGeneration else { return }
             visualResults = response.items ?? []
+            // The searched photo IS a taste signal: cache its embedding and
+            // seed the centroid with it, so the next feed page already leans
+            // toward what they just showed us (research gap G3).
+            if let qv = response.queryVector {
+                let key = "photoseed-\(Int(Date().timeIntervalSince1970 * 1000))"
+                Task {
+                    await VectorStore.shared.upsert(key: key, base64: qv.data, scale: qv.scale)
+                    await TasteProfileStore.shared.addPhotoSeed(key: key)
+                }
+            }
         } catch {
             guard generation == searchGeneration else { return }
             visualError = "Couldn't run visual search. Try a different image."

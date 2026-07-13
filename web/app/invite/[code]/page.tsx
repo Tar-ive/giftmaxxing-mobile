@@ -14,6 +14,8 @@ import {
   type ChallengeSwipe,
 } from "@/lib/api";
 import { swipeVibes, seedKeysFromSwipes, localMatchesFromSwipes, swipeTimingSignals, type Swipe, type SwipeDir } from "@/lib/swipes";
+import { getOrCreateAnonId } from "@/lib/anon";
+import { mergeGuestTaste } from "@/lib/guest-taste";
 import { GRADIENTS, type Grad } from "@/lib/data";
 import { shortTitle } from "@/lib/feed-builder";
 import { type Pin } from "@/lib/pins";
@@ -42,17 +44,24 @@ const GRAD_KEYS = Object.keys(GRADIENTS) as Grad[];
 function deckItemToPin(it: ChallengeDeckItem): Pin {
   let h = 0;
   for (let i = 0; i < it.postId.length; i++) h = (h * 31 + it.postId.charCodeAt(i)) >>> 0;
+  // Service probes ("Netflix Premium — 1 Year") usually have no product photo:
+  // the gradient + ticket emoji is the card, and brand carries the duration so
+  // the guest knows they're saying yes to a subscription, not an object.
+  const isService = it.giftType === "service";
+  const cleanDomain = (it.domain || "").replace(/^www\./, "");
   return {
     id: it.postId,
     title: it.name || "Gift find",
     image: it.image || "",
     thumb: it.image || "",
     source: it.domain || "",
-    brand: (it.domain || "").replace(/^www\./, "") || "Gift find",
+    brand: isService
+      ? [cleanDomain || "Subscription", it.serviceDuration].filter(Boolean).join(" · ")
+      : cleanDomain || "Gift find",
     url: it.url || "",
     price: it.price ?? 0,
     grad: GRAD_KEYS[h % GRAD_KEYS.length] ?? "peach",
-    emoji: "\u{1F381}",
+    emoji: isService ? "\u{1F39F}\u{FE0F}" : "\u{1F381}",
     category: it.category || "gift",
   };
 }
@@ -183,9 +192,21 @@ export default function InvitePage() {
       const fallbackSenderId = invite?.senderId;
       void submitChallengeResponse(
         invite.challengeId,
-        { name, birthday: guestBirthday },
+        // anonId ties the swipes to THIS browser too: the server persists the
+        // guest's own taste under it (claimed at signup — warm-start, gap G1).
+        { name, birthday: guestBirthday, anonId: getOrCreateAnonId() },
         challengeSwipes
-      ).then((ok) => {
+      ).then(({ ok, taste }) => {
+        if (ok && taste) {
+          // Local mirror of the reveal so this browser can seed vector recs
+          // immediately (feed teaser / onboarding), no account needed.
+          mergeGuestTaste({
+            seeds: taste.seeds,
+            topCategories: taste.topCategories,
+            priceBand: taste.priceBand ?? null,
+            giftTypeSplit: taste.giftTypeSplit ?? null,
+          });
+        }
         if (!ok && fallbackSenderId) {
           // Challenge gone (expired/deleted) — report the classic way instead.
           void createConnection(fallbackSenderId, {
