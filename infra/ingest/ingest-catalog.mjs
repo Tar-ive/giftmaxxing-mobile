@@ -175,8 +175,13 @@ function priceTier(price) {
 
 function catalogPostItem(item, media, i) {
   const isService = item.giftType === "service";
-  // Spread synthetic timestamps so the byFeed page isn't one flat block.
-  const createdAt = Date.now() - i * 60000;
+  // Spread createdAt over ~7 weeks (36h apart). The first seeding used minutes,
+  // which made every catalog item the NEWEST post — the recency-ordered byFeed
+  // GSI then served an unbroken wall of same-author catalog cards before any
+  // real pin. Catalog basics are evergreen; they should blend into the feed's
+  // window, not own its head. Re-running ingest overwrites the same postIds,
+  // so this also repairs an already-seeded table.
+  const createdAt = Date.now() - (i + 1) * 36 * 3600 * 1000;
   return {
     postId: item.id,
     author: "giftmaxxing_catalog",

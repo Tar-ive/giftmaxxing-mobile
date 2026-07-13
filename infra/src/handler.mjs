@@ -458,6 +458,41 @@ function scorePost(p, { vibes = [], recipient, occasion, category, budget, event
   return s;
 }
 
+// ── Feed variety: break same-author walls ────────────────────────────────────
+// The catalog seeding put ~35 giftmaxxing_catalog posts at the head of the
+// recency index, and every ranked path happily served them back-to-back — a
+// wall of one author with zero visible personalization. Greedy re-order that
+// PRESERVES score order but (a) allows at most `maxRun` consecutive items from
+// one author and (b) caps one author to `perWindow` slots per `window` items.
+// Items that can't legally place yet slide down (never dropped); if nothing
+// can place (single-author candidate set), the constraint yields gracefully.
+function interleaveAuthors(items, { maxRun = 2, perWindow = 8, window = 12 } = {}) {
+  if (!Array.isArray(items) || items.length <= maxRun) return items;
+  const authorOf = (p) => p.author || p.sourceUser || p.merchant || "";
+  const remaining = [...items];
+  const out = [];
+  while (remaining.length) {
+    let idx = -1;
+    for (let i = 0; i < remaining.length; i++) {
+      const a = authorOf(remaining[i]);
+      let run = 0;
+      for (let j = out.length - 1; j >= 0 && authorOf(out[j]) === a; j--) run++;
+      if (run >= maxRun) continue;
+      let inWindow = 0;
+      for (let j = Math.max(0, out.length - window); j < out.length; j++) {
+        if (authorOf(out[j]) === a) inWindow++;
+      }
+      if (inWindow >= perWindow) continue;
+      idx = i;
+      break;
+    }
+    // Everything left violates the caps (e.g. one-author pool) — degrade to
+    // score order rather than starving the page.
+    out.push(remaining.splice(idx >= 0 ? idx : 0, 1)[0]);
+  }
+  return out;
+}
+
 // ── Feed freshness: per-user de-dup + variety ────────────────────────────────
 // The byFeed GSI is newest-first and deterministic, so every visit used to serve
 // the SAME head items. We (a) start each fresh load at a RANDOM point in the
@@ -2376,14 +2411,15 @@ export const handler = async (event) => {
             ranked.push({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, feedEligible: true, _score: scorePost(p, opts) + q.qualityScore * 0.4 });
           }
           ranked.sort((a, b) => b._score - a._score);
+          const mixed = interleaveAuthors(ranked);
           let offset = start?._offset ?? 0;
           const personalized = qs.recipient && qs.recipient !== "anyone";
           if (!start && !filters.length && !personalized && qs.fresh !== "0" && ranked.length > limit) {
             offset = Math.floor(Math.random() * Math.max(1, ranked.length - limit));
           }
-          const page = ranked.slice(offset, offset + limit);
+          const page = mixed.slice(offset, offset + limit);
           const nextOffset = offset + limit;
-          return json(200, { items: page, cursor: nextOffset < ranked.length ? encodeCursor({ _offset: nextOffset }) : null });
+          return json(200, { items: page, cursor: nextOffset < mixed.length ? encodeCursor({ _offset: nextOffset }) : null });
         } catch (err) {
           console.warn("sharded byFeed query failed, falling back to full scan:", err.message);
         }
@@ -2465,7 +2501,7 @@ export const handler = async (event) => {
           if (!lastKey) break;    // reached the end of the range
         }
         eligible.sort((a, b) => b._score - a._score);
-        return json(200, { items: eligible.slice(0, limit), cursor: encodeCursor(lastKey) });
+        return json(200, { items: interleaveAuthors(eligible).slice(0, limit), cursor: encodeCursor(lastKey) });
       } catch (err) {
         // byFeed GSI not deployed yet (or transient error) -> legacy fallback.
         console.warn("byFeed query failed, falling back to full scan:", err.message);
@@ -2487,8 +2523,9 @@ export const handler = async (event) => {
         .filter((x) => x.q.feedEligible && !exclude.has(x.p.postId))
         .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 }))
         .sort((a, b) => b._score - a._score);
+      const rankedMixed = interleaveAuthors(ranked);
       const offset = start?._offset ?? 0;
-      const page = ranked.slice(offset, offset + limit);
+      const page = rankedMixed.slice(offset, offset + limit);
       const nextOffset = offset + limit;
       const cursor = nextOffset < ranked.length ? encodeCursor({ _offset: nextOffset }) : null;
       return json(200, { items: page, cursor });
@@ -2780,7 +2817,11 @@ export const handler = async (event) => {
         try {
           const vitems = await vectorRecommend(seeds, { limit, sourceUser: qs.sourceUser });
           if (vitems && vitems.length) {
-            return json(200, { items: vitems.filter(giftTypeOk), cursor: null, source: "vector" });
+            return json(200, {
+              items: interleaveAuthors(vitems.filter(giftTypeOk)),
+              cursor: null,
+              source: "vector",
+            });
           }
         } catch (e) {
           console.warn("vector recommend failed, falling back to facets:", e.message);
@@ -2801,14 +2842,15 @@ export const handler = async (event) => {
         ExclusiveStartKey: decodeCursor(qs.cursor),
       };
       const out = await ddb.send(new ScanCommand(scan));
-      const items = (out.Items ?? [])
-        .filter((p) => !likedTargets.has(p.postId) && p.author !== userId)
-        .filter(giftTypeOk)
-        .map((p) => ({ p, q: classifyPin({ title: p.caption ?? p.product?.name, domain: p.domain ?? p.merchant, link: p.url ?? p.productUrl, price: p.price ?? p.product?.price, giftType: p.giftType }) }))
-        .filter((x) => x.q.feedEligible)
-        .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 }))
-        .sort((a, b) => b._score - a._score)
-        .slice(0, limit);
+      const items = interleaveAuthors(
+        (out.Items ?? [])
+          .filter((p) => !likedTargets.has(p.postId) && p.author !== userId)
+          .filter(giftTypeOk)
+          .map((p) => ({ p, q: classifyPin({ title: p.caption ?? p.product?.name, domain: p.domain ?? p.merchant, link: p.url ?? p.productUrl, price: p.price ?? p.product?.price, giftType: p.giftType }) }))
+          .filter((x) => x.q.feedEligible)
+          .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 }))
+          .sort((a, b) => b._score - a._score)
+      ).slice(0, limit);
 
       return json(200, { items, cursor: encodeCursor(out.LastEvaluatedKey), source: "facet" });
     }

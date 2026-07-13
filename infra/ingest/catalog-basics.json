@@ -27,7 +27,10 @@
       "brand": "Apple",
       "price": 799,
       "category": "tech",
-      "vibes": ["tech", "minimalist"],
+      "vibes": [
+        "tech",
+        "minimalist"
+      ],
       "emoji": "📱",
       "grad": "sky",
       "caption": "The default big-moment gift — Camera Control, A18, and a color for everyone.",
@@ -35,8 +38,9 @@
       "domain": "amazon.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Apple iPhone 16 product photo front and back, white background"
+      "imageUrl": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-model-unselect-gallery-1-202409?wid=1200&hei=630&fmt=jpeg&qlt=95&.v=1723991997435",
+      "imageQuery": "Apple iPhone 16 product photo front and back, white background",
+      "imageSourcePage": "https://www.apple.com/iphone-16/"
     },
     {
       "id": "cat-iphone-16-pro",
@@ -45,7 +49,10 @@
       "brand": "Apple",
       "price": 999,
       "category": "tech",
-      "vibes": ["tech", "luxury"],
+      "vibes": [
+        "tech",
+        "luxury"
+      ],
       "emoji": "📱",
       "grad": "lilac",
       "caption": "Titanium, pro cameras, the one they wouldn't buy themselves.",
@@ -53,8 +60,9 @@
       "domain": "amazon.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Apple iPhone 16 Pro titanium product photo, white background"
+      "imageUrl": "https://www.apple.com/v/iphone/home/cj/images/meta/iphone__bh930eyjnj0i_og.png?202606300948",
+      "imageQuery": "Apple iPhone 16 Pro titanium product photo, white background",
+      "imageSourcePage": "https://www.apple.com/shop/buy-iphone/iphone-16-pro"
     },
     {
       "id": "cat-airpods-pro-2",
@@ -63,7 +71,10 @@
       "brand": "Apple",
       "price": 249,
       "category": "audio",
-      "vibes": ["tech", "minimalist"],
+      "vibes": [
+        "tech",
+        "minimalist"
+      ],
       "emoji": "🎧",
       "grad": "sky",
       "caption": "The safest crowd-pleaser in tech gifting — ANC, hearing-aid mode, tiny case.",
@@ -71,8 +82,9 @@
       "domain": "amazon.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Apple AirPods Pro 2 with charging case product photo, white background"
+      "imageUrl": "https://www.apple.com/v/airpods-pro/s/images/meta/og__c0ceegchesom_overview.png?202606221042",
+      "imageQuery": "Apple AirPods Pro 2 with charging case product photo, white background",
+      "imageSourcePage": "https://www.apple.com/airpods-pro/"
     },
     {
       "id": "cat-airpods-4-anc",
@@ -81,7 +93,9 @@
       "brand": "Apple",
       "price": 179,
       "category": "audio",
-      "vibes": ["tech"],
+      "vibes": [
+        "tech"
+      ],
       "emoji": "🎧",
       "grad": "butter",
       "caption": "Open-ear comfort with real ANC — the under-$200 Apple gift.",
@@ -89,8 +103,9 @@
       "domain": "amazon.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Apple AirPods 4 with open charging case product photo, white background"
+      "imageUrl": "https://www.apple.com/v/airpods-4/g/images/meta/airpods-4__gnjh1t3yjxm6_og.png?202606221042",
+      "imageQuery": "Apple AirPods 4 with open charging case product photo, white background",
+      "imageSourcePage": "https://www.apple.com/airpods-4/"
     },
     {
       "id": "cat-airpods-max",
@@ -99,7 +114,10 @@
       "brand": "Apple",
       "price": 549,
       "category": "audio",
-      "vibes": ["tech", "luxury"],
+      "vibes": [
+        "tech",
+        "luxury"
+      ],
       "emoji": "🎧",
       "grad": "lilac",
       "caption": "The statement headphones — aluminum, ANC, five colors.",
@@ -107,8 +125,9 @@
       "domain": "amazon.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Apple AirPods Max over-ear headphones product photo, white background"
+      "imageUrl": "https://www.apple.com/v/airpods-max/k/images/meta/airpods-max_overview__c2mz40a3bugm_og.png?202606251537",
+      "imageQuery": "Apple AirPods Max over-ear headphones product photo, white background",
+      "imageSourcePage": "https://www.apple.com/airpods-max/"
     },
     {
       "id": "cat-apple-watch-s10",
@@ -117,7 +136,11 @@
       "brand": "Apple",
       "price": 399,
       "category": "tech",
-      "vibes": ["tech", "wellness", "fitness"],
+      "vibes": [
+        "tech",
+        "wellness",
+        "fitness"
+      ],
       "emoji": "⌚",
       "grad": "sage",
       "caption": "Thinner, bigger screen, sleep apnea alerts — the health gift that sticks.",
@@ -125,8 +148,9 @@
       "domain": "amazon.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Apple Watch Series 10 product photo, white background"
+      "imageUrl": "https://www.apple.com/assets-www/en_WW/watch/og/watch_og_1ff2ee953.png",
+      "imageQuery": "Apple Watch Series 10 product photo, white background",
+      "imageSourcePage": "https://www.apple.com/apple-watch-series-10/"
     },
     {
       "id": "cat-apple-watch-se",
@@ -135,7 +159,10 @@
       "brand": "Apple",
       "price": 249,
       "category": "tech",
-      "vibes": ["tech", "fitness"],
+      "vibes": [
+        "tech",
+        "fitness"
+      ],
       "emoji": "⌚",
       "grad": "peach",
       "caption": "The starter Apple Watch — fitness, safety features, all the essentials.",
@@ -143,8 +170,9 @@
       "domain": "amazon.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Apple Watch SE product photo, white background"
+      "imageUrl": "https://www.apple.com/v/apple-watch-se-3/b/images/meta/apple-watch-se-3__d0wwc67lzg02_og.png?202606221042",
+      "imageQuery": "Apple Watch SE product photo, white background",
+      "imageSourcePage": "https://www.apple.com/apple-watch-se/"
     },
     {
       "id": "cat-ipad-a16",
@@ -153,7 +181,9 @@
       "brand": "Apple",
       "price": 349,
       "category": "tech",
-      "vibes": ["tech"],
+      "vibes": [
+        "tech"
+      ],
       "emoji": "📲",
       "grad": "sky",
       "caption": "The everyone-iPad — notes, streaming, FaceTime with the grandkids.",
@@ -161,8 +191,9 @@
       "domain": "amazon.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Apple iPad 11-inch product photo, white background"
+      "imageUrl": "https://www.apple.com/v/ipad-11/d/images/meta/ipad-11_overview__brh97xhhd8b6_og.png?202606221042",
+      "imageQuery": "Apple iPad 11-inch product photo, white background",
+      "imageSourcePage": "https://www.apple.com/ipad-11/"
     },
     {
       "id": "cat-ipad-air-m3",
@@ -171,7 +202,10 @@
       "brand": "Apple",
       "price": 599,
       "category": "tech",
-      "vibes": ["tech", "minimalist"],
+      "vibes": [
+        "tech",
+        "minimalist"
+      ],
       "emoji": "📲",
       "grad": "lilac",
       "caption": "Laptop-class chip in the take-anywhere iPad — for the creative one.",
@@ -179,8 +213,9 @@
       "domain": "amazon.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Apple iPad Air product photo, white background"
+      "imageUrl": "https://www.apple.com/v/ipad-air/ah/images/meta/ipad-air_overview__bc2fd15uec0y_og.png?202606251537",
+      "imageQuery": "Apple iPad Air product photo, white background",
+      "imageSourcePage": "https://www.apple.com/ipad-air/"
     },
     {
       "id": "cat-apple-pencil-pro",
@@ -189,7 +224,10 @@
       "brand": "Apple",
       "price": 129,
       "category": "tech",
-      "vibes": ["tech", "diy"],
+      "vibes": [
+        "tech",
+        "diy"
+      ],
       "emoji": "✏️",
       "grad": "butter",
       "caption": "For the iPad owner who sketches, annotates, or journals.",
@@ -197,8 +235,9 @@
       "domain": "amazon.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Apple Pencil Pro product photo, white background"
+      "imageUrl": "https://www.apple.com/v/apple-pencil/ag/images/meta/apple-pencil__e54ff7ft4f0i_og.png?202604221757",
+      "imageQuery": "Apple Pencil Pro product photo, white background",
+      "imageSourcePage": "https://www.apple.com/apple-pencil/"
     },
     {
       "id": "cat-airtag-4pack",
@@ -207,7 +246,10 @@
       "brand": "Apple",
       "price": 99,
       "category": "tech",
-      "vibes": ["tech", "travel"],
+      "vibes": [
+        "tech",
+        "travel"
+      ],
       "emoji": "📍",
       "grad": "peach",
       "caption": "For the one who loses keys, wallets, and checked luggage.",
@@ -215,8 +257,9 @@
       "domain": "amazon.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Apple AirTag 4 pack product photo, white background"
+      "imageUrl": "https://www.apple.com/v/airtag/g/images/meta/og__ck3n0k1jl6j6.png?202603251025",
+      "imageQuery": "Apple AirTag 4 pack product photo, white background",
+      "imageSourcePage": "https://www.apple.com/airtag/"
     },
     {
       "id": "cat-homepod-mini",
@@ -225,7 +268,10 @@
       "brand": "Apple",
       "price": 99,
       "category": "tech",
-      "vibes": ["tech", "cozy"],
+      "vibes": [
+        "tech",
+        "cozy"
+      ],
       "emoji": "🔊",
       "grad": "sage",
       "caption": "Small speaker, big sound — the desk or kitchen upgrade.",
@@ -233,8 +279,9 @@
       "domain": "amazon.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Apple HomePod mini product photo, white background"
+      "imageUrl": "https://www.apple.com/v/homepod-mini/j/images/meta/homepod-mini__bnxwvz5xrtpy_og.png?202604021101",
+      "imageQuery": "Apple HomePod mini product photo, white background",
+      "imageSourcePage": "https://www.apple.com/homepod-mini/"
     },
     {
       "id": "cat-magsafe-charger",
@@ -243,7 +290,10 @@
       "brand": "Apple",
       "price": 39,
       "category": "tech",
-      "vibes": ["tech", "minimalist"],
+      "vibes": [
+        "tech",
+        "minimalist"
+      ],
       "emoji": "🔌",
       "grad": "sky",
       "caption": "The stocking-stuffer every iPhone owner actually uses daily.",
@@ -261,7 +311,10 @@
       "brand": "Sony",
       "price": 399,
       "category": "audio",
-      "vibes": ["tech", "music"],
+      "vibes": [
+        "tech",
+        "music"
+      ],
       "emoji": "🎧",
       "grad": "coral",
       "caption": "The flight-and-focus classic — industry-best noise canceling, 30-hour battery.",
@@ -279,7 +332,10 @@
       "brand": "Sony",
       "price": 299,
       "category": "audio",
-      "vibes": ["tech", "music"],
+      "vibes": [
+        "tech",
+        "music"
+      ],
       "emoji": "🎧",
       "grad": "rose",
       "caption": "Sony's tiny flagship buds — the AirPods alternative for Android friends.",
@@ -297,7 +353,11 @@
       "brand": "Owala",
       "price": 28,
       "category": "kitchen",
-      "vibes": ["wellness", "fitness", "sustainable"],
+      "vibes": [
+        "wellness",
+        "fitness",
+        "sustainable"
+      ],
       "emoji": "🥤",
       "grad": "sage",
       "caption": "The sip-or-swig bottle everyone's carrying — fun colorways, under $30.",
@@ -315,7 +375,11 @@
       "brand": "Owala",
       "price": 33,
       "category": "kitchen",
-      "vibes": ["wellness", "fitness", "sustainable"],
+      "vibes": [
+        "wellness",
+        "fitness",
+        "sustainable"
+      ],
       "emoji": "🥤",
       "grad": "sky",
       "caption": "Bigger FreeSip for gym days — limited colors sell out like sneakers.",
@@ -333,7 +397,11 @@
       "brand": "Amazon",
       "price": 159,
       "category": "books",
-      "vibes": ["books", "cozy", "minimalist"],
+      "vibes": [
+        "books",
+        "cozy",
+        "minimalist"
+      ],
       "emoji": "📚",
       "grad": "butter",
       "caption": "For the reader — waterproof, weeks of battery, warm backlight.",
@@ -351,7 +419,10 @@
       "brand": "Nike",
       "price": 115,
       "category": "fashion",
-      "vibes": ["minimalist", "vintage"],
+      "vibes": [
+        "minimalist",
+        "vintage"
+      ],
       "emoji": "👟",
       "grad": "peach",
       "caption": "The white sneaker that goes with everything — sizes run true.",
@@ -359,8 +430,9 @@
       "domain": "amazon.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Nike Air Force 1 white sneaker product photo, white background"
+      "imageUrl": "https://static.nike.com/a/images/t_default/u_9ddf04c7-2a9a-4d76-add1-d15af8f0263d,c_scale,fl_relative,w_1.0,h_1.0,fl_layer_apply/b7d9211c-26e7-431a-ac24-b0540fb3c00f/AIR+FORCE+1+%2707.png",
+      "imageQuery": "Nike Air Force 1 white sneaker product photo, white background",
+      "imageSourcePage": "https://www.nike.com/t/air-force-1-07-mens-shoes-jBrhbr/CW2288-111"
     },
     {
       "id": "cat-adidas-samba",
@@ -369,7 +441,10 @@
       "brand": "adidas",
       "price": 100,
       "category": "fashion",
-      "vibes": ["vintage", "minimalist"],
+      "vibes": [
+        "vintage",
+        "minimalist"
+      ],
       "emoji": "👟",
       "grad": "sage",
       "caption": "The it-sneaker of the decade — retro stripes, endless colorways.",
@@ -377,8 +452,9 @@
       "domain": "amazon.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "adidas Samba OG sneaker product photo, white background"
+      "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Adidas_Samba_OG.jpg/1280px-Adidas_Samba_OG.jpg",
+      "imageQuery": "adidas Samba OG sneaker product photo, white background",
+      "imageSourcePage": "https://en.wikipedia.org/wiki/Adidas_Samba"
     },
     {
       "id": "cat-new-balance-550",
@@ -387,7 +463,9 @@
       "brand": "New Balance",
       "price": 120,
       "category": "fashion",
-      "vibes": ["vintage"],
+      "vibes": [
+        "vintage"
+      ],
       "emoji": "👟",
       "grad": "sky",
       "caption": "Retro basketball look, everyday comfort — the safe cool-sneaker gift.",
@@ -405,7 +483,10 @@
       "brand": "HOKA",
       "price": 145,
       "category": "fashion",
-      "vibes": ["fitness", "wellness"],
+      "vibes": [
+        "fitness",
+        "wellness"
+      ],
       "emoji": "👟",
       "grad": "coral",
       "caption": "Marshmallow-soft daily runners — for walkers, nurses, and 5K friends.",
@@ -423,7 +504,10 @@
       "brand": "Birkenstock",
       "price": 158,
       "category": "fashion",
-      "vibes": ["cozy", "minimalist"],
+      "vibes": [
+        "cozy",
+        "minimalist"
+      ],
       "emoji": "🥿",
       "grad": "butter",
       "caption": "The cozy clog they keep almost buying — taupe suede, cork footbed.",
@@ -441,7 +525,9 @@
       "brand": "UGG",
       "price": 110,
       "category": "fashion",
-      "vibes": ["cozy"],
+      "vibes": [
+        "cozy"
+      ],
       "emoji": "🥿",
       "grad": "rose",
       "caption": "The waitlist slipper — braided trim, wear-outside sole, pure hygge.",
@@ -449,10 +535,10 @@
       "domain": "amazon.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "UGG Tasman chestnut slipper product photo, white background"
+      "imageUrl": "https://m.media-amazon.com/images/I/71-v6PTwy1L._AC_SR768,1024_.jpg",
+      "imageQuery": "UGG Tasman chestnut slipper product photo, white background",
+      "imageSourcePage": "https://www.zappos.com/p/ugg-tasman-chestnut/product/7563731"
     },
-
     {
       "id": "svc-netflix-premium-1yr",
       "giftType": "service",
@@ -460,7 +546,10 @@
       "brand": "Netflix",
       "price": 300,
       "category": "services",
-      "vibes": ["pop-culture", "cozy"],
+      "vibes": [
+        "pop-culture",
+        "cozy"
+      ],
       "emoji": "🎬",
       "grad": "coral",
       "serviceDuration": "12 months",
@@ -469,8 +558,9 @@
       "domain": "netflix.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Netflix red logo on dark gradient, streaming service gift card style"
+      "imageUrl": "https://upload.wikimedia.org/wikipedia/en/3/3c/Netflix_UI_for_Web.png",
+      "imageQuery": "Netflix red logo on dark gradient, streaming service gift card style",
+      "imageSourcePage": "https://en.wikipedia.org/wiki/Netflix"
     },
     {
       "id": "svc-amazon-prime-1yr",
@@ -479,7 +569,10 @@
       "brand": "Amazon",
       "price": 139,
       "category": "services",
-      "vibes": ["tech", "pop-culture"],
+      "vibes": [
+        "tech",
+        "pop-culture"
+      ],
       "emoji": "📦",
       "grad": "sky",
       "serviceDuration": "12 months",
@@ -488,8 +581,9 @@
       "domain": "amazon.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Amazon Prime smile logo on blue gradient, membership gift style"
+      "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Amazon_Prime_logo_%282024%29.svg/1280px-Amazon_Prime_logo_%282024%29.svg.png",
+      "imageQuery": "Amazon Prime smile logo on blue gradient, membership gift style",
+      "imageSourcePage": "https://en.wikipedia.org/wiki/Amazon_Prime"
     },
     {
       "id": "svc-costco-gold-star-1yr",
@@ -498,7 +592,9 @@
       "brand": "Costco",
       "price": 65,
       "category": "services",
-      "vibes": ["foodie"],
+      "vibes": [
+        "foodie"
+      ],
       "emoji": "🛒",
       "grad": "rose",
       "serviceDuration": "12 months",
@@ -517,7 +613,10 @@
       "brand": "Costco",
       "price": 130,
       "category": "services",
-      "vibes": ["foodie", "luxury"],
+      "vibes": [
+        "foodie",
+        "luxury"
+      ],
       "emoji": "🛒",
       "grad": "lilac",
       "serviceDuration": "12 months",
@@ -536,7 +635,9 @@
       "brand": "Walmart",
       "price": 98,
       "category": "services",
-      "vibes": ["foodie"],
+      "vibes": [
+        "foodie"
+      ],
       "emoji": "🛍️",
       "grad": "sky",
       "serviceDuration": "12 months",
@@ -545,8 +646,9 @@
       "domain": "walmart.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Walmart plus spark logo on blue and yellow gradient"
+      "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Walmart%2B_logo_%282025%29.svg/1280px-Walmart%2B_logo_%282025%29.svg.png",
+      "imageQuery": "Walmart plus spark logo on blue and yellow gradient",
+      "imageSourcePage": "https://en.wikipedia.org/wiki/Walmart%2B"
     },
     {
       "id": "svc-spotify-premium-1yr",
@@ -555,7 +657,9 @@
       "brand": "Spotify",
       "price": 144,
       "category": "services",
-      "vibes": ["music"],
+      "vibes": [
+        "music"
+      ],
       "emoji": "🎵",
       "grad": "sage",
       "serviceDuration": "12 months",
@@ -574,7 +678,9 @@
       "brand": "Audible",
       "price": 150,
       "category": "services",
-      "vibes": ["books"],
+      "vibes": [
+        "books"
+      ],
       "emoji": "🎧",
       "grad": "butter",
       "serviceDuration": "12 months",
@@ -583,8 +689,9 @@
       "domain": "audible.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Audible orange logo with headphones on gradient, audiobook gift style"
+      "imageUrl": "https://images.ctfassets.net/aijdqiip24lf/75OihW0IMl4f2kt5ibZrhI/159fedb44e4a1446951399f271616e81/Social_Image.jpg",
+      "imageQuery": "Audible orange logo with headphones on gradient, audiobook gift style",
+      "imageSourcePage": "https://www.audible.com/ep/giftcenter"
     },
     {
       "id": "svc-disney-plus-1yr",
@@ -593,7 +700,9 @@
       "brand": "Disney+",
       "price": 190,
       "category": "services",
-      "vibes": ["pop-culture"],
+      "vibes": [
+        "pop-culture"
+      ],
       "emoji": "✨",
       "grad": "lilac",
       "serviceDuration": "12 months",
@@ -602,8 +711,9 @@
       "domain": "disneyplus.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Disney+ logo on midnight blue gradient, streaming gift style"
+      "imageUrl": "https://static-assets.bamgrid.com/product/disneyplus/images/share-default.8bf3102623e935e7bc126df36b956b98.jpg",
+      "imageQuery": "Disney+ logo on midnight blue gradient, streaming gift style",
+      "imageSourcePage": "https://www.disneyplus.com"
     },
     {
       "id": "svc-youtube-premium-1yr",
@@ -612,7 +722,10 @@
       "brand": "YouTube",
       "price": 168,
       "category": "services",
-      "vibes": ["pop-culture", "music"],
+      "vibes": [
+        "pop-culture",
+        "music"
+      ],
       "emoji": "▶️",
       "grad": "coral",
       "serviceDuration": "12 months",
@@ -631,7 +744,10 @@
       "brand": "MasterClass",
       "price": 120,
       "category": "services",
-      "vibes": ["diy", "books"],
+      "vibes": [
+        "diy",
+        "books"
+      ],
       "emoji": "🎓",
       "grad": "butter",
       "serviceDuration": "12 months",
@@ -640,8 +756,9 @@
       "domain": "masterclass.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "MasterClass logo on black and red gradient, online class gift style"
+      "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/MasterClass_logo_2020_%28pink%29.svg/1280px-MasterClass_logo_2020_%28pink%29.svg.png",
+      "imageQuery": "MasterClass logo on black and red gradient, online class gift style",
+      "imageSourcePage": "https://en.wikipedia.org/wiki/MasterClass"
     },
     {
       "id": "svc-apple-one-1yr",
@@ -650,7 +767,10 @@
       "brand": "Apple",
       "price": 240,
       "category": "services",
-      "vibes": ["tech", "music"],
+      "vibes": [
+        "tech",
+        "music"
+      ],
       "emoji": "🍎",
       "grad": "sky",
       "serviceDuration": "12 months",
@@ -659,8 +779,9 @@
       "domain": "apple.com",
       "recipient": "anyone",
       "occasion": "any",
-      "imageUrl": null,
-      "imageQuery": "Apple One services bundle icons on soft gradient"
+      "imageUrl": "https://www.apple.com/v/apple-one/f/images/meta/og__diu4z5hyr8ia_overview.png?202604021101",
+      "imageQuery": "Apple One services bundle icons on soft gradient",
+      "imageSourcePage": "https://www.apple.com/apple-one/"
     }
   ]
 }
