@@ -233,7 +233,7 @@ All us-east-1. Bedrock prices ✅ **verified via the AWS Price List API** (`Amaz
   **⏳ AWS-GATED — INFRA-AGENT RUNBOOK (in order, needs fresh AWS creds + `set -a; source .env; set +a`):**
   1. **Deploy the API Lambda** (`giftmaxxing-dev-api`) with `infra/src/handler.mjs` + `infra/src/quality.mjs` — ships the exact-deck challenge mode, visual-search retailer re-rank, and the non-gift gate server-side. Run `npm test` in `infra/src` first (11 tests must pass).
   2. **Purge junk rows:** `cd infra/ingest && npm run clean:posts:dry` (review the new `non-gift` bucket counts + backup file) then `npm run clean:posts`. Then `node prune-vectors.mjs` (dry-run report) → `node prune-vectors.mjs --apply` — the deleted posts become vector orphans, so this drops the same `non_gift` items from visual search/recs.
-  3. **Backfill galleries:** `npm run enrich:images:dry` (spot-check extraction quality per domain) then `npm run enrich:images` (~1.5 s/page, idempotent; eBay/Etsy first via `--only-domain ebay.com,etsy.com` if you want the visible wins early).
+  3. **Backfill galleries:** eBay/Etsy (the bulk, ~628 posts) are bot-protected (Akamai/DataDome 403 cloud fetches) and now go through their **official APIs** — get free keys first: `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` (developer.ebay.com, Browse API) + `ETSY_API_KEY` (etsy.com/developers), add to `.env`. Then `npm run enrich:images:dry` (spot-check per domain) → `npm run enrich:images` (idempotent; keyless runs skip eBay/Etsy with a tally instead of failing, so the HTML-crawlable domains like uncommongoods.com can be backfilled immediately and eBay/Etsy re-run once keys land).
   4. Verify: `GET /feed` items show `product.images` arrays; `POST /visual-search` no longer returns auto parts; a swipe-list share (`POST /challenges {deckMode:"exact"}`) returns the exact deck.
 - [ ] **P1 Native ads** — `Post.sponsored`, `PostCard` label + CTA, interleave by cadence ranked by taste, frequency cap + hide.
 - [ ] **P2 Deal monitoring backend** — EventBridge cron → deal-finder Lambda, price-tracker Lambda (Amazon PA-API 5.0 + Walmart API), DynamoDB price history + watchlist tables, SNS/SES notifications. Feed integration: deal cards ranked alongside organic content by taste vector + deal quality score. Maxi AI deal suggestions via Bedrock (Claude/Titan).
@@ -251,6 +251,12 @@ BEDROCK_EMBED_MODEL_ID=amazon.titan-embed-image-v1
 MEDIA_BUCKET=giftmaxxing-dev-media
 VECTOR_BUCKET=giftmaxxing-dev-vectors   # S3 Vectors bucket (recommendation kNN)
 VECTOR_INDEX=pins                        # S3 Vectors index (1024-d, cosine)
+# Gallery enrichment (infra/ingest/enrich-images.mjs) — eBay/Etsy are
+# bot-protected (Akamai/DataDome 403 plain fetches), so their galleries come
+# from the official APIs; both keysets are free:
+EBAY_CLIENT_ID=                # developer.ebay.com → app keyset (Browse API)
+EBAY_CLIENT_SECRET=
+ETSY_API_KEY=                  # etsy.com/developers (Open API v3)
 # Future — visual search affiliate enrich:
 AMAZON_ASSOCIATES_ACCESS_KEY=
 AMAZON_ASSOCIATES_SECRET_KEY=

@@ -4,18 +4,27 @@
 // them (eBay/Etsy/…) usually has 5-10 shots — the iOS detail sheet renders
 // them as a swipeable carousel once `product.images` exists on the row.
 //
-// For each Pinterest-imported post with a shoppable productUrl, this fetches
-// the product page (politely: throttled, UA'd, timeout) and extracts gallery
-// image URLs from, in order of trust:
-//   1. JSON-LD `Product.image` (string or array) — most retailers emit this
-//   2. eBay CDN references (i.ebayimg.com/…/s-l64.jpg → upgraded to s-l1600)
-//   3. Etsy CDN references (i.etsystatic.com il_75x75… → upgraded to il_1588xN)
-//   4. og:image metas (often several)
-// then writes the deduped list (cap 8) to `product.images` on the posts row.
-// The existing single `product.image` stays the cover everywhere.
+// Gallery source is chosen PER DOMAIN:
+//
+//   • eBay  → the official **Browse API** (`get_item_by_legacy_id` returns
+//     `image` + `additionalImages`). eBay's site sits behind Akamai Bot
+//     Manager and 403s any plain fetch from cloud egress — the API is the
+//     sanctioned path. Needs EBAY_CLIENT_ID / EBAY_CLIENT_SECRET
+//     (developer.ebay.com, free; client-credentials OAuth, token cached).
+//   • Etsy  → the official **Open API v3** (`/listings/{id}/images` returns
+//     every listing shot). Etsy's site is DataDome-protected — same story.
+//     Needs ETSY_API_KEY (etsy.com/developers, free).
+//   • everything else → plain HTML fetch (politely throttled, UA'd, timeout)
+//     extracting, in order of trust: JSON-LD `Product.image`, retailer-CDN
+//     references, og:image metas. Verified working for uncommongoods.com etc.
+//
+// Without the eBay/Etsy keys those domains are SKIPPED with a per-domain
+// notice (never hammered with doomed requests). Results are deduped, capped
+// at 8, and written to `product.images`; the single `product.image` stays
+// the cover everywhere.
 //
 // Usage:
-//   node enrich-images.mjs --url "https://www.ebay.com/itm/…"   # offline: print one page's gallery
+//   node enrich-images.mjs --url "https://www.ebay.com/itm/…"   # one URL: print its gallery (uses the right provider)
 //   node enrich-images.mjs --dry-run --limit 20                 # scan table, fetch, print, no writes
 //   node enrich-images.mjs                                      # enrich all un-enriched posts
 //   node enrich-images.mjs --force                              # re-fetch even already-enriched rows
@@ -23,12 +32,17 @@
 // Flags: --table --region --limit N --min-interval MS --only-domain a,b
 //        --dry-run --force --url <productUrl>
 //
-// Config (env): POSTS_TABLE, AWS_REGION + standard AWS credential chain.
+// Config (env): POSTS_TABLE, AWS_REGION + standard AWS credential chain;
+// EBAY_CLIENT_ID / EBAY_CLIENT_SECRET / ETSY_API_KEY for the API providers.
 // Re-running is idempotent: rows with `product.images` are skipped sans --force.
 
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 const IMAGE_CAP = 8;
+
+const EBAY_CLIENT_ID = process.env.EBAY_CLIENT_ID || "";
+const EBAY_CLIENT_SECRET = process.env.EBAY_CLIENT_SECRET || "";
+const ETSY_API_KEY = process.env.ETSY_API_KEY || "";
 
 function parseArgs(argv) {
   const args = { dryRun: false, force: false, minInterval: 1500 };
@@ -64,7 +78,7 @@ function normalizeImageUrl(u) {
   if (!/^https?:\/\//i.test(s)) return null;
   // CDN upgrades: thumbnails → the largest rendition the CDN serves.
   s = s.replace(/(i\.ebayimg\.com\/[^"' ]*\/s-l)\d+(\.\w+)/i, "$11600$2");
-  s = s.replace(/(i\.etsystatic\.com\/[^"' ]*\/il_)(?:\d+x\d+|fullxfull)\./i, "$11588xN.");
+  s = s.replace(/(i\.etsystatic\.com\/[^"' ]*\/il_)(?:\d+x(?:\d+|N)|fullxfull)\./i, "$11588xN.");
   return s.length <= 500 ? s : null;
 }
 
@@ -182,20 +196,146 @@ async function fetchPage(url) {
   }
 }
 
+// ── Official retailer APIs (bot-protected domains) ───────────────────────────
+
+// eBay legacy item id from a listing URL: /itm/123… or /itm/Some-Title/123…
+export function ebayItemId(url) {
+  const m = String(url).match(/\/itm\/(?:[^/?#]+\/)?(\d{9,})/);
+  return m ? m[1] : null;
+}
+
+// Etsy listing id from a listing URL: /listing/123456789/slug
+export function etsyListingId(url) {
+  const m = String(url).match(/\/listing\/(\d{6,})/);
+  return m ? m[1] : null;
+}
+
+export function ebayImagesFromItem(item) {
+  const raw = [item?.image?.imageUrl, ...(item?.additionalImages ?? []).map((i) => i?.imageUrl)];
+  const seen = new Set();
+  return raw
+    .map(normalizeImageUrl)
+    .filter((u) => u && seen.size < IMAGE_CAP && !seen.has(u) && seen.add(u));
+}
+
+export function etsyImagesFromListing(payload) {
+  const seen = new Set();
+  return (payload?.results ?? [])
+    .map((r) => normalizeImageUrl(r?.url_fullxfull || r?.url_570xN))
+    .filter((u) => u && seen.size < IMAGE_CAP && !seen.has(u) && seen.add(u));
+}
+
+// eBay client-credentials token, cached until near expiry.
+let ebayToken = null;
+async function getEbayToken() {
+  if (ebayToken && ebayToken.expiresAt > Date.now() + 60_000) return ebayToken.value;
+  const res = await fetch("https://api.ebay.com/identity/v1/oauth2/token", {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      authorization:
+        "Basic " + Buffer.from(`${EBAY_CLIENT_ID}:${EBAY_CLIENT_SECRET}`).toString("base64"),
+    },
+    body: "grant_type=client_credentials&scope=" +
+      encodeURIComponent("https://api.ebay.com/oauth/api_scope"),
+  });
+  if (!res.ok) throw new Error(`ebay oauth HTTP ${res.status}`);
+  const json = await res.json();
+  ebayToken = { value: json.access_token, expiresAt: Date.now() + (json.expires_in ?? 7200) * 1000 };
+  return ebayToken.value;
+}
+
+async function fetchEbayGallery(link) {
+  const itemId = ebayItemId(link);
+  if (!itemId) return { error: "no legacy item id in URL" };
+  let token;
+  try {
+    token = await getEbayToken();
+  } catch (e) {
+    return { error: e.message };
+  }
+  const res = await fetch(
+    `https://api.ebay.com/buy/browse/v1/item/get_item_by_legacy_id?legacy_item_id=${itemId}`,
+    { headers: { authorization: `Bearer ${token}`, "x-ebay-c-marketplace-id": "EBAY_US" } }
+  );
+  if (res.status === 404) return { error: "listing gone (404)" };
+  if (!res.ok) return { error: `ebay browse HTTP ${res.status}` };
+  return { images: ebayImagesFromItem(await res.json()) };
+}
+
+async function fetchEtsyGallery(link) {
+  let listingId = etsyListingId(link);
+  if (!listingId && /etsy\.me\//i.test(link)) {
+    // etsy.me is a shortlink — one redirect-only request to learn the target.
+    try {
+      const res = await fetch(link, { method: "HEAD", redirect: "manual", headers: { "user-agent": UA } });
+      listingId = etsyListingId(res.headers.get("location") || "");
+    } catch {
+      /* fall through */
+    }
+  }
+  if (!listingId) return { error: "no listing id (unresolvable shortlink?)" };
+  const res = await fetch(
+    `https://openapi.etsy.com/v3/application/listings/${listingId}/images`,
+    { headers: { "x-api-key": ETSY_API_KEY } }
+  );
+  if (res.status === 404) return { error: "listing gone (404)" };
+  if (!res.ok) return { error: `etsy api HTTP ${res.status}` };
+  return { images: etsyImagesFromListing(await res.json()) };
+}
+
+// Which gallery source serves this link. "blocked" = bot-protected domain and
+// no API key configured — skip it instead of sending doomed requests.
+export function providerFor(link, keys = { ebay: !!(EBAY_CLIENT_ID && EBAY_CLIENT_SECRET), etsy: !!ETSY_API_KEY }) {
+  let host = "";
+  try {
+    host = new URL(link).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return "blocked";
+  }
+  if (host === "ebay.com" || host.endsWith(".ebay.com")) return keys.ebay ? "ebay-api" : "blocked";
+  if (host === "etsy.com" || host.endsWith(".etsy.com") || host === "etsy.me") {
+    return keys.etsy ? "etsy-api" : "blocked";
+  }
+  return "html";
+}
+
+// One link → { images } | { error } | { skipped: reason }, via the right provider.
+async function fetchGallery(link) {
+  switch (providerFor(link)) {
+    case "ebay-api":
+      return fetchEbayGallery(link);
+    case "etsy-api":
+      return fetchEtsyGallery(link);
+    case "blocked":
+      return {
+        skipped:
+          "bot-protected domain, no API key (set EBAY_CLIENT_ID/EBAY_CLIENT_SECRET or ETSY_API_KEY)",
+      };
+    default: {
+      const { html, error } = await fetchPage(link);
+      if (error) return { error };
+      return { images: extractGallery(html, link) };
+    }
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
-  // Offline single-page mode — no AWS needed; verifies extraction on a URL.
+  // Single-URL mode — no AWS needed; verifies the provider + extraction.
   if (args.url) {
-    const { html, error } = await fetchPage(args.url);
-    if (error) {
-      console.error(`fetch failed: ${error}`);
+    const result = await fetchGallery(args.url);
+    if (result.error || result.skipped) {
+      console.error(`no gallery: ${result.error ?? result.skipped}`);
       process.exit(1);
     }
-    const images = extractGallery(html, args.url);
-    console.log(JSON.stringify({ url: args.url, count: images.length, images }, null, 2));
+    console.log(JSON.stringify(
+      { url: args.url, provider: providerFor(args.url), count: result.images.length, images: result.images },
+      null, 2
+    ));
     return;
   }
 
@@ -229,41 +369,61 @@ async function main() {
   });
   const targets = args.limit ? candidates.slice(0, args.limit) : candidates;
   console.log(`Scanned ${rows.length} posts — ${candidates.length} enrichable, processing ${targets.length}.`);
+  console.log(
+    `Providers: ebay-api ${EBAY_CLIENT_ID && EBAY_CLIENT_SECRET ? "ON" : "OFF (set EBAY_CLIENT_ID/EBAY_CLIENT_SECRET)"}, ` +
+    `etsy-api ${ETSY_API_KEY ? "ON" : "OFF (set ETSY_API_KEY)"}, html for the rest.\n`
+  );
 
   let enriched = 0;
   let failed = 0;
+  const skippedByDomain = {};
   for (const [i, post] of targets.entries()) {
     const link = post.productUrl || post.url || post.product?.url;
-    const { html, error } = await fetchPage(link);
-    if (error) {
+    const result = await fetchGallery(link);
+    if (result.skipped) {
+      // Bot-protected + keyless: count silently per domain, don't throttle —
+      // no request was made.
+      const d = String(post.domain || "unknown").replace(/^www\./, "");
+      skippedByDomain[d] = (skippedByDomain[d] ?? 0) + 1;
+      continue;
+    }
+    if (result.error) {
       failed++;
-      console.log(`  [${i + 1}/${targets.length}] ${post.postId} ✗ ${error}`);
-    } else {
-      const images = extractGallery(html, link);
-      if (images.length > 1) {
-        console.log(`  [${i + 1}/${targets.length}] ${post.postId} → ${images.length} images`);
-        if (!args.dryRun) {
-          await ddb.send(
-            new UpdateCommand({
-              TableName: table,
-              Key: { postId: post.postId },
-              UpdateExpression: "SET #p.#imgs = :imgs",
-              ExpressionAttributeNames: { "#p": "product", "#imgs": "images" },
-              ExpressionAttributeValues: { ":imgs": images },
-              ConditionExpression: "attribute_exists(#p)",
-            })
-          ).catch((e) => console.log(`    write failed: ${e.message}`));
-        }
-        enriched++;
-      } else {
-        console.log(`  [${i + 1}/${targets.length}] ${post.postId} — no gallery found`);
+      console.log(`  [${i + 1}/${targets.length}] ${post.postId} ✗ ${result.error}`);
+    } else if (result.images.length > 1) {
+      console.log(`  [${i + 1}/${targets.length}] ${post.postId} → ${result.images.length} images (${providerFor(link)})`);
+      if (!args.dryRun) {
+        await ddb.send(
+          new UpdateCommand({
+            TableName: table,
+            Key: { postId: post.postId },
+            UpdateExpression: "SET #p.#imgs = :imgs",
+            ExpressionAttributeNames: { "#p": "product", "#imgs": "images" },
+            ExpressionAttributeValues: { ":imgs": result.images },
+            ConditionExpression: "attribute_exists(#p)",
+          })
+        ).catch((e) => console.log(`    write failed: ${e.message}`));
       }
+      enriched++;
+    } else {
+      console.log(`  [${i + 1}/${targets.length}] ${post.postId} — no gallery found`);
     }
     if (i < targets.length - 1) await sleep(args.minInterval);
   }
   console.log(
     `\nDone. ${enriched} galleries ${args.dryRun ? "found (dry run, no writes)" : "written"}, ${failed} fetch failures.`
   );
+  const skippedTotal = Object.values(skippedByDomain).reduce((s, n) => s + n, 0);
+  if (skippedTotal) {
+    console.log(`Skipped ${skippedTotal} bot-protected posts (no API key):`);
+    for (const [d, n] of Object.entries(skippedByDomain).sort((a, b) => b[1] - a[1])) {
+      console.log(`  ${d}: ${n}`);
+    }
+    console.log(
+      "→ eBay: free keys at developer.ebay.com (Browse API). Etsy: etsy.com/developers (Open API v3).\n" +
+      "  Add EBAY_CLIENT_ID/EBAY_CLIENT_SECRET and ETSY_API_KEY to .env, then re-run — already-enriched rows are skipped."
+    );
+  }
 }
 
 // `--url` mode is import-safe for tests; only run main when executed directly.
