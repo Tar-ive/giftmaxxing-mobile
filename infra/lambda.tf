@@ -44,7 +44,9 @@ resource "aws_lambda_function" "api" {
       # APNs push: device registration (mobile-routes) + sends (push.mjs). The
       # platform-app ARN stays "" until var.apns_private_key is supplied.
       DEVICES_TABLE        = aws_dynamodb_table.devices.name
-      SNS_PLATFORM_APP_ARN = coalesce(one(aws_sns_platform_application.ios_push[*].arn), "")
+      # join("") yields "" when the platform app is absent (count = 0); coalesce
+      # can't be used here because it rejects empty strings and would error.
+      SNS_PLATFORM_APP_ARN = join("", aws_sns_platform_application.ios_push[*].arn)
       # API auth (in-handler Clerk-JWT / x-admin-token gate; see handler.mjs).
       # AUTH_ENFORCE ships false so the code is dark until flipped on; flip back
       # to false for an instant rollback. ADMIN_API_SECRET is the admin/ingest

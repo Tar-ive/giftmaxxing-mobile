@@ -34,7 +34,9 @@ resource "aws_lambda_function" "reminders" {
       # APNs push for due events (push.mjs). The ARN stays empty until the
       # APNs key is supplied (var.apns_private_key) — the sender no-ops.
       DEVICES_TABLE        = aws_dynamodb_table.devices.name
-      SNS_PLATFORM_APP_ARN = coalesce(one(aws_sns_platform_application.ios_push[*].arn), "")
+      # join("") yields "" when the platform app is absent (count = 0); coalesce
+      # can't be used here because it rejects empty strings and would error.
+      SNS_PLATFORM_APP_ARN = join("", aws_sns_platform_application.ios_push[*].arn)
     }
   }
 
