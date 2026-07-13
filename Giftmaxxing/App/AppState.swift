@@ -119,17 +119,19 @@ struct AppUser: Identifiable, Codable {
 // The tab bar IS the product statement (HIG: 3–5 tabs, every core journey
 // visible — nothing important behind a "More" screen):
 //   Home      — the personalized feed
-//   Swipe     — taste training (feeds personalization)
-//   Shop      — the curated shop feed: real products + birthday freebies
+//   Swipe     — taste training + Gift Boards (feeds personalization)
+//   Discover  — Intentional Discover: a finite, slower shelf ranked by
+//               meaningfulness, not volume (Shop moved to the You tab)
 //   Circles   — your people + their dates: circles, events & reminders,
-//               group gifts, pools, swipe challenges
-//   You       — profile, orders, settings
-// Maxi (the AI concierge) is NOT a tab — it's a floating button over every
-// tab (MaxiFloatingButton in ContentView, driven by AppState.showMaxi).
+//               collaborative boards, pools, swipe challenges
+//   You       — the public gifting profile + settings
+// Maxi (the AI concierge) is NOT a tab and no longer a floating button — its
+// nudges arrive through the Gift Journey (GiftJourneyEngine) and the Home
+// search bar's mic still opens the full conversation.
 enum Tab: String, CaseIterable {
     case feed = "Home"
     case swipe = "Swipe"
-    case shop = "Shop"
+    case discover = "Discover"
     case circles = "Circles"
     case you = "You"
 
@@ -137,7 +139,7 @@ enum Tab: String, CaseIterable {
         switch self {
         case .feed: return "house.fill"
         case .swipe: return "rectangle.portrait.on.rectangle.portrait.angled.fill"
-        case .shop: return "bag.fill"
+        case .discover: return "leaf.fill"
         case .circles: return "person.2.fill"
         case .you: return "person.crop.circle"
         }

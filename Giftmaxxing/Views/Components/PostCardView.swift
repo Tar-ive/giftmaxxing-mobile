@@ -7,6 +7,11 @@ struct PostCardView: View {
     var onAddToSwipeList: (() -> Void)?
     var onProductTap: (() -> Void)?
 
+    // Inline gallery position (Instagram-style paging right in the feed).
+    @State private var galleryIndex = 0
+    // Long-press reveals the gift's story — the alt-text of gifting.
+    @State private var showStory = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
@@ -38,63 +43,123 @@ struct PostCardView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
 
-            // Product card
-            Button(action: { onProductTap?() }) {
-                ZStack {
-                    // Photo when we have one; the designed brand lockup when we
-                    // don't (catalog items pre-enrichment, services).
-                    if let image = post.product.image {
-                        Color.gradient(for: post.product.grad)
-                        CachedAsyncImage(url: image, width: 600)
-                    } else {
-                        ProductArtworkView(post: post)
-                    }
-
-                    // Services get a corner tag — same card, one subtle tell
-                    // (a year of Netflix sits beside AirPods, on purpose).
-                    if post.isService {
-                        VStack {
-                            HStack {
-                                ServiceBadge(duration: post.serviceDuration)
-                                Spacer()
+            // Product media — the carousel pages RIGHT IN THE FEED (no detour
+            // through the detail sheet), Instagram-style. Tap opens detail,
+            // long-press reveals the gift's story.
+            ZStack {
+                let gallery = post.product.gallery
+                if gallery.count > 1 {
+                    TabView(selection: $galleryIndex) {
+                        ForEach(Array(gallery.enumerated()), id: \.offset) { idx, image in
+                            ZStack {
+                                Color.gradient(for: post.product.grad)
+                                CachedAsyncImage(url: image, width: 600)
                             }
-                            Spacer()
+                            .clipped()
+                            .tag(idx)
                         }
-                        .padding(12)
                     }
+                    .tabViewStyle(.page(indexDisplayMode: .always))
+                    .indexViewStyle(.page(backgroundDisplayMode: .interactive))
+                } else if let image = post.product.image {
+                    Color.gradient(for: post.product.grad)
+                    CachedAsyncImage(url: image, width: 600)
+                } else {
+                    // The designed brand lockup (catalog items pre-enrichment,
+                    // services).
+                    ProductArtworkView(post: post)
+                }
 
-                    // Price badge
-                    VStack {
+                // Overlays ride ABOVE the pager so they persist across pages.
+                VStack {
+                    HStack(alignment: .top) {
+                        // Services get a corner tag — same card, one subtle tell.
+                        if post.isService {
+                            ServiceBadge(duration: post.serviceDuration)
+                        }
                         Spacer()
-                        HStack {
-                            Spacer()
-                            HStack(spacing: 4) {
-                                if let discount = post.product.discountPercent {
-                                    Text("-\(discount)%")
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundStyle(.white)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.coral)
-                                        .clipShape(Capsule())
-                                }
-                                Text("$\(Int(post.product.price))")
-                                    .font(.system(size: 14, weight: .bold))
+                        if post.product.gallery.count > 1 {
+                            Text("\(galleryIndex + 1)/\(post.product.gallery.count)")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 4)
+                                .background(.black.opacity(0.6))
+                                .clipShape(Capsule())
+                        }
+                    }
+                    Spacer()
+                    HStack(alignment: .bottom) {
+                        // The story hint — hold to read (only when there IS one).
+                        if GiftStory.story(for: post) != nil {
+                            Image(systemName: "text.quote")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(7)
+                                .background(.black.opacity(0.45))
+                                .clipShape(Circle())
+                                .accessibilityLabel("Hold to read this gift's story")
+                        }
+                        Spacer()
+                        HStack(spacing: 4) {
+                            if let discount = post.product.discountPercent {
+                                Text("-\(discount)%")
+                                    .font(.system(size: 11, weight: .bold))
                                     .foregroundStyle(.white)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(.black.opacity(0.6))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.coral)
                                     .clipShape(Capsule())
                             }
-                            .padding(12)
+                            Text("$\(Int(post.product.price))")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(.black.opacity(0.6))
+                                .clipShape(Capsule())
                         }
                     }
                 }
-                // Instagram's 4:5 portrait — taller media, same edge-to-edge card.
-                .aspectRatio(4.0 / 5.0, contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 2))
+                .padding(12)
+
+                // The story — alt-text for gifts. Long-press in, tap out.
+                if showStory, let story = GiftStory.story(for: post) {
+                    ZStack {
+                        Color.black.opacity(0.72)
+                        VStack(spacing: 10) {
+                            Image(systemName: "text.quote")
+                                .font(.system(size: 18))
+                                .foregroundStyle(Color.coral)
+                            Text(story)
+                                .font(.system(size: 14))
+                                .foregroundStyle(.white)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(9)
+                            Text("Tap to close")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.white.opacity(0.6))
+                        }
+                        .padding(24)
+                    }
+                    .transition(.opacity)
+                }
             }
-            .buttonStyle(.plain)
+            // Instagram's 4:5 portrait — taller media, same edge-to-edge card.
+            .aspectRatio(4.0 / 5.0, contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 2))
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if showStory {
+                    withAnimation(.easeOut(duration: 0.2)) { showStory = false }
+                } else {
+                    onProductTap?()
+                }
+            }
+            .onLongPressGesture(minimumDuration: 0.35) {
+                guard GiftStory.story(for: post) != nil else { return }
+                withAnimation(.easeIn(duration: 0.2)) { showStory = true }
+            }
 
             // Gifting actions — no likes/comments/shares (this isn't
             // Instagram): start a gift pool with friends, or file it into a
@@ -109,7 +174,7 @@ struct PostCardView: View {
                 )
                 actionButton(
                     icon: inSwipeList ? "checkmark" : "rectangle.stack.badge.plus",
-                    label: inSwipeList ? "On swipe list" : "Swipe list",
+                    label: inSwipeList ? "On board" : "Gift board",
                     prominent: false,
                     action: { onAddToSwipeList?() }
                 )

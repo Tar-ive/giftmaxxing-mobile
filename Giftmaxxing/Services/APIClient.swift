@@ -645,7 +645,8 @@ actor APIClient {
             serviceDuration: api.serviceDuration,
             contentType: api.contentType,
             mediaUrl: api.mediaUrl,
-            posterUrl: api.posterUrl
+            posterUrl: api.posterUrl,
+            story: api.story
         )
     }
 

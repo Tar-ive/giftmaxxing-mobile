@@ -81,6 +81,7 @@ final class PoolsStore: ObservableObject {
         pools.insert(pool, at: 0)
         persist()
         AnalyticsEngine.shared.trackScreenView(screen: "pool_created")
+        ThoughtfulnessStore.shared.award(.poolStarted, dedupeKey: pool.id)
         return pool
     }
 

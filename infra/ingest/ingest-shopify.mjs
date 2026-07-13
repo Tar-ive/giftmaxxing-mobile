@@ -158,6 +158,8 @@ export function recordToPostItem(rec, i = 0) {
     merchant: rec.domain,
     domain: rec.domain,
     productUrl: rec.link,
+    // The maker's own product description — the long-press "story" in the app.
+    ...(rec.blurb ? { story: rec.blurb } : {}),
     product: {
       id: rec.id,
       name: rec.caption,

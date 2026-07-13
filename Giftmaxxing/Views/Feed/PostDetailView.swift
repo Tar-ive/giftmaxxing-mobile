@@ -136,6 +136,28 @@ struct PostDetailView: View {
                             .foregroundStyle(Color.coral)
                         }
 
+                        // The story behind the gift — maker's note, anecdote,
+                        // provenance (same text the feed shows on long-press).
+                        if let story = GiftStory.story(for: activePost) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "text.quote")
+                                        .font(.system(size: 11, weight: .bold))
+                                    Text("THE STORY")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .tracking(0.5)
+                                }
+                                .foregroundStyle(Color.coral)
+                                Text(story)
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(Color.ink)
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.cream)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+
                         // Actions
                         HStack(spacing: 20) {
                             Button(action: { onLike?() }) {
@@ -155,7 +177,7 @@ struct PostDetailView: View {
                                     .font(.system(size: 18))
                                     .foregroundStyle(swipeLists.contains(activePost) ? Color.coral : Color.ink)
                             }
-                            .accessibilityLabel("Add to a swipe list")
+                            .accessibilityLabel("Add to a Gift Board")
                             if let shareUrl = Affiliate.productUrl(for: activePost) {
                                 // Share a friendly message, not a bare URL (bare
                                 // retailer URLs make the share sheet surface odd

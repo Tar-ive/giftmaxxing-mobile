@@ -1,8 +1,8 @@
 import SwiftUI
 
-// Instagram-collections-style "save to list" sheet. Tapping "Add to swipe
-// list" anywhere in the app lands here: pick which person's list the find
-// belongs to (toggle in/out), or spin up a new list inline ("Sarah's
+// Instagram-collections-style "save to board" sheet. Tapping "Gift board"
+// anywhere in the app lands here: pick which person's Gift Board the find
+// belongs to (toggle in/out), or spin up a new board inline ("Sarah's
 // birthday") without leaving the moment.
 struct SwipeListPickerSheet: View {
     let post: Post
@@ -52,7 +52,7 @@ struct SwipeListPickerSheet: View {
                                     .frame(width: 44, height: 44)
                                     .background(Color.coralSoft)
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
-                                Text("New list — for a person or occasion")
+                                Text("New board — for a person or occasion")
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundStyle(Color.ink)
                                 Spacer()
@@ -70,7 +70,7 @@ struct SwipeListPickerSheet: View {
                 .padding(.bottom, 20)
             }
             .background(Color.surface)
-            .navigationTitle("Save to swipe list")
+            .navigationTitle("Save to a Gift Board")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -87,10 +87,10 @@ struct SwipeListPickerSheet: View {
     // Inline create — name + who it's for, then the find lands in it directly.
     private var newListCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("NEW SWIPE LIST")
+            Text("NEW GIFT BOARD")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(.secondary)
-            TextField("List name (e.g. Sarah's birthday)", text: $newListName)
+            TextField("Board name (e.g. Sarah's birthday)", text: $newListName)
                 .textFieldStyle(.roundedBorder)
                 .focused($nameFieldFocused)
             TextField("Who's it for? (optional)", text: $newRecipientName)
@@ -118,7 +118,7 @@ struct SwipeListPickerSheet: View {
     private func createAndAdd() {
         let recipient = newRecipientName.trimmingCharacters(in: .whitespaces)
         var name = newListName.trimmingCharacters(in: .whitespaces)
-        if name.isEmpty { name = recipient.isEmpty ? "New swipe list" : "For \(recipient)" }
+        if name.isEmpty { name = recipient.isEmpty ? "New Gift Board" : "For \(recipient)" }
         let list = store.createList(name: name, recipientName: recipient.isEmpty ? nil : recipient)
         store.toggle(post, in: list.id)
         newListName = ""

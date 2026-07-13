@@ -1,7 +1,7 @@
 import SwiftUI
 
-// The "For someone" home: every swipe list you keep, one per person/occasion
-// (Instagram-collections model). Tap into a list to manage its items, send it
+// The "For someone" home: every Gift Board you keep, one per person/occasion
+// (Instagram-collections model). Tap into a board to manage its items, send it
 // as a swipe deck, and read the yes/no results back.
 struct SwipeListsHomeView: View {
     @ObservedObject private var store = SwipeListStore.shared
@@ -16,9 +16,9 @@ struct SwipeListsHomeView: View {
                     Image(systemName: "rectangle.stack.badge.plus")
                         .font(.system(size: 40))
                         .foregroundStyle(.secondary)
-                    Text("No swipe lists yet")
+                    Text("No Gift Boards yet")
                         .font(.displaySmall)
-                    Text("Make a list for someone — say, your girlfriend's birthday — then add finds from the feed or search. Send it and every swipe tells you buy / don't buy.")
+                    Text("Make a board for someone — say, your girlfriend's birthday — then add finds from the feed or search. Send it and every swipe tells you buy / don't buy.")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -36,7 +36,7 @@ struct SwipeListsHomeView: View {
                     HStack(spacing: 10) {
                         Image(systemName: "plus")
                             .font(.system(size: 14, weight: .bold))
-                        Text("New swipe list")
+                        Text("New Gift Board")
                             .font(.system(size: 14, weight: .bold))
                         Spacer()
                     }
@@ -63,10 +63,10 @@ struct SwipeListsHomeView: View {
 
     private var newListCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("NEW SWIPE LIST")
+            Text("NEW GIFT BOARD")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(.secondary)
-            TextField("List name (e.g. Sarah's birthday)", text: $newListName)
+            TextField("Board name (e.g. Sarah's birthday)", text: $newListName)
                 .textFieldStyle(.roundedBorder)
             TextField("Who's it for? (optional)", text: $newRecipientName)
                 .textFieldStyle(.roundedBorder)
@@ -80,7 +80,7 @@ struct SwipeListsHomeView: View {
                 Button {
                     let recipient = newRecipientName.trimmingCharacters(in: .whitespaces)
                     var name = newListName.trimmingCharacters(in: .whitespaces)
-                    if name.isEmpty { name = recipient.isEmpty ? "New swipe list" : "For \(recipient)" }
+                    if name.isEmpty { name = recipient.isEmpty ? "New Gift Board" : "For \(recipient)" }
                     store.createList(name: name, recipientName: recipient.isEmpty ? nil : recipient)
                     newListName = ""
                     newRecipientName = ""
@@ -175,6 +175,9 @@ struct SwipeListDetailView: View {
     @State private var shareFailed = false
     @State private var status: ChallengeStatusResponse?
     @State private var selectedPost: Post?
+    // Note editor ("why this fits them") + the digital gift letter.
+    @State private var editingNotePost: Post?
+    @State private var editingLetter = false
 
     private var list: SwipeList? { store.list(id: listId) }
 
@@ -189,10 +192,11 @@ struct SwipeListDetailView: View {
                     header(list)
                     shareCard(list)
                     if shareFailed {
-                        Label("Couldn't build the swipe link — check your connection and try again.", systemImage: "wifi.slash")
+                        Label("Couldn't build the share link — check your connection and try again.", systemImage: "wifi.slash")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                     }
+                    letterCard(list)
                     responsesSection(list)
                     itemsSection(list)
                 }
@@ -200,7 +204,7 @@ struct SwipeListDetailView: View {
             }
         }
         .background(Color.surface)
-        .navigationTitle(list?.name ?? "Swipe list")
+        .navigationTitle(list?.name ?? "Gift Board")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -209,7 +213,7 @@ struct SwipeListDetailView: View {
                         store.deleteList(id: listId)
                         dismiss()
                     } label: {
-                        Label("Delete list", systemImage: "trash")
+                        Label("Delete board", systemImage: "trash")
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -220,8 +224,81 @@ struct SwipeListDetailView: View {
         .sheet(item: $selectedPost) { post in
             PostDetailView(post: post)
         }
+        .sheet(item: $editingNotePost) { post in
+            NoteEditorSheet(
+                title: "Why this fits \(list?.recipientName ?? "them")",
+                prompt: "e.g. She mentioned wanting one on our hike last fall…",
+                text: list?.note(for: post.id) ?? ""
+            ) { text in
+                store.setNote(text, for: post.id, in: listId)
+            }
+        }
+        .sheet(isPresented: $editingLetter) {
+            NoteEditorSheet(
+                title: "Gift letter for \(list?.recipientName ?? "them")",
+                prompt: "The words outlast the wrapping — say what they mean to you…",
+                text: list?.letter ?? "",
+                long: true
+            ) { text in
+                store.setLetter(text, for: listId)
+            }
+        }
         .task { await loadResponses() }
         .refreshable { await loadResponses() }
+    }
+
+    // The digital gift letter — written once, sent with the board.
+    @ViewBuilder
+    private func letterCard(_ list: SwipeList) -> some View {
+        if let letter = list.letter, !letter.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label("Gift letter", systemImage: "envelope.open.fill")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.coral)
+                    Spacer()
+                    Button("Edit") { editingLetter = true }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.coral)
+                }
+                Text(letter)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(6)
+                Text("Sent along with the board's share message.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(12)
+            .background(Color.cream)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+        } else {
+            Button {
+                editingLetter = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "envelope.open.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(Color.coral)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Write a digital gift letter")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(Color.ink)
+                        Text("Words outlast wrapping — it rides along when you send the board. +40 pts")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(12)
+                .background(Color.cream)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     private func header(_ list: SwipeList) -> some View {
@@ -242,7 +319,7 @@ struct SwipeListDetailView: View {
     private func shareCard(_ list: SwipeList) -> some View {
         let who = list.recipientName ?? "them"
         if list.posts.isEmpty {
-            Label("Add finds from the feed or search — the “Add to swipe list” button on any product drops it here.", systemImage: "rectangle.stack.badge.plus")
+            Label("Add finds from the feed or search — the “Gift board” button on any product drops it here.", systemImage: "rectangle.stack.badge.plus")
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
                 .padding(12)
@@ -263,7 +340,7 @@ struct SwipeListDetailView: View {
                 Task { await buildShareLink(list) }
             } label: {
                 shareLabel(
-                    title: buildingLink ? "Building their deck…" : (list.challengeId == nil ? "Get the swipe link" : "List changed — rebuild the link"),
+                    title: buildingLink ? "Building their deck…" : (list.challengeId == nil ? "Get the share link" : "Board changed — rebuild the link"),
                     subtitle: "Turns these \(list.posts.count) picks into a swipeable link for \(who).",
                     icon: "link"
                 )
@@ -395,6 +472,15 @@ struct SwipeListDetailView: View {
                             }
                             verdictBadges(for: post.id)
                         }
+                        // The "why this fits them" note — or the nudge to write one.
+                        if let note = list?.note(for: post.id) {
+                            Text("“\(note)”")
+                                .font(.system(size: 12))
+                                .italic()
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                        }
                     }
                 }
             }
@@ -402,18 +488,33 @@ struct SwipeListDetailView: View {
 
             Spacer()
 
-            Button {
-                store.remove(id: post.id, from: listId)
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 28, height: 28)
-                    .background(Color.cream)
-                    .clipShape(Circle())
+            VStack(spacing: 8) {
+                Button {
+                    editingNotePost = post
+                } label: {
+                    Image(systemName: list?.note(for: post.id) == nil ? "square.and.pencil" : "square.and.pencil.circle.fill")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(list?.note(for: post.id) == nil ? Color.coral : Color.coral.opacity(0.9))
+                        .frame(width: 28, height: 28)
+                        .background(Color.coralSoft)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Write why this fits them")
+
+                Button {
+                    store.remove(id: post.id, from: listId)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .background(Color.cream)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Remove from board")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Remove from list")
         }
     }
 
@@ -495,5 +596,56 @@ struct SwipeListDetailView: View {
     private func loadResponses() async {
         guard let challengeId = list?.challengeId else { return }
         status = try? await APIClient.shared.fetchChallengeStatus(challengeId: challengeId)
+    }
+}
+
+// Shared editor for board notes and the gift letter — plain, focused writing.
+struct NoteEditorSheet: View {
+    let title: String
+    let prompt: String
+    @State var text: String
+    var long = false
+    let onSave: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(prompt)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                TextEditor(text: $text)
+                    .focused($focused)
+                    .font(.system(size: 15))
+                    .scrollContentBackground(.hidden)
+                    .padding(10)
+                    .frame(minHeight: long ? 220 : 120)
+                    .background(Color.cream)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                Spacer()
+            }
+            .padding(16)
+            .background(Color.surface)
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(.secondary)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") {
+                        onSave(text)
+                        dismiss()
+                    }
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Color.coral)
+                }
+            }
+            .onAppear { focused = true }
+        }
+        .presentationDetents([long ? .large : .medium])
     }
 }
