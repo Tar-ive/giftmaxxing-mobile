@@ -105,6 +105,25 @@ final class ContentQualityTests: XCTestCase {
         XCTAssertFalse(q.feedEligible)
     }
 
+    func testDoorLockActuatorIsNonGift() {
+        // Live feed example — neither "replacement" nor a fits-years pattern.
+        let q = ContentQuality.classify(
+            title: "Door Lock Actuator Motor Dorman 937-080",
+            domain: "ebay.com", link: nil, price: 232
+        )
+        XCTAssertEqual(q.contentType, .nonGift)
+        XCTAssertFalse(q.feedEligible)
+    }
+
+    func testWheelStudWithAutoBrandIsNonGift() {
+        let q = ContentQuality.classify(
+            title: "Dorman 610368.1 Wheel Stud",
+            domain: "ebay.com", link: nil, price: 12
+        )
+        XCTAssertEqual(q.contentType, .nonGift)
+        XCTAssertFalse(q.feedEligible)
+    }
+
     func testPlumbingHardwareIsNonGift() {
         let q = ContentQuality.classify(
             title: "Kitchen Sink Strainer Drain Assembly, Stainless Steel",

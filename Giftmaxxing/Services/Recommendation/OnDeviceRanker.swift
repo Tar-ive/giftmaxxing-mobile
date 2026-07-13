@@ -68,9 +68,15 @@ enum OnDeviceRanker {
         let eligible = candidates.filter { post in
             guard !post.id.isEmpty, !seenIds.contains(post.id), !profile.seen.contains(post.id) else { return false }
             seenIds.insert(post.id)
-            // Trust the server's ingest/serve-time classification when present;
-            // classify locally otherwise (e.g. degraded mode or cached pages).
-            if let eligibleFlag = post.feedEligible { return eligibleFlag }
+            // The server's flag is a veto, not a pass: the on-device rules can
+            // be NEWER than the deployed Lambda (e.g. the non-gift merchandise
+            // gate), so a server "eligible" still has to clear the local
+            // classifier — that's how a filter fix reaches users app-side
+            // before the backend redeploys.
+            if post.feedEligible == false { return false }
+            // Curated services are hand-picked (their domains — youtube.com
+            // for a Premium year — misfire every text heuristic); trust ingest.
+            if post.isService { return post.feedEligible ?? true }
             let q = ContentQuality.classify(
                 title: post.caption.isEmpty ? post.product.name : post.caption,
                 domain: post.domain,

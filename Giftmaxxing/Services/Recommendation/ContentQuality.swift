@@ -63,7 +63,8 @@ struct ContentQuality {
     private static let partNumber = "^\\s*[A-Za-z]{1,4}\\d{5,}\\b"
     private static let fitsYears = "\\bfits?\\b[^,;]{0,40}\\b(19|20)\\d{2}\\s*[-–]\\s*(19|20)?\\d{2}\\b"
     private static let replacementPart = "\\breplacement\\b[\\w\\s]{0,30}\\b(part|fender|bumper|reservoir|assembly|housing|panel|filter|pump|motor|valve|sensor|cartridge|blade|belt|hose|lens|glass|screen)\\b"
-    private static let autoPart = "\\b(catalytic converter|muffler|alternator|carburetor|spark plugs?|brake (pads?|rotors?|calipers?)|shock absorbers?|drive\\s?shaft|crankshaft|camshaft|wiper blades?|washer fluid|coolant reservoir|fluid reservoir|ignition coil|timing belt|serpentine belt|exhaust (pipe|manifold)|hubcaps?|mud\\s?flaps?|obd2?\\s?(scanner|reader))\\b"
+    private static let autoPart = "\\b(catalytic converter|muffler|alternator|carburetor|spark plugs?|brake (pads?|rotors?|calipers?)|shock absorbers?|drive\\s?shaft|crankshaft|camshaft|wiper blades?|washer fluid|coolant reservoir|fluid reservoir|ignition coil|ignition switch|timing belt|serpentine belt|exhaust (pipe|manifold)|hubcaps?|mud\\s?flaps?|obd2?\\s?(scanner|reader)|(door )?lock actuators?|actuator motors?|wheel studs?|lug nuts?|tie rod( ends?)?|ball joints?|wheel (bearings?|hubs?)|control arms?|sway bar|cv (axle|joint)|(oxygen|o2|abs|camshaft|crankshaft) sensors?|window regulators?)\\b"
+    private static let autoBrand = "\\b(dorman|motorcraft|acdelco|duralast|cardone|timken|moog|febi bilstein|delphi)\\b"
     private static let autoPartAmbiguous = "\\b(fenders?|bumpers?|tail\\s?lights?|headlights?|headlamps?|grilles?|struts?|axles?|gaskets?|radiators?|fuel pumps?|starter motors?)\\b"
     private static let autoContext = "\\b(car|cars|truck|suv|sedan|coupe|vehicle|auto(motive)?|driver'?s? side|passenger'?s? side|front (left|right)|rear (left|right)|oem)\\b"
     private static let hardwarePart = "\\b(plumbing|faucet cartridge|sink strainer|drain (valve|plug|assembly|stopper|snake)|p-?trap|sump pump|shut-?off valve|pipe (fitting|wrench)|pvc (pipe|fitting)|toilet (flange|flapper|fill valve|seat|repair)|water heater (element|thermostat)|garbage disposal|caulk(ing)?|grout|drywall|circuit breaker|junction box|weather stripping|hvac|furnace filter|condenser coil|compressor unit)\\b"
@@ -106,7 +107,7 @@ struct ContentQuality {
         // 1.5) Non-giftable merchandise — checked before the listicle pass:
         // these are real single products, just not gifts.
         let partish = t.matches(partNumber) || t.matches(fitsYears)
-            || lt.matches(replacementPart) || lt.matches(autoPart)
+            || lt.matches(replacementPart) || lt.matches(autoPart) || lt.matches(autoBrand)
             || (lt.matches(autoPartAmbiguous) && lt.matches(autoContext))
             || lt.matches(hardwarePart)
         if partish || lt.matches(digitalFile) {

@@ -70,7 +70,10 @@ const PART_NUMBER = /^\s*[A-Za-z]{1,4}\d{5,}\b/; //           "Bm1240164 Replace
 const FITS_YEARS = /\bfits?\b[^,;]{0,40}\b(19|20)\d{2}\s*[-–]\s*(19|20)?\d{2}\b/i; // "Fits 2014-2016 Bmw"
 const REPLACEMENT_PART = /\breplacement\b[\w\s]{0,30}\b(part|fender|bumper|reservoir|assembly|housing|panel|filter|pump|motor|valve|sensor|cartridge|blade|belt|hose|lens|glass|screen)\b/i;
 // Unambiguously automotive terms — enough on their own.
-const AUTO_PART = /\b(catalytic converter|muffler|alternator|carburetor|spark plugs?|brake (pads?|rotors?|calipers?)|shock absorbers?|drive\s?shaft|crankshaft|camshaft|wiper blades?|washer fluid|coolant reservoir|fluid reservoir|ignition coil|timing belt|serpentine belt|exhaust (pipe|manifold)|hubcaps?|mud\s?flaps?|obd2?\s?(scanner|reader))\b/i;
+const AUTO_PART = /\b(catalytic converter|muffler|alternator|carburetor|spark plugs?|brake (pads?|rotors?|calipers?)|shock absorbers?|drive\s?shaft|crankshaft|camshaft|wiper blades?|washer fluid|coolant reservoir|fluid reservoir|ignition coil|ignition switch|timing belt|serpentine belt|exhaust (pipe|manifold)|hubcaps?|mud\s?flaps?|obd2?\s?(scanner|reader)|(door )?lock actuators?|actuator motors?|wheel studs?|lug nuts?|tie rod( ends?)?|ball joints?|wheel (bearings?|hubs?)|control arms?|sway bar|cv (axle|joint)|(oxygen|o2|abs|camshaft|crankshaft) sensors?|window regulators?)\b/i;
+// Aftermarket auto-part brands that sell nothing giftable — a brand hit alone
+// is decisive ("Dorman 937-080 Door Lock Actuator", "Dorman 610368.1 Wheel Stud").
+const AUTO_BRAND = /\b(dorman|motorcraft|acdelco|duralast|cardone|timken|moog|febi bilstein|delphi)\b/i;
 // Terms that are also gift-adjacent (a Fender guitar, a bike headlight, a
 // radiator cover) — only automotive when the caption reads like a car listing.
 const AUTO_PART_AMBIG = /\b(fenders?|bumpers?|tail\s?lights?|headlights?|headlamps?|grilles?|struts?|axles?|gaskets?|radiators?|fuel pumps?|starter motors?)\b/i;
@@ -150,7 +153,8 @@ export function classifyPin({ title = "", domain = "", link = "", price = 0, gif
   // these are real single products, just not gifts.
   const partish =
     PART_NUMBER.test(t) || FITS_YEARS.test(t) || REPLACEMENT_PART.test(lt) ||
-    AUTO_PART.test(lt) || (AUTO_PART_AMBIG.test(lt) && AUTO_CONTEXT.test(lt)) ||
+    AUTO_PART.test(lt) || AUTO_BRAND.test(lt) ||
+    (AUTO_PART_AMBIG.test(lt) && AUTO_CONTEXT.test(lt)) ||
     HARDWARE_PART.test(lt);
   if (partish || DIGITAL_FILE.test(lt)) {
     reasons.push(partish ? "non_gift_part" : "digital_file");

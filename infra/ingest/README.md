@@ -207,6 +207,36 @@ via a `BatchWrite` Put, so the operation is reversible.
 
 ---
 
+# Product-page image galleries (`enrich-images.mjs`)
+
+Our pins carry ONE image, but the retailer listing behind them (eBay/Etsy/…)
+usually has 5-10 shots. This crawls each shoppable `productUrl`, extracts the
+gallery (JSON-LD `Product.image` → eBay/Etsy CDN references → `og:image`),
+and writes it to `product.images` on the posts row. `/feed` passes the field
+through untouched and the iOS detail sheet renders a swipeable carousel.
+
+```bash
+# Verify extraction on one page — no AWS needed:
+node enrich-images.mjs --url "https://www.ebay.com/itm/..."
+
+set -a; source ../../.env; set +a
+npm run enrich:images:dry        # scan + fetch 20, print galleries, no writes
+npm run enrich:images            # enrich every un-enriched post (throttled ~1.5s/page)
+```
+
+| Flag | Purpose |
+|------|---------|
+| `--url U` | Offline single-page mode: print the extracted gallery |
+| `--dry-run` | Fetch + report, write nothing |
+| `--limit N` / `--only-domain a,b` | Bound the crawl |
+| `--force` | Re-fetch rows that already have `product.images` |
+| `--min-interval MS` | Politeness throttle (default 1500) |
+
+Idempotent (rows with `product.images` skip unless `--force`); thumbnails are
+upgraded to the largest CDN rendition (`s-l1600`, `il_1588xN`); capped at 8.
+
+---
+
 # Amazon affiliate catalog (`import-asins.mjs` + `paapi-enrich.mjs`)
 
 Powers `/feed/shop`. The catalog lives in `web/lib/amazon-picks.json` and is the

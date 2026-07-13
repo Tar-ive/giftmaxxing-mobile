@@ -615,7 +615,8 @@ actor APIClient {
             price: p?.price ?? api.price ?? 0,
             grad: GradientStyle(rawValue: p?.grad ?? "peach") ?? .peach,
             emoji: p?.emoji ?? "🎁",
-            image: p?.image
+            image: p?.image,
+            images: p?.images
         )
 
         return Post(

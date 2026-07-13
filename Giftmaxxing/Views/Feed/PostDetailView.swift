@@ -24,13 +24,32 @@ struct PostDetailView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    // Product image
-                    ZStack {
-                        Color.gradient(for: activePost.product.grad)
-                        Text(activePost.product.emoji)
-                            .font(.system(size: 80))
-                        if let image = activePost.product.image {
-                            CachedAsyncImage(url: image, width: 900)
+                    // Product images — a swipeable carousel when the listing
+                    // carries a gallery (retailer pages have 5-10 shots), the
+                    // single cover otherwise.
+                    Group {
+                        let gallery = activePost.product.gallery
+                        if gallery.count > 1 {
+                            TabView {
+                                ForEach(gallery, id: \.self) { image in
+                                    ZStack {
+                                        Color.gradient(for: activePost.product.grad)
+                                        CachedAsyncImage(url: image, width: 900)
+                                    }
+                                    .clipped()
+                                }
+                            }
+                            .tabViewStyle(.page(indexDisplayMode: .always))
+                            .indexViewStyle(.page(backgroundDisplayMode: .always))
+                        } else {
+                            ZStack {
+                                Color.gradient(for: activePost.product.grad)
+                                Text(activePost.product.emoji)
+                                    .font(.system(size: 80))
+                                if let image = gallery.first {
+                                    CachedAsyncImage(url: image, width: 900)
+                                }
+                            }
                         }
                     }
                     .frame(maxWidth: .infinity)

@@ -96,91 +96,91 @@ struct PostCardView: View {
             .buttonStyle(.plain)
 
             // Gifting actions — no likes/comments/shares (this isn't
-            // Instagram): start a pool for it, or queue it for a friend's
-            // swipe list.
+            // Instagram): start a gift pool with friends, or file it into a
+            // person's swipe list. Two matched half-width buttons — same
+            // height, same type — so the row reads as one control.
             HStack(spacing: 8) {
-                Button(action: { onPledge?() }) {
-                    HStack(spacing: 5) {
-                        Image(systemName: "person.2.fill")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("Pledge")
-                            .font(.system(size: 13, weight: .bold))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(Color.coral)
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-
-                Button(action: { onAddToSwipeList?() }) {
-                    HStack(spacing: 5) {
-                        Image(systemName: inSwipeList ? "checkmark" : "rectangle.stack.badge.plus")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text(inSwipeList ? "On swipe list" : "Add to swipe list")
-                            .font(.system(size: 13, weight: .bold))
-                    }
-                    .foregroundStyle(inSwipeList ? .white : Color.coral)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(inSwipeList ? Color.coral.opacity(0.75) : Color.coralSoft)
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-
-                Spacer()
+                actionButton(
+                    icon: "person.2.fill",
+                    label: "Gift pool",
+                    prominent: true,
+                    action: { onPledge?() }
+                )
+                actionButton(
+                    icon: inSwipeList ? "checkmark" : "rectangle.stack.badge.plus",
+                    label: inSwipeList ? "On swipe list" : "Swipe list",
+                    prominent: false,
+                    action: { onAddToSwipeList?() }
+                )
             }
             .padding(.horizontal, 14)
             .padding(.top, 10)
 
-            // Caption — ONE flowing text run (an HStack of Texts squeezes the
-            // username into its own truncating column once the caption wraps).
-            if !post.caption.isEmpty {
-                (Text(post.user).fontWeight(.semibold) + Text(" ") + Text(post.caption))
-                    .font(.system(size: 13))
+            // Product info — ONE title + ONE meta line. The old stack (caption
+            // run + reason note + name·brand row) printed the same SEO title
+            // three times per card; the header already names the source.
+            VStack(alignment: .leading, spacing: 3) {
+                Text(post.product.name)
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.ink)
-                    .lineLimit(3)
+                    .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.top, 4)
-            }
 
-            // Recommendation reason — styled as a distinct "why you're seeing
-            // this" note so it doesn't read as a second caption line.
-            if let reason = post.reason, !reason.isEmpty {
-                HStack(spacing: 4) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 10))
-                    Text(reason)
+                if let reason = distinctReason {
+                    HStack(spacing: 4) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 10))
+                        Text(reason)
+                            .lineLimit(1)
+                    }
+                    .font(.caption)
+                    .foregroundStyle(Color.coral.opacity(0.9))
+                } else {
+                    Text(post.product.brand)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
-                .font(.caption)
-                .foregroundStyle(Color.coral.opacity(0.9))
-                .padding(.horizontal, 14)
-                .padding(.top, 4)
             }
-
-            // Product info — name can be long; keep it to one truncated line and
-            // let the brand hold its width so the row never wraps or collides.
-            HStack(spacing: 6) {
-                Text(post.product.name)
-                    .font(.system(size: 12, weight: .medium))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Text("·")
-                Text(post.product.brand)
-                    .font(.system(size: 12))
-                    .lineLimit(1)
-                    .layoutPriority(1)
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 14)
-            .padding(.top, 5)
+            .padding(.top, 8)
             .padding(.bottom, 14)
         }
         .background(Color.surface)
+    }
+
+    // A reason worth a line of its own ("Similar to your taste"). Merchant
+    // echoes ("Real find from ebay.com") duplicate the brand line — drop them.
+    private var distinctReason: String? {
+        guard let reason = post.reason, !reason.isEmpty else { return nil }
+        let lower = reason.lowercased()
+        let brand = post.product.brand.lowercased()
+        if !brand.isEmpty, lower.contains(brand) { return nil }
+        if let domain = post.domain?.lowercased(), !domain.isEmpty, lower.contains(domain) { return nil }
+        return reason
+    }
+
+    private func actionButton(
+        icon: String,
+        label: String,
+        prominent: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                Text(label)
+                    .font(.system(size: 13, weight: .bold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(prominent ? .white : Color.coral)
+            .frame(maxWidth: .infinity)
+            .frame(height: 38)
+            .background(prominent ? Color.coral : Color.coralSoft)
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }
