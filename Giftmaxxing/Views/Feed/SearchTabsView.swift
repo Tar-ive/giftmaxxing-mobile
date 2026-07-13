@@ -837,10 +837,26 @@ struct SearchTabsView: View {
                     .foregroundStyle(Color.ink)
                     .lineLimit(1)
 
-                if let price = item.price, price > 0 {
-                    Text("$\(Int(price))")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(Color.coral)
+                // Merchant + price on one row — knowing WHERE a match sells is
+                // half the buying decision (and the detail sheet adds
+                // Amazon/Target/Walmart searches for everything else).
+                HStack(spacing: 6) {
+                    // Legacy vectors carry domain: "" — fall through to merchant.
+                    if let store = [item.domain, item.merchant]
+                        .compactMap({ $0 })
+                        .first(where: { !$0.isEmpty }) {
+                        Text(store)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                    if let price = item.price, price > 0 {
+                        Text("$\(Int(price))")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Color.coral)
+                            .fixedSize()
+                    }
                 }
             }
         }

@@ -28,6 +28,16 @@ const CONTENT = new Set([
 const RECIPE_DOMAIN = /(rasamalaysia|allrecipes|foodnetwork|seriouseats|delish|tasty|recipe)/i;
 const CONTENT_SUFFIX = /\.(blogspot|wordpress|wixsite|substack)\.com$|\.blog$/i;
 
+// Big-box US retailers shoppers actually buy gifts from. Used to bias visual
+// search / recommendation ordering so, among near-equal matches, the links
+// people will really use (Amazon/Target/Walmart…) beat niche shops.
+const MAJOR_US_RETAILERS = new Set([
+  "amazon.com", "amzn.to", "a.co", "target.com", "walmart.com", "bestbuy.com",
+  "nordstrom.com", "macys.com", "kohls.com", "costco.com", "homedepot.com",
+  "wayfair.com", "sephora.com", "ulta.com", "rei.com", "dickssportinggoods.com",
+  "crateandbarrel.com", "potterybarn.com", "westelm.com", "williams-sonoma.com",
+]);
+
 const norm = (s) => String(s || "").toLowerCase().replace(/^www\./, "").trim();
 function domainClass(domain) {
   const d = norm(domain);
@@ -35,8 +45,38 @@ function domainClass(domain) {
   if (RECIPE_DOMAIN.test(d)) return "recipe";
   if (CONTENT.has(d) || CONTENT_SUFFIX.test(d)) return "content";
   if (RETAILER.has(d) || [...RETAILER].some((r) => d.endsWith("." + r))) return "retailer";
+  if (MAJOR_US_RETAILERS.has(d) || [...MAJOR_US_RETAILERS].some((r) => d.endsWith("." + r))) {
+    return "retailer";
+  }
   return "unknown";
 }
+
+export function isMajorUSRetailer(domain) {
+  const d = norm(domain);
+  if (!d) return false;
+  return MAJOR_US_RETAILERS.has(d) || [...MAJOR_US_RETAILERS].some((r) => d.endsWith("." + r));
+}
+
+// ── Non-giftable merchandise ─────────────────────────────────────────────────
+// Real products on allowlisted retailers that nobody GIFTS: replacement auto
+// parts and plumbing/appliance hardware (eBay is full of them), and digital
+// pattern files / printables (Etsy). They carry every commerce signal — price,
+// retailer domain, PDP path — so they need their own gate. Live examples that
+// reached the feed: "Bm1240164 Replacement Front Driver Side Fender Fits
+// 2014-2016 Bmw 428i", "To1288213 Replacement Washer Fluid Reservoir Fits
+// 2013-2018 Toyota Rav4", "PDF File for Crochet Pattern (English), Junction
+// Beanie, Pictures and Video Tutorials Included".
+const PART_NUMBER = /^\s*[A-Za-z]{1,4}\d{5,}\b/; //           "Bm1240164 Replacement…"
+const FITS_YEARS = /\bfits?\b[^,;]{0,40}\b(19|20)\d{2}\s*[-–]\s*(19|20)?\d{2}\b/i; // "Fits 2014-2016 Bmw"
+const REPLACEMENT_PART = /\breplacement\b[\w\s]{0,30}\b(part|fender|bumper|reservoir|assembly|housing|panel|filter|pump|motor|valve|sensor|cartridge|blade|belt|hose|lens|glass|screen)\b/i;
+// Unambiguously automotive terms — enough on their own.
+const AUTO_PART = /\b(catalytic converter|muffler|alternator|carburetor|spark plugs?|brake (pads?|rotors?|calipers?)|shock absorbers?|drive\s?shaft|crankshaft|camshaft|wiper blades?|washer fluid|coolant reservoir|fluid reservoir|ignition coil|timing belt|serpentine belt|exhaust (pipe|manifold)|hubcaps?|mud\s?flaps?|obd2?\s?(scanner|reader))\b/i;
+// Terms that are also gift-adjacent (a Fender guitar, a bike headlight, a
+// radiator cover) — only automotive when the caption reads like a car listing.
+const AUTO_PART_AMBIG = /\b(fenders?|bumpers?|tail\s?lights?|headlights?|headlamps?|grilles?|struts?|axles?|gaskets?|radiators?|fuel pumps?|starter motors?)\b/i;
+const AUTO_CONTEXT = /\b(car|cars|truck|suv|sedan|coupe|vehicle|auto(motive)?|driver'?s? side|passenger'?s? side|front (left|right)|rear (left|right)|oem)\b/i;
+const HARDWARE_PART = /\b(plumbing|faucet cartridge|sink strainer|drain (valve|plug|assembly|stopper|snake)|p-?trap|sump pump|shut-?off valve|pipe (fitting|wrench)|pvc (pipe|fitting)|toilet (flange|flapper|fill valve|seat|repair)|water heater (element|thermostat)|garbage disposal|caulk(ing)?|grout|drywall|circuit breaker|junction box|weather stripping|hvac|furnace filter|condenser coil|compressor unit)\b/i;
+const DIGITAL_FILE = /\b(pdf (file|pattern|download)|digital (download|file|print|pattern|planner)|printables?|instant download|svg (file|bundle|cut file)|cut files?|(crochet|knitting|knit|sewing|cross-?stitch|embroidery|quilt(ing)?|amigurumi) patterns?|clip\s?art|cricut|silhouette cameo|lightroom presets?|procreate brush(es)?)\b/i;
 
 // ── Caption signals ──────────────────────────────────────────────────────────
 const STARTS_NUMBER = /^\s*\d{1,3}\b/; //                      "33 gifts for her…"
@@ -69,7 +109,7 @@ function extractRecipient(t) {
 /**
  * Classify one pin.
  * @returns {{contentType, feedEligible, route, recipient, qualityScore, reasons}}
- *   contentType: single_product | gift_guide | editorial | recipe | seasonal | spam
+ *   contentType: single_product | gift_guide | editorial | recipe | seasonal | spam | non_gift
  *   route:       feed | recipient | group_gifts | drop
  */
 export function classifyPin({ title = "", domain = "", link = "", price = 0, giftType = "" } = {}) {
@@ -102,6 +142,19 @@ export function classifyPin({ title = "", domain = "", link = "", price = 0, gif
   if (dc === "recipe" || (RECIPE_WORD.test(lt) && p <= 0)) {
     reasons.push("recipe");
     return result("recipe", "drop", 0.05);
+  }
+
+  // 1.5) Non-giftable merchandise — replacement auto/plumbing parts and digital
+  // pattern files pass every commerce heuristic below (price + retailer + PDP
+  // path), so the caption itself is the gate. Checked before the listicle pass:
+  // these are real single products, just not gifts.
+  const partish =
+    PART_NUMBER.test(t) || FITS_YEARS.test(t) || REPLACEMENT_PART.test(lt) ||
+    AUTO_PART.test(lt) || (AUTO_PART_AMBIG.test(lt) && AUTO_CONTEXT.test(lt)) ||
+    HARDWARE_PART.test(lt);
+  if (partish || DIGITAL_FILE.test(lt)) {
+    reasons.push(partish ? "non_gift_part" : "digital_file");
+    return result("non_gift", "drop", 0.05);
   }
 
   // 2) Listicles / gift guides — checked BEFORE the blog-domain drop so guides

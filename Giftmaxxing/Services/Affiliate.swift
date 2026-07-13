@@ -76,6 +76,62 @@ enum Affiliate {
             || url.range(of: "//pin\\.it/", options: [.regularExpression, .caseInsensitive]) != nil
     }
 
+    // ── "Find it at" major-US-retailer links ─────────────────────────────────
+    // The catalog's organic links skew Etsy/eBay/Pinterest; US shoppers buy
+    // from Amazon/Target/Walmart. Every product gets one-tap search deep links
+    // into those stores so a match is always buyable somewhere familiar.
+
+    struct RetailerSearchLink: Identifiable, Hashable {
+        let name: String
+        let url: URL
+        var id: String { name }
+    }
+
+    static func retailerSearchLinks(for post: Post) -> [RetailerSearchLink] {
+        retailerSearchLinks(
+            name: post.product.name,
+            brand: post.product.brand,
+            currentUrl: post.productUrl ?? post.url
+        )
+    }
+
+    static func retailerSearchLinks(
+        name: String,
+        brand: String? = nil,
+        currentUrl: String? = nil
+    ) -> [RetailerSearchLink] {
+        // Scraped titles run long (eBay SEO strings) — the first few words are
+        // the product; the tail just narrows retailer search to zero results.
+        var query = name
+            .trimmingCharacters(in: .whitespaces)
+            .split(separator: " ")
+            .prefix(8)
+            .joined(separator: " ")
+        if let brand = brand?.trimmingCharacters(in: .whitespaces),
+           !brand.isEmpty, !brand.contains("."), // domain-shaped "brands" (etsy.me) add noise
+           !query.localizedCaseInsensitiveContains(brand) {
+            query = "\(brand) \(query)"
+        }
+        guard !query.isEmpty else { return [] }
+        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "gifts"
+        let current = (currentUrl ?? "").lowercased()
+
+        var links: [RetailerSearchLink] = []
+        // Skip the store the product already links to — the main CTA covers it.
+        if !isAmazonUrl(current), let url = URL(string: searchUrl(query: query)) {
+            links.append(RetailerSearchLink(name: "Amazon", url: url))
+        }
+        if !current.contains("target.com"),
+           let url = URL(string: "https://www.target.com/s?searchTerm=\(encoded)") {
+            links.append(RetailerSearchLink(name: "Target", url: url))
+        }
+        if !current.contains("walmart.com"),
+           let url = URL(string: "https://www.walmart.com/search?q=\(encoded)") {
+            links.append(RetailerSearchLink(name: "Walmart", url: url))
+        }
+        return links
+    }
+
     // Best outbound URL for a post's product (mirrors web outboundAffiliateUrl):
     // a real retailer URL passes through (Amazon links get our tag via search
     // fallback upstream); missing/Pinterest/"#" links become a tagged Amazon

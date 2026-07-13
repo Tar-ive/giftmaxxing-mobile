@@ -12,6 +12,10 @@ struct PostDetailView: View {
     @State private var browserTarget: BrowserTarget?
     @State private var similar: [Post] = []
     @State private var displayedPost: Post?
+    // Save the find into a person's swipe list — reachable from anywhere this
+    // sheet opens (feed, search, visual search results).
+    @State private var showListPicker = false
+    @ObservedObject private var swipeLists = SwipeListStore.shared
 
     // The sheet can swap to a similar product in place (swipe-right-for-similar).
     private var activePost: Post { displayedPost ?? post }
@@ -110,6 +114,14 @@ struct PostDetailView: View {
                                     .font(.system(size: 18))
                                     .foregroundStyle(activePost.saved ? Color.coral : Color.ink)
                             }
+                            Button(action: { showListPicker = true }) {
+                                Image(systemName: swipeLists.contains(activePost)
+                                      ? "rectangle.stack.fill.badge.plus"
+                                      : "rectangle.stack.badge.plus")
+                                    .font(.system(size: 18))
+                                    .foregroundStyle(swipeLists.contains(activePost) ? Color.coral : Color.ink)
+                            }
+                            .accessibilityLabel("Add to a swipe list")
                             if let shareUrl = Affiliate.productUrl(for: activePost) {
                                 // Share a friendly message, not a bare URL (bare
                                 // retailer URLs make the share sheet surface odd
@@ -149,6 +161,44 @@ struct PostDetailView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 14))
                             }
                             .padding(.top, 6)
+                        }
+
+                        // Major-retailer fallbacks — the organic link often
+                        // points at a niche shop (Etsy/eBay/Pinterest source);
+                        // these one-tap searches put the same product on the
+                        // stores US shoppers actually buy from.
+                        let retailerLinks = Affiliate.retailerSearchLinks(for: activePost)
+                        if !retailerLinks.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Find it at")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                                    .textCase(.uppercase)
+                                HStack(spacing: 8) {
+                                    ForEach(retailerLinks) { link in
+                                        Button {
+                                            OutboundRouter.open(link.url, postId: activePost.id, source: "retailer_search") {
+                                                browserTarget = BrowserTarget(url: $0)
+                                            }
+                                        } label: {
+                                            HStack(spacing: 5) {
+                                                Image(systemName: "magnifyingglass")
+                                                    .font(.system(size: 11, weight: .semibold))
+                                                Text(link.name)
+                                                    .font(.system(size: 13, weight: .bold))
+                                            }
+                                            .foregroundStyle(Color.ink)
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 9)
+                                            .background(Color.cream)
+                                            .clipShape(Capsule())
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    Spacer(minLength: 0)
+                                }
+                            }
+                            .padding(.top, 8)
                         }
 
                         // Similar gifts — swipeable rail (vector kNN seeded by
@@ -219,6 +269,9 @@ struct PostDetailView: View {
             .sheet(item: $browserTarget) { target in
                 SafariView(url: target.url)
                     .ignoresSafeArea()
+            }
+            .sheet(isPresented: $showListPicker) {
+                SwipeListPickerSheet(post: activePost)
             }
             .task {
                 await loadSimilar(for: post)

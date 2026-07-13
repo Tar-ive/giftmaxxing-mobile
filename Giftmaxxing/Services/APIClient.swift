@@ -378,6 +378,9 @@ actor APIClient {
     // (captured image, catalog pin, or taste keys), builds the quality-filtered
     // banded deck in the Lambda, and returns the challengeId to share. Deck +
     // verdicts live entirely server-side from here.
+    // deckMode "exact" (swipe lists): the guest deck is EXACTLY the seedKeys —
+    // no lookalike padding, no hidden seed. `cards` carries client snapshots so
+    // items outside the vector index still make the deck.
     func createChallenge(
         senderId: String,
         mode: String? = nil,
@@ -388,12 +391,15 @@ actor APIClient {
         inviterName: String? = nil,
         to: String? = nil,
         occasion: String? = nil,
-        date: String? = nil
+        date: String? = nil,
+        deckMode: String? = nil,
+        cards: [[String: Any]]? = nil
     ) async throws -> ChallengeCreateResponse {
+        let exact = deckMode == "exact"
         var seed: [String: Any] = [:]
         if let seedImageBase64 { seed["imageBase64"] = seedImageBase64 }
         if let seedPostId { seed["postId"] = seedPostId }
-        if let seedKeys, !seedKeys.isEmpty { seed["seedKeys"] = Array(seedKeys.prefix(8)) }
+        if let seedKeys, !seedKeys.isEmpty { seed["seedKeys"] = Array(seedKeys.prefix(exact ? 40 : 8)) }
         if let seedText, !seedText.isEmpty { seed["text"] = seedText }
 
         var body: [String: Any] = ["senderId": senderId, "seed": seed]
@@ -402,6 +408,8 @@ actor APIClient {
         if let occasion, !occasion.isEmpty { body["occasion"] = occasion }
         if let date, !date.isEmpty { body["date"] = date }
         if let mode, !mode.isEmpty { body["mode"] = mode }
+        if let deckMode, !deckMode.isEmpty { body["deckMode"] = deckMode }
+        if let cards, !cards.isEmpty { body["cards"] = Array(cards.prefix(40)) }
         return try await post("/challenges", body: body)
     }
 
