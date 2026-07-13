@@ -415,7 +415,7 @@ struct ShopItemDetail: View {
                                     Image(systemName: swipeLists.contains(asPost)
                                           ? "checkmark" : "rectangle.stack.badge.plus")
                                         .font(.system(size: 12, weight: .semibold))
-                                    Text(swipeLists.contains(asPost) ? "On swipe list" : "Swipe list")
+                                    Text(swipeLists.contains(asPost) ? "On board" : "Gift board")
                                         .font(.system(size: 13, weight: .bold))
                                         .lineLimit(1)
                                 }

@@ -41,11 +41,11 @@ struct ContentView: View {
                     }
                     .tag(Tab.swipe)
 
-                ShopView()
+                DiscoverView()
                     .tabItem {
-                        Label(Tab.shop.rawValue, systemImage: Tab.shop.icon)
+                        Label(Tab.discover.rawValue, systemImage: Tab.discover.icon)
                     }
-                    .tag(Tab.shop)
+                    .tag(Tab.discover)
 
                 CirclesView()
                     .tabItem {
@@ -61,12 +61,9 @@ struct ContentView: View {
             }
             .tint(Color.coral)
 
-            if appState.showsMaxiFAB {
-                MaxiFloatingButton { appState.showMaxi = true }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .padding(.trailing, 18)
-                    .padding(.bottom, 66)
-            }
+            // Maxi's floating button is gone — its nudges now arrive as the
+            // staged Gift Journey (GiftJourneyEngine) and the Home search bar's
+            // mic opens the full conversation on demand.
 
             if !offlineQueue.isOnline {
                 VStack {

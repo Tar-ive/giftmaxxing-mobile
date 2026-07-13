@@ -33,9 +33,9 @@ struct CoachMarksView: View {
         ),
         Step(
             icon: "rectangle.stack.badge.plus",
-            title: "Save to swipe lists",
-            line: "File any find under a person — then share the list and they swipe yes/no on your picks.",
-            hint: "Tap “Swipe list” on any card"
+            title: "Save to Gift Boards",
+            line: "File any find onto a person's board, add a note on why it fits — then share it and they swipe yes/no.",
+            hint: "Tap “Gift board” on any card"
         ),
         Step(
             icon: "camera.viewfinder",
@@ -53,7 +53,7 @@ struct CoachMarksView: View {
             icon: "sparkles",
             title: "Meet Maxi",
             line: "Your AI gift concierge — ask for ideas in plain words, any time.",
-            hint: "The floating button, bottom right"
+            hint: "The mic in the Home search bar"
         ),
     ]
 

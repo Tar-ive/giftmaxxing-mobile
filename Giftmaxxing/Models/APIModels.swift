@@ -31,6 +31,9 @@ struct APIPost: Codable {
     // Products vs gift-able services (a year of Netflix, a Costco membership…).
     var giftType: String?
     var serviceDuration: String?
+    // Maker's note / anecdote / craftsmanship detail (Shopify ingests carry
+    // the product description; long-press on the feed image reveals it).
+    var story: String?
 }
 
 struct APIProduct: Codable {

@@ -36,6 +36,10 @@ enum ReminderScheduler {
         cancel(eventId: event.id)
         guard event.daysUntil >= 0 else { return }
 
+        // Events with real runway also get the staged Gift Journey
+        // (explore → narrow → letter → send) — Maxi's paced nudges.
+        GiftJourneyEngine.schedule(for: event)
+
         let lead = event.reminderLeadDays ?? defaultLeadDays
         let calendar = Calendar.current
         let eventDay = calendar.startOfDay(for: event.date)
@@ -88,6 +92,7 @@ enum ReminderScheduler {
             "\(idPrefix)\(eventId)_lead",
             "\(idPrefix)\(eventId)_day",
         ])
+        GiftJourneyEngine.cancel(eventId: eventId)
     }
 
     // Full resync after a server fetch: drop every event reminder we own, then
@@ -95,7 +100,9 @@ enum ReminderScheduler {
     static func resync(events: [GiftEvent]) {
         let center = UNUserNotificationCenter.current()
         center.getPendingNotificationRequests { pending in
-            let stale = pending.map(\.identifier).filter { $0.hasPrefix(idPrefix) }
+            let stale = pending.map(\.identifier).filter {
+                $0.hasPrefix(idPrefix) || $0.hasPrefix(GiftJourneyEngine.idPrefix)
+            }
             center.removePendingNotificationRequests(withIdentifiers: stale)
             for event in events {
                 schedule(for: event)

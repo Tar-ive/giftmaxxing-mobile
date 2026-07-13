@@ -1,10 +1,12 @@
 import Foundation
 
-// A named swipe list — "saw it, thought of you", per PERSON. Like Instagram's
-// bookmark collections: you keep several ("Sarah's birthday", "Dad — retirement"),
-// add finds from the feed or search into whichever fits, then send one as a
-// swipe deck. The recipient swipes yes/no on exactly those items — direct
-// buy/don't-buy signals for the giver.
+// A Gift Board — "saw it, thought of you", per PERSON. (UI name: Gift Board;
+// the type keeps its original name to avoid churning every call site.) Like
+// Instagram's bookmark collections: you keep several ("Sarah's birthday",
+// "Dad — retirement"), add finds from the feed or search into whichever fits,
+// annotate WHY each fits, write a gift letter, then send it as a swipe deck.
+// The recipient swipes yes/no on exactly those items — direct buy/don't-buy
+// signals for the giver.
 struct SwipeList: Identifiable, Codable, Hashable {
     var id: String = UUID().uuidString
     var name: String
@@ -12,9 +14,15 @@ struct SwipeList: Identifiable, Codable, Hashable {
     var occasion: String?
     var createdAt: Date = Date()
     var posts: [Post] = []
+    // Per-item "why this fits them" notes (postId → note) — the thoughtful
+    // half of the board, and the one-line why on Signature Gifts.
+    var notes: [String: String]?
+    // The digital gift letter — words that outlast the wrapping; it rides
+    // along with the board's share message.
+    var letter: String?
 
-    // Sharing state — set once the list has been sent as a swipe deck. The
-    // link goes stale the moment the list's CONTENTS change, not just its
+    // Sharing state — set once the board has been sent as a swipe deck. The
+    // link goes stale the moment the board's CONTENTS change, not just its
     // count, so the exact item set it was built for rides along.
     var challengeId: String?
     var shareURLString: String?
@@ -24,6 +32,11 @@ struct SwipeList: Identifiable, Codable, Hashable {
     var shareURL: URL? {
         guard let shareURLString, sharedContentsKey == contentsKey else { return nil }
         return URL(string: shareURLString)
+    }
+
+    func note(for postId: String) -> String? {
+        guard let note = notes?[postId], !note.isEmpty else { return nil }
+        return note
     }
 }
 
@@ -48,7 +61,7 @@ final class SwipeListStore: ObservableObject {
                   !savedPosts.isEmpty {
             // One-time migration: the old single flat list becomes the first
             // named list so nothing anyone saved disappears.
-            lists = [SwipeList(name: "My swipe list", posts: savedPosts)]
+            lists = [SwipeList(name: "My Gift Board", posts: savedPosts)]
             persist()
         }
     }
@@ -77,14 +90,44 @@ final class SwipeListStore: ObservableObject {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         let recipient = recipientName?.trimmingCharacters(in: .whitespaces)
         let list = SwipeList(
-            name: trimmed.isEmpty ? "New swipe list" : trimmed,
+            name: trimmed.isEmpty ? "New Gift Board" : trimmed,
             recipientName: (recipient?.isEmpty ?? true) ? nil : recipient,
             occasion: occasion
         )
         lists.insert(list, at: 0)
         persist()
         AnalyticsEngine.shared.trackScreenView(screen: "swipe_list_create")
+        ThoughtfulnessStore.shared.award(.boardCreated, dedupeKey: list.id)
         return list
+    }
+
+    // Per-item note ("why this fits them"). First real note per item earns
+    // Thoughtfulness Points — the note IS the thoughtful act.
+    func setNote(_ text: String, for postId: String, in listId: String) {
+        guard let idx = lists.firstIndex(where: { $0.id == listId }) else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        var notes = lists[idx].notes ?? [:]
+        if trimmed.isEmpty {
+            notes.removeValue(forKey: postId)
+        } else {
+            notes[postId] = String(trimmed.prefix(280))
+        }
+        lists[idx].notes = notes
+        persist()
+        if !trimmed.isEmpty {
+            ThoughtfulnessStore.shared.award(.noteWritten, dedupeKey: "\(listId)|\(postId)")
+        }
+    }
+
+    // The digital gift letter — one per board.
+    func setLetter(_ text: String, for listId: String) {
+        guard let idx = lists.firstIndex(where: { $0.id == listId }) else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        lists[idx].letter = trimmed.isEmpty ? nil : String(trimmed.prefix(2000))
+        persist()
+        if !trimmed.isEmpty {
+            ThoughtfulnessStore.shared.award(.letterWritten, dedupeKey: listId)
+        }
     }
 
     func deleteList(id: String) {
@@ -106,6 +149,10 @@ final class SwipeListStore: ObservableObject {
         } else {
             lists[idx].posts.insert(post, at: 0)
             AnalyticsEngine.shared.trackScreenView(screen: "swipe_list_add")
+            // Choosing an independent maker is a thoughtfulness signal.
+            if GiftStory.isSmallBusiness(post) {
+                ThoughtfulnessStore.shared.award(.smallBusinessSave, dedupeKey: post.id)
+            }
         }
         persist()
 
@@ -137,12 +184,18 @@ final class SwipeListStore: ObservableObject {
         lists[idx].shareURLString = url.absoluteString
         lists[idx].sharedContentsKey = lists[idx].contentsKey
         persist()
+        ThoughtfulnessStore.shared.award(.boardShared, dedupeKey: listId)
     }
 
-    // Share text for sending a list to its person.
+    // Share text for sending a board to its person — the gift letter leads
+    // when there is one (the words are the point).
     func shareMessage(for list: SwipeList) -> String {
         let who = list.recipientName ?? "you"
-        return "I made \(who) a gift swipe list 🎁 Swipe yes/no on \(list.posts.count) picks — takes a minute.\n\nOn Giftmaxxing"
+        var message = "I made \(who) a Gift Board 🎁 Swipe yes/no on \(list.posts.count) picks — takes a minute.\n\nOn Giftmaxxing"
+        if let letter = list.letter, !letter.isEmpty {
+            message = "\(letter)\n\n—\n\n\(message)"
+        }
+        return message
     }
 
     private func recordTasteEvent(for post: Post, removed: Bool) {

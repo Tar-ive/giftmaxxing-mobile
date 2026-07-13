@@ -44,6 +44,8 @@ struct CirclesView: View {
                             .foregroundStyle(.secondary)
                     }
 
+                    GiftStreakCard()
+
                     timelineSection
                     circlesSection
                     groupGiftsSection
@@ -413,13 +415,21 @@ struct CirclesView: View {
     @ViewBuilder
     private var groupGiftsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // In-flight campaigns now live on Home's gifting tray (stories-
-            // style bubbles) — Circles keeps only the starting point.
+            // Collaborative boards: friends co-curate a deck, everyone votes
+            // by swiping, the group tally picks the winner, and the pool
+            // splits the cost. In-flight campaigns live on Home's gifting
+            // tray (stories-style bubbles) — Circles keeps the starting point.
+            Text("COLLABORATIVE BOARDS")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.secondary)
+            Text("Co-curate a deck with friends, vote by swiping, split the cost. Every yes is a vote — the tally picks the gift.")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
             NavigationLink(destination: GroupGiftCreateView()) {
                 HStack {
                     Spacer()
                     Image(systemName: "person.3.fill")
-                    Text("Start a group gift").font(.labelBold)
+                    Text("Start a collaborative board").font(.labelBold)
                     Spacer()
                 }
                 .padding(.vertical, 15)
@@ -428,6 +438,41 @@ struct CirclesView: View {
                 .clipShape(Capsule())
             }
         }
+    }
+}
+
+// The gift streak — consecutive months with at least one thoughtful action
+// (a note written, a board shared, a pool started). Volume doesn't move it;
+// showing up for your people does.
+struct GiftStreakCard: View {
+    @ObservedObject private var thoughtfulness = ThoughtfulnessStore.shared
+
+    var body: some View {
+        let streak = thoughtfulness.monthlyStreak
+        HStack(spacing: 12) {
+            Image(systemName: "flame.fill")
+                .font(.system(size: 22))
+                .foregroundStyle(streak > 0 ? Color.coral : Color.inkSecondary)
+                .frame(width: 44, height: 44)
+                .background(streak > 0 ? Color.coralSoft : Color.cream)
+                .clipShape(Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text(streak > 0
+                     ? "\(streak)-month gift streak"
+                     : "Start your gift streak")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Color.ink)
+                Text(streak > 0
+                     ? "\(thoughtfulness.points) Thoughtfulness Points and counting — one thoughtful act a month keeps it alive."
+                     : "Write a note, share a board, or start a pool this month.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(12)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
 
