@@ -58,9 +58,9 @@ variable "alert_sms_number" {
 
 # ── Phase 2: kill switch + real-time tripwires (see killswitch.tf) ────────────
 variable "api_reserved_concurrency" {
-  description = "Reserved concurrency ceiling for the API Lambda — a baseline guard so a runaway/traffic spike can't balloon Lambda + DynamoDB cost. -1 = unreserved (no cap). The $1,000 kill switch pauses expensive AI routes on top of this. NOTE: a reservation needs the account's Lambda 'Concurrent executions' quota above 10 (AWS always keeps 10 unreserved); raise it via Service Quotas to use a positive value."
+  description = "Reserved concurrency ceiling for the API Lambda — a baseline guard so a runaway/traffic spike can't balloon Lambda + DynamoDB cost. -1 = unreserved (no cap). The $1,000 kill switch pauses expensive AI routes on top of this. NOTE: a reservation needs the account's Lambda 'Concurrent executions' quota above 10 (AWS always keeps 10 unreserved); raise it via Service Quotas to use a positive value. Default 100 caps the blast radius of a flood (the Jun 2026 event hit 269 concurrent / 2.78M invocations) while leaving 900 of the account's 1000 pool for the breaker/reminders + headroom."
   type        = number
-  default     = -1
+  default     = 100
 }
 
 variable "maxi_base_model_id" {
@@ -251,16 +251,40 @@ variable "apple_private_key" {
   sensitive   = true
 }
 
-# ── APNs (Push Notifications) ─────────────────────────────────────────────────
+# ── APNs (Push Notifications) — TOKEN-based auth (.p8 signing key) ────────────
+# We use APNs token auth (a .p8 signing key), not certificate auth. SNS needs
+# four things: the signing key contents, its Key ID, the Apple Team ID, and the
+# app bundle id. The platform application is created only when the key + Key ID
+# + Team ID are all present (see sns-apns.tf); until then sends no-op.
 variable "apns_private_key" {
-  description = "APNs private key (.p8)"
+  description = "APNs .p8 signing key contents (the full -----BEGIN PRIVATE KEY----- block). Provide via TF_VAR_apns_private_key / tfvars — never commit."
   type        = string
   default     = ""
   sensitive   = true
 }
 
+variable "apns_key_id" {
+  description = "APNs signing Key ID (10 chars, from the .p8 filename AuthKey_<KeyID>.p8). Maps to the SNS platform_principal."
+  type        = string
+  default     = ""
+}
+
+variable "apns_team_id" {
+  description = "Apple Developer Team ID (10 chars). Required for APNs token auth (SNS apple_platform_team_id)."
+  type        = string
+  default     = ""
+}
+
+variable "apns_bundle_id" {
+  description = "iOS app bundle identifier for APNs token auth (SNS apple_platform_bundle_id)."
+  type        = string
+  default     = "com.giftmaxxing.ios"
+}
+
+# Deprecated: certificate-based auth is unused now that we're on token auth.
+# Kept (unused) so existing tfvars referencing it don't error.
 variable "apns_certificate" {
-  description = "APNs certificate (.pem)"
+  description = "DEPRECATED (cert-based auth, unused — we use token auth). Leave empty."
   type        = string
   default     = ""
   sensitive   = true

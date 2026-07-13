@@ -3,15 +3,20 @@
 # devices. The device token table stores APNs tokens registered by the mobile app
 # via POST /mobile/device.
 
-# Created only when APNs credentials are supplied — SNS rejects empty ones and
-# would fail the whole apply.
+# TOKEN-based APNs auth (.p8 signing key). SNS needs the signing key contents
+# (platform_credential), its Key ID (platform_principal), the Apple Team ID, and
+# the app bundle id. Created only when the key + Key ID + Team ID are all present
+# — SNS rejects partial/empty credentials and would fail the whole apply.
+# Platform "APNS" = production gateway (TestFlight / App Store builds).
 resource "aws_sns_platform_application" "ios_push" {
-  count = var.apns_private_key != "" ? 1 : 0
+  count = (var.apns_private_key != "" && var.apns_key_id != "" && var.apns_team_id != "") ? 1 : 0
 
-  name                = "${var.prefix}-ios-push"
-  platform            = "APNS"
-  platform_credential = var.apns_private_key
-  platform_principal  = var.apns_certificate
+  name                     = "${var.prefix}-ios-push"
+  platform                 = "APNS"
+  platform_credential      = var.apns_private_key # .p8 signing key contents
+  platform_principal       = var.apns_key_id      # signing Key ID
+  apple_platform_team_id   = var.apns_team_id
+  apple_platform_bundle_id = var.apns_bundle_id
 
   event_delivery_failure_topic_arn = aws_sns_topic.push_failures.arn
 
@@ -53,7 +58,7 @@ resource "aws_dynamodb_table" "devices" {
 # Grant the API Lambda access to the devices table and SNS publish
 data "aws_iam_policy_document" "mobile_push" {
   statement {
-    sid     = "DevicesTableAccess"
+    sid = "DevicesTableAccess"
     actions = [
       "dynamodb:GetItem",
       "dynamodb:PutItem",
@@ -74,7 +79,7 @@ data "aws_iam_policy_document" "mobile_push" {
   }
 
   statement {
-    sid     = "SNSCreateEndpoint"
+    sid = "SNSCreateEndpoint"
     actions = [
       "sns:CreatePlatformEndpoint",
       "sns:GetEndpointAttributes",

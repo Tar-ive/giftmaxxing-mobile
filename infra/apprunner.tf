@@ -155,8 +155,13 @@ resource "aws_apprunner_service" "api" {
   }
 
   instance_configuration {
-    cpu               = "1024" # 1 vCPU
-    memory            = "2048" # 2 GB
+    # Downsized from 1 vCPU / 2 GB. App Runner serves only the (low-traffic)
+    # website; the mobile app uses the Lambda HTTP API. Observed load is <1% CPU
+    # and ~2.5% of 2 GB, so the smallest valid combo (0.25 vCPU / 0.5 GB) is
+    # ample and cuts the always-on provisioned cost ~4x. min_size stays 1
+    # (App Runner's floor) so there's still no cold start.
+    cpu               = "256" # 0.25 vCPU
+    memory            = "512" # 0.5 GB
     instance_role_arn = aws_iam_role.apprunner_instance.arn
   }
 

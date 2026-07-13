@@ -248,6 +248,45 @@ resource "aws_cloudwatch_metric_alarm" "api_request_spike" {
   ok_actions          = [aws_sns_topic.cost_killswitch.arn]
 }
 
+# ── API Lambda resilience (notify-only) ───────────────────────────────────────
+# The mobile app + admin/ingest still hit the api Lambda directly (not just App
+# Runner), so its health IS a meaningful signal. These NOTIFY the cost-alerts
+# topic (they don't trip the kill switch — the API request-spike above handles
+# the cost tripwire). Throttles firing means the reserved-concurrency cap
+# (var.api_reserved_concurrency) is being hit — a runaway or a real traffic
+# surge — exactly the Jun 2026 flood signature that had no direct Lambda alarm.
+resource "aws_cloudwatch_metric_alarm" "api_lambda_throttles" {
+  alarm_name          = "${local.prefix}-api-lambda-throttles"
+  alarm_description   = "API Lambda is being throttled (hitting the reserved-concurrency cap) — runaway or traffic surge."
+  namespace           = "AWS/Lambda"
+  metric_name         = "Throttles"
+  dimensions          = { FunctionName = aws_lambda_function.api.function_name }
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 100
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.cost_alerts.arn]
+  ok_actions          = [aws_sns_topic.cost_alerts.arn]
+}
+
+resource "aws_cloudwatch_metric_alarm" "api_lambda_errors" {
+  alarm_name          = "${local.prefix}-api-lambda-errors"
+  alarm_description   = "API Lambda error count elevated (>50 in 5 min) — app faults or a bad deploy."
+  namespace           = "AWS/Lambda"
+  metric_name         = "Errors"
+  dimensions          = { FunctionName = aws_lambda_function.api.function_name }
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 50
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.cost_alerts.arn]
+  ok_actions          = [aws_sns_topic.cost_alerts.arn]
+}
+
 # Concurrency tripwire — watches the App Runner service (the live API) instead of
 # the legacy Lambda. AWS/AppRunner "Concurrency" = concurrent requests in flight;
 # a sustained spike DEGRADES non-essential AI then auto-resumes (dims defined in
