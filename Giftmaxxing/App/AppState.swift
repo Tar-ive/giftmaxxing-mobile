@@ -38,6 +38,24 @@ final class AppState: ObservableObject {
     // Maxi (the AI concierge) is a floating button over every tab — not a tab
     // of its own. ContentView presents MaxiView as a sheet when this is set.
     @Published var showMaxi = false
+    // Focused flows (DMs, challenges, taste interview) suppress the global
+    // floating button. Use a depth counter so nested sheets restore it safely.
+    @Published private(set) var maxiFABSuppressionDepth = 0
+
+    var showsMaxiFAB: Bool {
+        maxiFABSuppressionDepth == 0
+            && !showMaxi
+            && !showSearch
+            && !showCreatePoolFromCapture
+    }
+
+    func suppressMaxiFAB() {
+        maxiFABSuppressionDepth += 1
+    }
+
+    func unsuppressMaxiFAB() {
+        maxiFABSuppressionDepth = max(0, maxiFABSuppressionDepth - 1)
+    }
 
     func openCircle(_ circleId: String) {
         selectedTab = .circles

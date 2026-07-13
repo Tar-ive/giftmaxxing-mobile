@@ -73,6 +73,16 @@ final class MessagesStore: ObservableObject {
         }
     }
 
+    /// Demo group conversations are useful only before sign-in. They must never
+    /// masquerade as a real member's conversations after an account is active.
+    func reconcileAuthenticatedUser(_ userId: String?) {
+        guard userId != nil else { return }
+        let demoIds = Set(Self.seeds.map(\.id))
+        let before = chats.count
+        chats.removeAll { demoIds.contains($0.id) }
+        if chats.count != before { persist() }
+    }
+
     func send(_ text: String, to chatId: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty,
@@ -195,23 +205,101 @@ final class MessagesStore: ObservableObject {
 }
 
 struct MessagesView: View {
+    @EnvironmentObject private var authManager: AuthManager
+    @EnvironmentObject private var appState: AppState
     @StateObject private var store = MessagesStore()
+    @ObservedObject private var friendsStore = FriendsStore.shared
+    @State private var openDmThreadId: String?
+    @State private var showDm = false
 
     var body: some View {
         List {
-            ForEach(store.chats) { chat in
-                NavigationLink {
-                    ChatThreadView(chatId: chat.id, store: store)
-                } label: {
-                    ChatRow(chat: chat)
+            if !friendsStore.dms.isEmpty {
+                Section {
+                    ForEach(friendsStore.dms) { dm in
+                        Button {
+                            openDmThreadId = dm.threadId
+                            showDm = true
+                        } label: {
+                            HStack(spacing: 12) {
+                                AvatarView(
+                                    name: dm.otherName ?? dm.otherUserId,
+                                    grad: SocialUsers.grad(for: dm.otherUserId),
+                                    size: 48
+                                )
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack {
+                                        Text(dm.otherName ?? dm.otherUserId)
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundStyle(Color.ink)
+                                        Spacer(minLength: 8)
+                                        if let lastAt = dm.lastAt {
+                                            Text(FriendDmThreadView.formatDmTime(lastAt))
+                                                .font(.system(size: 11))
+                                                .foregroundStyle(.tertiary)
+                                        }
+                                    }
+                                    Text(dm.lastText ?? "Say hi — or send a gift challenge")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                                Spacer()
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .listRowBackground(Color.surface)
+                    }
+                } header: {
+                    Text("Friends")
                 }
-                .listRowBackground(Color.surface)
+            }
+
+            Section {
+                ForEach(store.chats) { chat in
+                    NavigationLink {
+                        ChatThreadView(chatId: chat.id, store: store)
+                    } label: {
+                        ChatRow(chat: chat)
+                    }
+                    .listRowBackground(Color.surface)
+                }
+            } header: {
+                if !friendsStore.dms.isEmpty {
+                    Text("Group gifts")
+                }
             }
         }
         .listStyle(.plain)
         .background(Color.surface)
         .navigationTitle("Messages")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink {
+                    FriendsView()
+                } label: {
+                    Text("Friends")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.coral)
+                }
+            }
+        }
+        .navigationDestination(isPresented: $showDm) {
+            if let openDmThreadId {
+                FriendDmThreadView(threadId: openDmThreadId)
+                    .environmentObject(authManager)
+                    .environmentObject(appState)
+            }
+        }
+        .task {
+            store.reconcileAuthenticatedUser(authManager.userId)
+            await friendsStore.refresh(userId: authManager.userId)
+        }
+        .onChange(of: authManager.userId) { _, userId in
+            store.reconcileAuthenticatedUser(userId)
+            Task { await friendsStore.refresh(userId: userId) }
+        }
         .onAppear {
             AnalyticsEngine.shared.trackScreenView(screen: "messages")
         }

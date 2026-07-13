@@ -65,6 +65,22 @@ final class FeedViewModel: ObservableObject {
         isLoading = false
     }
 
+    /// Taste changed. Don't leave the previous profile's ranked cards on screen
+    /// or behind a cursor/cache boundary; rebuild the very first page with the
+    /// new vibe facets and current on-device taste snapshot.
+    func reloadForPersonalization(context: ModelContext? = nil) async {
+        guard !isLoading else { return }
+        posts = []
+        error = nil
+        cursor = nil
+        exhausted = false
+        rankedBuffer = []
+        servedIds = []
+        impressedIds = []
+        centroid = nil
+        await loadFeed(context: context)
+    }
+
     func loadMore(context: ModelContext? = nil) async {
         guard !isLoadingMore, !isLoading, !(exhausted && rankedBuffer.isEmpty) else { return }
         isLoadingMore = true

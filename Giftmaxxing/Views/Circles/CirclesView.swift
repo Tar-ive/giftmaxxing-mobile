@@ -22,6 +22,7 @@ struct CirclesView: View {
     @StateObject private var eventsModel = EventsViewModel()
     @Environment(\.modelContext) private var modelContext
     @State private var showPools = false
+    @State private var showFriends = false
     @State private var showChallenge = false
     @State private var showCreateCircle = false
     @State private var showAddEvent = false
@@ -54,6 +55,12 @@ struct CirclesView: View {
                         .padding(.top, 4)
 
                     FeatureCard(
+                        icon: "person.2.fill",
+                        title: "Friends",
+                        subtitle: "Discover people on Giftmaxxing, connect in circles, message & gift."
+                    ) { showFriends = true }
+
+                    FeatureCard(
                         icon: "banknote.fill",
                         title: "Gift pools",
                         subtitle: "Chip in on something big — everyone contributes what they can."
@@ -84,6 +91,9 @@ struct CirclesView: View {
                 }
             }
             .sheet(isPresented: $showPools) { PoolsView() }
+            .sheet(isPresented: $showFriends) {
+                NavigationStack { FriendsView() }
+            }
             // The SAME swipe-challenge flow the Swipe tab uses — wrapped in a
             // stack with an explicit close so the sheet is never a dead end.
             .sheet(isPresented: $showChallenge) {

@@ -11,6 +11,7 @@ import SwiftUI
 //     flow as the web).
 struct ChallengeView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var authManager: AuthManager
     @Environment(\.dismiss) private var dismiss
 
     // Optional image seed (share-extension / visual-search captures): the
@@ -20,6 +21,11 @@ struct ChallengeView: View {
     // Sheet presentations set this so there's an explicit way OUT — without it
     // a modally-presented challenge had no visible exit (swipe-down only).
     var showsClose = false
+
+    /// Prefill "who is this for?" when launched from Friends / DM / Circles.
+    var prefillTheirName: String = ""
+    /// When launched from a DM, the created challenge is also posted there.
+    var dmThreadId: String? = nil
 
     @State private var yourName = ""
     @State private var theirName = ""
@@ -38,6 +44,7 @@ struct ChallengeView: View {
     @State private var challengeId: String?
     @State private var isCreating = false
     @State private var serverUnavailable = false
+    @State private var postedChallengeIdToDm: String?
 
     private static let occasions: [(id: String, label: String, emoji: String)] = [
         ("birthday", "Birthday", "🎂"),
@@ -54,7 +61,7 @@ struct ChallengeView: View {
     ]
 
     private var senderId: String {
-        appState.currentUser?.id ?? InteractionQueue.anonymousUserId
+        authManager.userId ?? InteractionQueue.anonymousUserId
     }
 
     private var dateString: String? {
@@ -65,7 +72,7 @@ struct ChallengeView: View {
     }
 
     private var inviterName: String {
-        yourName.isEmpty ? (appState.currentUser?.name ?? "A friend") : yourName
+        yourName.isEmpty ? (authManager.displayName ?? "A friend") : yourName
     }
 
     private var inviteURL: URL? {
@@ -116,9 +123,29 @@ struct ChallengeView: View {
             )
             challengeId = response.challengeId
             serverUnavailable = false
+            await postChallengeToDmIfNeeded()
             AnalyticsEngine.shared.trackScreenView(screen: "challenge_created_server")
         } catch {
             serverUnavailable = true
+        }
+    }
+
+    private func postChallengeToDmIfNeeded() async {
+        guard let challengeId,
+              postedChallengeIdToDm != challengeId,
+              let dmThreadId,
+              let userId = authManager.userId,
+              let url = inviteURL else { return }
+
+        let name = authManager.displayName ?? "You"
+        let text = "I made you a gift challenge — swipe a few finds so I can get your gift right 🎁\n\(url.absoluteString)"
+        if await FriendsStore.shared.sendMessage(
+            threadId: dmThreadId,
+            userId: userId,
+            name: name,
+            text: text
+        ) != nil {
+            postedChallengeIdToDm = challengeId
         }
     }
 
@@ -314,17 +341,30 @@ struct ChallengeView: View {
         }
         // Personalization is baked into the server deck's META — editing any
         // field invalidates the created challenge so the next share rebuilds.
-        .onChange(of: yourName) { _, _ in challengeId = nil }
-        .onChange(of: theirName) { _, _ in challengeId = nil }
-        .onChange(of: occasion) { _, _ in challengeId = nil }
-        .onChange(of: includeDate) { _, _ in challengeId = nil }
-        .onChange(of: date) { _, _ in challengeId = nil }
+        .onChange(of: yourName) { _, _ in challengeId = nil; postedChallengeIdToDm = nil }
+        .onChange(of: theirName) { _, _ in challengeId = nil; postedChallengeIdToDm = nil }
+        .onChange(of: occasion) { _, _ in challengeId = nil; postedChallengeIdToDm = nil }
+        .onChange(of: includeDate) { _, _ in challengeId = nil; postedChallengeIdToDm = nil }
+        .onChange(of: date) { _, _ in challengeId = nil; postedChallengeIdToDm = nil }
+        .onAppear {
+            if theirName.isEmpty, !prefillTheirName.isEmpty {
+                theirName = prefillTheirName
+            }
+            if yourName.isEmpty {
+                yourName = authManager.displayName ?? ""
+            }
+            appState.suppressMaxiFAB()
+        }
+        .onChange(of: authManager.displayName) { _, name in
+            if yourName.isEmpty { yourName = name ?? "" }
+        }
+        .onDisappear { appState.unsuppressMaxiFAB() }
     }
 }
 
 // ── Responses (auth-gated, mirrors web "Seeing results needs auth") ──────────
 struct ChallengeResponsesSection: View {
-    @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var authManager: AuthManager
     @State private var connections: [SoftConnectionItem] = []
     @State private var isLoading = false
     @State private var loadFailed = false
@@ -335,7 +375,7 @@ struct ChallengeResponsesSection: View {
                 .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundStyle(Color.ink)
 
-            if !appState.isAuthenticated {
+            if !authManager.isAuthenticated {
                 SignInWall()
             } else if isLoading {
                 ProgressView()
@@ -363,10 +403,13 @@ struct ChallengeResponsesSection: View {
             }
         }
         .task { await load() }
+        .onChange(of: authManager.isAuthenticated) { _, isAuthenticated in
+            if isAuthenticated { Task { await load() } }
+        }
     }
 
     private func load() async {
-        guard appState.isAuthenticated, let userId = appState.currentUser?.id else { return }
+        guard authManager.isAuthenticated, let userId = authManager.userId else { return }
         isLoading = true
         defer { isLoading = false }
         do {

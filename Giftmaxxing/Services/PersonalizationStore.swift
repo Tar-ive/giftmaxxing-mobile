@@ -34,6 +34,50 @@ enum PersonalizationStore {
         set { UserDefaults.standard.set(Array(newValue.prefix(6)), forKey: vibesKey) }
     }
 
+    // Self-taste interview (Edit taste / Maxi trivia) — used by friends buying for you.
+    private static let styleKey = "taste.giftStyle"
+    private static let dislikesKey = "taste.dislikes"
+    private static let noteKey = "taste.giftNote"
+    private static let sizesKey = "taste.clothingSizes"
+
+    static var giftStyle: String? {
+        get { UserDefaults.standard.string(forKey: styleKey) }
+        set {
+            if let newValue, !newValue.isEmpty {
+                UserDefaults.standard.set(newValue, forKey: styleKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: styleKey)
+            }
+        }
+    }
+
+    static var dislikes: [String] {
+        get { UserDefaults.standard.stringArray(forKey: dislikesKey) ?? [] }
+        set { UserDefaults.standard.set(newValue, forKey: dislikesKey) }
+    }
+
+    static var giftNote: String? {
+        get { UserDefaults.standard.string(forKey: noteKey) }
+        set {
+            if let newValue, !newValue.isEmpty {
+                UserDefaults.standard.set(newValue, forKey: noteKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: noteKey)
+            }
+        }
+    }
+
+    static var clothingSizes: [String: String]? {
+        get { UserDefaults.standard.dictionary(forKey: sizesKey) as? [String: String] }
+        set {
+            if let newValue, !newValue.isEmpty {
+                UserDefaults.standard.set(newValue, forKey: sizesKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: sizesKey)
+            }
+        }
+    }
+
     // genderPref → the catalog's recipient facet (soft boost on GET /feed).
     static var feedRecipient: String? {
         switch genderPref {

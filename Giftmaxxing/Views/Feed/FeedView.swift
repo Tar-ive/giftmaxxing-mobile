@@ -10,6 +10,7 @@ struct FeedView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedPost: Post?
     @State private var pledgingPost: Post?
+    @State private var viewingPool: Pool?
     @ObservedObject private var swipeList = SwipeListStore.shared
 
     var body: some View {
@@ -43,10 +44,11 @@ struct FeedView: View {
                     .padding(.top, 6)
                     .padding(.bottom, 8)
 
-                    // Gifting tray — group gifts in flight + pools as stories-
-                    // style bubbles (moved here from the Circles tab).
-                    GiftingTray()
-                        .padding(.bottom, 6)
+                    // Group-gift pledge cards (Amazon-style horizontal swipe).
+                    // Replaces the old circular avatar tray at the top of Home.
+                    CompactPledgeRail { pool in
+                        viewingPool = pool
+                    }
 
                     if viewModel.isLoading && viewModel.posts.isEmpty {
                         ForEach(0..<3, id: \.self) { _ in
@@ -126,25 +128,25 @@ struct FeedView: View {
                         }
                     }
                 }
-            }
-            .background(Color.surface)
-            .refreshable {
-                await viewModel.loadFeed(context: modelContext)
-            }
-            .toolbar(.hidden, for: .navigationBar)
-            .overlay(alignment: .top) {
-                if syncEngine.isSyncing {
-                    HStack(spacing: 4) {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                        Text("Syncing...")
-                            .font(.caption2)
+                .background(Color.surface)
+                .refreshable {
+                    await viewModel.loadFeed(context: modelContext)
+                }
+                .toolbar(.hidden, for: .navigationBar)
+                .overlay(alignment: .top) {
+                    if syncEngine.isSyncing {
+                        HStack(spacing: 4) {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                            Text("Syncing...")
+                                .font(.caption2)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                        .transition(.move(edge: .top).combined(with: .opacity))
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Capsule())
-                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
         }
@@ -166,6 +168,9 @@ struct FeedView: View {
             )
             .environmentObject(appState)
         }
+        .sheet(item: $viewingPool) { pool in
+            PoolDetailView(poolId: pool.id)
+        }
         .task {
             // appState.currentUser is never populated — AuthManager owns identity.
             viewModel.userId = authManager.userId
@@ -183,7 +188,7 @@ struct FeedView: View {
         // The consult just wrote fresh signals (genderPref/vibes) — refetch so
         // the very next Home page reflects them.
         .onReceive(NotificationCenter.default.publisher(for: .consultProfileUpdated)) { _ in
-            Task { await viewModel.loadFeed(context: modelContext) }
+            Task { await viewModel.reloadForPersonalization(context: modelContext) }
         }
         .onChange(of: scenePhase) { _, phase in
             // Push any locally queued interaction events before we lose runtime.

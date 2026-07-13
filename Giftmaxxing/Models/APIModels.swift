@@ -25,6 +25,8 @@ struct APIPost: Codable {
     var vibes: [String]?
     var qualityScore: Double?
     var contentType: String?
+    var mediaUrl: String?
+    var posterUrl: String?
     var feedEligible: Bool?
     // Products vs gift-able services (a year of Netflix, a Costco membership…).
     var giftType: String?
@@ -219,6 +221,7 @@ struct UserProfile: Codable {
     var completedAt: Double?
     var interests: [String]?
     var genderPref: String?
+    var visibility: String?
 
     struct Recipient: Codable, Identifiable {
         var id: String
@@ -319,6 +322,7 @@ struct CircleCreateResponse: Codable {
 struct CircleJoinResponse: Codable {
     var ok: Bool?
     var memberId: String?
+    var linkedUserId: String?
 }
 
 struct CircleAck: Codable {
@@ -344,6 +348,10 @@ struct CircleDataResponse: Codable {
         var birthday: String? // YYYY-MM-DD
         var role: String?
         var joinedAt: Double?
+        /// Signed-in Giftmaxxing account linked to this seat (when claimed).
+        var linkedUserId: String?
+        var linkedHandle: String?
+        var linkedName: String?
 
         var id: String { memberId }
     }
@@ -359,6 +367,109 @@ struct CircleDataResponse: Codable {
 
         var id: String { eventId }
     }
+}
+
+// MARK: - Friends / people discovery / 1:1 DMs (web/lib/friends.ts parity)
+
+struct PublicPerson: Codable, Identifiable, Hashable {
+    var userId: String
+    var name: String
+    var handle: String
+    var bio: String?
+    var imageUrl: String?
+    var interests: [String]?
+    var materialisticCategories: [String]?
+    var style: String?
+    var role: String?
+    var visibility: String?
+
+    var id: String { userId }
+}
+
+struct PeopleSearchResponse: Codable {
+    var items: [PublicPerson]?
+}
+
+struct PersonResponse: Codable {
+    var item: PublicPerson?
+}
+
+struct Friendship: Codable, Identifiable, Hashable {
+    var friendId: String
+    var status: String // pending | accepted
+    var requestedBy: String?
+    var incoming: Bool?
+    var circleId: String?
+    var createdAt: Double?
+    var updatedAt: Double?
+    var name: String?
+    var handle: String?
+    var bio: String?
+    var interests: [String]?
+
+    var id: String { friendId }
+
+    var isAccepted: Bool { status == "accepted" }
+    var isPending: Bool { status == "pending" }
+}
+
+struct FriendsListResponse: Codable {
+    var items: [Friendship]?
+}
+
+struct FriendshipStatusResponse: Codable {
+    var status: String // none | pending | accepted
+    var requestedBy: String?
+    var incoming: Bool?
+}
+
+struct FriendActionResponse: Codable {
+    var ok: Bool?
+    var status: String?
+    var already: Bool?
+}
+
+struct DmThread: Codable, Identifiable, Hashable {
+    var threadId: String
+    var otherUserId: String
+    var otherName: String?
+    var otherHandle: String?
+    var lastText: String?
+    var lastAt: Double?
+
+    var id: String { threadId }
+}
+
+struct DmListResponse: Codable {
+    var items: [DmThread]?
+}
+
+struct DmOpenResponse: Codable {
+    var ok: Bool?
+    var threadId: String?
+}
+
+struct DmMessage: Codable, Identifiable, Hashable {
+    var id: String
+    var userId: String
+    var name: String
+    var text: String
+    var at: Double
+}
+
+struct DmMessagesResponse: Codable {
+    var items: [DmMessage]?
+}
+
+struct DmSendResponse: Codable {
+    var ok: Bool?
+    var message: DmMessage?
+}
+
+struct CircleClaimResponse: Codable {
+    var ok: Bool?
+    var memberId: String?
+    var linkedUserId: String?
 }
 
 struct DeltaSyncResponse: Codable {

@@ -6,6 +6,8 @@ struct MoreView: View {
     @EnvironmentObject private var pushManager: PushManager
     @EnvironmentObject private var syncEngine: SyncEngine
     @State private var showSignIn = false
+    @State private var visibility = "public"
+    @State private var savingVisibility = false
 
     var body: some View {
         NavigationStack {
@@ -65,6 +67,14 @@ struct MoreView: View {
                     VStack(spacing: 2) {
                         MoreSectionHeader(title: "Your gifting")
 
+                        MoreRow(icon: "person.2.fill", title: "Friends", subtitle: "Discover, connect, message") {
+                            FriendsView()
+                        }
+
+                        MoreRow(icon: "sparkles", title: "Edit taste", subtitle: "Maxi asks — sizes, vibes, dislikes") {
+                            TasteInterviewView()
+                        }
+
                         MoreRow(icon: "bag.fill", title: "Shop", subtitle: "Curated picks") {
                             ShopView()
                         }
@@ -73,6 +83,37 @@ struct MoreView: View {
                     // Settings
                     VStack(spacing: 2) {
                         MoreSectionHeader(title: "Settings")
+
+                        if authManager.isAuthenticated {
+                            HStack(spacing: 12) {
+                                Image(systemName: visibility == "private" ? "lock.fill" : "globe")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(Color.coral)
+                                    .frame(width: 28)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Profile visibility")
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundStyle(Color.ink)
+                                    Text(visibility == "private" ? "Only accepted friends can open your profile" : "Anyone can find your profile")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Picker("Profile visibility", selection: $visibility) {
+                                    Text("Public").tag("public")
+                                    Text("Private").tag("private")
+                                }
+                                .pickerStyle(.segmented)
+                                .frame(width: 154)
+                                .disabled(savingVisibility)
+                                .onChange(of: visibility) { _, value in
+                                    Task { await saveVisibility(value) }
+                                }
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .background(Color.surface)
+                        }
 
                         Button(action: {
                             Task { await pushManager.requestPermission() }
@@ -206,6 +247,23 @@ struct MoreView: View {
         .sheet(isPresented: $showSignIn) {
             SignInView(showSignIn: $showSignIn)
                 .environmentObject(authManager)
+        }
+        .task {
+            guard let userId = authManager.userId,
+                  let profile = try? await APIClient.shared.fetchMe(userId: userId)
+            else { return }
+            visibility = profile.visibility == "private" ? "private" : "public"
+        }
+    }
+
+    private func saveVisibility(_ value: String) async {
+        guard let userId = authManager.userId else { return }
+        savingVisibility = true
+        defer { savingVisibility = false }
+        do {
+            try await APIClient.shared.saveMeRaw(userId: userId, profile: ["visibility": value])
+        } catch {
+            // Restore the server value on the next profile refresh.
         }
     }
 }

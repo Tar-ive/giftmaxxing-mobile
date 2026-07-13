@@ -11,6 +11,7 @@ struct CreatePoolFromCaptureView: View {
     var product: Product? = nil
 
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var authManager: AuthManager
     @ObservedObject private var store = PoolsStore.shared
     @Environment(\.dismiss) private var dismiss
 
@@ -18,6 +19,7 @@ struct CreatePoolFromCaptureView: View {
     @State private var forUser = ""
     @State private var targetAmount = ""
     @State private var createdPool: Pool?
+    @State private var poolForFriendInvite: Pool?
 
     private var parsedTarget: Double {
         Double(targetAmount.replacingOccurrences(of: ",", with: ".")) ?? 0
@@ -138,12 +140,16 @@ struct CreatePoolFromCaptureView: View {
                 .multilineTextAlignment(.center)
 
             ShareLink(
-                item: "Chip in for \(pool.title)\(pool.forUser.isEmpty ? "" : " for \(pool.forUser)")! Target: $\(Int(pool.targetAmount)). Join the pool on Giftmaxxing 🎁",
-                subject: Text("Gift pool: \(pool.title)")
+                item: InviteLink.buildPoolURL(
+                    inviterName: appState.currentUser?.name ?? "A friend",
+                    pool: pool
+                ) ?? URL(string: InviteLink.siteURL)!,
+                subject: Text("Gift pool: \(pool.title)"),
+                message: Text("Chip in for \(pool.title)\(pool.forUser.isEmpty ? "" : " for \(pool.forUser)") — $\(Int(pool.targetAmount)) target. 🎁")
             ) {
                 HStack(spacing: 8) {
                     Image(systemName: "person.2.fill")
-                    Text("Invite friends to chip in")
+                    Text("Share pool invite")
                 }
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(.white)
@@ -151,6 +157,18 @@ struct CreatePoolFromCaptureView: View {
                 .padding(.vertical, 14)
                 .background(Color.coral)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+
+            Button {
+                poolForFriendInvite = pool
+            } label: {
+                Label("Invite a friend in chat", systemImage: "message.fill")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Color.coral)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.coral.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
             }
 
             Button {
@@ -162,6 +180,12 @@ struct CreatePoolFromCaptureView: View {
             }
         }
         .padding(.top, 6)
+        .sheet(item: $poolForFriendInvite) { pool in
+            PoolInviteFriendsSheet(
+                pool: pool,
+                inviterName: appState.currentUser?.name ?? authManager.displayName ?? "A friend"
+            )
+        }
     }
 
     private func field(_ label: String, text: Binding<String>, placeholder: String) -> some View {

@@ -29,6 +29,9 @@ struct Post: Identifiable, Codable, Hashable {
     // product-vs-service taste split (TasteProfileStore.giftTypeAffinity).
     var giftType: String?
     var serviceDuration: String?
+    var contentType: String?
+    var mediaUrl: String?
+    var posterUrl: String?
 
     var isService: Bool { giftType == "service" }
 
@@ -41,6 +44,7 @@ struct Post: Identifiable, Codable, Hashable {
         case comments, commentCount, source, url, productUrl, rec, reason
         case recipient, occasion, category, domain, qualityScore, feedEligible
         case giftType, serviceDuration
+        case contentType, mediaUrl, posterUrl
     }
 
     init(
@@ -66,7 +70,10 @@ struct Post: Identifiable, Codable, Hashable {
         qualityScore: Double? = nil,
         feedEligible: Bool? = nil,
         giftType: String? = nil,
-        serviceDuration: String? = nil
+        serviceDuration: String? = nil,
+        contentType: String? = nil,
+        mediaUrl: String? = nil,
+        posterUrl: String? = nil
     ) {
         self.id = id
         self.user = user
@@ -91,6 +98,9 @@ struct Post: Identifiable, Codable, Hashable {
         self.feedEligible = feedEligible
         self.giftType = giftType
         self.serviceDuration = serviceDuration
+        self.contentType = contentType
+        self.mediaUrl = mediaUrl
+        self.posterUrl = posterUrl
     }
 }
 

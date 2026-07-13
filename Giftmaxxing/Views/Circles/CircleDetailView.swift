@@ -7,12 +7,22 @@ import SwiftUI
 struct CircleDetailView: View {
     let circleId: String
 
+    @EnvironmentObject private var authManager: AuthManager
+    @EnvironmentObject private var appState: AppState
     @ObservedObject private var store = CircleStore.shared
+    @ObservedObject private var friendsStore = FriendsStore.shared
     @State private var data: CircleDataResponse?
     @State private var isLoading = false
     @State private var loadFailed = false
     @State private var showAddOccasion = false
     @State private var showAddBirthday = false
+    @State private var claimBusy = false
+    @State private var claimed = false
+    @State private var openDmThreadId: String?
+    @State private var showDm = false
+    @State private var memberStatuses: [String: String] = [:]
+    @State private var challengeName: String?
+    @State private var showChallenge = false
 
     private var myCircle: MyCircle? {
         store.circles.first { $0.circleId == circleId }
@@ -69,6 +79,19 @@ struct CircleDetailView: View {
         .sheet(isPresented: $showAddBirthday, onDismiss: { Task { await refresh() } }) {
             AddBirthdaySheet(circleId: circleId, prefillName: myCircle?.joinedAs)
         }
+        .navigationDestination(isPresented: $showDm) {
+            if let openDmThreadId {
+                FriendDmThreadView(threadId: openDmThreadId)
+                    .environmentObject(authManager)
+                    .environmentObject(appState)
+            }
+        }
+        .sheet(isPresented: $showChallenge) {
+            NavigationStack {
+                ChallengeView(showsClose: true, prefillTheirName: challengeName ?? "")
+            }
+            .environmentObject(appState)
+        }
         .onAppear {
             AnalyticsEngine.shared.trackScreenView(screen: "circle_detail")
         }
@@ -99,7 +122,7 @@ struct CircleDetailView: View {
                 if let url = CircleStore.shareURL(circleId: circleId) {
                     ShareLink(
                         item: url,
-                        message: Text("Join our \"\(data.circle.name)\" gift circle — add your birthday so nobody misses it �")
+                        message: Text("Join our \"\(data.circle.name)\" gift circle — add your birthday so nobody misses it 🎁")
                     ) {
                         HStack {
                             Spacer()
@@ -126,8 +149,57 @@ struct CircleDetailView: View {
                             .clipShape(Capsule())
                     }
                 }
+                if let joinedAs = myCircle?.joinedAs,
+                   let userId = authManager.userId,
+                   !mySeatLinked(userId: userId),
+                   !claimed {
+                    Button {
+                        Task { await claimSeat(joinedAs: joinedAs, userId: userId) }
+                    } label: {
+                        Text(claimBusy ? "Linking…" : "Link my account")
+                            .font(.labelBold)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 13)
+                            .background(Color.ink)
+                            .foregroundStyle(.white)
+                            .clipShape(Capsule())
+                    }
+                    .disabled(claimBusy)
+                }
             }
         }
+    }
+
+    private func mySeatLinked(userId: String) -> Bool {
+        let members = data?.members ?? []
+        if members.contains(where: { $0.linkedUserId == userId }) { return true }
+        if let joinedAs = myCircle?.joinedAs,
+           friendsStore.localClaim(circleId: circleId, memberName: joinedAs) == userId {
+            return true
+        }
+        return false
+    }
+
+    private func claimSeat(joinedAs: String, userId: String) async {
+        claimBusy = true
+        defer { claimBusy = false }
+        let ok = await friendsStore.claimCircleSeat(
+            circleId: circleId,
+            userId: userId,
+            memberName: joinedAs
+        )
+        if ok {
+            claimed = true
+            await refresh()
+        }
+    }
+
+    // ── Moments (placeholder to keep structure; existing momentsSection below) ─
+    // (momentsSection / membersSection continue below)
+
+    private func linkedUserId(for member: CircleDataResponse.CircleMember) -> String? {
+        if let id = member.linkedUserId { return id }
+        return friendsStore.localClaim(circleId: circleId, memberName: member.name)
     }
 
     @ViewBuilder
@@ -223,42 +295,134 @@ struct CircleDetailView: View {
             VStack(spacing: 0) {
                 ForEach(Array((data.members ?? []).enumerated()), id: \.element.id) { index, member in
                     if index > 0 { Divider().padding(.leading, 56) }
-                    HStack(spacing: 12) {
-                        AvatarView(name: member.name, grad: Self.gradFor(member.name), size: 36)
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 4) {
-                                Text(member.name)
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(Color.ink)
-                                if let you = myCircle?.joinedAs,
-                                   member.name.lowercased() == you.lowercased() {
-                                    Text("(you)")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(.tertiary)
-                                }
-                            }
-                            Text(birthdayLabel(member))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        if member.role == "creator" {
-                            Text("started it")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(Color.cream)
-                                .clipShape(Capsule())
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
+                    memberRow(member)
                 }
             }
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 14))
+            .task { await refreshMemberStatuses(data.members ?? []) }
         }
+    }
+
+    @ViewBuilder
+    private func memberRow(_ member: CircleDataResponse.CircleMember) -> some View {
+        let isMe = myCircle?.joinedAs.map { $0.lowercased() == member.name.lowercased() } == true
+        let linkedId = linkedUserId(for: member)
+        let canConnect = authManager.userId != nil
+            && linkedId != nil
+            && linkedId != authManager.userId
+            && !isMe
+
+        HStack(alignment: .top, spacing: 12) {
+            AvatarView(name: member.name, grad: Self.gradFor(member.name), size: 36)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 4) {
+                    Text(member.name)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.ink)
+                    if isMe {
+                        Text("(you)")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                Text(birthdayLabel(member) + (linkedId != nil ? " · on Giftmaxxing" : ""))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if canConnect, let linkedId, let myId = authManager.userId {
+                    let status = memberStatuses[linkedId] ?? "none"
+                    HStack(spacing: 6) {
+                        if status == "accepted" {
+                            Button("Message") {
+                                Task {
+                                    if let tid = await friendsStore.openDm(userId: myId, otherUserId: linkedId) {
+                                        openDmThreadId = tid
+                                        showDm = true
+                                    }
+                                }
+                            }
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Color.ink)
+                            .clipShape(Capsule())
+
+                            Button("Challenge") {
+                                challengeName = member.linkedName ?? member.name
+                                showChallenge = true
+                            }
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Color.coral)
+                            .clipShape(Capsule())
+                        } else if status == "pending" {
+                            Text("Request sent")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        } else if status == "incoming" {
+                            Button("Accept") {
+                                Task {
+                                    await friendsStore.acceptFriend(userId: myId, fromUserId: linkedId)
+                                    await refreshMemberStatuses(data?.members ?? [])
+                                }
+                            }
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Color.coral)
+                            .clipShape(Capsule())
+                        } else {
+                            Button("Add friend") {
+                                Task {
+                                    await friendsStore.requestFriend(
+                                        fromUserId: myId,
+                                        toUserId: linkedId,
+                                        circleId: circleId,
+                                        toName: member.linkedName ?? member.name,
+                                        toHandle: member.linkedHandle
+                                    )
+                                    await refreshMemberStatuses(data?.members ?? [])
+                                }
+                            }
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Color.coral)
+                            .clipShape(Capsule())
+                        }
+                    }
+                    .padding(.top, 2)
+                }
+            }
+            Spacer()
+            if member.role == "creator" {
+                Text("started it")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.cream)
+                    .clipShape(Capsule())
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+
+    private func refreshMemberStatuses(_ members: [CircleDataResponse.CircleMember]) async {
+        guard let myId = authManager.userId else { return }
+        var next: [String: String] = [:]
+        for member in members {
+            guard let linked = linkedUserId(for: member), linked != myId else { continue }
+            next[linked] = await friendsStore.status(userId: myId, otherId: linked)
+        }
+        memberStatuses = next
     }
 
     // Same trick as the web page's gradFor(): hash the name onto the avatar
@@ -565,7 +729,7 @@ private struct JoinCard: View {
             Text("Add yourself to the circle")
                 .font(.system(size: 17, weight: .heavy, design: .rounded))
                 .foregroundStyle(Color.ink)
-            Text("Your name and birthday — that's it. No account needed.")
+            Text("Your name and birthday — that's it. If you're signed in, we'll link your account so circle mates can friend and gift you.")
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
 
@@ -617,11 +781,13 @@ private struct JoinCard: View {
         isJoining = true
         defer { isJoining = false }
         let trimmed = name.trimmingCharacters(in: .whitespaces)
+        let userId = AuthManager.shared.userId
         do {
             _ = try await APIClient.shared.joinCircle(
                 circleId: circleId,
                 name: trimmed,
-                birthday: includeBirthday ? FlexibleDate.ymdString(from: birthday) : nil
+                birthday: includeBirthday ? FlexibleDate.ymdString(from: birthday) : nil,
+                userId: userId
             )
             CircleStore.shared.remember(
                 circleId: circleId,
@@ -629,6 +795,13 @@ private struct JoinCard: View {
                 emoji: circle.emoji,
                 joinedAs: trimmed
             )
+            if let userId {
+                _ = await FriendsStore.shared.claimCircleSeat(
+                    circleId: circleId,
+                    userId: userId,
+                    memberName: trimmed
+                )
+            }
             AnalyticsEngine.shared.trackScreenView(screen: "circle_joined")
             onJoined()
         } catch {
@@ -795,11 +968,13 @@ struct AddBirthdaySheet: View {
         isSaving = true
         defer { isSaving = false }
         let trimmed = name.trimmingCharacters(in: .whitespaces)
+        let userId = AuthManager.shared.userId
         do {
             _ = try await APIClient.shared.joinCircle(
                 circleId: circleId,
                 name: trimmed,
-                birthday: FlexibleDate.ymdString(from: birthday)
+                birthday: FlexibleDate.ymdString(from: birthday),
+                userId: userId
             )
             CircleStore.shared.remember(
                 circleId: circleId,
@@ -807,6 +982,13 @@ struct AddBirthdaySheet: View {
                 emoji: CircleStore.shared.circles.first { $0.circleId == circleId }?.emoji,
                 joinedAs: trimmed
             )
+            if let userId {
+                _ = await FriendsStore.shared.claimCircleSeat(
+                    circleId: circleId,
+                    userId: userId,
+                    memberName: trimmed
+                )
+            }
             dismiss()
         } catch {
             errorMessage = "Couldn't save — try again in a moment."

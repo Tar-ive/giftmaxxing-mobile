@@ -32,17 +32,13 @@ final class SearchTabsViewModel: ObservableObject {
     @Published var regionRects: [CGRect] = []   // normalized, top-left origin
     @Published var selectedRegion: Int?          // nil = whole image
 
-    private let api = APIClient.shared
+    // People — live /people directory (falls back to demo SocialUsers).
+    @Published var people: [PublicPerson] = []
+    @Published var friendStatus: [String: String] = [:] // userId → none|pending|accepted|incoming
+    @Published var peopleBusyId: String?
 
-    // People — web filters USERS by name/handle.
-    var people: [(id: String, name: String, grad: GradientStyle)] {
-        let t = query.trimmingCharacters(in: .whitespaces).lowercased()
-        return SocialUsers.all
-            .filter { $0.key != "you" }
-            .map { (id: $0.key, name: $0.value.name, grad: $0.value.grad) }
-            .filter { t.isEmpty || $0.name.lowercased().contains(t) || $0.id.contains(t) }
-            .sorted { $0.name < $1.name }
-    }
+    private let api = APIClient.shared
+    private let friendsStore = FriendsStore.shared
 
     // Products — web matches title/category/enriched brand.
     var products: [Post] {
@@ -78,6 +74,30 @@ final class SearchTabsViewModel: ObservableObject {
             catalog = page.posts
         }
         isLoadingCatalog = false
+    }
+
+    func loadPeople(userId: String?) async {
+        await friendsStore.refresh(userId: userId, query: query)
+        people = friendsStore.discover
+        var statuses: [String: String] = [:]
+        if let userId {
+            for person in people {
+                statuses[person.userId] = await friendsStore.status(userId: userId, otherId: person.userId)
+            }
+        }
+        friendStatus = statuses
+    }
+
+    func addFriend(person: PublicPerson, fromUserId: String) async {
+        peopleBusyId = person.userId
+        await friendsStore.requestFriend(
+            fromUserId: fromUserId,
+            toUserId: person.userId,
+            toName: person.name,
+            toHandle: person.handle
+        )
+        friendStatus[person.userId] = await friendsStore.status(userId: fromUserId, otherId: person.userId)
+        peopleBusyId = nil
     }
 
     // Generation token: "Clear photo" (or a newer search) invalidates any
@@ -222,6 +242,7 @@ final class SearchTabsViewModel: ObservableObject {
 
 struct SearchTabsView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var authManager: AuthManager
     @StateObject private var viewModel = SearchTabsViewModel()
     @State private var selectedPost: Post?
     @State private var photoItem: PhotosPickerItem?
@@ -230,6 +251,8 @@ struct SearchTabsView: View {
     @State private var showChallengeSheet = false
     @State private var showGroupGiftSheet = false
     @State private var showLibrary = false
+    @State private var openDmThreadId: String?
+    @State private var showDm = false
 
     var body: some View {
         NavigationStack {
@@ -332,6 +355,22 @@ struct SearchTabsView: View {
             .task {
                 AnalyticsEngine.shared.trackScreenView(screen: "search")
                 await viewModel.loadCatalog()
+                await viewModel.loadPeople(userId: authManager.userId)
+            }
+            .onChange(of: viewModel.query) { _, _ in
+                guard viewModel.tab == .people else { return }
+                Task { await viewModel.loadPeople(userId: authManager.userId) }
+            }
+            .onChange(of: viewModel.tab) { _, tab in
+                if tab == .people {
+                    Task { await viewModel.loadPeople(userId: authManager.userId) }
+                }
+            }
+            .navigationDestination(isPresented: $showDm) {
+                if let openDmThreadId {
+                    FriendDmThreadView(threadId: openDmThreadId)
+                        .environmentObject(authManager)
+                }
             }
             .onAppear {
                 if let pending = appState.pendingSearchTab {
@@ -393,36 +432,89 @@ struct SearchTabsView: View {
 
     private var peopleList: some View {
         LazyVStack(spacing: 0) {
-            if viewModel.people.isEmpty {
-                emptyNote("No people match \"\(viewModel.query)\".")
+            HStack {
+                Text(viewModel.query.isEmpty ? "Discover people" : "Results")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                NavigationLink {
+                    FriendsView()
+                        .environmentObject(authManager)
+                        .environmentObject(appState)
+                } label: {
+                    Text("Friends hub →")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.coral)
+                }
             }
-            ForEach(viewModel.people, id: \.id) { person in
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+
+            if viewModel.people.isEmpty {
+                emptyNote("No people found.")
+            }
+            ForEach(viewModel.people) { person in
                 HStack(spacing: 12) {
-                    AvatarView(name: person.name, grad: person.grad, size: 44)
+                    AvatarView(name: person.name, grad: SocialUsers.grad(for: person.userId), size: 44)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(person.name)
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(Color.ink)
-                        Text("@\(person.id)")
+                        Text("@\(person.handle)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                        if let interests = person.interests, !interests.isEmpty {
+                            Text(interests.prefix(3).joined(separator: " · "))
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
                     }
                     Spacer()
-                    NavigationLink {
-                        ChallengeView()
-                    } label: {
-                        Text("Challenge")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(Color.coral)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Color.coralSoft)
-                            .clipShape(Capsule())
-                    }
+                    peopleAction(for: person)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func peopleAction(for person: PublicPerson) -> some View {
+        let status = viewModel.friendStatus[person.userId] ?? "none"
+        switch status {
+        case "accepted":
+            Button("Message") {
+                Task {
+                    guard let uid = authManager.userId else { return }
+                    if let tid = await FriendsStore.shared.openDm(userId: uid, otherUserId: person.userId) {
+                        openDmThreadId = tid
+                        showDm = true
+                    }
+                }
+            }
+            .font(.system(size: 12, weight: .bold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.ink)
+            .clipShape(Capsule())
+        case "pending", "incoming":
+            Text(status == "incoming" ? "Respond" : "Requested")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
+        default:
+            Button("Add friend") {
+                guard let uid = authManager.userId else { return }
+                Task { await viewModel.addFriend(person: person, fromUserId: uid) }
+            }
+            .font(.system(size: 12, weight: .bold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.coral)
+            .clipShape(Capsule())
+            .disabled(viewModel.peopleBusyId == person.userId || authManager.userId == nil)
         }
     }
 
