@@ -1,6 +1,7 @@
 // Support page — the App Store Connect "Support URL" (Guideline 1.5) must point
-// to a functional page where users can find help and contact us. Static RSC,
-// same conventions as app/privacy/page.tsx.
+// to a functional page where users can find help and contact us. Canonical URL:
+// https://giftmaxxing-web.vercel.app/support. Static RSC, same conventions as
+// app/privacy/page.tsx.
 import Link from "next/link";
 
 export const metadata = {

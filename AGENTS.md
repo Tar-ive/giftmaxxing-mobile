@@ -7,6 +7,17 @@ the `web/app/privacy/page.tsx` guard that CI enforces).
 
 ## Cursor Cloud specific instructions
 
+### Do NOT auto-merge into `main`
+- **Never merge a PR into `main` unless the user explicitly asks to merge that
+  specific PR** (e.g. “merge #50” / “merge this”). Creating or updating a PR is
+  fine; merging is not.
+- Open PRs as **drafts** by default (`draft: true`). Mark ready for review only
+  when the user asks.
+- Do not enable GitHub auto-merge (`gh pr merge --auto`, `autoMergeRequest`,
+  etc.). Repo `allow_auto_merge` should stay off.
+- If an automation / other agent is merging without an explicit user request,
+  stop and leave the PR open for human review instead.
+
 ### Layout & what runs where
 - `web/` — Next.js 16 app (the primary locally-runnable product). Node 22, npm
   (has `web/package-lock.json`). This is what a developer runs and tests locally.

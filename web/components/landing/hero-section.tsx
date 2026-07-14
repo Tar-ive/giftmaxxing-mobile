@@ -183,12 +183,12 @@ export function HeroSection() {
         >
           <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground">
             <span className="w-8 h-px bg-foreground/30" />
-            Social gifting, powered by Maxi
+            Social gifting, powered by Maxi · iOS launching soon
           </span>
         </div>
         
         {/* Main headline */}
-        <div className="mb-12">
+        <div className="mb-6">
           <h1 
             className={`text-left text-[clamp(2rem,6vw,7rem)] font-display leading-[0.92] tracking-tight text-foreground transition-all duration-1000 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
@@ -203,6 +203,14 @@ export function HeroSection() {
             </span>
           </h1>
         </div>
+
+        <p
+          className={`mb-12 max-w-md text-base sm:text-lg text-muted-foreground leading-relaxed transition-all duration-700 delay-150 ${
+            isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+          }`}
+        >
+          Try Giftmaxxing on the web today — our iOS app is launching soon on the App Store.
+        </p>
 
         {/* Dual CTA */}
         <div
