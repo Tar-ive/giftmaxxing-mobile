@@ -45,6 +45,8 @@ struct ChallengeView: View {
     @State private var isCreating = false
     @State private var serverUnavailable = false
     @State private var postedChallengeIdToDm: String?
+    // In-app delivery: pick a friend, the invite lands in your DM thread.
+    @State private var showFriendPicker = false
 
     private static let occasions: [(id: String, label: String, emoji: String)] = [
         ("birthday", "Birthday", "🎂"),
@@ -276,6 +278,26 @@ struct ChallengeView: View {
                     }
                     .disabled(isCreating)
                 } else if let url = inviteURL {
+                    // Two ways out: a friend IN the app gets it as a DM (they
+                    // swipe natively, never leaving the app); anyone else gets
+                    // the share sheet with the browser link.
+                    Button {
+                        showFriendPicker = true
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "person.crop.circle.badge.checkmark")
+                            Text("Send to a friend in the app")
+                                .font(.labelBold)
+                            Spacer()
+                        }
+                        .padding(.vertical, 15)
+                        .background(Color.coral)
+                        .foregroundStyle(.white)
+                        .clipShape(Capsule())
+                    }
+                    .disabled(!authManager.isAuthenticated)
+
                     ShareLink(
                         item: url,
                         subject: Text("Giftmaxxing challenge"),
@@ -284,13 +306,13 @@ struct ChallengeView: View {
                         HStack {
                             Spacer()
                             Image(systemName: "paperplane.fill")
-                            Text("Share the challenge")
+                            Text("Share outside the app")
                                 .font(.labelBold)
                             Spacer()
                         }
                         .padding(.vertical, 15)
-                        .background(Color.coral)
-                        .foregroundStyle(.white)
+                        .background(Color.coralSoft)
+                        .foregroundStyle(Color.coral)
                         .clipShape(Capsule())
                     }
                 }
@@ -357,6 +379,14 @@ struct ChallengeView: View {
         }
         .onChange(of: authManager.displayName) { _, name in
             if yourName.isEmpty { yourName = name ?? "" }
+        }
+        .sheet(isPresented: $showFriendPicker) {
+            if let url = inviteURL {
+                FriendPickerSheet(
+                    messageText: "I made you a gift challenge — swipe a few finds so I can get your gift right 🎁\n\(url.absoluteString)"
+                )
+                .environmentObject(authManager)
+            }
         }
         .onDisappear { appState.unsuppressMaxiFAB() }
     }

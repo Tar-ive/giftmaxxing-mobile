@@ -158,7 +158,9 @@ struct FeedView: View {
                 }
                 .background(Color.surface)
                 .refreshable {
-                    await viewModel.loadFeed(context: modelContext)
+                    // Pull-to-refresh = a genuinely fresh page (CDN bust +
+                    // new server random-seek), not a replay of the cache.
+                    await viewModel.loadFeed(context: modelContext, forceFresh: true)
                 }
                 .toolbar(.hidden, for: .navigationBar)
                 .overlay(alignment: .top) {

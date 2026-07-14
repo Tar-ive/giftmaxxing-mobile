@@ -41,12 +41,6 @@ struct ContentView: View {
                     }
                     .tag(Tab.swipe)
 
-                DiscoverView()
-                    .tabItem {
-                        Label(Tab.discover.rawValue, systemImage: Tab.discover.icon)
-                    }
-                    .tag(Tab.discover)
-
                 CirclesView()
                     .tabItem {
                         Label(Tab.circles.rawValue, systemImage: Tab.circles.icon)
@@ -160,8 +154,13 @@ struct ContentView: View {
                 to: newTab.rawValue
             )
         }
-        .onChange(of: scenePhase) { _, phase in
+        .onChange(of: scenePhase) { oldPhase, phase in
             if phase == .active {
+                // Reopening the app always lands on Home — the feed is the
+                // front door, whatever tab was left open last session.
+                if oldPhase == .background {
+                    appState.selectedTab = .feed
+                }
                 drainCaptureInbox()
             }
         }
@@ -170,6 +169,10 @@ struct ContentView: View {
             PersonalizationStore.migrateLegacyFlagIfNeeded()
         }
         .onChange(of: authManager.userId) { _, newUserId in
+            // A fresh sign-in lands on Home, not wherever sign-in happened.
+            if newUserId != nil {
+                appState.selectedTab = .feed
+            }
             guard !showSplash else { return }
             Task { await resolveAppGate(userId: newUserId) }
         }
@@ -178,8 +181,21 @@ struct ContentView: View {
                 appState.openCircle(circleId)
                 return
             }
+            // Challenge invites open the NATIVE deck — app users never bounce
+            // to the web guest page.
+            if let challengeId = InviteLink.challengeId(fromURL: url) {
+                appState.pendingChallengeId = challengeId
+                return
+            }
             guard url.scheme == "giftmaxxing" else { return }
             drainCaptureInbox()
+        }
+        .sheet(item: Binding(
+            get: { appState.pendingChallengeId.map(ChallengeRef.init) },
+            set: { appState.pendingChallengeId = $0?.id }
+        )) { ref in
+            ChallengeSwipeView(challengeId: ref.id)
+                .environmentObject(authManager)
         }
     }
 

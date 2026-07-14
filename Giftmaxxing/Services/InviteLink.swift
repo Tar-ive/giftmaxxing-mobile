@@ -88,4 +88,31 @@ enum InviteLink {
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")
     }
+
+    // ── In-app opening (the reverse direction) ────────────────────────────
+    // App users who receive an invite shouldn't be bounced to the browser:
+    // decode the payload back out of a shared link so the native swipe deck
+    // (ChallengeSwipeView) can open right here.
+
+    static func decodePayload(fromURL url: URL) -> InvitePayload? {
+        let components = url.pathComponents
+        guard let inviteIndex = components.firstIndex(of: "invite"),
+              components.count > inviteIndex + 1 else { return nil }
+        var code = components[inviteIndex + 1]
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        while code.count % 4 != 0 { code += "=" }
+        guard let data = Data(base64Encoded: code) else { return nil }
+        return try? JSONDecoder().decode(InvitePayload.self, from: data)
+    }
+
+    // A server-side challenge id from any invite-shaped URL:
+    // giftmaxxing://challenge/<id> or <site>/invite/<base64url payload>.
+    static func challengeId(fromURL url: URL) -> String? {
+        if url.scheme == "giftmaxxing", url.host == "challenge" {
+            let id = url.pathComponents.last(where: { $0 != "/" })
+            return (id?.isEmpty ?? true) ? nil : id
+        }
+        return decodePayload(fromURL: url)?.challengeId
+    }
 }

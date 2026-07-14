@@ -35,6 +35,10 @@ final class AppState: ObservableObject {
     // sheet at root (works from any tab).
     @Published var showBirthdayPerks = false
 
+    // A challenge invite opened IN the app (deep link or tapped DM invite) —
+    // ContentView presents the native swipe deck instead of bouncing to web.
+    @Published var pendingChallengeId: String?
+
     // Maxi (the AI concierge) is a floating button over every tab — not a tab
     // of its own. ContentView presents MaxiView as a sheet when this is set.
     @Published var showMaxi = false
@@ -118,20 +122,19 @@ struct AppUser: Identifiable, Codable {
 
 // The tab bar IS the product statement (HIG: 3–5 tabs, every core journey
 // visible — nothing important behind a "More" screen):
-//   Home      — the personalized feed
+//   Home      — the personalized feed (always the landing tab: cold launch,
+//               return from background, and sign-in all reset here)
 //   Swipe     — taste training + Gift Boards (feeds personalization)
-//   Discover  — Intentional Discover: a finite, slower shelf ranked by
-//               meaningfulness, not volume (Shop moved to the You tab)
 //   Circles   — your people + their dates: circles, events & reminders,
 //               collaborative boards, pools, swipe challenges
-//   You       — the public gifting profile + settings
+//   You       — the public gifting profile + settings (Shop and Intentional
+//               Discover live here as rows, not tabs)
 // Maxi (the AI concierge) is NOT a tab and no longer a floating button — its
 // nudges arrive through the Gift Journey (GiftJourneyEngine) and the Home
 // search bar's mic still opens the full conversation.
 enum Tab: String, CaseIterable {
     case feed = "Home"
     case swipe = "Swipe"
-    case discover = "Discover"
     case circles = "Circles"
     case you = "You"
 
@@ -139,7 +142,6 @@ enum Tab: String, CaseIterable {
         switch self {
         case .feed: return "house.fill"
         case .swipe: return "rectangle.portrait.on.rectangle.portrait.angled.fill"
-        case .discover: return "leaf.fill"
         case .circles: return "person.2.fill"
         case .you: return "person.crop.circle"
         }

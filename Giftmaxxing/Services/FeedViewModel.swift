@@ -20,6 +20,8 @@ final class FeedViewModel: ObservableObject {
 
     private var cursor: String?
     private var exhausted = false
+    // Unique per pull-to-refresh; nil for normal (CDN-cacheable) loads.
+    private var cacheBuster: String?
     private let api = APIClient.shared
 
     // Ranked-but-not-yet-shown candidates (output of the on-device ranker).
@@ -37,7 +39,9 @@ final class FeedViewModel: ObservableObject {
 
     // MARK: - Loading
 
-    func loadFeed(context: ModelContext? = nil) async {
+    // forceFresh = pull-to-refresh: bust the CDN cache so the server deals a
+    // brand-new random window instead of replaying the cached page.
+    func loadFeed(context: ModelContext? = nil, forceFresh: Bool = false) async {
         guard !isLoading else { return }
         isLoading = true
         error = nil
@@ -45,6 +49,7 @@ final class FeedViewModel: ObservableObject {
         exhausted = false
         rankedBuffer = []
         servedIds = []
+        cacheBuster = forceFresh ? String(Int(Date().timeIntervalSince1970 * 1000)) : nil
 
         // Instant paint from the SwiftData cache while network + ranking run.
         if let context, posts.isEmpty {
@@ -108,7 +113,10 @@ final class FeedViewModel: ObservableObject {
             limit: networkPageSize,
             vibes: consultVibes.isEmpty ? nil : consultVibes,
             recipient: PersonalizationStore.feedRecipient,
-            userId: userId
+            userId: userId,
+            // Only the FIRST page of a refresh busts the cache; cursor pages
+            // are already unique URLs.
+            cacheBuster: cursor == nil ? cacheBuster : nil
         )
         cursor = page.cursor
         if page.cursor == nil || page.posts.isEmpty { exhausted = true }
