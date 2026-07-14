@@ -155,11 +155,14 @@ resource "aws_apprunner_service" "api" {
   }
 
   instance_configuration {
-    # Downsized from 1 vCPU / 2 GB. App Runner serves only the (low-traffic)
-    # website; the mobile app uses the Lambda HTTP API. Observed load is <1% CPU
-    # and ~2.5% of 2 GB, so the smallest valid combo (0.25 vCPU / 0.5 GB) is
-    # ample and cuts the always-on provisioned cost ~4x. min_size stays 1
-    # (App Runner's floor) so there's still no cold start.
+    # Downsized from 1 vCPU / 2 GB (PR #34) for cost. NOTE: production mobile +
+    # web BOTH reach this service via CloudFront (d21osnvwewgoao.cloudfront.net)
+    # — NOT the legacy API Gateway → Lambda path. The older "website only /
+    # mobile uses Lambda" claim was wrong; see
+    # docs/api-concurrency-investigation-2026-07-13.md. Size/concurrency changes
+    # need a team decision (do not silently re-tune). Observed util after the
+    # downsize is still low avg CPU/mem, but RequestLatency tails can hit 1–2s.
+    # min_size stays 1 (App Runner's floor) so there's still no cold start.
     cpu               = "256" # 0.25 vCPU
     memory            = "512" # 0.5 GB
     instance_role_arn = aws_iam_role.apprunner_instance.arn
