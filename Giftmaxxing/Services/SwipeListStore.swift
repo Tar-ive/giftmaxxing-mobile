@@ -175,6 +175,26 @@ final class SwipeListStore: ObservableObject {
         }
     }
 
+    // Bulk add (pasted links) — insert only the ones not already in the board,
+    // recording the same gift-mode taste signal a single tap would.
+    func add(_ posts: [Post], to listId: String) {
+        guard let idx = lists.firstIndex(where: { $0.id == listId }) else { return }
+        var added = false
+        for post in posts where !lists[idx].posts.contains(where: { $0.id == post.id }) {
+            let wasAnywhere = contains(post)
+            lists[idx].posts.insert(post, at: 0)
+            added = true
+            if GiftStory.isSmallBusiness(post) {
+                ThoughtfulnessStore.shared.award(.smallBusinessSave, dedupeKey: post.id)
+            }
+            if !wasAnywhere { recordTasteEvent(for: post, removed: false) }
+        }
+        if added {
+            persist()
+            AnalyticsEngine.shared.trackScreenView(screen: "swipe_list_add_bulk")
+        }
+    }
+
     func remove(id postId: String, from listId: String) {
         guard let idx = lists.firstIndex(where: { $0.id == listId }) else { return }
         guard let post = lists[idx].posts.first(where: { $0.id == postId }) else { return }

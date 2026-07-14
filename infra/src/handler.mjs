@@ -40,6 +40,7 @@ const POOLS = process.env.POOLS_TABLE;
 const EVENTS = process.env.EVENTS_TABLE;
 const GRAPH = process.env.GRAPH_TABLE;
 const CONFIG = process.env.CONFIG_TABLE;
+const FRIENDS = process.env.FRIENDS_TABLE;
 
 // ── byFeed GSI sharding (Phase 4b) ───────────────────────────────────────────
 // The global feed rides one GSI partition key (feedPk="all"). Past a few thousand
@@ -2243,6 +2244,68 @@ function msgFromItem(it) {
   };
 }
 
+// ── Account deletion (App Store 5.1.1(v)) ────────────────────────────────────
+// Query every row on one partition key and batch-delete it (25 at a time,
+// paginated). Each table hands us the attribute names that make up its key so
+// we can rebuild the exact Key for the delete request.
+async function purgeByPartition(table, pkName, pkValue, keyAttrs) {
+  if (!table || !pkValue) return 0;
+  let deleted = 0;
+  let lastKey;
+  try {
+    do {
+      const out = await ddb.send(
+        new QueryCommand({
+          TableName: table,
+          KeyConditionExpression: "#pk = :v",
+          ExpressionAttributeNames: { "#pk": pkName },
+          ExpressionAttributeValues: { ":v": pkValue },
+          ExclusiveStartKey: lastKey,
+        })
+      );
+      const items = out.Items ?? [];
+      for (let i = 0; i < items.length; i += 25) {
+        const chunk = items.slice(i, i + 25);
+        const requests = chunk.map((it) => {
+          const Key = {};
+          for (const attr of keyAttrs) Key[attr] = it[attr];
+          return { DeleteRequest: { Key } };
+        });
+        if (requests.length) {
+          await ddb.send(new BatchWriteCommand({ RequestItems: { [table]: requests } }));
+          deleted += requests.length;
+        }
+      }
+      lastKey = out.LastEvaluatedKey;
+    } while (lastKey);
+  } catch (e) {
+    console.warn(`purge ${table} failed:`, e.message);
+  }
+  return deleted;
+}
+
+// Irreversibly delete everything we hold for a user: their profile, every
+// interaction, the soft profiles (connections) they own, their events, their
+// graph rows, and their friend edges. Each table is keyed by the user id (or,
+// for GRAPH/FRIENDS, `pk`), so a per-partition query + batch delete clears them.
+async function purgeAccount(userId) {
+  const summary = { profile: 0, interactions: 0, connections: 0, events: 0, graph: 0, friends: 0 };
+  if (USERS) {
+    try {
+      await ddb.send(new DeleteCommand({ TableName: USERS, Key: { userId } }));
+      summary.profile = 1;
+    } catch (e) {
+      console.warn("purge USERS failed:", e.message);
+    }
+  }
+  summary.interactions = await purgeByPartition(INTERACTIONS, "userId", userId, ["userId", "targetId"]);
+  summary.connections = await purgeByPartition(CONNECTIONS, "userId", userId, ["userId", "connectionId"]);
+  summary.events = await purgeByPartition(EVENTS, "userId", userId, ["userId", "eventId"]);
+  summary.graph = await purgeByPartition(GRAPH, "pk", userId, ["pk", "sk"]);
+  summary.friends = await purgeByPartition(FRIENDS, "pk", userId, ["pk", "sk"]);
+  return summary;
+}
+
 export const handler = async (event) => {
   const method = event.requestContext?.http?.method ?? "GET";
   const path = event.requestContext?.http?.path ?? "/";
@@ -2938,6 +3001,18 @@ export const handler = async (event) => {
       // Fan out into the events table + network graph so nothing is missed.
       await captureProfile(userId, profile);
       return json(200, { ok: true, item });
+    }
+
+    // DELETE /account?userId=   (or body { userId })  — App Store 5.1.1(v).
+    // A signed-in user permanently deletes their account and all the data we
+    // hold for them. Irreversible, self-service (no support ticket). Auth-gated
+    // like GET/PUT /me: a valid session/provider token must be present, and we
+    // delete exactly the userId the caller owns.
+    if (method === "DELETE" && path === "/account") {
+      const userId = String(qs.userId || body.userId || "").trim();
+      if (!userId) return json(400, { error: "userId required" });
+      const deleted = await purgeAccount(userId);
+      return json(200, { ok: true, deleted });
     }
 
     // GET /events/upcoming?userId=&withinDays=  — events due soon, soonest-first,

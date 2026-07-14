@@ -164,6 +164,13 @@ actor APIClient {
         return response.item
     }
 
+    // DELETE /account — App Store 5.1.1(v). Permanently deletes the signed-in
+    // user's account and all server-side data (profile, interactions, soft
+    // profiles, events, graph, friend edges). Irreversible.
+    func deleteAccount(userId: String) async throws {
+        let _: EmptyResponse = try await delete("/account", params: ["userId": userId])
+    }
+
     func saveMe(userId: String, profile: UserProfile) async throws {
         let body: [String: Any] = ["userId": userId, "profile": encodeToDictionary(profile)]
         let _: EmptyResponse = try await put("/me", body: body)
@@ -597,6 +604,23 @@ actor APIClient {
 
         let (data, response) = try await session.data(for: request)
         try validateResponse(response)
+        return try decoder.decode(T.self, from: data)
+    }
+
+    private func delete<T: Decodable>(_ path: String, params: [String: String] = [:]) async throws -> T {
+        var components = URLComponents(string: baseURL + path)!
+        if !params.isEmpty {
+            components.queryItems = params.map { URLQueryItem(name: $0.key, value: $0.value) }
+        }
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        applyAuth(&request)
+
+        let (data, response) = try await session.data(for: request)
+        try validateResponse(response)
+        // Tolerate an empty body for 200/204 responses.
+        if data.isEmpty, let empty = EmptyResponse() as? T { return empty }
         return try decoder.decode(T.self, from: data)
     }
 
