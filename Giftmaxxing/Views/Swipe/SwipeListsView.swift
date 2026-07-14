@@ -8,6 +8,7 @@ struct SwipeListsHomeView: View {
     @State private var showNewList = false
     @State private var newListName = ""
     @State private var newRecipientName = ""
+    @State private var showAddByLink = false
 
     var body: some View {
         LazyVStack(spacing: 10) {
@@ -30,22 +31,43 @@ struct SwipeListsHomeView: View {
             if showNewList {
                 newListCard
             } else {
-                Button {
-                    withAnimation(.spring(response: 0.3)) { showNewList = true }
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 14, weight: .bold))
-                        Text("New Gift Board")
-                            .font(.system(size: 14, weight: .bold))
-                        Spacer()
+                HStack(spacing: 10) {
+                    Button {
+                        withAnimation(.spring(response: 0.3)) { showNewList = true }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 14, weight: .bold))
+                            Text("New board")
+                                .font(.system(size: 14, weight: .bold))
+                            Spacer()
+                        }
+                        .foregroundStyle(Color.coral)
+                        .padding(14)
+                        .background(Color.coralSoft)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
-                    .foregroundStyle(Color.coral)
-                    .padding(14)
-                    .background(Color.coralSoft)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .buttonStyle(.plain)
+
+                    // Paste any product URL → a card you can send. The fast way
+                    // to build a board from links you already found while shopping.
+                    Button {
+                        showAddByLink = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "link")
+                                .font(.system(size: 14, weight: .bold))
+                            Text("Add by link")
+                                .font(.system(size: 14, weight: .bold))
+                            Spacer()
+                        }
+                        .foregroundStyle(Color.coral)
+                        .padding(14)
+                        .background(Color.coralSoft)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
 
             ForEach(store.lists) { list in
@@ -59,6 +81,9 @@ struct SwipeListsHomeView: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
+        .sheet(isPresented: $showAddByLink) {
+            AddByLinkView()
+        }
     }
 
     private var newListCard: some View {
@@ -180,6 +205,8 @@ struct SwipeListDetailView: View {
     @State private var editingLetter = false
     // In-app delivery — pick a friend, the board lands in their DMs.
     @State private var showFriendPicker = false
+    // Paste product links straight into THIS board.
+    @State private var showAddByLink = false
     // Gift-graph traversal output: "Ideas for {name}" seeded by the board's
     // items + the recipient's own yes-swipes, filtered through relationship,
     // occasion, history, and time-to-occasion (GiftGraphRanker).
@@ -231,6 +258,9 @@ struct SwipeListDetailView: View {
         }
         .sheet(item: $selectedPost) { post in
             PostDetailView(post: post)
+        }
+        .sheet(isPresented: $showAddByLink) {
+            AddByLinkView(targetListId: listId)
         }
         .sheet(item: $editingNotePost) { post in
             NoteEditorSheet(
@@ -498,10 +528,20 @@ struct SwipeListDetailView: View {
 
     private func itemsSection(_ list: SwipeList) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("\(list.posts.count) idea\(list.posts.count == 1 ? "" : "s")")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
+            HStack {
+                Text("\(list.posts.count) idea\(list.posts.count == 1 ? "" : "s")")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                Spacer()
+                Button {
+                    showAddByLink = true
+                } label: {
+                    Label("Add by link", systemImage: "link")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.coral)
+                }
+            }
 
             ForEach(list.posts) { post in
                 itemRow(post)
