@@ -23,6 +23,9 @@ working backlog** for this initiative; keep `CLOUD.md` updated as decisions land
 
 ## Deploy rules (do not violate)
 
+- **Do not auto-merge PRs into `main`.** See `AGENTS.md` — agents open draft PRs;
+  a human (or an explicit “merge #N”) merges. `app/cursor` merges without that ask
+  are a bug, not the workflow.
 - `web/` (Next.js) deploys to **Vercel** via **GitHub** auto-deploy on push to `main`
   (NOT the Vercel CLI). Monorepo → Vercel Root Directory = `web`.
 - `infra/` (Terraform) deploys to **AWS** `us-east-1`, account `445056752928`.
