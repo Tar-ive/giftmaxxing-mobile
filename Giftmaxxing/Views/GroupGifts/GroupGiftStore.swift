@@ -63,6 +63,12 @@ final class GroupGiftStore: ObservableObject {
         return gift
     }
 
+    // Account boundary (AccountLocalState): campaigns are private.
+    func clear() {
+        gifts = []
+        UserDefaults.standard.removeObject(forKey: Self.storageKey)
+    }
+
     func markSwiped(_ id: String) {
         guard let idx = gifts.firstIndex(where: { $0.id == id }) else { return }
         gifts[idx].youSwiped = true

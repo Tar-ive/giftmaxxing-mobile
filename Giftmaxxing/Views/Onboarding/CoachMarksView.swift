@@ -24,36 +24,32 @@ struct CoachMarksView: View {
         let hint: String
     }
 
+    // The dashboard tour (onboarding step 6): where the things you just made
+    // live — your boards, your gift calendar, and the insights that grow.
     private static let steps: [Step] = [
         Step(
-            icon: "house.fill",
-            title: "Your gift feed",
-            line: "Real, buyable finds tuned to your taste — new ideas every scroll.",
-            hint: "Scroll to explore"
+            icon: "rectangle.stack.badge.plus",
+            title: "Your Gift Boards",
+            line: "The idea you just saved lives here — one board per person, with your why-notes and a gift letter. Share one and they swipe yes/no.",
+            hint: "Swipe tab → For someone"
         ),
         Step(
-            icon: "rectangle.stack.badge.plus",
-            title: "Save to Gift Boards",
-            line: "File any find onto a person's board, add a note on why it fits — then share it and they swipe yes/no.",
-            hint: "Tap “Gift board” on any card"
+            icon: "calendar",
+            title: "Your gift calendar",
+            line: "Birthdays and dates live in Circles. For each one, Maxi paces you: explore → narrow → write the letter → send.",
+            hint: "Circles tab"
+        ),
+        Step(
+            icon: "chart.line.uptrend.xyaxis",
+            title: "Your Gifting Mind",
+            line: "Your profile grows as you gift — Thoughtfulness Points, badges, and how recipients really reacted. Empty today, telling later.",
+            hint: "You tab"
         ),
         Step(
             icon: "camera.viewfinder",
             title: "Search with your camera",
             line: "Snap or screenshot anything — Maxi finds similar gifts at real stores.",
             hint: "Camera button, top of Home"
-        ),
-        Step(
-            icon: "person.2.fill",
-            title: "Gift together",
-            line: "Start a gift pool so friends can chip in, and keep every birthday on radar in Circles.",
-            hint: "Tap “Gift pool” on any card"
-        ),
-        Step(
-            icon: "sparkles",
-            title: "Meet Maxi",
-            line: "Your AI gift concierge — ask for ideas in plain words, any time.",
-            hint: "The mic in the Home search bar"
         ),
     ]
 

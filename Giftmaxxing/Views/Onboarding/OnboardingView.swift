@@ -1,14 +1,12 @@
 import SwiftUI
 
-// Onboarding IS the Gift Concierge: a new identity (guest or a freshly
-// signed-in account) meets Maxi by running its first real consult. The heavy
-// lifting lives in ConsultView (shared with the Concierge tab); this wrapper
-// only owns the "done" contract with ContentView, which marks the CURRENT
-// identity as onboarded (see PersonalizationStore.markOnboarded).
-//
-// The flow now opens with a glassmorphism intro screen (inspired by a Figma
-// community onboarding design — a glowing gift orb replaces the sun) and then
-// hands off to ConsultView's question flow.
+// Onboarding is purpose-driven, not a sign-up gauntlet: the glassmorphism
+// intro hands off to PurposeOnboardingView's six-step flow (persona →
+// contacts/birthdays → preferences → first micro-action → a real sample
+// curation with a why-note). Completing it marks the CURRENT identity as
+// onboarded (ContentView owns that contract) and queues the dashboard tour
+// (CoachMarksView). Maxi's deeper taste consult stays available any time in
+// You → Edit taste.
 struct OnboardingView: View {
     @Binding var isOnboardingComplete: Bool
 
@@ -16,13 +14,9 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            ConsultView(
-                isOnboarding: true,
-                skipIntro: true,
-                onDone: {
-                    isOnboardingComplete = true
-                }
-            )
+            PurposeOnboardingView {
+                isOnboardingComplete = true
+            }
             if showGlassmorphismIntro {
                 GlassmorphismOnboardingView {
                     withAnimation(.easeOut(duration: 0.45)) {

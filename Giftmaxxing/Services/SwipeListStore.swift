@@ -220,6 +220,14 @@ final class SwipeListStore: ObservableObject {
         }
     }
 
+    // Account boundary (AccountLocalState): boards, notes, and letters are
+    // private to whoever wrote them — wiped on sign-out / account switch.
+    func clear() {
+        lists = []
+        UserDefaults.standard.removeObject(forKey: Self.storageKey)
+        UserDefaults.standard.removeObject(forKey: Self.legacyStorageKey)
+    }
+
     private func persist() {
         if let data = try? JSONEncoder().encode(lists) {
             UserDefaults.standard.set(data, forKey: Self.storageKey)
