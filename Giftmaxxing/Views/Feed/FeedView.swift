@@ -15,6 +15,7 @@ struct FeedView: View {
     // WHOSE list this find belongs to (or make one) instead of a blind toggle.
     @State private var listPickerPost: Post?
     @State private var viewingPool: Pool?
+    @State private var selectedCollection: CuratedCollection?
     @State private var showSearch = false
     @State private var showNotifications = false
     @State private var showMessages = false
@@ -71,6 +72,12 @@ struct FeedView: View {
                     .padding(.horizontal, 14)
                     .padding(.top, 6)
                     .padding(.bottom, 8)
+
+                    // Curated gift galleries — the immersive "world of
+                    // intentional gifts" front door (browse without setup).
+                    CuratedGalleriesRail { collection in
+                        selectedCollection = collection
+                    }
 
                     // Group-gift pledge cards (Amazon-style horizontal swipe).
                     // Replaces the old circular avatar tray at the top of Home.
@@ -189,6 +196,9 @@ struct FeedView: View {
                         }
                 }
                 .navigationDestination(isPresented: $showMessages) { MessagesView() }
+                .navigationDestination(item: $selectedCollection) { collection in
+                    CollectionDetailView(collection: collection)
+                }
             }
         }
         .sheet(item: $selectedPost) { post in

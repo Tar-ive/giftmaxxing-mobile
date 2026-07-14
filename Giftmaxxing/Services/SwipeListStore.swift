@@ -52,6 +52,10 @@ final class SwipeListStore: ObservableObject {
 
     @Published private(set) var lists: [SwipeList] = []
 
+    // The signed-in account boards sync to (nil = guest / signed out, local only).
+    private var userId: String?
+    private var syncTask: Task<Void, Never>?
+
     private static let storageKey = "giftmaxxing_swipe_lists"
     private static let legacyStorageKey = "giftmaxxing_swipe_list"
 
@@ -250,14 +254,78 @@ final class SwipeListStore: ObservableObject {
     }
 
     // Account boundary (AccountLocalState): boards, notes, and letters are
-    // private to whoever wrote them — wiped on sign-out / account switch.
+    // private to whoever wrote them — wiped on sign-out / account switch. The
+    // local wipe does NOT touch the server copy (that's what lets a re-sign-in
+    // restore them).
     func clear() {
+        syncTask?.cancel()
+        userId = nil
         lists = []
         UserDefaults.standard.removeObject(forKey: Self.storageKey)
         UserDefaults.standard.removeObject(forKey: Self.legacyStorageKey)
     }
 
+    // MARK: - Server sync (per account, via the existing /me profile)
+
+    // Bind boards to an account and pull that account's saved boards. Called on
+    // sign-in / launch. Merges: the server copy is the cross-device source of
+    // truth, but any board created locally (offline / as a guest that just
+    // claimed the account) that the server doesn't have yet is kept and pushed.
+    func configure(userId: String?) {
+        self.userId = userId
+        guard userId != nil else { return }
+        Task { await hydrateFromServer() }
+    }
+
+    private func hydrateFromServer() async {
+        guard let userId else { return }
+        let profile = try? await APIClient.shared.fetchMe(userId: userId)
+        let remote = profile?.giftBoards ?? []
+        if remote.isEmpty {
+            // Server has none yet — if this device has boards, back them up.
+            if !lists.isEmpty { scheduleSync() }
+            return
+        }
+        let remoteIds = Set(remote.map(\.id))
+        var merged = remote
+        for local in lists where !remoteIds.contains(local.id) {
+            merged.insert(local, at: 0)
+        }
+        lists = merged
+        persistLocalOnly()
+        if merged.count != remote.count { scheduleSync() } // we added locals
+    }
+
+    private func scheduleSync() {
+        guard userId != nil else { return }
+        syncTask?.cancel()
+        syncTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_500_000_000) // debounce bursts
+            guard !Task.isCancelled else { return }
+            await self?.pushToServer()
+        }
+    }
+
+    private func pushToServer() async {
+        guard let userId else { return }
+        // Cap the payload so the profile item stays well under DynamoDB's 400KB.
+        let capped = lists.prefix(50).map { list -> SwipeList in
+            var l = list
+            l.posts = Array(l.posts.prefix(100))
+            return l
+        }
+        guard let data = try? JSONEncoder().encode(Array(capped)),
+              let arr = try? JSONSerialization.jsonObject(with: data) else { return }
+        try? await APIClient.shared.saveMeRaw(userId: userId, profile: ["giftBoards": arr])
+    }
+
+    // Local write + debounced server sync (every mutation goes through here).
     private func persist() {
+        persistLocalOnly()
+        scheduleSync()
+    }
+
+    private func persistLocalOnly() {
         if let data = try? JSONEncoder().encode(lists) {
             UserDefaults.standard.set(data, forKey: Self.storageKey)
         }

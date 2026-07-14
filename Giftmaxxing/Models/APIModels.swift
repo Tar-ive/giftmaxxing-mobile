@@ -242,6 +242,8 @@ struct UserProfile: Codable {
     var interests: [String]?
     var genderPref: String?
     var visibility: String?
+    // Per-account Gift Boards, synced so they survive sign-out / new devices.
+    var giftBoards: [SwipeList]?
 
     struct Recipient: Codable, Identifiable {
         var id: String

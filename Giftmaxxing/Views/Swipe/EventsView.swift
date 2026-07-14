@@ -87,35 +87,41 @@ final class EventsViewModel: ObservableObject {
         // no server round-trip needed.
         ReminderScheduler.schedule(for: event)
 
-        if let context {
-            let cached = CachedEvent(from: event, userId: AuthManager.shared.userId ?? "", synced: false)
-            context.insert(cached)
-            try? context.save()
+        guard let context else { return }
 
-            // POST /events expects { userId, event: {…} } with a YYYY-MM-DD
-            // date (a flat epoch-millis body silently stored an empty event).
-            var eventBody: [String: Any] = [
-                "eventId": event.id,
-                "title": event.title,
-                "type": event.type,
-                "date": FlexibleDate.ymdString(from: event.date),
-                "recipientName": event.recipientName,
-                "scope": "personal",
-            ]
-            if let lead = event.reminderLeadDays { eventBody["reminderLeadDays"] = lead }
-            if let budget = event.budget { eventBody["budget"] = budget }
-            if let notes = event.notes, !notes.isEmpty { eventBody["notes"] = notes }
+        // Scope the cache to WHOEVER owns this event. Signed in → their userId;
+        // signed out → this DEVICE's anon id (never the empty string, which is a
+        // shared global key — imported contacts under "" leaked to every user).
+        let signedInId = AuthManager.shared.userId
+        let scopeId = signedInId ?? InteractionQueue.anonymousUserId
+        let cached = CachedEvent(from: event, userId: scopeId, synced: signedInId == nil)
+        context.insert(cached)
+        try? context.save()
 
-            OfflineQueue.shared.enqueue(
-                context: context,
-                method: "POST",
-                path: "/events",
-                body: [
-                    "userId": AuthManager.shared.userId ?? "",
-                    "event": eventBody,
-                ]
-            )
-        }
+        // Only sync to the server when we have a REAL account. Imported
+        // contacts/birthdays are PII — never POST them under an empty userId.
+        guard let userId = signedInId, !userId.isEmpty else { return }
+
+        // POST /events expects { userId, event: {…} } with a YYYY-MM-DD date
+        // (a flat epoch-millis body silently stored an empty event).
+        var eventBody: [String: Any] = [
+            "eventId": event.id,
+            "title": event.title,
+            "type": event.type,
+            "date": FlexibleDate.ymdString(from: event.date),
+            "recipientName": event.recipientName,
+            "scope": "personal",
+        ]
+        if let lead = event.reminderLeadDays { eventBody["reminderLeadDays"] = lead }
+        if let budget = event.budget { eventBody["budget"] = budget }
+        if let notes = event.notes, !notes.isEmpty { eventBody["notes"] = notes }
+
+        OfflineQueue.shared.enqueue(
+            context: context,
+            method: "POST",
+            path: "/events",
+            body: ["userId": userId, "event": eventBody]
+        )
     }
 
     func deleteEvent(_ event: GiftEvent, context: ModelContext?) {
@@ -143,7 +149,12 @@ final class EventsViewModel: ObservableObject {
     }
 
     private func loadFromCache(context: ModelContext) {
+        // Only ever show the CURRENT account's (or this guest device's) events —
+        // never another account's cached rows sitting in the shared SwiftData
+        // store on this device.
+        let scope = AuthManager.shared.userId ?? InteractionQueue.anonymousUserId
         let descriptor = FetchDescriptor<CachedEvent>(
+            predicate: #Predicate { $0.userId == scope },
             sortBy: [SortDescriptor(\.eventDate)]
         )
         if let cached = try? context.fetch(descriptor), !cached.isEmpty {
@@ -152,7 +163,11 @@ final class EventsViewModel: ObservableObject {
     }
 
     private func cacheEvents(_ events: [GiftEvent], userId: String, context: ModelContext) {
-        try? context.delete(model: CachedEvent.self)
+        // Replace only THIS account's cached rows (don't nuke another account's).
+        let existing = FetchDescriptor<CachedEvent>(predicate: #Predicate { $0.userId == userId })
+        if let rows = try? context.fetch(existing) {
+            rows.forEach { context.delete($0) }
+        }
         for event in events {
             let cached = CachedEvent(from: event, userId: userId)
             context.insert(cached)
