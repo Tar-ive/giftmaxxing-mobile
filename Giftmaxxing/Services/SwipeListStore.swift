@@ -12,6 +12,9 @@ struct SwipeList: Identifiable, Codable, Hashable {
     var name: String
     var recipientName: String?
     var occasion: String?
+    // Relationship type — the primary edge of the gift graph (a gift for a
+    // spouse is not a gift for a boss); powers GiftGraphRanker's traversal.
+    var relationship: String?
     var createdAt: Date = Date()
     var posts: [Post] = []
     // Per-item "why this fits them" notes (postId → note) — the thoughtful
@@ -99,6 +102,12 @@ final class SwipeListStore: ObservableObject {
         AnalyticsEngine.shared.trackScreenView(screen: "swipe_list_create")
         ThoughtfulnessStore.shared.award(.boardCreated, dedupeKey: list.id)
         return list
+    }
+
+    func setRelationship(_ relationship: String?, for listId: String) {
+        guard let idx = lists.firstIndex(where: { $0.id == listId }) else { return }
+        lists[idx].relationship = relationship
+        persist()
     }
 
     // Per-item note ("why this fits them"). First real note per item earns

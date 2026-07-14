@@ -237,6 +237,7 @@ All us-east-1. Bedrock prices ✅ **verified via the AWS Price List API** (`Amaz
   4. Verify: `GET /feed` items show `product.images` arrays; `POST /visual-search` no longer returns auto parts; a swipe-list share (`POST /challenges {deckMode:"exact"}`) returns the exact deck.
 - [x] **P1 Shopify catalog + catalog-recs regression fix + masonry shop + Google auth config** — ✅ CODE COMPLETE (Jul 2026): (1) **Shopify ingester** (`infra/ingest/ingest-shopify.mjs` + `shopify-stores.json`): free public `/products.json` firehose — SKIMS/Allbirds/Gymshark/Fashion Nova/Rothy's all verified live with 3-10-image galleries. Key trick (user-taught): fetch from the internal `*.myshopify.com` host (`--discover` finds it in a brand's page source) because headless storefronts block the custom domain; link out to the public store. `npm run ingest:shopify` seeds posts (with `product.images`) via `/seed`; `node embed.mjs --manifest shopify.manifest.json` adds vectors (AWS-gated). In CCR containers run node scripts with `NODE_USE_ENV_PROXY=1` (Node fetch ignores HTTPS_PROXY → egress 429s). (2) **Missing Apple products/services in recs — root-caused**: (a) `prune-vectors.mjs` classified WITHOUT `giftType` and bucketed image-less curated items as deletable — it deleted the 13 catalog/service vectors (Sony/Owala/Kindle/Costco/Spotify/…); now those bucket as `curated` (never deletable, even orphaned). (b) The `N_GIFTS` listicle regex matched PRICES ("the under-$200 Apple gift" → AirPods dropped everywhere); now plural-only + currency lookbehind, with a full-catalog regression test (every catalog-basics item must classify eligible — 13 tests). **RESTORE (infra agent): re-run `npm run ingest:catalog`** (idempotent upserts) to put the pruned vectors back, after deploying the Lambda. Live check confirmed /feed serves 0 services — the deploy + reseed in the standing runbook fixes it. (3) **Shop = masonry grid** (two balanced staggered columns, stable per-item aspect variety). (4) **Google Sign-In**: code was complete but shipped with an empty OAuth client id — now configurable via `GoogleOAuthClientID` in project.yml (or Firebase plist / hardcode); needs a one-time Google Cloud Console iOS OAuth client (bundle `com.giftmaxxing.ios`) — that console step is the only missing piece.
 - [x] **P1 Intentional-gifting redesign (9-point slice)** — ✅ CODE COMPLETE (Jul 2026), all iOS/local-first: (1) **Shop out of the tab bar** (lives in You→Shop), replaced by (2) **Intentional Discover** (`DiscoverView`): finite 24-pick shelf, no infinite scroll, ranked/filtered by a client-side **meaningfulness score** (quality + story + small-business + light social proof). (3) **Feed carousel inline** (paged gallery + n/N right on the card) and (4) **long-press story overlay**: `Post.story` (Shopify ingest ships maker descriptions) with an honest metadata-derived fallback (`GiftStory`) — story also renders in the detail sheet. (5) **Swipe lists renamed Gift Boards** + per-item "why this fits" notes + a **digital gift letter** that rides along with the board share. (6) **Thoughtfulness Points + badges** (`ThoughtfulnessStore`): notes/letters/boards/pools/small-biz saves/early planning; deduped ledger powers profile stats and the Circles **gift streak**. (7) **Public gifting profile** (You tab): persona header (avatar/tagline/stats incl. real recipient-satisfaction from challenge responses), editable Gifting Philosophy, Signature Gifts grid (items with notes → tap for the full story), "What I'm searching for" (open boards), thank-yous/reactions from soft connections. ⏳ Server follow-ups: sync tagline/philosophy into the public `/people` profile; recipient thank-you video/reaction with explicit consent (extend `/challenges/{id}/response` with an optional `thankYou` field + sender-visible display). (8) **Circles**: gift-streak card + group gifts reframed as collaborative boards (vote tally already server-side via `groupPicks`). (9) **Gift Journey engine** (`GiftJourneyEngine`, middle layer only): staged explore→narrow→letter→send local notifications for events ≥7 days out, scheduled/cancelled through `ReminderScheduler`; planning ≥14 days early earns points. **Maxi FAB removed** — Maxi reachable via the Home search-bar mic; its nudges are the journey steps. **Follow-up slice (same day):** Discover demoted from tab bar to a You-row (4 tabs again); pull-to-refresh sends a CDN cache-busting `r` param (feed pages are CloudFront-cached by URL — identical refresh requests replayed the identical page); app always lands on Home (cold launch, background→active, sign-in); Group-gifts rail restyled fundraiser-like ("For X's birthday" + progress bar + "$N raised" + contributor faces, no goal math on the card); **invites are in-app-first**: `ChallengeSwipeView` (native guest deck: GET /challenges/{id} → swipe → POST response, same endpoints as web), `FriendPickerSheet` sends invites as DMs, DM bubbles with invite links open the native deck ("Swipe it here"), and `giftmaxxing://challenge/<id>` + decoded `/invite/<payload>` links deep-open it. The web guest page remains the no-app fallback. **Follow-up slice 2:** (a) **Shopify items missing from Home root-caused**: the user's exact feed URL variant (their vibes/recipient combo) was CloudFront-cached before the Shopify ingest — fresh pages verified 40/40 Shopify. Fix: every `GET /feed` now carries a `d=<UTC-day>` bucket (pages stay shared across users within a day, roll over at midnight) + the existing `r` millis buster on pull-to-refresh. (b) **Account privacy**: pools/group-gifts/boards/points/persona texts were device-global UserDefaults — visible to the NEXT account on the same phone. `AccountLocalState.handleIdentityChange` now wipes all private local stores on sign-out and on account switch (guest→first-sign-in keeps data, mirroring the server claim flow); all stores gained `clear()`. (c) **Purpose-driven onboarding** (`PurposeOnboardingView`, replaces the consult-first flow; consult stays in You→Edit taste): persona → optional Contacts birthday import (NSContactsUsageDescription added; each pick becomes a real `GiftEvent` with journey reminders) → relationships/budget/gift-style prefs (seed `consultVibes`) → "[Name]'s birthday in N days" micro-action → sample curation (save 1 real feed idea to an auto-created Gift Board + why-note) → CoachMarks retooled as the dashboard tour (boards / gift calendar / "Your Gifting Mind" / camera).
+- [x] **P1 Gift knowledge graph + "surprise me" (client layer)** — ✅ CODE COMPLETE (Jul 2026), all on-device (`Giftmaxxing/Services/Recommendation/GiftGraphRanker.swift`): a gift pick is a **graph traversal** (giver → relationship → occasion → recipient's interests/feedback → candidate), not a plain collaborative filter. Features: (1) **GiftMindset** — thoughtfulPlanner/spontaneousFunGiver/lastMinuteHero/balanced, classified from the Thoughtfulness ledger (onboarding persona as cold start), scales how hard intentionality pulls (0.10–0.40). (2) **IntentionalityScore** — the differentiator meta-feature of the GIFT itself: story presence/length, independent-maker origin, curated service, committed listing (price+photo), gallery depth. (3) **RecipientGraphContext** — relationship (new field on Gift Boards + picker UI), occasion **emotional weight** (wedding 1.0 … just-because 0.4), expressed interests + yes-swipe **ground truth** from that recipient's challenge responses, **past-gift categories** (shared boards + funded pools → anti-repetition), days-to-occasion from events. (4) **traverse()** re-scores ranked candidates: interests 0.30, recipient feedback 0.40 (cosine to their yes-swipe centroid, device-cached Titan vectors), relationship-category fit 0.22 (with colleague-appropriateness guard), repetition −0.30, time-fit 0.18 (≤5 days → express retailers; ≥14 days → intentional picks), social proof 0.10. (5) **surpriseWalk()** — controlled walk OUTSIDE the predicted cluster: deal from the LOW-centroid-similarity band, quality+intentionality-gated, category-deduped, seeded randomness. Wiring: Gift Board detail gains a relationship chip + "Ideas for {name}" rail (board items + recipient yes-swipes seed `/recommendations` kNN → traverse); Swipe tab gains a dice **Surprise me** deck; the feed ranker adds mindset-weighted intentionality (`RankingContext.mindset`). ⏳ **Server halves (NOT buildable from this repo / Terraform — full spec in §14):** true multi-hop random walk `mode=surprise` over S3 Vectors, per-relationship-cohort social proof, persisting relationship/feedback edges via gNode/gEdge, recipient-interests capture.
 - [ ] **P1 Native ads** — `Post.sponsored`, `PostCard` label + CTA, interleave by cadence ranked by taste, frequency cap + hide.
 - [ ] **P2 Deal monitoring backend** — EventBridge cron → deal-finder Lambda, price-tracker Lambda (Amazon PA-API 5.0 + Walmart API), DynamoDB price history + watchlist tables, SNS/SES notifications. Feed integration: deal cards ranked alongside organic content by taste vector + deal quality score. Maxi AI deal suggestions via Bedrock (Claude/Titan).
 - [ ] **P2 Harden write path (optimized arch, §12.2)** — SQS + DLQ between ingest and embed, Step Functions orchestration, pHash dedup, EventBridge re-sync, Secrets Manager, observability. Add OpenSearch hot tier only if real-time ANN latency at scale demands it.
@@ -462,3 +463,71 @@ The image → embedding → vector → recommendation loop is **live** end-to-en
 **Verified live:** `GET /recommendations?seedKeys=pin-…` → `source:vector`, neighbors at ~0.70–0.84 cosine; `GET /recommendations` (no seeds) → `source:facet`.
 
 **Caveats / next:** stored vectors are image+title (titles are marketing copy → text→image matches are loose; image→image is tight). ~~Pins aren't in the DynamoDB `posts` table yet, so the **feed UI** still renders Reddit posts~~ **DONE (Jun 2026):** `infra/ingest/ingest-pins.mjs` ingests Pinterest pins into the `posts` table via the `/seed` API endpoint (72 pins loaded). The `/feed` handler now over-samples (scan 4× the request limit, min 80) so Reddit and Pinterest posts are properly blended by the ranker on every page. Move bulk embeds to Bedrock **batch** (−50%) and add the S3-ObjectCreated trigger for incremental.
+
+---
+
+## 14. Gift knowledge graph — server-side spec (NOT buildable from this repo / Terraform)
+
+> **Status: spec only.** The client half shipped Jul 2026 (`GiftGraphRanker.swift`, see §8).
+> Everything below is Lambda/DynamoDB **application code + data**, not infrastructure —
+> Terraform can't express it, and the pieces need production interaction data and a
+> Lambda deploy (standing runbook in §8). Written for the infra/backend agent.
+
+### 14.1 `GET /recommendations?mode=surprise` — true multi-hop random walk
+
+The client's `surpriseWalk()` approximates "outside the cluster" over ONE feed page
+(60 candidates). The real version walks the vector graph server-side:
+
+1. Seed = the user's taste centroid (existing `get-vectors` + average path in `handler.mjs`).
+2. Hop 1: `query-vectors(centroid, topK=50)`; **sample from the middle band**
+   (ranks ~20–50, cosine ≈ 0.35–0.55) instead of the head — adjacent-but-not-predicted.
+3. Hop 2..N (2–3 hops total): re-query from the sampled item's vector, sample the
+   middle band again. Each hop decays relevance and raises novelty (the classic
+   knowledge-graph random-walk-with-restart, restart prob ~0.3 back to the centroid).
+4. Filter through `classifyPin` (feed-eligible only), de-dup categories, return ~14 items
+   with `source:"surprise"` and per-item `hops` so the client can badge "a stretch, but…".
+
+S3 Vectors has no walk primitive — it's all Lambda-side sampling over repeated
+`query-vectors` calls (3–4 queries per request; pennies at our scale).
+
+### 14.2 Per-relationship-cohort social proof ("trusted curators")
+
+The client uses app-wide likes as a placeholder. The real feature: "people shopping
+for a *partner* saved this" — proof from the giver's OWN cohort, and proof from
+high-Thoughtfulness curators specifically:
+
+- **Write:** interactions already flow to the `interactions` table; add optional
+  `relationship` context to the batched payload when the action happens inside a Gift
+  Board that has one (client already knows it — one field in `InteractionQueue`).
+- **Aggregate:** on write (or hourly), maintain `proof#<postId>` rows:
+  `{ byRelationship: {partner: n, parent: n, …}, byCuratorTier: {high: n, all: n} }`.
+  Curator tier = the acting user's Thoughtfulness Points band (client syncs the
+  points total; treat as advisory).
+- **Read:** `/feed` + `/recommendations` join the proof row and emit
+  `socialProof: { relationship, count }`; the client's `W.socialProof` term consumes
+  it instead of raw likes when present.
+
+### 14.3 Persist the graph edges (gNode/gEdge)
+
+`handler.mjs` already writes graph rows for challenges/connections. Extend so the
+recipient graph survives device wipes and powers server ranking:
+
+- **Board → recipient edge:** when a board is shared (`POST /challenges`), persist
+  `gEdge{ giver → recipient(name-hash), type:"gifts_for", relationship, occasion }`.
+- **Feedback edges:** each guest response already stores per-item yes/no; also write
+  `gEdge{ recipient → postId, type:"loved"|"passed" }` so any future device can
+  rebuild `feedbackSeedIds` server-side instead of from local challenge caches.
+- **Recipient interests:** add an optional `interests:[…]` field to
+  `POST /challenges/{id}/response` (guests can tag what they're into after swiping —
+  the "Relationship Manager Q&A") → stored on the connection, surfaced in
+  `GET /connections` (`vibes` today only carries deck-derived signals).
+
+### 14.4 Runbook
+
+1. Implement 14.1–14.3 in `infra/src/handler.mjs` (+ tests in `infra/src`), deploy the
+   Lambda per the standing runbook in §8.
+2. No new Terraform: same DynamoDB table (new `proof#`/`gEdge` item types), same
+   S3 Vectors index, same API routes (one new query param, one new response field).
+3. Client follow-up (iOS agent): point `SwipeViewModel.loadSurprise()` at
+   `mode=surprise` when the deploy lands (keep the on-device walk as offline fallback),
+   and consume `socialProof` in `OnDeviceRanker`.
