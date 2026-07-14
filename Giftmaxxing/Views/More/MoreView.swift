@@ -11,6 +11,11 @@ struct MoreView: View {
     @State private var showSignIn = false
     @State private var visibility = "public"
     @State private var savingVisibility = false
+    // Account deletion (App Store 5.1.1(v)) — a two-step confirm to prevent
+    // accidents, then an irreversible server + local wipe.
+    @State private var showDeleteConfirm = false
+    @State private var isDeleting = false
+    @State private var deleteError: String?
 
     // The gifting persona — editable, local-first (server sync with the
     // public /people profile is an infra follow-up).
@@ -248,6 +253,43 @@ struct MoreView: View {
                                 .background(Color.surface)
                             }
                             .buttonStyle(.plain)
+
+                            // Permanent account deletion (App Store 5.1.1(v)).
+                            Button(action: { showDeleteConfirm = true }) {
+                                HStack(spacing: 12) {
+                                    if isDeleting {
+                                        ProgressView().frame(width: 28)
+                                    } else {
+                                        Image(systemName: "trash")
+                                            .font(.system(size: 16))
+                                            .foregroundStyle(.red)
+                                            .frame(width: 28)
+                                    }
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(isDeleting ? "Deleting…" : "Delete Account")
+                                            .font(.system(size: 15, weight: .medium))
+                                            .foregroundStyle(.red)
+                                        Text("Permanently erase your account and all data")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+                                .background(Color.surface)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isDeleting)
+
+                            if let deleteError {
+                                Text(deleteError)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.red)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 14)
+                                    .padding(.top, 4)
+                            }
                         }
                     }
 
@@ -272,6 +314,12 @@ struct MoreView: View {
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                 }
             }
+        }
+        .alert("Delete your account?", isPresented: $showDeleteConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete Account", role: .destructive) { Task { await deleteAccount() } }
+        } message: {
+            Text("This permanently erases your account and all your data — profile, gift boards, pools, saved ideas, and connections. This cannot be undone.")
         }
         .sheet(isPresented: $showSignIn) {
             SignInView(showSignIn: $showSignIn)
@@ -533,6 +581,24 @@ struct MoreView: View {
             // Restore the server value on the next profile refresh.
         }
     }
+
+    // Irreversible: delete server-side data, then wipe every local store. On a
+    // network failure we keep the user signed in so they can retry — never
+    // report the account gone when the server rows survive.
+    private func deleteAccount() async {
+        guard !isDeleting else { return }
+        isDeleting = true
+        deleteError = nil
+        do {
+            try await authManager.deleteAccount()
+            // authManager.deleteAccount() → signOut() (keychain + AccountLocalState
+            // wipe). Clear the SwiftData caches too, matching Sign Out.
+            DataController.shared.clearAllData()
+        } catch {
+            deleteError = "Couldn't delete your account. Check your connection and try again."
+        }
+        isDeleting = false
+    }
 }
 
 // Full story for a signature gift: the photo, who it was for, and the why.
@@ -668,7 +734,7 @@ struct PrivacyView: View {
                 Text("Data Ownership")
                     .font(.displaySmall)
 
-                Text("You own your data. You can request deletion of all your data at any time by contacting support or using the Sign Out option, which clears all local data.")
+                Text("You own your data. You can permanently delete your account and all associated data at any time — no email or phone call needed — from You → Account → Delete Account. Deletion is immediate and irreversible. Sign Out (without deleting) clears local data on this device but keeps your account.")
                     .font(.bodyLarge)
 
                 Text("Amazon Affiliate Links")
