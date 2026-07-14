@@ -42,10 +42,9 @@ struct CuratedGalleriesRail: View {
     private func card(_ c: CuratedCollection) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .bottomLeading) {
-                LinearGradient(
-                    colors: [Color.gradient(for: c.grad), Color.gradient(for: c.grad).opacity(0.65)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                )
+                // Color.gradient(for:) already returns a LinearGradient — use it
+                // directly (same pattern as PostCardView / CollectionDetailView).
+                Color.gradient(for: c.grad)
                 Text(c.emoji)
                     .font(.system(size: 40))
                     .padding(12)
