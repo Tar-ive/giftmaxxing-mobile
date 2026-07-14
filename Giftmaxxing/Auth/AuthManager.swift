@@ -295,6 +295,20 @@ final class AuthManager: ObservableObject {
         }
     }
 
+    // App Store 5.1.1(v): permanently delete the account + all server-side
+    // data, then clear every local credential and private store (signOut →
+    // userId=nil → AccountLocalState wipes boards/pools/points/etc.). Throws if
+    // the server delete fails, so the caller can keep the user signed in and let
+    // them retry instead of falsely reporting the account gone.
+    func deleteAccount() async throws {
+        guard let userId else {
+            throw NSError(domain: "AuthManager", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Not signed in."])
+        }
+        try await APIClient.shared.deleteAccount(userId: userId)
+        signOut()
+    }
+
     func signOut() {
         KeychainStore.delete(key: tokenKey)
         KeychainStore.delete(key: refreshTokenKey)

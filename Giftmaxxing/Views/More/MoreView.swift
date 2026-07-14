@@ -11,6 +11,11 @@ struct MoreView: View {
     @State private var showSignIn = false
     @State private var visibility = "public"
     @State private var savingVisibility = false
+    // Account deletion (App Store 5.1.1(v)) — a two-step confirm to prevent
+    // accidents, then an irreversible server + local wipe.
+    @State private var showDeleteConfirm = false
+    @State private var isDeleting = false
+    @State private var deleteError: String?
 
     // The gifting persona — editable, local-first (server sync with the
     // public /people profile is an infra follow-up).
@@ -248,12 +253,53 @@ struct MoreView: View {
                                 .background(Color.surface)
                             }
                             .buttonStyle(.plain)
+
+                            // Permanent account deletion (App Store 5.1.1(v)).
+                            Button(action: { showDeleteConfirm = true }) {
+                                HStack(spacing: 12) {
+                                    if isDeleting {
+                                        ProgressView().frame(width: 28)
+                                    } else {
+                                        Image(systemName: "trash")
+                                            .font(.system(size: 16))
+                                            .foregroundStyle(.red)
+                                            .frame(width: 28)
+                                    }
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(isDeleting ? "Deleting…" : "Delete Account")
+                                            .font(.system(size: 15, weight: .medium))
+                                            .foregroundStyle(.red)
+                                        Text("Permanently erase your account and all data")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+                                .background(Color.surface)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isDeleting)
+
+                            if let deleteError {
+                                Text(deleteError)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.red)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 14)
+                                    .padding(.top, 4)
+                            }
                         }
                     }
 
-                    // Privacy
+                    // Support & Legal
                     VStack(spacing: 2) {
-                        MoreSectionHeader(title: "Legal")
+                        MoreSectionHeader(title: "Support & Legal")
+
+                        MoreRow(icon: "questionmark.circle.fill", title: "Help & Support", subtitle: "Contact us, FAQs") {
+                            SupportView()
+                        }
 
                         MoreRow(icon: "hand.raised.fill", title: "Privacy Policy", subtitle: "Your data rights") {
                             PrivacyView()
@@ -272,6 +318,12 @@ struct MoreView: View {
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                 }
             }
+        }
+        .alert("Delete your account?", isPresented: $showDeleteConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete Account", role: .destructive) { Task { await deleteAccount() } }
+        } message: {
+            Text("This permanently erases your account and all your data — profile, gift boards, pools, saved ideas, and connections. This cannot be undone.")
         }
         .sheet(isPresented: $showSignIn) {
             SignInView(showSignIn: $showSignIn)
@@ -533,6 +585,24 @@ struct MoreView: View {
             // Restore the server value on the next profile refresh.
         }
     }
+
+    // Irreversible: delete server-side data, then wipe every local store. On a
+    // network failure we keep the user signed in so they can retry — never
+    // report the account gone when the server rows survive.
+    private func deleteAccount() async {
+        guard !isDeleting else { return }
+        isDeleting = true
+        deleteError = nil
+        do {
+            try await authManager.deleteAccount()
+            // authManager.deleteAccount() → signOut() (keychain + AccountLocalState
+            // wipe). Clear the SwiftData caches too, matching Sign Out.
+            DataController.shared.clearAllData()
+        } catch {
+            deleteError = "Couldn't delete your account. Check your connection and try again."
+        }
+        isDeleting = false
+    }
 }
 
 // Full story for a signature gift: the photo, who it was for, and the why.
@@ -649,6 +719,91 @@ struct MoreRow<Destination: View>: View {
     }
 }
 
+// In-app support surface (App Store 1.5): reachable from You → Help & Support.
+// Contact + FAQ mirroring web/app/support/page.tsx, with a direct email and a
+// link to the full support page.
+struct SupportView: View {
+    private let supportEmail = "adhsaksham27@gmail.com"
+    private let supportURL = URL(string: "https://giftmaxxing-web.vercel.app/support")!
+
+    private var mailtoURL: URL? {
+        URL(string: "mailto:\(supportEmail)?subject=Giftmaxxing%20Support")
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("We're here to help")
+                    .font(.displayMedium)
+
+                Text("Questions, feedback, or trouble with the app? Email us and we'll get back to you, usually within 1–2 business days.")
+                    .font(.bodyLarge)
+                    .foregroundStyle(Color.ink)
+
+                if let mailtoURL {
+                    Link(destination: mailtoURL) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "envelope.fill")
+                            Text(supportEmail).font(.labelBold)
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                        }
+                        .foregroundStyle(Color.coral)
+                        .padding(14)
+                        .background(Color.coralSoft)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                }
+
+                Text("Frequently asked")
+                    .font(.displaySmall)
+                    .padding(.top, 4)
+
+                faq(
+                    "How do I delete my account?",
+                    "Go to You → Account → Delete Account. After a confirmation step, your account and all associated data (profile, gift boards, pools, saved ideas, and connections) are permanently and immediately deleted. This can't be undone, and it needs no email or phone call. Signing out (without deleting) only clears data on this device."
+                )
+                faq(
+                    "How is my data handled?",
+                    "Your data lives in our own AWS account, encrypted at rest, and is never sold. Sensitive identifiers are redacted before any text reaches our AI provider. See the Privacy Policy for the full detail."
+                )
+                faq(
+                    "Someone shared a swipe challenge with me — do I need an account?",
+                    "No. You can swipe as a guest without signing up."
+                )
+                faq(
+                    "How do group gifts and payments work?",
+                    "Giftmaxxing helps you organize a group gift and invite people, but we don't process payments or hold funds — any money movement happens directly between you and the people you invite."
+                )
+
+                Link(destination: supportURL) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "safari")
+                        Text("Open the full support page").font(.labelBold)
+                    }
+                    .foregroundStyle(Color.coral)
+                }
+                .padding(.top, 4)
+            }
+            .padding(20)
+        }
+        .background(Color.cream)
+        .navigationTitle("Support")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func faq(_ q: String, _ a: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(q)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.ink)
+            Text(a)
+                .font(.bodyMedium)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
 struct PrivacyView: View {
     var body: some View {
         ScrollView {
@@ -668,7 +823,7 @@ struct PrivacyView: View {
                 Text("Data Ownership")
                     .font(.displaySmall)
 
-                Text("You own your data. You can request deletion of all your data at any time by contacting support or using the Sign Out option, which clears all local data.")
+                Text("You own your data. You can permanently delete your account and all associated data at any time — no email or phone call needed — from You → Account → Delete Account. Deletion is immediate and irreversible. Sign Out (without deleting) clears local data on this device but keeps your account.")
                     .font(.bodyLarge)
 
                 Text("Amazon Affiliate Links")
