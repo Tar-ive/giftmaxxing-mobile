@@ -54,7 +54,8 @@ enum OnDeviceRanker {
         static let vector = 0.35
         static let vectorNeg = 0.25   // similarity to the HIDDEN-items centroid
         static let giftTypeLean = 0.12 // product-vs-service preference
-        static let explore = 0.06
+        static let gallery = 0.22      // multi-image product carousels (Shopify/Etsy)
+        static let explore = 0.11
     }
 
     static func rank(
@@ -210,6 +211,13 @@ enum OnDeviceRanker {
                 if post.isService, lean > 0.4 {
                     reasons.append((lean * W.giftTypeLean, "You lean toward gift-able services"))
                 }
+            }
+
+            // Multi-image carousels (Shopify/Etsy product galleries) are the
+            // richest cards — swipeable, real listings. Float them above the
+            // single static Pinterest photos that otherwise dominate the feed.
+            if post.product.gallery.count > 1 {
+                s += W.gallery
             }
 
             // Gift-graph layer: intentionality (story, maker origin, committed

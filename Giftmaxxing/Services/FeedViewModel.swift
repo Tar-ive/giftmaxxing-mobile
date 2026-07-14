@@ -60,6 +60,10 @@ final class FeedViewModel: ObservableObject {
         do {
             try await fetchAndRankNextPage()
             posts = drain(uiPageSize)
+            // The first card a user sees on every open/refresh should be a
+            // swipeable carousel (a real multi-image product), not a static
+            // single Pinterest photo — and a different one each time.
+            ensureCarouselFirst()
             if let context {
                 cacheResults(posts, context: context)
             }
@@ -68,6 +72,31 @@ final class FeedViewModel: ObservableObject {
         }
 
         isLoading = false
+    }
+
+    // Lead with a carousel. Prefer a randomly chosen multi-image post already
+    // in view (varies the hero each open/refresh); if none made this page, pull
+    // the next carousel from the ranked buffer so slot 0 is still a gallery.
+    private func ensureCarouselFirst() {
+        guard posts.count > 1 else { return }
+        if posts[0].product.gallery.count > 1 { return }
+
+        let galleryIndices = posts.enumerated()
+            .filter { $0.element.product.gallery.count > 1 }
+            .map(\.offset)
+        if let pick = galleryIndices.randomElement() {
+            let post = posts.remove(at: pick)
+            posts.insert(post, at: 0)
+            return
+        }
+        // Nothing in view — borrow one from the not-yet-shown ranked buffer.
+        if let bufIdx = rankedBuffer.firstIndex(where: { $0.post.product.gallery.count > 1 }) {
+            let candidate = rankedBuffer.remove(at: bufIdx)
+            servedIds.insert(candidate.post.id)
+            var post = candidate.post
+            if post.reason == nil { post.reason = candidate.reason }
+            posts.insert(post, at: 0)
+        }
     }
 
     /// Taste changed. Don't leave the previous profile's ranked cards on screen
