@@ -452,6 +452,8 @@ struct FriendDmThreadView: View {
     @State private var messages: [DmMessage] = []
     @State private var draft = ""
     @State private var showChallenge = false
+    // A challenge invite in this thread, opened natively (no web bounce).
+    @State private var inAppChallenge: ChallengeRef?
     @FocusState private var focused: Bool
 
     private var thread: DmThread? {
@@ -557,6 +559,10 @@ struct FriendDmThreadView: View {
             .environmentObject(appState)
             .environmentObject(authManager)
         }
+        .sheet(item: $inAppChallenge) { ref in
+            ChallengeSwipeView(challengeId: ref.id)
+                .environmentObject(authManager)
+        }
         .task {
             appState.suppressMaxiFAB()
             await load()
@@ -593,14 +599,31 @@ struct FriendDmThreadView: View {
                     .background(isMe ? Color.coral : Color.cream)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                 if let sharedURL {
-                    Link(destination: sharedURL) {
-                        Label("Open shared invite", systemImage: "arrow.up.right.square")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(Color.coral)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(Color.coral.opacity(0.12))
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    // Challenge invites open the NATIVE swipe deck right here —
+                    // no browser bounce. Anything else keeps the Link fallback.
+                    if let challengeId = InviteLink.challengeId(fromURL: sharedURL) {
+                        Button {
+                            inAppChallenge = ChallengeRef(id: challengeId)
+                        } label: {
+                            Label("Swipe it here", systemImage: "rectangle.stack.fill")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Color.coral)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Link(destination: sharedURL) {
+                            Label("Open shared invite", systemImage: "arrow.up.right.square")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(Color.coral)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Color.coral.opacity(0.12))
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
                     }
                 }
                 Text(Self.formatDmTime(msg.at))

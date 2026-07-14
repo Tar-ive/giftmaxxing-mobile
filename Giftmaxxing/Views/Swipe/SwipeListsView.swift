@@ -178,6 +178,8 @@ struct SwipeListDetailView: View {
     // Note editor ("why this fits them") + the digital gift letter.
     @State private var editingNotePost: Post?
     @State private var editingLetter = false
+    // In-app delivery — pick a friend, the board lands in their DMs.
+    @State private var showFriendPicker = false
 
     private var list: SwipeList? { store.list(id: listId) }
 
@@ -327,14 +329,41 @@ struct SwipeListDetailView: View {
                 .background(Color.cream)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
         } else if let url = list.shareURL {
-            ShareLink(item: url, message: Text(store.shareMessage(for: list))) {
-                shareLabel(
-                    title: "Send to \(who)",
-                    subtitle: "They swipe your \(list.posts.count) picks in their browser — no app needed.",
-                    icon: "paperplane.fill"
-                )
+            VStack(spacing: 8) {
+                // In-app first: a friend with Giftmaxxing swipes the board
+                // natively via DM — no browser.
+                Button {
+                    showFriendPicker = true
+                } label: {
+                    shareLabel(
+                        title: "Send to \(who) in the app",
+                        subtitle: "They swipe your \(list.posts.count) picks right here — no browser.",
+                        icon: "person.crop.circle.badge.checkmark"
+                    )
+                }
+                .buttonStyle(.plain)
+
+                ShareLink(item: url, message: Text(store.shareMessage(for: list))) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 13))
+                        Text("Share outside the app (link works in any browser)")
+                            .font(.system(size: 13, weight: .semibold))
+                        Spacer()
+                    }
+                    .foregroundStyle(Color.coral)
+                    .padding(12)
+                    .background(Color.coralSoft)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+            .sheet(isPresented: $showFriendPicker) {
+                FriendPickerSheet(
+                    messageText: "\(store.shareMessage(for: list))\n\(url.absoluteString)"
+                )
+                .environmentObject(authManager)
+            }
         } else {
             Button {
                 Task { await buildShareLink(list) }

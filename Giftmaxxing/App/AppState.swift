@@ -35,6 +35,10 @@ final class AppState: ObservableObject {
     // sheet at root (works from any tab).
     @Published var showBirthdayPerks = false
 
+    // A challenge invite opened IN the app (deep link or tapped DM invite) —
+    // ContentView presents the native swipe deck instead of bouncing to web.
+    @Published var pendingChallengeId: String?
+
     // Maxi (the AI concierge) is a floating button over every tab — not a tab
     // of its own. ContentView presents MaxiView as a sheet when this is set.
     @Published var showMaxi = false

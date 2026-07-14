@@ -181,8 +181,21 @@ struct ContentView: View {
                 appState.openCircle(circleId)
                 return
             }
+            // Challenge invites open the NATIVE deck — app users never bounce
+            // to the web guest page.
+            if let challengeId = InviteLink.challengeId(fromURL: url) {
+                appState.pendingChallengeId = challengeId
+                return
+            }
             guard url.scheme == "giftmaxxing" else { return }
             drainCaptureInbox()
+        }
+        .sheet(item: Binding(
+            get: { appState.pendingChallengeId.map(ChallengeRef.init) },
+            set: { appState.pendingChallengeId = $0?.id }
+        )) { ref in
+            ChallengeSwipeView(challengeId: ref.id)
+                .environmentObject(authManager)
         }
     }
 
