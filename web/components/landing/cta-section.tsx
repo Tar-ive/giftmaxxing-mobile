@@ -108,8 +108,8 @@ export function CtaSection() {
                 </h2>
 
                 <p className="text-xl text-muted-foreground mb-12 leading-relaxed max-w-xl">
-                  Join the waitlist for early access to Giftmaxxing — the social
-                  gifting app with an AI companion who actually gets it.
+                  Our iOS app is launching soon. Join the waitlist for early App Store
+                  access — or try Giftmaxxing on the web today.
                 </p>
 
                 {submitted ? (
@@ -159,7 +159,7 @@ export function CtaSection() {
                 )}
 
                 <p className="text-sm text-muted-foreground mt-8 font-mono">
-                  No spam — just an invite when your spot opens.
+                  No spam — we&apos;ll email you when the iOS app is ready.
                 </p>
               </div>
 
