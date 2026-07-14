@@ -14,6 +14,16 @@ struct CompactPledgeRail: View {
     }
 
     var body: some View {
+        // No real group gifts yet → don't render the rail at all (no empty
+        // header, no demo cards).
+        if items.isEmpty {
+            EmptyView()
+        } else {
+            content
+        }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Label("Group gifts", systemImage: "person.2.fill")
@@ -59,7 +69,9 @@ struct GroupGiftCardModel: Identifiable {
             return (poolId, gift)
         })
 
-        let source = pools.isEmpty ? Pool.samples : Array(pools.prefix(8))
+        // Only the user's real pools — no demo fallback (it used to show the
+        // same fake pools to everyone).
+        let source = Array(pools.prefix(8))
         return source.map { pool in
             let gift = byPoolId[pool.id]
             let recipient = gift?.recipient ?? pool.forUser
