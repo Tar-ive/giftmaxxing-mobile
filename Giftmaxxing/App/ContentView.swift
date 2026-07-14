@@ -167,12 +167,18 @@ struct ContentView: View {
         .onAppear {
             drainCaptureInbox()
             PersonalizationStore.migrateLegacyFlagIfNeeded()
+            // Restore this account's Gift Boards on launch (a restored session
+            // doesn't fire onChange for the initial userId).
+            SwipeListStore.shared.configure(userId: authManager.userId)
         }
         .onChange(of: authManager.userId) { _, newUserId in
             // Privacy boundary: a different account (or a sign-out) on this
             // device must never see the previous account's pools, boards,
             // points, or persona texts.
             AccountLocalState.handleIdentityChange(newUserId)
+            // Bind Gift Boards to the new identity and pull that account's
+            // saved boards from the server (survives sign-out + new devices).
+            SwipeListStore.shared.configure(userId: newUserId)
             // A fresh sign-in lands on Home, not wherever sign-in happened.
             if newUserId != nil {
                 appState.selectedTab = .feed
