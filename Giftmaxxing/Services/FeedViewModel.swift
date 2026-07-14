@@ -134,7 +134,8 @@ final class FeedViewModel: ObservableObject {
             negSimilarities: negSimilarities,
             context: RankingContext(
                 recipient: PersonalizationStore.feedRecipient,
-                consultVibes: PersonalizationStore.consultVibes
+                consultVibes: PersonalizationStore.consultVibes,
+                mindset: GiftMindset.current()
             )
         )
         rankedBuffer.append(contentsOf: ranked)

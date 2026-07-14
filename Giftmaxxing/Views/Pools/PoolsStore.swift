@@ -167,6 +167,13 @@ final class PoolsStore: ObservableObject {
         recordPledgeSignal(pool: pool, amount: amount)
     }
 
+    // Account boundary (AccountLocalState): pools are private to whoever
+    // made them — wiped on sign-out / account switch.
+    func clear() {
+        pools = []
+        UserDefaults.standard.removeObject(forKey: Self.storageKey)
+    }
+
     private func persist() {
         if let data = try? JSONEncoder().encode(pools) {
             UserDefaults.standard.set(data, forKey: Self.storageKey)

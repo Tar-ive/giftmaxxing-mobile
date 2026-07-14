@@ -48,16 +48,28 @@ actor APIClient {
         if let category { params["category"] = category }
         if let budget { params["budget"] = String(budget) }
         if let userId { params["userId"] = userId }
-        // Pull-to-refresh: feed pages are CloudFront-cached BY URL (that's the
-        // scaling design), so an identical request returns the identical page
-        // and the server's random-seek never reruns. A unique query value
-        // forces a cache miss — used ONLY on explicit refresh, never on
-        // scroll pagination.
+        // Feed pages are CloudFront-cached BY URL (that's the scaling design),
+        // so an identical request returns the identical page. Two dials keep
+        // content fresh without giving up the shared cache:
+        //   d = UTC day bucket, ALWAYS sent — pages stay shared across users
+        //       within a day but roll over at midnight, so newly ingested
+        //       inventory (e.g. the Shopify catalog) reaches everyone within
+        //       24h even if their exact URL variant was cached earlier.
+        //   r = unique per pull-to-refresh — an immediate cache miss + a new
+        //       server random-seek. Never sent on scroll pagination.
+        params["d"] = Self.dailyFeedBucket
         if let cacheBuster { params["r"] = cacheBuster }
 
         let response: FeedResponse = try await get("/feed", params: params)
         let posts = (response.items ?? []).map { mapAPIPost($0) }
         return FeedPage(posts: posts, cursor: response.cursor)
+    }
+
+    static var dailyFeedBucket: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd"
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        return formatter.string(from: Date())
     }
 
     func fetchRecommendations(

@@ -64,6 +64,45 @@ final class SwipeViewModel: ObservableObject {
         isLoading = false
     }
 
+    // "Surprise me" — the controlled walk AWAY from the taste cluster: fetch a
+    // wide candidate page, measure each item's similarity to the taste
+    // centroid, then deliberately deal from the LOW-similarity band
+    // (quality-gated, category-diverse). Broadens horizons on purpose.
+    func loadSurprise() async {
+        guard !isLoading else { return }
+        isLoading = true
+        defer { isLoading = false }
+
+        guard let page = try? await api.fetchFeed(
+            limit: 60,
+            cacheBuster: String(Int(Date().timeIntervalSince1970 * 1000))
+        ) else { return }
+
+        // Similarities to the taste centroid, from device-cached vectors.
+        var similarities: [String: Float] = [:]
+        let profile = await TasteProfileStore.shared.snapshot()
+        if profile.seedKeys.count >= 3 {
+            let missing = await VectorStore.shared.missingKeys(from: profile.seedKeys + page.posts.map(\.id))
+            if !missing.isEmpty, let response = try? await api.fetchVectors(keys: missing) {
+                for item in response.items ?? [] {
+                    await VectorStore.shared.upsert(key: item.key, base64: item.data, scale: item.scale)
+                }
+            }
+            if let centroid = await VectorStore.shared.centroid(of: profile.seedKeys) {
+                similarities = await VectorStore.shared.similarities(keys: page.posts.map(\.id), to: centroid)
+            }
+        }
+
+        cards = GiftGraphRanker.surpriseWalk(page.posts, centroidSimilarities: similarities, count: 14)
+        currentIndex = 0
+        yesCount = 0
+        noCount = 0
+        offset = .zero
+        cardShownAt = Date()
+        prefetchNextImages()
+        AnalyticsEngine.shared.trackScreenView(screen: "swipe_surprise")
+    }
+
     func onDragStart() {
         dragStartTime = Date()
         dragStartTranslation = offset
@@ -277,7 +316,18 @@ struct SwipeView: View {
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    EmptyView()
+                    // The deliberate detour: deal a deck from OUTSIDE the
+                    // predicted taste cluster.
+                    if context == .me {
+                        Button {
+                            Task { await viewModel.loadSurprise() }
+                        } label: {
+                            Image(systemName: "dice.fill")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Color.coral)
+                        }
+                        .accessibilityLabel("Surprise me — ideas outside your usual taste")
+                    }
                 }
             }
         }

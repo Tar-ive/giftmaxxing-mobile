@@ -123,6 +123,16 @@ final class ThoughtfulnessStore: ObservableObject {
         }
     }
 
+    // Account boundary (AccountLocalState): the ledger is personal — wiped on
+    // sign-out / account switch.
+    func clear() {
+        points = 0
+        events = []
+        badges = []
+        dedupeKeys = []
+        UserDefaults.standard.removeObject(forKey: Self.storageKey)
+    }
+
     private func persist() {
         let payload = Persisted(
             points: points, events: events, badges: badges, dedupeKeys: Array(dedupeKeys)

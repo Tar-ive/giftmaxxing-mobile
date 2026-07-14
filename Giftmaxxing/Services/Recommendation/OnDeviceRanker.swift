@@ -29,6 +29,9 @@ struct RankingContext {
     // Consult-declared interests ("world vibes") — the cold-start taste signal
     // for brand-new users whose profile has zero interactions yet.
     var consultVibes: [String] = []
+    // Who this giver is (learned from their Thoughtfulness ledger) — scales
+    // how hard the gift-graph intentionality feature pulls.
+    var mindset: GiftMindset = .balanced
     var now: Date = Date()
 }
 
@@ -208,6 +211,11 @@ enum OnDeviceRanker {
                     reasons.append((lean * W.giftTypeLean, "You lean toward gift-able services"))
                 }
             }
+
+            // Gift-graph layer: intentionality (story, maker origin, committed
+            // listing) weighted by the GIVER's mindset — thoughtful planners
+            // see intentional gifts rank up; last-minute users barely notice.
+            s += IntentionalityScore.score(for: post) * context.mindset.intentionalityWeight
 
             // Layer 5 input — light exploration so the feed never goes static.
             s += Double.random(in: 0..<W.explore)

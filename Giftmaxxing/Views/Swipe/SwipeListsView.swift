@@ -180,6 +180,11 @@ struct SwipeListDetailView: View {
     @State private var editingLetter = false
     // In-app delivery — pick a friend, the board lands in their DMs.
     @State private var showFriendPicker = false
+    // Gift-graph traversal output: "Ideas for {name}" seeded by the board's
+    // items + the recipient's own yes-swipes, filtered through relationship,
+    // occasion, history, and time-to-occasion (GiftGraphRanker).
+    @State private var graphIdeas: [Post] = []
+    @State private var graphIdeasLoaded = false
 
     private var list: SwipeList? { store.list(id: listId) }
 
@@ -200,6 +205,7 @@ struct SwipeListDetailView: View {
                     }
                     letterCard(list)
                     responsesSection(list)
+                    graphIdeasSection(list)
                     itemsSection(list)
                 }
                 .padding(16)
@@ -245,8 +251,14 @@ struct SwipeListDetailView: View {
                 store.setLetter(text, for: listId)
             }
         }
-        .task { await loadResponses() }
-        .refreshable { await loadResponses() }
+        .task {
+            await loadResponses()
+            await loadGraphIdeas()
+        }
+        .refreshable {
+            await loadResponses()
+            await loadGraphIdeas(force: true)
+        }
     }
 
     // The digital gift letter — written once, sent with the board.
@@ -303,12 +315,39 @@ struct SwipeListDetailView: View {
         }
     }
 
+    private static let relationshipOptions = ["Partner", "Parent", "Sibling", "Best friend", "Colleague", "Friend"]
+
     private func header(_ list: SwipeList) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if let recipient = list.recipientName, !recipient.isEmpty {
-                Text("For \(recipient)")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.coral)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                if let recipient = list.recipientName, !recipient.isEmpty {
+                    Text("For \(recipient)")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.coral)
+                }
+                // Relationship = the primary edge of the gift graph — one tap
+                // here sharpens the "Ideas for them" traversal below.
+                Menu {
+                    ForEach(Self.relationshipOptions, id: \.self) { option in
+                        Button(option) {
+                            store.setRelationship(option.lowercased(), for: listId)
+                            Task { await loadGraphIdeas(force: true) }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 3) {
+                        Text(list.relationship?.capitalized ?? "Relationship?")
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 9, weight: .bold))
+                    }
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(list.relationship == nil ? Color.coral : Color.ink)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(list.relationship == nil ? Color.coralSoft : Color.cream)
+                    .clipShape(Capsule())
+                }
+                Spacer()
             }
             Text("They swipe right on what they'd love, left on what they wouldn't — you see every answer here. No guessing.")
                 .font(.system(size: 13))
@@ -625,6 +664,135 @@ struct SwipeListDetailView: View {
     private func loadResponses() async {
         guard let challengeId = list?.challengeId else { return }
         status = try? await APIClient.shared.fetchChallengeStatus(challengeId: challengeId)
+    }
+
+    // ── Gift-graph ideas ("more like what fits THEM") ─────────────────────
+
+    @ViewBuilder
+    private func graphIdeasSection(_ list: SwipeList) -> some View {
+        if !graphIdeas.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Ideas for \(list.recipientName ?? "them")")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(graphIdeas) { post in
+                            Button {
+                                selectedPost = post
+                            } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    ZStack {
+                                        Color.gradient(for: post.product.grad)
+                                        if let image = post.product.image {
+                                            CachedAsyncImage(url: image, width: 300)
+                                        }
+                                    }
+                                    .frame(width: 110, height: 110)
+                                    .clipped()
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    Text(post.product.name)
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(Color.ink)
+                                        .lineLimit(1)
+                                        .frame(width: 110, alignment: .leading)
+                                    if let reason = post.reason {
+                                        Text(reason)
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(Color.coral)
+                                            .lineLimit(1)
+                                            .frame(width: 110, alignment: .leading)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Traverse the graph: board items + the recipient's yes-swipes seed a kNN,
+    // then GiftGraphRanker re-scores by relationship, interests, feedback,
+    // history, time-to-occasion, and the giver's mindset.
+    private func loadGraphIdeas(force: Bool = false) async {
+        guard let list, !list.posts.isEmpty else { return }
+        if graphIdeasLoaded && !force { return }
+        graphIdeasLoaded = true
+
+        let userId = authManager.userId ?? InteractionQueue.anonymousUserId
+        let connections = (try? await APIClient.shared.fetchConnections(userId: userId)) ?? []
+        let events = (try? await APIClient.shared.fetchUpcomingEvents(userId: userId)) ?? []
+
+        let context = RecipientGraphContext.build(
+            for: list,
+            allBoards: store.lists,
+            pools: PoolsStore.shared.pools,
+            connections: connections,
+            events: events
+        )
+
+        // Seed the kNN with the board's items + the recipient's own yes-swipes.
+        let seedKeys = Array((list.posts.map(\.id) + context.feedbackSeedIds).prefix(8))
+        guard let response = try? await APIClient.shared.fetchVectorRecommendations(seedKeys: seedKeys, limit: 24),
+              let items = response.items, !items.isEmpty else { return }
+
+        let boardIds = Set(list.posts.map(\.id))
+        let candidates: [Post] = items
+            .filter { !boardIds.contains($0.postId) }
+            .map { item in
+                Post(
+                    id: item.postId,
+                    user: item.author ?? "giftmaxxing",
+                    time: "",
+                    product: Product(
+                        id: item.postId,
+                        name: item.name ?? "Gift idea",
+                        brand: item.merchant ?? item.source ?? "",
+                        price: item.price ?? 0,
+                        grad: .coral,
+                        emoji: "🎁",
+                        image: item.image
+                    ),
+                    caption: "",
+                    likes: 0,
+                    productUrl: item.productUrl ?? item.url,
+                    domain: item.domain,
+                    giftType: item.giftType,
+                    serviceDuration: item.serviceDuration
+                )
+            }
+
+        // Ground truth: similarity of each candidate to the centroid of what
+        // this recipient swiped YES on (device-cached Titan vectors).
+        var feedbackSimilarities: [String: Float] = [:]
+        if context.feedbackSeedIds.count >= 2 {
+            let allKeys = context.feedbackSeedIds + candidates.map(\.id)
+            let missing = await VectorStore.shared.missingKeys(from: allKeys)
+            if !missing.isEmpty, let vectors = try? await APIClient.shared.fetchVectors(keys: missing) {
+                for item in vectors.items ?? [] {
+                    await VectorStore.shared.upsert(key: item.key, base64: item.data, scale: item.scale)
+                }
+            }
+            if let centroid = await VectorStore.shared.centroid(of: context.feedbackSeedIds) {
+                feedbackSimilarities = await VectorStore.shared.similarities(keys: candidates.map(\.id), to: centroid)
+            }
+        }
+
+        let base = candidates.map { RankedCandidate(post: $0, score: $0.qualityScore ?? 0.5, reason: nil) }
+        let traversed = GiftGraphRanker.traverse(
+            base,
+            context: context,
+            mindset: GiftMindset.current(),
+            feedbackSimilarities: feedbackSimilarities
+        )
+        graphIdeas = traversed.prefix(10).map { candidate in
+            var post = candidate.post
+            if post.reason == nil { post.reason = candidate.reason }
+            return post
+        }
     }
 }
 

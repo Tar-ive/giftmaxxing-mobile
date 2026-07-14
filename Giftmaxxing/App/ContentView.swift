@@ -169,6 +169,10 @@ struct ContentView: View {
             PersonalizationStore.migrateLegacyFlagIfNeeded()
         }
         .onChange(of: authManager.userId) { _, newUserId in
+            // Privacy boundary: a different account (or a sign-out) on this
+            // device must never see the previous account's pools, boards,
+            // points, or persona texts.
+            AccountLocalState.handleIdentityChange(newUserId)
             // A fresh sign-in lands on Home, not wherever sign-in happened.
             if newUserId != nil {
                 appState.selectedTab = .feed
