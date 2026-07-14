@@ -4,18 +4,22 @@
     "exposes a public, unauthenticated product feed at /products.json — title,",
     "price, availability, and the FULL image gallery. No API key, no approval.",
     "",
-    "IMPORTANT — fetch from the INTERNAL *.myshopify.com host, not the custom",
-    "domain: headless storefronts (Gymshark, Fashion Nova) block or drop",
-    "/products.json on their custom domain, but the internal address serves it.",
-    "Find a brand's internal host with:  node ingest-shopify.mjs --discover",
-    "https://brand.com  (it greps the homepage source for myshopify.com).",
+    "IMPORTANT — some headless storefronts (Gymshark, Fashion Nova) block or drop",
+    "/products.json on their custom domain but serve it from the INTERNAL",
+    "*.myshopify.com host. Find it with:  node ingest-shopify.mjs --discover",
+    "https://brand.com  (greps the homepage source for myshopify.com). MOST",
+    "brands, though, serve /products.json straight from their custom domain — for",
+    "those, feed == store.",
     "",
-    "  feed  = *.myshopify.com origin for /products.json (data)",
+    "  feed  = origin for /products.json (data)",
     "  store = the public storefront origin (outbound product links users see)",
     "",
-    "Probe results (Jul 2026, from cloud egress): all five feeds 200 with",
-    "3-10-image galleries. dior.com is NOT on Shopify (503, no internal host)",
-    "and was dropped. Politeness: 250 products/request, throttled, 429-aware."
+    "Coverage spans women's + men's apparel, makeup/beauty, shoes/footwear,",
+    "tech/gadgets, and giftable food so the recommendation feed has real,",
+    "gallery-rich products for every recipient + vibe. All feeds below were",
+    "probed live (Jul 2026): 200 with multi-image galleries. Re-verify a host",
+    "with:  node ingest-shopify.mjs --dry-run --store <brand> --limit 5",
+    "Politeness: 250 products/request, throttled, 429-aware."
   ],
   "stores": [
     {
@@ -57,6 +61,147 @@
       "category": "shoes",
       "vibes": ["minimalist", "sustainable", "classic"],
       "maxProducts": 150
+    },
+
+    {
+      "store": "https://colourpop.com",
+      "feed": "https://colourpop.com",
+      "brand": "ColourPop",
+      "category": "beauty",
+      "vibes": ["makeup", "colorful", "affordable", "glam"],
+      "maxProducts": 150
+    },
+    {
+      "store": "https://www.morphe.com",
+      "feed": "https://www.morphe.com",
+      "brand": "Morphe",
+      "category": "beauty",
+      "vibes": ["makeup", "glam", "bold"],
+      "maxProducts": 150
+    },
+    {
+      "store": "https://kyliecosmetics.com",
+      "feed": "https://kyliecosmetics.com",
+      "brand": "Kylie Cosmetics",
+      "category": "beauty",
+      "vibes": ["makeup", "glam", "luxury"],
+      "maxProducts": 120
+    },
+    {
+      "store": "https://kosas.com",
+      "feed": "https://kosas.com",
+      "brand": "Kosas",
+      "category": "beauty",
+      "vibes": ["makeup", "clean-beauty", "minimalist"],
+      "maxProducts": 120
+    },
+    {
+      "store": "https://nudestix.com",
+      "feed": "https://nudestix.com",
+      "brand": "NUDESTIX",
+      "category": "beauty",
+      "vibes": ["makeup", "natural", "minimalist"],
+      "maxProducts": 100
+    },
+
+    {
+      "store": "https://www.chubbiesshorts.com",
+      "feed": "https://www.chubbiesshorts.com",
+      "brand": "Chubbies",
+      "category": "apparel",
+      "vibes": ["mens", "fun", "casual", "summer"],
+      "maxProducts": 150
+    },
+    {
+      "store": "https://www.beardbrand.com",
+      "feed": "https://www.beardbrand.com",
+      "brand": "Beardbrand",
+      "category": "grooming",
+      "vibes": ["mens", "grooming", "classic"],
+      "maxProducts": 120
+    },
+    {
+      "store": "https://trueclassictees.com",
+      "feed": "https://trueclassictees.com",
+      "brand": "True Classic",
+      "category": "apparel",
+      "vibes": ["mens", "everyday", "classic"],
+      "maxProducts": 150
+    },
+    {
+      "store": "https://cutsclothing.com",
+      "feed": "https://cutsclothing.com",
+      "brand": "Cuts",
+      "category": "apparel",
+      "vibes": ["mens", "minimalist", "premium"],
+      "maxProducts": 120
+    },
+    {
+      "store": "https://www.taylorstitch.com",
+      "feed": "https://www.taylorstitch.com",
+      "brand": "Taylor Stitch",
+      "category": "apparel",
+      "vibes": ["mens", "rugged", "sustainable", "classic"],
+      "maxProducts": 120
+    },
+
+    {
+      "store": "https://www.vessi.com",
+      "feed": "https://www.vessi.com",
+      "brand": "Vessi",
+      "category": "shoes",
+      "vibes": ["shoes", "waterproof", "minimalist", "comfy"],
+      "maxProducts": 120
+    },
+    {
+      "store": "https://peepers.com",
+      "feed": "https://peepers.com",
+      "brand": "Peepers",
+      "category": "accessories",
+      "vibes": ["eyewear", "affordable", "everyday"],
+      "maxProducts": 120
+    },
+
+    {
+      "store": "https://www.nativeunion.com",
+      "feed": "https://www.nativeunion.com",
+      "brand": "Native Union",
+      "category": "tech",
+      "vibes": ["tech", "minimalist", "premium", "gadget"],
+      "maxProducts": 120
+    },
+    {
+      "store": "https://www.orbitkey.com",
+      "feed": "https://www.orbitkey.com",
+      "brand": "Orbitkey",
+      "category": "tech",
+      "vibes": ["tech", "edc", "minimalist", "gadget"],
+      "maxProducts": 120
+    },
+    {
+      "store": "https://www.peakdesign.com",
+      "feed": "https://www.peakdesign.com",
+      "brand": "Peak Design",
+      "category": "tech",
+      "vibes": ["tech", "photography", "outdoorsy", "gadget"],
+      "maxProducts": 120
+    },
+
+    {
+      "store": "https://www.deathwishcoffee.com",
+      "feed": "https://www.deathwishcoffee.com",
+      "brand": "Death Wish Coffee",
+      "category": "food",
+      "vibes": ["coffee", "bold", "foodie"],
+      "maxProducts": 80
+    },
+    {
+      "store": "https://drinkolipop.com",
+      "feed": "https://drinkolipop.com",
+      "brand": "OLIPOP",
+      "category": "food",
+      "vibes": ["foodie", "wellness", "fun"],
+      "maxProducts": 60
     }
   ]
 }

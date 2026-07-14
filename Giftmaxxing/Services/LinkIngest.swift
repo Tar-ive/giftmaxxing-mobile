@@ -11,6 +11,7 @@ enum LinkIngest {
 
     struct Meta {
         var title: String?
+        var productName: String?  // JSON-LD Product name — the most reliable
         var image: String?
         var price: Double?
         var siteName: String?
@@ -29,7 +30,23 @@ enum LinkIngest {
 
         let host2 = host.lowercased()
         let merchant = brandName(host2)
-        let name = cleanTitle(meta.title, siteName: meta.siteName ?? merchant) ?? slugTitle(url) ?? merchant
+
+        // The scraped title can be a bot-wall interstitial ("Pardon Our
+        // Interruption", "Access Denied") or a site tagline used as og:title
+        // ("SHEIN.com is mainly design and produce fashion clothing…") — neither
+        // is the product. Fall back to the URL slug in those cases. The
+        // JSON-LD product name (when present) is the most reliable, so prefer it.
+        let ogTitle = cleanTitle(meta.title, siteName: meta.siteName ?? merchant)
+        let blocked = ogTitle.map(isBlockedTitle) ?? false
+        let generic = ogTitle.map { isGenericTitle($0, host: host2) } ?? false
+        let name = meta.productName
+            ?? (ogTitle.flatMap { (!blocked && !generic) ? $0 : nil })
+            ?? slugTitle(url)
+            ?? merchant
+        // A bot-wall page's og:image is the block-page art, not the product —
+        // drop it so we show a clean gradient card instead of a captcha image.
+        let image = blocked ? nil : meta.image
+
         let id = "link-" + stableHashHex(url.absoluteString)
         let seed = stableHash(host2 + name)
         let grads = GradientStyle.allCases
@@ -42,7 +59,7 @@ enum LinkIngest {
             price: meta.price ?? 0,
             grad: grad,
             emoji: "🎁",
-            image: meta.image
+            image: image
         )
 
         return Post(
@@ -83,6 +100,7 @@ enum LinkIngest {
         let base = http.url ?? url
         return Meta(
             title: metaContent(html, properties: ["og:title", "twitter:title"]) ?? htmlTitle(html),
+            productName: jsonLdProductName(html),
             image: absolutize(
                 metaContent(html, properties: ["og:image:secure_url", "og:image", "twitter:image", "twitter:image:src"])
                     ?? jsonLdImage(html),
@@ -95,6 +113,50 @@ enum LinkIngest {
             ),
             siteName: metaContent(html, properties: ["og:site_name"])
         )
+    }
+
+    // MARK: - Title quality
+
+    private static let blockedTitleMarkers = [
+        "pardon our interruption", "access denied", "attention required",
+        "just a moment", "are you a robot", "robot check", "captcha",
+        "verify you are human", "request unsuccessful", "security check",
+        "enable javascript", "403 forbidden", "site maintenance",
+        "access to this page has been denied",
+    ]
+
+    // A bot-wall / interstitial page title, not the product.
+    static func isBlockedTitle(_ title: String) -> Bool {
+        let t = title.lowercased()
+        return blockedTitleMarkers.contains { t.contains($0) }
+    }
+
+    // A site tagline used as og:title ("SHEIN.com is mainly design and produce
+    // fashion clothing…", "Official Site | …") — real page, wrong text.
+    static func isGenericTitle(_ title: String, host: String) -> Bool {
+        let t = title.lowercased()
+        let generic = [
+            " is mainly ", "official site", "official online store",
+            "official store", "free shipping on", "shop the latest",
+            "online shopping", "buy online",
+        ]
+        if generic.contains(where: { t.contains($0) }) { return true }
+        // Just the bare site name ("Sephora") offers nothing over the slug.
+        let root = host.replacingOccurrences(of: "www.", with: "").split(separator: ".").first.map(String.init) ?? host
+        return t == root || t == root + ".com"
+    }
+
+    // The Product name from a JSON-LD block, if this page declares one. We only
+    // trust a "name" that sits in a blob also mentioning "Product", so we don't
+    // pick up the Organization/WebSite name.
+    private static func jsonLdProductName(_ html: String) -> String? {
+        guard html.range(of: "\"@type\"", options: .caseInsensitive) != nil else { return nil }
+        // Find a Product type declaration, then the nearest following "name".
+        let pattern = "\"@type\"\\s*:\\s*\"Product\"[\\s\\S]{0,600}?\"name\"\\s*:\\s*\"([^\"]{2,140})\""
+        if let m = firstMatch(pattern, in: html) { return decodeEntities(m) }
+        // Some feeds order name before @type.
+        let pattern2 = "\"name\"\\s*:\\s*\"([^\"]{2,140})\"[\\s\\S]{0,200}?\"@type\"\\s*:\\s*\"Product\""
+        return firstMatch(pattern2, in: html).map(decodeEntities)
     }
 
     // MARK: - HTML scraping (regex — no parser dependency)
