@@ -293,9 +293,13 @@ struct MoreView: View {
                         }
                     }
 
-                    // Privacy
+                    // Support & Legal
                     VStack(spacing: 2) {
-                        MoreSectionHeader(title: "Legal")
+                        MoreSectionHeader(title: "Support & Legal")
+
+                        MoreRow(icon: "questionmark.circle.fill", title: "Help & Support", subtitle: "Contact us, FAQs") {
+                            SupportView()
+                        }
 
                         MoreRow(icon: "hand.raised.fill", title: "Privacy Policy", subtitle: "Your data rights") {
                             PrivacyView()
@@ -712,6 +716,91 @@ struct MoreRow<Destination: View>: View {
             .background(Color.surface)
         }
         .buttonStyle(.plain)
+    }
+}
+
+// In-app support surface (App Store 1.5): reachable from You → Help & Support.
+// Contact + FAQ mirroring web/app/support/page.tsx, with a direct email and a
+// link to the full support page.
+struct SupportView: View {
+    private let supportEmail = "adhsaksham27@gmail.com"
+    private let supportURL = URL(string: "https://giftmaxxing-web.vercel.app/support")!
+
+    private var mailtoURL: URL? {
+        URL(string: "mailto:\(supportEmail)?subject=Giftmaxxing%20Support")
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("We're here to help")
+                    .font(.displayMedium)
+
+                Text("Questions, feedback, or trouble with the app? Email us and we'll get back to you, usually within 1–2 business days.")
+                    .font(.bodyLarge)
+                    .foregroundStyle(Color.ink)
+
+                if let mailtoURL {
+                    Link(destination: mailtoURL) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "envelope.fill")
+                            Text(supportEmail).font(.labelBold)
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                        }
+                        .foregroundStyle(Color.coral)
+                        .padding(14)
+                        .background(Color.coralSoft)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                }
+
+                Text("Frequently asked")
+                    .font(.displaySmall)
+                    .padding(.top, 4)
+
+                faq(
+                    "How do I delete my account?",
+                    "Go to You → Account → Delete Account. After a confirmation step, your account and all associated data (profile, gift boards, pools, saved ideas, and connections) are permanently and immediately deleted. This can't be undone, and it needs no email or phone call. Signing out (without deleting) only clears data on this device."
+                )
+                faq(
+                    "How is my data handled?",
+                    "Your data lives in our own AWS account, encrypted at rest, and is never sold. Sensitive identifiers are redacted before any text reaches our AI provider. See the Privacy Policy for the full detail."
+                )
+                faq(
+                    "Someone shared a swipe challenge with me — do I need an account?",
+                    "No. You can swipe as a guest without signing up."
+                )
+                faq(
+                    "How do group gifts and payments work?",
+                    "Giftmaxxing helps you organize a group gift and invite people, but we don't process payments or hold funds — any money movement happens directly between you and the people you invite."
+                )
+
+                Link(destination: supportURL) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "safari")
+                        Text("Open the full support page").font(.labelBold)
+                    }
+                    .foregroundStyle(Color.coral)
+                }
+                .padding(.top, 4)
+            }
+            .padding(20)
+        }
+        .background(Color.cream)
+        .navigationTitle("Support")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func faq(_ q: String, _ a: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(q)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.ink)
+            Text(a)
+                .font(.bodyMedium)
+                .foregroundStyle(.secondary)
+        }
     }
 }
 
