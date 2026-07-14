@@ -103,6 +103,10 @@ struct MoreView: View {
                         MoreRow(icon: "bag.fill", title: "Shop", subtitle: "Curated picks") {
                             ShopView()
                         }
+
+                        MoreRow(icon: "leaf.fill", title: "Intentional Discover", subtitle: "A slower shelf, ranked by meaning") {
+                            DiscoverView()
+                        }
                     }
 
                     // Settings

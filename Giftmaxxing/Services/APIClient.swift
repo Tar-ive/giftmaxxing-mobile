@@ -36,7 +36,8 @@ actor APIClient {
         occasion: String? = nil,
         category: String? = nil,
         budget: Double? = nil,
-        userId: String? = nil
+        userId: String? = nil,
+        cacheBuster: String? = nil
     ) async throws -> FeedPage {
         var params: [String: String] = [:]
         if let cursor { params["cursor"] = cursor }
@@ -47,6 +48,12 @@ actor APIClient {
         if let category { params["category"] = category }
         if let budget { params["budget"] = String(budget) }
         if let userId { params["userId"] = userId }
+        // Pull-to-refresh: feed pages are CloudFront-cached BY URL (that's the
+        // scaling design), so an identical request returns the identical page
+        // and the server's random-seek never reruns. A unique query value
+        // forces a cache miss — used ONLY on explicit refresh, never on
+        // scroll pagination.
+        if let cacheBuster { params["r"] = cacheBuster }
 
         let response: FeedResponse = try await get("/feed", params: params)
         let posts = (response.items ?? []).map { mapAPIPost($0) }
