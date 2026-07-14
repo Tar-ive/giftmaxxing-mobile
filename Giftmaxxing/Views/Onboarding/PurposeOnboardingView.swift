@@ -34,6 +34,13 @@ enum GiftingPrefs {
         get { UserDefaults.standard.stringArray(forKey: stylesKey) ?? [] }
         set { UserDefaults.standard.set(newValue, forKey: stylesKey) }
     }
+
+    // Account deletion — forget the onboarding answers.
+    static func clear() {
+        for k in [personaKey, relationshipsKey, budgetKey, stylesKey] {
+            UserDefaults.standard.removeObject(forKey: k)
+        }
+    }
 }
 
 struct PurposeOnboardingView: View {

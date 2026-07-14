@@ -46,12 +46,15 @@ final class PoolsStore: ObservableObject {
     }
 
     func load() {
+        // Only ever show the user's OWN pools. (We used to seed Pool.samples
+        // when empty, which showed the same fake "Maya's birthday" / "Sam's
+        // farewell" pools to every account and made deletion look like it
+        // hadn't worked.) A fresh or just-cleared account starts empty.
         if let data = UserDefaults.standard.data(forKey: Self.storageKey),
-           let saved = try? JSONDecoder().decode([Pool].self, from: data),
-           !saved.isEmpty {
+           let saved = try? JSONDecoder().decode([Pool].self, from: data) {
             pools = saved
         } else {
-            pools = Pool.samples
+            pools = []
         }
     }
 

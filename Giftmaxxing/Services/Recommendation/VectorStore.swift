@@ -47,6 +47,14 @@ actor VectorStore {
         scheduleSave()
     }
 
+    // Drop every cached embedding + the on-disk copy (account deletion/switch).
+    func clear() {
+        saveTask?.cancel()
+        vectors = [:]
+        loaded = true // don't reload the (now-deleted) file
+        try? FileManager.default.removeItem(at: Self.fileURL)
+    }
+
     func contains(_ key: String) -> Bool {
         loadIfNeeded()
         return vectors[key] != nil

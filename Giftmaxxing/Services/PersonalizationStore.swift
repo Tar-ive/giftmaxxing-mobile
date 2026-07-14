@@ -111,4 +111,16 @@ enum PersonalizationStore {
             UserDefaults.standard.set(true, forKey: key(for: nil))
         }
     }
+
+    // Account deletion: erase everything the concierge learned about the user —
+    // consult signals, the self-taste interview, and the onboarded flags for
+    // this identity (and guest), so a re-sign-in starts truly fresh.
+    static func clearAll(identity: String?) {
+        let d = UserDefaults.standard
+        for k in [genderKey, vibesKey, styleKey, dislikesKey, noteKey, sizesKey, legacyKey] {
+            d.removeObject(forKey: k)
+        }
+        d.removeObject(forKey: key(for: identity))
+        d.removeObject(forKey: key(for: nil))
+    }
 }

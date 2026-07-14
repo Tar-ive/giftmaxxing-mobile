@@ -212,6 +212,15 @@ actor TasteProfileStore {
         state.lastDecayAt = now
     }
 
+    // Wipe everything the profile has learned (account deletion / switch): the
+    // in-memory state AND the on-disk copy, so nothing rehydrates on next read.
+    func clear() {
+        saveTask?.cancel()
+        state = State()
+        loaded = true // don't reload the (now-deleted) file
+        try? FileManager.default.removeItem(at: Self.fileURL)
+    }
+
     // MARK: - Persistence
 
     private static var fileURL: URL {

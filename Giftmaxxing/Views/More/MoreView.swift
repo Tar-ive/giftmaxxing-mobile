@@ -593,11 +593,14 @@ struct MoreView: View {
         guard !isDeleting else { return }
         isDeleting = true
         deleteError = nil
+        // Capture the identity before signOut() nils it — wipeEverything needs
+        // it to clear this account's per-identity onboarding flags.
+        let identity = authManager.userId
         do {
-            try await authManager.deleteAccount()
-            // authManager.deleteAccount() → signOut() (keychain + AccountLocalState
-            // wipe). Clear the SwiftData caches too, matching Sign Out.
-            DataController.shared.clearAllData()
+            try await authManager.deleteAccount()   // server DELETE /account + signOut()
+            // Hard local clean slate: taste, vectors, onboarding, gifting stores,
+            // SwiftData — nothing about the old account survives on-device.
+            AccountLocalState.wipeEverything(identity: identity)
         } catch {
             deleteError = "Couldn't delete your account. Check your connection and try again."
         }

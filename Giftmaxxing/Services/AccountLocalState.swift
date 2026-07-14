@@ -49,4 +49,23 @@ enum AccountLocalState {
         UserDefaults.standard.removeObject(forKey: "gifting_tagline")
         UserDefaults.standard.removeObject(forKey: "gifting_philosophy")
     }
+
+    // Account DELETION: a hard clean slate. Everything clearPrivateStores wipes,
+    // PLUS everything the app learned or was told about the user — the taste
+    // profile, the cached vectors, the consult/onboarding answers, and the
+    // SwiftData caches — so signing back in (even to the same provider account,
+    // once the server row is deleted) starts genuinely fresh with nothing
+    // carried over on-device.
+    @MainActor
+    static func wipeEverything(identity: String?) {
+        clearPrivateStores()
+        PersonalizationStore.clearAll(identity: identity)
+        GiftingPrefs.clear()
+        DataController.shared.clearAllData()
+        UserDefaults.standard.removeObject(forKey: lastIdentityKey)
+        Task {
+            await TasteProfileStore.shared.clear()
+            await VectorStore.shared.clear()
+        }
+    }
 }
