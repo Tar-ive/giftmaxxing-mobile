@@ -58,7 +58,8 @@ final class OfflineQueue: ObservableObject {
             await SyncEngine.shared.flushOfflineQueue(
                 context: DataController.shared.mainContext
             )
-            await updatePendingCount()
+            // updatePendingCount is synchronous (SwiftData fetchCount on MainActor).
+            updatePendingCount()
         }
     }
 
