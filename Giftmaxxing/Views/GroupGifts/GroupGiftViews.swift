@@ -84,6 +84,7 @@ private struct GroupGiftRow: View {
 // ── Create ────────────────────────────────────────────────────────────────────
 struct GroupGiftCreateView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var authManager: AuthManager
     @Environment(\.dismiss) private var dismiss
 
     // Optional capture seed (visual search / share extension): the deck is
@@ -102,6 +103,7 @@ struct GroupGiftCreateView: View {
     @State private var createdGift: GroupGift?
     @State private var errorMessage: String?
     @State private var showSwipeSheet = false
+    @State private var showFriendPicker = false
     @State private var didApplyPrefill = false
 
     private static let occasions: [(id: String, label: String)] = [
@@ -136,6 +138,14 @@ struct GroupGiftCreateView: View {
         .sheet(isPresented: $showSwipeSheet) {
             if let gift = createdGift {
                 GroupSwipeSheet(gift: gift)
+            }
+        }
+        .sheet(isPresented: $showFriendPicker) {
+            if let gift = createdGift {
+                FriendPickerSheet(
+                    messageText: "Help me pick a gift for \(gift.recipient) — swipe what you think they'd love 🎁\n\(gift.inviteURL)"
+                )
+                .environmentObject(authManager)
             }
         }
         .onAppear {
@@ -239,6 +249,25 @@ struct GroupGiftCreateView: View {
         }
 
         if let url = URL(string: gift.inviteURL) {
+            // In-app-first (same contract as the challenge flow): friends who
+            // have the app get the deck as a DM and swipe it natively; the
+            // share sheet is the explicit "outside the app" fallback.
+            Button {
+                showFriendPicker = true
+            } label: {
+                HStack {
+                    Spacer()
+                    Image(systemName: "person.crop.circle.badge.checkmark")
+                    Text("Invite friends in the app").font(.labelBold)
+                    Spacer()
+                }
+                .padding(.vertical, 15)
+                .background(Color.coral)
+                .foregroundStyle(.white)
+                .clipShape(Capsule())
+            }
+            .disabled(!authManager.isAuthenticated)
+
             ShareLink(
                 item: url,
                 subject: Text("Help pick a gift for \(gift.recipient)"),
@@ -247,12 +276,12 @@ struct GroupGiftCreateView: View {
                 HStack {
                     Spacer()
                     Image(systemName: "paperplane.fill")
-                    Text("Invite friends to swipe").font(.labelBold)
+                    Text("Share outside the app").font(.labelBold)
                     Spacer()
                 }
                 .padding(.vertical, 15)
-                .background(Color.coral)
-                .foregroundStyle(.white)
+                .background(Color.coralSoft)
+                .foregroundStyle(Color.coral)
                 .clipShape(Capsule())
             }
         }
@@ -343,6 +372,7 @@ struct GroupGiftCreateView: View {
 struct GroupGiftDetailView: View {
     let giftId: String
 
+    @EnvironmentObject private var authManager: AuthManager
     @ObservedObject private var store = GroupGiftStore.shared
     @ObservedObject private var pools = PoolsStore.shared
     @State private var status: ChallengeStatusResponse?
@@ -350,6 +380,7 @@ struct GroupGiftDetailView: View {
     @State private var loadFailed = false
     @State private var showSwipeSheet = false
     @State private var showPledgeSheet = false
+    @State private var showFriendPicker = false
 
     private var gift: GroupGift? {
         store.gifts.first { $0.id == giftId }
@@ -391,6 +422,14 @@ struct GroupGiftDetailView: View {
                     .presentationDetents([.height(320)])
             }
         }
+        .sheet(isPresented: $showFriendPicker) {
+            if let gift {
+                FriendPickerSheet(
+                    messageText: "Help me pick a gift for \(gift.recipient) — swipe what you think they'd love 🎁\n\(gift.inviteURL)"
+                )
+                .environmentObject(authManager)
+            }
+        }
     }
 
     @ViewBuilder
@@ -410,17 +449,33 @@ struct GroupGiftDetailView: View {
             }
 
             HStack(spacing: 10) {
-                if let url = URL(string: gift.inviteURL) {
-                    ShareLink(
-                        item: url,
-                        message: Text("Help me pick a gift for \(gift.recipient) — swipe what you think they'd love 🎁")
-                    ) {
-                        Label("Invite", systemImage: "paperplane.fill")
+                // Invite = in-app DM first (signed-in); the share icon beside
+                // it is the explicit outside-the-app path.
+                if authManager.isAuthenticated {
+                    Button {
+                        showFriendPicker = true
+                    } label: {
+                        Label("Invite", systemImage: "person.crop.circle.badge.checkmark")
                             .font(.system(size: 13, weight: .bold))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 9)
                             .background(Color.coral)
                             .foregroundStyle(.white)
+                            .clipShape(Capsule())
+                    }
+                }
+                if let url = URL(string: gift.inviteURL) {
+                    ShareLink(
+                        item: url,
+                        message: Text("Help me pick a gift for \(gift.recipient) — swipe what you think they'd love 🎁")
+                    ) {
+                        Label(authManager.isAuthenticated ? "Share" : "Invite",
+                              systemImage: "paperplane.fill")
+                            .font(.system(size: 13, weight: .bold))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 9)
+                            .background(authManager.isAuthenticated ? Color.coral.opacity(0.12) : Color.coral)
+                            .foregroundStyle(authManager.isAuthenticated ? Color.coral : .white)
                             .clipShape(Capsule())
                     }
                 }
