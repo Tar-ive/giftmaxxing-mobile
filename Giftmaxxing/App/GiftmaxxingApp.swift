@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import UserNotifications
 
+// Rebuild nudge: 2026-07-15 — kick Xcode Cloud archive on main.
 // SwiftUI apps never receive the APNs registration callbacks without a real
 // UIApplicationDelegate — PushManager had the handlers, but nothing delivered
 // the device token to them, so no device was ever registered server-side.
