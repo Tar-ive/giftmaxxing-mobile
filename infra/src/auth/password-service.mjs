@@ -34,7 +34,8 @@ export async function hashPassword(password) {
 export async function verifyPassword(password, storedHash) {
   if (typeof password !== "string" || typeof storedHash !== "string") return { valid: false };
   if (storedHash.startsWith("$2")) {
-    return { valid: await bcrypt.compare(password, storedHash), needsRehash: !isCurrentHash(storedHash) };
+    const valid = await bcrypt.compare(password, storedHash);
+    return { valid, needsRehash: valid && !isCurrentHash(storedHash) };
   }
   const valid = legacyMatch(password, storedHash);
   return { valid, needsRehash: valid };
