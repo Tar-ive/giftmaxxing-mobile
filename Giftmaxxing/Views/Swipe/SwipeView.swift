@@ -262,12 +262,30 @@ struct SwipeView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 // Context picker — who is this swiping session for?
-                Picker("Context", selection: $context) {
+                HStack(spacing: 0) {
                     ForEach(GiftContext.allCases, id: \.self) { ctx in
-                        Text(ctx.rawValue).tag(ctx)
+                        Button {
+                            context = ctx
+                        } label: {
+                            Text(ctx.rawValue)
+                                .font(.system(size: 16, weight: context == ctx ? .semibold : .regular))
+                                .foregroundStyle(Color.ink)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(
+                                    context == ctx ? Color.surface : Color.clear,
+                                    in: Capsule()
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .contentShape(Rectangle())
+                        .accessibilityAddTraits(context == ctx ? .isSelected : [])
                     }
                 }
-                .pickerStyle(.segmented)
+                .padding(4)
+                .background(Color.ink.opacity(0.08), in: Capsule())
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Swipe context")
                 .padding(.horizontal, 20)
                 .padding(.top, 6)
 
