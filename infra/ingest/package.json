@@ -16,6 +16,7 @@
     "scrape:retailers": "node pinterest-scrape.mjs --target 3000 --retailers --require-price --out pins.retailers.json --state .scrape-retailers.state.json",
     "vectors:setup": "node s3vectors-setup.mjs",
     "embed": "node embed.mjs",
+    "backfill:vectors": "node backfill-vectors.mjs --brands top",
     "ingest:pins:dry": "node ingest-pins.mjs --dry-run",
     "ingest:pins": "node ingest-pins.mjs",
     "clean:posts:dry": "node clean-posts.mjs",

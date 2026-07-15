@@ -370,12 +370,16 @@ actor APIClient {
         seedKeys: [String]? = nil,
         vibes: [String]? = nil,
         sourceUser: String? = nil,
+        userId: String? = nil,
         limit: Int = 12
     ) async throws -> VectorResponse {
         var params: [String: String] = ["limit": String(limit)]
         if let seedKeys, !seedKeys.isEmpty { params["seedKeys"] = seedKeys.joined(separator: ",") }
         if let vibes, !vibes.isEmpty { params["vibes"] = vibes.joined(separator: ",") }
         if let sourceUser { params["sourceUser"] = sourceUser }
+        // userId alone is enough: the server seeds the taste centroid from the
+        // user's own interaction history (likes/saves) when no seedKeys given.
+        if let userId, !userId.isEmpty { params["userId"] = userId }
 
         return try await get("/recommendations", params: params)
     }

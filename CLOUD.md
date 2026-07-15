@@ -243,6 +243,7 @@ All us-east-1. Bedrock prices ✅ **verified via the AWS Price List API** (`Amaz
 - [x] **P0 App Store compliance: account deletion (5.1.1(v)) + Support URL (1.5)** — ✅ CODE COMPLETE (Jul 2026). (1) **In-app account deletion:** iOS `You → Account → Delete Account` → destructive confirm alert → `AuthManager.deleteAccount()` → `DELETE /account?userId=` → on success `signOut()` (keychain wipe) + `AccountLocalState` private-store wipe + `DataController.clearAllData()`. Self-service, irreversible, no support ticket (Apple bars requiring a call/email). Server: new **`DELETE /account`** in `handler.mjs` + `purgeAccount()`/`purgeByPartition()` — deletes the USERS profile item and batch-deletes every row on the user's partition across INTERACTIONS (`userId`), CONNECTIONS (`userId`=senderId), EVENTS (`userId`), GRAPH (`pk`), FRIENDS (`pk`). Auth-gated like GET/PUT `/me`. Privacy copy updated (removed the old "contact support to delete" line — itself a 5.1.1(v) violation). (2) **Support URL:** new static `web/app/support/page.tsx` (contact email + FAQ incl. deletion steps, links to `/privacy`) → deploys to Vercel on merge; point the App Store Connect **Support URL** at `https://giftmaxxing-web.vercel.app/support` (root URL was the flagged one). **✅ AWS DEPLOYED (Jul 2026):** `DELETE /account` live on CloudFront / App Runner / API Gateway (auth-gated 401 without token; IAM already covers Query/BatchWriteItem/DeleteItem on USERS/INTERACTIONS/CONNECTIONS/EVENTS/GRAPH/FRIENDS). **✅ CLIENT FOLLOW-UP (Jul 2026):** deletion no longer looks broken across accounts — demo `Pool.samples` fallbacks removed from `PoolsStore`/`CompactPledgeRail` (empty account = empty rail); `AccountLocalState.wipeEverything` clears taste profile, cached Titan vectors, consult/onboarding answers (`PersonalizationStore`/`GiftingPrefs`) + SwiftData on delete, not just gifting stores. **⏳ USER action:** set the App Store Connect Support URL to `https://giftmaxxing-web.vercel.app/support`, and attach a device screen-recording of the deletion flow to App Review Information → Notes.
 - [x] **P1 Feed carousel-first + broader Shopify catalog + add-by-link title hardening** — ✅ CODE COMPLETE (Jul 2026). (1) **Carousel-first feed:** the server ranks a single-image Pinterest photo first for most vibe/recipient variants (verified live), so the hero was never a carousel and pull-to-refresh returned the same top item. `OnDeviceRanker` gains a `gallery` weight (0.22) floating multi-image product carousels over Pinterest statics (explore 0.06→0.11 for visible reshuffle); `FeedViewModel.ensureCarouselFirst()` promotes a randomly chosen multi-image post to slot 0 every load (borrowing from the ranked buffer if none is in view). (2) **22 Shopify stores** (was 5) in `shopify-stores.json`, spanning **beauty/makeup** (ColourPop, Morphe, Kylie Cosmetics, Kosas, NUDESTIX), **men's** (Chubbies, Beardbrand, True Classic, Cuts, Taylor Stitch), **shoes/eyewear** (Vessi, Peepers + existing Allbirds/Rothy's), **tech** (Native Union, Orbitkey, Peak Design), and **food** (Death Wish Coffee, OLIPOP) — every `/products.json` host probed live (200 + multi-image galleries); most serve straight from the custom domain (`feed == store`). This closes the "0 Shopify for men+tech" coverage gap. (3) **`LinkIngest` title hardening:** bot-wall interstitials ("Pardon Our Interruption", "Access Denied", "Just a moment") and site taglines used as og:title ("SHEIN.com is mainly design and produce…") are detected and replaced with the JSON-LD Product name or the URL slug; bot-wall og:images are dropped. **⏳ AWS-GATED (infra agent):** re-run `npm run ingest:shopify` (seeds posts via `/seed`) then `node embed.mjs --manifest shopify.manifest.json` (Bedrock + S3 Vectors) to load the 17 new stores' products — in a CCR container use `NODE_USE_ENV_PROXY=1`, though prod egress won't need it.
 - [x] **P0 Account persistence + privacy: Gift Boards sync, curated galleries, contacts scoping** — ✅ CODE COMPLETE (Jul 2026). (1) **Gift Boards persist per account** (was local-only + wiped on sign-out → users lost boards): `SwipeListStore.configure(userId:)` hydrates on sign-in/launch and debounce-pushes every mutation to the **already-deployed** `/me` profile (`UserProfile.giftBoards`, capped 50 boards×100 posts). No backend deploy needed. (2) **Curated gift galleries** (`CuratedCollection` + `CuratedGalleriesRail` + `CollectionDetailView`): a Home rail of 12 themed shelves ("Anniversary Gifts Under $50", "For the Golf Lover", …) → filtered `/feed` query, price cap enforced client-side. Filler/scaffolding for the editorial curation layer. (3) **⚠️ Contacts/events privacy leak FIXED:** `EventsViewModel.addEvent` wrote imported-contact birthdays to the server under `userId ?? ""` — a **shared global partition key** — and `loadFromCache` read *all* CachedEvent rows on the device regardless of account. Now: never POST under an empty userId (signed-out events stay device-local under the per-device anon id), cache reads/writes are account-scoped (`#Predicate { $0.userId == scope }`), and `AccountLocalState.clearPrivateStores` purges CachedEvent on sign-out/switch. **✅ AWS-GATED privacy cleanup DONE (Jul 2026):** full scan of `giftmaxxing-dev-events` (64 items) found **0** rows with empty/missing `userId`. DynamoDB rejects empty-string partition keys (`ValidationException` on Query/Put), so those client writes could not land as a shared global bucket; residual risk was device-local cache bleed (fixed in iOS). No batch-delete needed.
+- [x] **P1 Recommendation-API-first feed + full-catalog vector backfill driver** — ✅ CODE COMPLETE (Jul 2026), full spec + corrections in **§15**. (1) **Client:** iOS Home is now recommendation-API-first — `FeedViewModel.fetchPersonalizedPicks()` calls the LIVE `GET /recommendations?userId=` (server-side interaction history → taste centroid → S3 Vectors kNN) concurrently with the generic candidate page and weaves `source:"vector"` picks into slots 1/4/7/10; cold start (`source:"facet"`/empty) contributes nothing so the generic page stands alone — exactly the proposed fallback UX. `fetchVectorRecommendations` gained `userId:`. (2) **Backfill driver:** `infra/ingest/backfill-vectors.mjs` (`npm run backfill:vectors`) scans POSTS, diffs against the vector index, reports missing-by-brand, writes an `embed.mjs` manifest (top-20 brands first, junk excluded). **Correction adopted: Titan (not CLIP)** — CLIP is a different embedding space and cannot be fused with the 1024-d Titan index; `embed.mjs` already fetches remote imageUrls; ~21.3k images ≈ $0.64 one-time. (3) **Pools/clustering:** manual pools = the shipped `CuratedCollection` galleries + persona→vibes; the SageMaker clustering + expert-seeded cold start + `pool#<clusterId>` serving layer is specced in §15.3 (needs AWS + production interactions). **⏳ AWS-GATED (infra agent):** run `npm run backfill:vectors` → `node embed.mjs --manifest backfill.manifest.json` (§15.2 runbook).
 - [ ] **P1 Native ads** — `Post.sponsored`, `PostCard` label + CTA, interleave by cadence ranked by taste, frequency cap + hide.
 - [ ] **P2 Deal monitoring backend** — EventBridge cron → deal-finder Lambda, price-tracker Lambda (Amazon PA-API 5.0 + Walmart API), DynamoDB price history + watchlist tables, SNS/SES notifications. Feed integration: deal cards ranked alongside organic content by taste vector + deal quality score. Maxi AI deal suggestions via Bedrock (Claude/Titan).
 - [ ] **P2 Harden write path (optimized arch, §12.2)** — SQS + DLQ between ingest and embed, Step Functions orchestration, pHash dedup, EventBridge re-sync, Secrets Manager, observability. Add OpenSearch hot tier only if real-time ANN latency at scale demands it.
@@ -536,3 +537,91 @@ recipient graph survives device wipes and powers server ranking:
 3. Client follow-up (iOS agent): point `SwipeViewModel.loadSurprise()` at
    `mode=surprise` when the deploy lands (keep the on-device walk as offline fallback),
    and consume `socialProof` in `OnDeviceRanker`.
+
+---
+
+## 15. Recommendation scale-up — pools, clustering, full-catalog embeddings
+
+> **Status:** client + backfill driver shipped Jul 2026; the SageMaker/clustering
+> halves are spec-only (need AWS + production interaction data). For the
+> infra/ML agent.
+
+### 15.1 What already exists (don't rebuild)
+
+- **`GET /recommendations?userId=&limit=`** is LIVE and does exactly the
+  "recommendation API" design: seeds = the user's own interaction rows
+  (INTERACTIONS table) → taste centroid → S3 Vectors kNN → items sorted by
+  score, `source:"vector"`. Cold start (no interactions) falls back to the
+  facet scan (`source:"facet"`) automatically. It returns full item metadata,
+  not just ids — the client needs no second DynamoDB read.
+- **Client (Jul 2026):** the iOS Home feed is now recommendation-API-first —
+  `FeedViewModel.fetchPersonalizedPicks()` calls `/recommendations?userId=`
+  concurrently with the generic candidate page and weaves `source:"vector"`
+  picks into slots 1/4/7/10; on cold start it contributes nothing and the
+  generic page stands alone. The CloudFront-cacheable generic page remains the
+  candidate backbone (cost model intact — one extra Lambda call per feed load,
+  signed-in users only).
+- **Tag-based pools, manual tier:** posts already carry `category` + vibe tags,
+  and the client ships 12 curated "gift galleries" (`CuratedCollection`) that
+  ARE the hand-made starter pools ("Tech Lover's Wishlist" = the tech pool).
+  Onboarding personas map to vibes (`GiftingPrefs` → `consultVibes`) which bias
+  candidate generation server-side today.
+
+### 15.2 Full-catalog embeddings — Titan, NOT CLIP (backfill driver shipped)
+
+~21.3k posts carry remote image URLs but only a fraction are in the vector
+index. **Do not add a CLIP-on-SageMaker path for this:** CLIP embeds into a
+*different* vector space — its vectors cannot be compared or fused with the
+existing Titan Multimodal 1024-d index, so "generate CLIP embeddings and
+compare with the existing vectors" doesn't work. The existing pipeline already
+handles remote images (`embed.mjs` fetches `imageUrl` when there's no `s3Key`).
+
+Runbook (AWS creds; ~$0.64 one-time on-demand, ~$0.32 batch):
+1. `cd infra/ingest && npm run backfill:vectors` — scans POSTS, diffs against
+   the index (`list-vectors`), reports missing-by-brand (top-20 first via
+   `--brands top`), writes `backfill.manifest.json` (junk excluded via
+   `feedEligible`).
+2. `node embed.mjs --manifest backfill.manifest.json` — Titan MM → PutVectors,
+   same index, same space. `--limit N` to stage; idempotent (re-put = upsert).
+3. Verify: `/visual-search` now returns Shopify/gallery products; `GET
+   /recommendations?userId=` covers the full catalog.
+
+(CLIP on SageMaker is fine as a SEPARATE experiment index for offline eval —
+never mixed into `pins`.)
+
+### 15.3 User clustering (SageMaker notebook) + expert-seeded cold start
+
+Goal: cluster users by swipe/like history; serve each cluster a shared gift
+pool; seed brand-new users from "expert" (high-activity) users' pools.
+
+- **Data:** INTERACTIONS table (userId, target, type) + challenge responses
+  (CONNECTIONS.seeds = yes-swipes). Export to S3 via a one-off scan or DynamoDB
+  → S3 export. Join targets to their Titan vectors (S3 Vectors `get-vectors`)
+  so items are dense features, not ids.
+- **Notebook (SageMaker, `infra/ml/` when created):** build user profiles =
+  mean vector of liked items (same centroid math as prod); cluster with
+  MiniBatchKMeans (k≈8–20, elbow/silhouette) or, once interactions are dense
+  enough, implicit-feedback matrix factorization (`implicit` ALS) and cluster
+  the user factors. Label clusters by their top categories/vibes → these ARE
+  the "Tech Enthusiast"/"Fashionista" pools, learned instead of hand-set.
+- **Pool generation:** per cluster, top-N items by (a) member engagement and
+  (b) kNN around the cluster centroid — write as `pool#<clusterId>` rows in
+  DynamoDB (CONFIG or POSTS table, item type `pool`): `{ clusterId, label,
+  itemIds[', updatedAt }`. Small, hot, cache-friendly.
+- **Serving (Lambda, no new infra):** `GET /recommendations` gains a cheap
+  pre-step — look up the user's `clusterId` (stored on their USERS row by the
+  notebook's assignment export), fetch `pool#<clusterId>`, and blend pool items
+  into the candidate set before the personal-centroid kNN re-ranks. New users
+  with zero interactions get their onboarding persona mapped to the nearest
+  cluster (persona vibes → cluster label match) — the "expert seeds beginner"
+  cold-start accelerator.
+- **Refresh:** re-run the notebook weekly (EventBridge → SageMaker Processing
+  job once it stabilizes); assignments + pools are plain DynamoDB writes.
+
+### 15.4 Order of operations
+
+1. **15.2 backfill first** — clustering quality depends on item vectors
+   existing for what users actually swiped on.
+2. Then export interactions → notebook → first k-means pools.
+3. Lambda pool blend + USERS.clusterId assignment.
+4. Revisit matrix factorization once weekly actives × interactions justify it.
