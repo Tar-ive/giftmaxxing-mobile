@@ -21,12 +21,13 @@ actor ImageLoader {
     }
 
     func load(url: String, width: Int? = nil) async -> UIImage? {
-        let cacheKey = url as NSString
+        let key = cacheKey(url: url, width: width)
+        let cacheKey = key as NSString
         if let cached = cache.object(forKey: cacheKey) {
             return cached
         }
 
-        if let existingTask = inFlightTasks[url] {
+        if let existingTask = inFlightTasks[key] {
             return await existingTask.value
         }
 
@@ -42,17 +43,18 @@ actor ImageLoader {
             }
         }
 
-        inFlightTasks[url] = task
+        inFlightTasks[key] = task
         let result = await task.value
-        inFlightTasks.removeValue(forKey: url)
+        inFlightTasks.removeValue(forKey: key)
         return result
     }
 
     func prefetch(urls: [String], width: Int? = nil) {
         for url in urls {
-            let cacheKey = url as NSString
+            let key = cacheKey(url: url, width: width)
+            let cacheKey = key as NSString
             if cache.object(forKey: cacheKey) != nil { continue }
-            if inFlightTasks[url] != nil { continue }
+            if inFlightTasks[key] != nil { continue }
 
             let task = Task<UIImage?, Never> {
                 guard let imageUrl = buildURL(base: url, width: width) else { return nil }
@@ -65,10 +67,10 @@ actor ImageLoader {
                     return nil
                 }
             }
-            inFlightTasks[url] = task
+            inFlightTasks[key] = task
             Task {
                 _ = await task.value
-                inFlightTasks.removeValue(forKey: url)
+                inFlightTasks.removeValue(forKey: key)
             }
         }
     }
@@ -88,6 +90,13 @@ actor ImageLoader {
             url = components?.url ?? url
         }
         return url
+    }
+
+    // A board thumbnail and a swipe card can share a source URL but need
+    // different decoded image sizes. Keeping width in the key prevents the
+    // large swipe prefetch from being reused by the board list.
+    private func cacheKey(url: String, width: Int?) -> String {
+        "\(url)|w:\(width.map { String($0) } ?? "original")"
     }
 
     private func cloudFrontURL(for urlString: String) -> URL? {
