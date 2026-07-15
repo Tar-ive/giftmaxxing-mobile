@@ -226,8 +226,7 @@ final class AuthManager: ObservableObject {
                   let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let authResult = json["AuthenticationResult"] as? [String: Any],
                   let idToken = authResult["IdToken"] as? String else {
-                let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-                self.error = "Email sign-in failed (HTTP \(status)). Check the credentials."
+                self.error = "Incorrect email or password"
                 return
             }
 
@@ -252,8 +251,7 @@ final class AuthManager: ObservableObject {
             await APIClient.shared.setAuthToken(idToken)
             await APIClient.shared.identify(userId: userIdValue, name: name, email: email)
         } catch {
-            let nsError = error as NSError
-            self.error = "Email sign-in failed (\(nsError.domain) \(nsError.code)). Please try again."
+            self.error = "Incorrect email or password"
         }
     }
 
