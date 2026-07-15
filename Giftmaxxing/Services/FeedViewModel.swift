@@ -58,8 +58,17 @@ final class FeedViewModel: ObservableObject {
 
         await refreshTasteCentroid()
         do {
+            // Recommendation-API-first (signed-in): the server builds a taste
+            // centroid from THIS user's interaction history and kNNs the vector
+            // index — richer than what a generic candidate page can carry. Runs
+            // concurrently with the candidate fetch; on a cold start (no
+            // interactions yet → source:"facet" or empty) it contributes
+            // nothing and the generic page stands alone, so the experience is
+            // seamless either way.
+            async let personalizedTask = fetchPersonalizedPicks()
             try await fetchAndRankNextPage()
             posts = drain(uiPageSize)
+            weave(personalized: await personalizedTask)
             // The first card a user sees on every open/refresh should be a
             // swipeable carousel (a real multi-image product), not a static
             // single Pinterest photo — and a different one each time.
@@ -72,6 +81,52 @@ final class FeedViewModel: ObservableObject {
         }
 
         isLoading = false
+    }
+
+    // Top picks from GET /recommendations?userId= (server-side interaction
+    // history → vector kNN). Empty on cold start / signed out — by design.
+    private func fetchPersonalizedPicks() async -> [Post] {
+        guard let userId, !userId.isEmpty else { return [] }
+        guard let response = try? await api.fetchVectorRecommendations(userId: userId, limit: 10),
+              response.source == "vector",
+              let items = response.items, !items.isEmpty else { return [] }
+        return items.map { item in
+            Post(
+                id: item.postId,
+                user: item.author ?? "giftmaxxing",
+                time: "",
+                product: Product(
+                    id: item.postId,
+                    name: item.name ?? "Gift idea",
+                    brand: item.merchant ?? item.source ?? "",
+                    price: item.price ?? 0,
+                    grad: .coral,
+                    emoji: "🎁",
+                    image: item.image
+                ),
+                caption: "",
+                likes: 0,
+                productUrl: item.productUrl ?? item.url,
+                reason: item.reason ?? "Picked for you",
+                domain: item.domain,
+                giftType: item.giftType,
+                serviceDuration: item.serviceDuration
+            )
+        }
+    }
+
+    // Interleave personalized picks into the first page (slots 1, 4, 7, …) so
+    // they lead without monopolizing — the ranked candidates still carry the
+    // page. De-duped against everything already served or buffered.
+    private func weave(personalized: [Post]) {
+        guard !personalized.isEmpty else { return }
+        let known = Set(posts.map(\.id)).union(servedIds).union(rankedBuffer.map(\.post.id))
+        var slot = 1
+        for pick in personalized.filter({ !known.contains($0.id) && $0.product.image != nil }).prefix(4) {
+            servedIds.insert(pick.id)
+            posts.insert(pick, at: min(slot, posts.count))
+            slot += 3
+        }
     }
 
     // Lead with a carousel. Prefer a randomly chosen multi-image post already
