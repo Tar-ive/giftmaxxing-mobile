@@ -56,6 +56,12 @@ resource "aws_iam_role_policy" "apprunner_login_email" {
   policy = data.aws_iam_policy_document.login_email.json
 }
 
+resource "aws_iam_role_policy" "apprunner_sagemaker_invoke" {
+  name   = "${local.prefix}-apprunner-sagemaker-invoke"
+  role   = aws_iam_role.apprunner_instance.id
+  policy = data.aws_iam_policy_document.sagemaker_invoke.json
+}
+
 # ── IAM: access role (App Runner pulls the image from private ECR) ─────────────
 data "aws_iam_policy_document" "apprunner_access_assume" {
   statement {
