@@ -18,6 +18,7 @@ import {
   ListVectorsCommand,
 } from "@aws-sdk/client-s3vectors";
 import { BedrockRuntimeClient, InvokeModelCommand, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
+import { SageMakerRuntimeClient, InvokeEndpointCommand } from "@aws-sdk/client-sagemaker-runtime";
 import { CognitoIdentityProviderClient, InitiateAuthCommand } from "@aws-sdk/client-cognito-identity-provider";
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { createHash } from "node:crypto";
@@ -438,6 +439,14 @@ const VECTOR_BUCKET = process.env.VECTOR_BUCKET;
 const VECTOR_INDEX = process.env.VECTOR_INDEX;
 const s3v = VECTOR_BUCKET ? new S3VectorsClient({}) : null;
 
+// MTL value model (SageMaker serverless endpoint, infra/ml). When configured,
+// /recommendations re-ranks its kNN candidates by
+//   Score = 2·P_Time + 5·P_Custom + 1·P_Buy
+// instead of raw cosine order. Empty env -> feature off, zero new latency.
+const MTL_ENDPOINT = process.env.MTL_ENDPOINT || "";
+const MTL_TIMEOUT_MS = Number(process.env.MTL_TIMEOUT_MS || 2500);
+const smr = MTL_ENDPOINT ? new SageMakerRuntimeClient({}) : null;
+
 // Bedrock Titan Multimodal embeddings power visual search: an uploaded image is
 // embedded into the SAME shared space the pin index was built with (see
 // infra/ingest/embed.mjs), so image->image kNN works directly.
@@ -718,11 +727,71 @@ async function vectorRecommend(seedKeys, { limit, sourceUser }) {
       filter: sourceUser ? { sourceUser: { $eq: sourceUser } } : undefined,
     })
   );
-  return (out.vectors ?? [])
+  const items = (out.vectors ?? [])
     .filter((v) => !seen.has(v.key))
     .map(vecToItem)
-    .filter((it) => it.feedEligible)
-    .slice(0, limit);
+    .filter((it) => it.feedEligible);
+  const ranked = await mtlRerank(centroid, items, seedKeys.length);
+  return (ranked ?? items).slice(0, limit);
+}
+
+// Re-rank candidates through the MTL value model (infra/ml, SageMaker
+// serverless endpoint). Soft-fails to cosine order on any error or timeout —
+// a cold serverless container (~10-30 s) will miss the deadline, warm up in
+// the background, and serve the next request.
+async function mtlRerank(centroid, items, userEvents) {
+  if (!smr || !items.length) return null;
+  try {
+    const keys = items.map((it) => it.postId);
+    const vecs = new Map();
+    for (let i = 0; i < keys.length; i += 100) {
+      const out = await s3v.send(
+        new GetVectorsCommand({
+          vectorBucketName: VECTOR_BUCKET,
+          indexName: VECTOR_INDEX,
+          keys: keys.slice(i, i + 100),
+          returnData: true,
+        })
+      );
+      for (const v of out.vectors ?? []) vecs.set(v.key, v.data?.float32);
+    }
+    const payload = {
+      user: centroid,
+      user_events: userEvents,
+      items: items
+        .filter((it) => vecs.has(it.postId))
+        .map((it) => ({
+          key: it.postId,
+          vector: vecs.get(it.postId),
+          price: it.price || 0,
+          source: it.source === "pinterest" || it.postId.startsWith("pin-") ? "pinterest"
+            : it.author && it.author !== "pinterest" ? "shopify" : "other",
+        })),
+    };
+    if (!payload.items.length) return null;
+    const resp = await smr.send(
+      new InvokeEndpointCommand({
+        EndpointName: MTL_ENDPOINT,
+        ContentType: "application/json",
+        Body: JSON.stringify(payload),
+      }),
+      { abortSignal: AbortSignal.timeout(MTL_TIMEOUT_MS) }
+    );
+    const scored = JSON.parse(Buffer.from(resp.Body).toString("utf8"));
+    const byKey = new Map((scored.items ?? []).map((s) => [s.key, s]));
+    if (!byKey.size) return null;
+    return items
+      .map((it) => {
+        const s = byKey.get(it.postId);
+        return s
+          ? { ...it, mtl: { pTime: s.p_time, pCustom: s.p_custom, pBuy: s.p_buy, score: s.score } }
+          : it;
+      })
+      .sort((a, b) => (b.mtl?.score ?? -1) - (a.mtl?.score ?? -1));
+  } catch (e) {
+    console.warn("mtl rerank skipped:", e.name === "TimeoutError" ? "timeout (cold endpoint?)" : e.message);
+    return null;
+  }
 }
 
 // ── Challenge engine (product-seeded swipe challenges) ───────────────────────
@@ -2982,7 +3051,7 @@ export const handler = async (event) => {
             return json(200, {
               items: interleaveAuthors(vitems.filter(giftTypeOk)),
               cursor: null,
-              source: "vector",
+              source: vitems.some((it) => it.mtl) ? "vector+mtl" : "vector",
             });
           }
         } catch (e) {

@@ -47,6 +47,10 @@ struct AnalyticsEvent: Codable, Identifiable {
         case contentShare = "content_share"
         case contentTap = "content_tap"
         case contentComment = "content_comment"
+        // User typed words for a specific gift (why-note / gift letter) — the
+        // P_Custom label of the MTL value model (infra/ml). Joined server-side
+        // by (userId, postId), so postId context is required.
+        case customMessage = "custom_message"
 
         // Swipe deck (Tinder-style)
         case swipeCardShown = "swipe_card_shown"

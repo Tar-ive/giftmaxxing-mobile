@@ -90,6 +90,23 @@ resource "aws_iam_role_policy" "s3vectors_access" {
   policy = data.aws_iam_policy_document.s3vectors_access.json
 }
 
+# MTL value-model re-rank (infra/ml): /recommendations invokes the SageMaker
+# serverless endpoint when var.mtl_endpoint is set. Scoped to this env's
+# endpoints only; created even while the var is "" (harmless, no such endpoint).
+data "aws_iam_policy_document" "sagemaker_invoke" {
+  statement {
+    sid       = "MtlInvoke"
+    actions   = ["sagemaker:InvokeEndpoint"]
+    resources = ["arn:aws:sagemaker:${var.region}:${data.aws_caller_identity.current.account_id}:endpoint/${local.prefix}-*"]
+  }
+}
+
+resource "aws_iam_role_policy" "sagemaker_invoke" {
+  name   = "${local.prefix}-sagemaker-invoke"
+  role   = aws_iam_role.api_lambda.id
+  policy = data.aws_iam_policy_document.sagemaker_invoke.json
+}
+
 locals {
   # Every model id Maxi might invoke via Converse (base + shopping tiers + the
   # legacy alias), deduped — used to scope the Bedrock InvokeModel policy below.

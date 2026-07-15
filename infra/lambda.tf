@@ -67,6 +67,9 @@ resource "aws_lambda_function" "api" {
       # Visual search: Titan Multimodal embedding model + vector dimensionality.
       BEDROCK_EMBED_MODEL_ID = "amazon.titan-embed-image-v1"
       VECTOR_DIM             = "1024"
+      # MTL value-model re-rank (infra/ml). "" = off; set to the SageMaker
+      # serverless endpoint name (e.g. giftmaxxing-dev-mtl) once deployed.
+      MTL_ENDPOINT = var.mtl_endpoint
       # Maxi model router (POST /maxi): cheap Amazon Nova by default, escalate to
       # Claude Haiku for agentic shopping (add-to-cart / buy / checkout).
       MAXI_BASE_MODEL_ID     = var.maxi_base_model_id

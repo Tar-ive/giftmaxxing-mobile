@@ -1,0 +1,7 @@
+# infra/ml — local dev + SageMaker source_dir deps.
+# The SageMaker PyTorch containers already ship torch; listing it here only
+# affects local venvs. sagemaker (the SDK) is notebook-only.
+boto3>=1.34
+numpy>=1.26
+scikit-learn>=1.4
+torch>=2.2
