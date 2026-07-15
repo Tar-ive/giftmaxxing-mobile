@@ -18,6 +18,9 @@ import {
   ListVectorsCommand,
 } from "@aws-sdk/client-s3vectors";
 import { BedrockRuntimeClient, InvokeModelCommand, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
+import { CognitoIdentityProviderClient, InitiateAuthCommand } from "@aws-sdk/client-cognito-identity-provider";
+import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import { createHash } from "node:crypto";
 import { classifyPin, isMajorUSRetailer } from "./quality.mjs";
 import { sendPushToUser } from "./push.mjs";
 import { mobileRoutes } from "./mobile-routes.mjs";
@@ -41,6 +44,77 @@ const EVENTS = process.env.EVENTS_TABLE;
 const GRAPH = process.env.GRAPH_TABLE;
 const CONFIG = process.env.CONFIG_TABLE;
 const FRIENDS = process.env.FRIENDS_TABLE;
+const COGNITO_CLIENT_ID = process.env.COGNITO_CLIENT_ID || "";
+const LOGIN_RESET_URL = process.env.LOGIN_RESET_URL || "";
+const LOGIN_EMAIL_FROM = process.env.LOGIN_EMAIL_FROM || "";
+const cognito = new CognitoIdentityProviderClient({});
+const ses = new SESClient({});
+
+// This is intentionally process-local: it is a safe fallback for the current
+// Lambda/App Runner deployment when no Redis provider is configured. For a
+// multi-instance deployment, replace this map with Redis/Upstash atomics.
+const loginState = new Map();
+const LOGIN_WINDOW_MS = 60_000;
+const LOGIN_MAX_PER_IP = 10;
+const LOGIN_MAX_FAILURES = 5;
+const LOGIN_LOCK_MS = 15 * 60_000;
+const loginKey = (email) => createHash("sha256").update(String(email).trim().toLowerCase()).digest("hex");
+const sourceIp = (event) => event.requestContext?.http?.sourceIp || event.headers?.["x-forwarded-for"]?.split(",")[0]?.trim() || "unknown";
+function loginEntry(email) {
+  const key = loginKey(email);
+  const entry = loginState.get(key) || { failures: 0, lockedUntil: 0, notified: false };
+  loginState.set(key, entry);
+  return entry;
+}
+function pruneLoginState(now = Date.now()) {
+  for (const [key, item] of loginState) if (item.windowUntil < now && !item.lockedUntil) loginState.delete(key);
+}
+async function sendLockoutEmail(email) {
+  if (!LOGIN_EMAIL_FROM || !LOGIN_RESET_URL) return;
+  const resetLink = `${LOGIN_RESET_URL}${LOGIN_RESET_URL.includes("?") ? "&" : "?"}token=${encodeURIComponent(Buffer.from(String(email)).toString("base64url"))}`;
+  await ses.send(new SendEmailCommand({
+    Source: LOGIN_EMAIL_FROM,
+    Destination: { ToAddresses: [email] },
+    Message: {
+      Subject: { Data: "Reset your Giftmaxxing password", Charset: "UTF-8" },
+      Body: { Text: { Data: `We blocked sign-in attempts on your Giftmaxxing account. Reset your password here: ${resetLink}`, Charset: "UTF-8" } },
+    },
+  }));
+}
+async function loginRoute(event, body) {
+  pruneLoginState();
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  const password = typeof body.password === "string" ? body.password : "";
+  const ip = sourceIp(event);
+  const now = Date.now();
+  const ipEntry = loginState.get(`ip:${ip}`) || { windowUntil: now + LOGIN_WINDOW_MS, requests: 0 };
+  if (now >= ipEntry.windowUntil) Object.assign(ipEntry, { windowUntil: now + LOGIN_WINDOW_MS, requests: 0 });
+  ipEntry.requests += 1;
+  loginState.set(`ip:${ip}`, ipEntry);
+  if (ipEntry.requests > LOGIN_MAX_PER_IP) return json(429, { error: "Unable to sign in. Please try again later." }, { "retry-after": String(Math.ceil((ipEntry.windowUntil - now) / 1000)) });
+
+  const entry = loginEntry(email);
+  if (entry.lockedUntil > now) return json(401, { error: "Unable to sign in. Please use the password reset link if needed." });
+  if (entry.failures > 0) await new Promise((resolve) => setTimeout(resolve, Math.min(2000, 250 * 2 ** (entry.failures - 1))));
+  try {
+    if (!COGNITO_CLIENT_ID || !email || !password) throw new Error("invalid credentials");
+    const result = await cognito.send(new InitiateAuthCommand({
+      ClientId: COGNITO_CLIENT_ID,
+      AuthFlow: "USER_PASSWORD_AUTH",
+      AuthParameters: { USERNAME: email, PASSWORD: password },
+    }));
+    loginState.delete(loginKey(email));
+    return json(200, { authenticationResult: result.AuthenticationResult });
+  } catch (error) {
+    entry.failures += 1;
+    if (entry.failures >= LOGIN_MAX_FAILURES) {
+      entry.lockedUntil = now + LOGIN_LOCK_MS;
+      if (!entry.notified) { entry.notified = true; sendLockoutEmail(email).catch((err) => console.warn("lockout email failed", err.message)); }
+    }
+    // Same response for bad credentials and lockout, preventing account-state disclosure.
+    return json(401, { error: "Unable to sign in. Please use the password reset link if needed." });
+  }
+}
 
 // ── byFeed GSI sharding (Phase 4b) ───────────────────────────────────────────
 // The global feed rides one GSI partition key (feedPk="all"). Past a few thousand
@@ -82,6 +156,7 @@ const _clerkJwks = CLERK_ISSUER
 // write (POST /connections). Default-deny: anything not listed is protected.
 function isPublicRoute(method, path) {
   if (method === "OPTIONS") return true;
+  if (method === "POST" && path === "/login") return true;
   if (method === "GET") {
     if (path === "/feed" || path === "/recommendations" || path === "/pins") return true;
     if (path === "/recipients" || path === "/ideas") return true;
@@ -2358,6 +2433,8 @@ export const handler = async (event) => {
   }
 
   try {
+    if (method === "POST" && path === "/login") return await loginRoute(event, body);
+
     // Mobile behavioral analytics (POST ingest is public; GET summary rides
     // the auth gate above like every other protected route).
     if (path.startsWith("/mobile/analytics")) {

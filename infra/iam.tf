@@ -125,3 +125,17 @@ resource "aws_iam_role_policy" "bedrock_access" {
   role   = aws_iam_role.api_lambda.id
   policy = data.aws_iam_policy_document.bedrock_access.json
 }
+
+data "aws_iam_policy_document" "login_email" {
+  statement {
+    sid       = "SendLoginLockoutEmail"
+    actions   = ["ses:SendEmail"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "login_email" {
+  name   = "${local.prefix}-login-email"
+  role   = aws_iam_role.api_lambda.id
+  policy = data.aws_iam_policy_document.login_email.json
+}

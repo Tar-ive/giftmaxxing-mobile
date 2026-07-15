@@ -50,6 +50,12 @@ resource "aws_iam_role_policy" "apprunner_config" {
   policy = data.aws_iam_policy_document.api_config_read.json
 }
 
+resource "aws_iam_role_policy" "apprunner_login_email" {
+  name   = "${local.prefix}-apprunner-login-email"
+  role   = aws_iam_role.apprunner_instance.id
+  policy = data.aws_iam_policy_document.login_email.json
+}
+
 # ── IAM: access role (App Runner pulls the image from private ECR) ─────────────
 data "aws_iam_policy_document" "apprunner_access_assume" {
   statement {
@@ -120,6 +126,9 @@ resource "aws_apprunner_service" "api" {
           SESSION_JWT_SECRET = var.session_jwt_secret
           # iOS-app identities (mirrors lambda.tf — see handler.mjs verifiers).
           COGNITO_ISSUER         = "https://${aws_cognito_user_pool.mobile.endpoint}"
+          COGNITO_CLIENT_ID      = aws_cognito_user_pool_client.ios.id
+          LOGIN_RESET_URL        = var.login_reset_url
+          LOGIN_EMAIL_FROM       = var.login_email_from
           GOOGLE_OAUTH_CLIENT_ID = var.google_oauth_client_id
 
           VECTOR_BUCKET          = "${local.prefix}-vectors"
