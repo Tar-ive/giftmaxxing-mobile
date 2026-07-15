@@ -302,3 +302,15 @@ variable "cognito_logout_urls" {
   type        = list(string)
   default     = ["giftmaxxing://auth/logout"]
 }
+
+variable "login_reset_url" {
+  description = "HTTPS URL used in account-lockout password-reset emails. Empty disables email delivery until configured."
+  type        = string
+  default     = ""
+}
+
+variable "login_email_from" {
+  description = "SES-verified sender address for account-lockout emails."
+  type        = string
+  default     = ""
+}

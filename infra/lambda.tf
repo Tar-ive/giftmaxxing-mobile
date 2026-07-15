@@ -58,6 +58,9 @@ resource "aws_lambda_function" "api" {
       # iOS-app identities (handler verifies alongside Clerk): Cognito pool JWTs
       # (Sign in with Apple) + Google ID tokens (empty client id = dark).
       COGNITO_ISSUER         = "https://${aws_cognito_user_pool.mobile.endpoint}"
+      COGNITO_CLIENT_ID      = aws_cognito_user_pool_client.ios.id
+      LOGIN_RESET_URL        = var.login_reset_url
+      LOGIN_EMAIL_FROM       = var.login_email_from
       GOOGLE_OAUTH_CLIENT_ID = var.google_oauth_client_id
       VECTOR_BUCKET    = "${local.prefix}-vectors"
       VECTOR_INDEX     = "pins"
