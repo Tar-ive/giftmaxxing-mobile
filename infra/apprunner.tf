@@ -56,6 +56,12 @@ resource "aws_iam_role_policy" "apprunner_login_email" {
   policy = data.aws_iam_policy_document.login_email.json
 }
 
+resource "aws_iam_role_policy" "apprunner_sagemaker_invoke" {
+  name   = "${local.prefix}-apprunner-sagemaker-invoke"
+  role   = aws_iam_role.apprunner_instance.id
+  policy = data.aws_iam_policy_document.sagemaker_invoke.json
+}
+
 # ── IAM: access role (App Runner pulls the image from private ECR) ─────────────
 data "aws_iam_policy_document" "apprunner_access_assume" {
   statement {
@@ -135,6 +141,8 @@ resource "aws_apprunner_service" "api" {
           VECTOR_INDEX           = "pins"
           BEDROCK_EMBED_MODEL_ID = "amazon.titan-embed-image-v1"
           VECTOR_DIM             = "1024"
+          # MTL value-model re-rank (CLOUD.md §16) — same contract as lambda.tf.
+          MTL_ENDPOINT = var.mtl_endpoint
 
           MAXI_BASE_MODEL_ID     = var.maxi_base_model_id
           MAXI_SHOPPING_MODEL_ID = var.maxi_shopping_model_id

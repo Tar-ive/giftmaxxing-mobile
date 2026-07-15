@@ -314,3 +314,9 @@ variable "login_email_from" {
   type        = string
   default     = ""
 }
+
+variable "mtl_endpoint" {
+  description = "SageMaker serverless endpoint name for the MTL feed value model (infra/ml). Empty string disables the re-rank."
+  type        = string
+  default     = ""
+}

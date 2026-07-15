@@ -65,3 +65,10 @@ infra/ingest/*.backup.*.json
 
 # Ingest manifests — build artifacts (pins/shopify catalogs), not source
 infra/ingest/*.manifest.json
+
+# ML working artifacts — datasets/models live in s3://giftmaxxing-dev-ml
+infra/ml/.venv/
+infra/ml/data/
+infra/ml/model/
+infra/ml/clusters.json
+infra/ml/__pycache__/

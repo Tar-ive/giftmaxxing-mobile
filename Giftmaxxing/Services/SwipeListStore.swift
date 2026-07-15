@@ -129,6 +129,8 @@ final class SwipeListStore: ObservableObject {
         persist()
         if !trimmed.isEmpty {
             ThoughtfulnessStore.shared.award(.noteWritten, dedupeKey: "\(listId)|\(postId)")
+            // P_Custom training label: the user typed a custom message for THIS gift.
+            AnalyticsEngine.shared.trackContentAction(.customMessage, postId: postId, source: "gift_board_note")
         }
     }
 
@@ -140,6 +142,11 @@ final class SwipeListStore: ObservableObject {
         persist()
         if !trimmed.isEmpty {
             ThoughtfulnessStore.shared.award(.letterWritten, dedupeKey: listId)
+            // P_Custom training label: a board letter is a custom message for
+            // each gift riding along with it (bounded — boards cap at 100).
+            for post in lists[idx].posts.prefix(20) {
+                AnalyticsEngine.shared.trackContentAction(.customMessage, postId: post.id, source: "gift_letter")
+            }
         }
     }
 
