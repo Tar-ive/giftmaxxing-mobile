@@ -30,6 +30,7 @@ export type Comment = { id: string; user: string; text: string };
 export type Post = {
   id: string;
   user: string;
+  createdAt?: number;
   time: string;
   product: Product;
   caption: string;
