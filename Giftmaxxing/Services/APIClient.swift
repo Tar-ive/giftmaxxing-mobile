@@ -91,6 +91,56 @@ actor APIClient {
         return FeedPage(posts: posts, cursor: response.cursor)
     }
 
+    // MARK: - Curated galleries + gift bundles
+
+    // Server-curated gallery membership (CONFIG gallery#<id>, built by
+    // infra/ingest/build-shelves.mjs — semantic kNN over the shelf theme, not
+    // vibe keywords). Throws (incl. 404) when no curated list exists yet; the
+    // caller falls back to the legacy query-by-vibes path.
+    func fetchGallery(id: String, limit: Int = 60) async throws -> [Post] {
+        let response: FeedResponse = try await get("/galleries/\(id)", params: ["limit": String(limit)])
+        return (response.items ?? []).map { mapAPIPost($0) }
+    }
+
+    struct GiftBundleSlot: Identifiable {
+        let id: String
+        let label: String
+        let emoji: String
+        let items: [Post]
+    }
+    struct GiftBundle: Identifiable {
+        let id: String
+        let recipient: String
+        let why: String
+        let slots: [GiftBundleSlot]
+    }
+
+    // Reddit-mined "goes together" bundles resolved to buyable products.
+    // recipient nil -> sampler across all mined recipients.
+    func fetchGiftBundles(recipient: String? = nil, limit: Int = 6) async throws -> [GiftBundle] {
+        struct SlotDTO: Codable { let key: String?; let label: String?; let emoji: String?; let items: [APIPost]? }
+        struct BundleDTO: Codable { let recipient: String?; let why: String?; let slots: [SlotDTO]? }
+        struct BundlesResponse: Codable { let bundles: [BundleDTO]? }
+        var params = ["limit": String(limit)]
+        if let recipient { params["recipient"] = recipient }
+        let response: BundlesResponse = try await get("/bundles", params: params)
+        return (response.bundles ?? []).enumerated().map { i, b in
+            GiftBundle(
+                id: "\(b.recipient ?? "any")-\(i)",
+                recipient: b.recipient ?? "anyone",
+                why: b.why ?? "Often gifted together",
+                slots: (b.slots ?? []).map { s in
+                    GiftBundleSlot(
+                        id: s.key ?? s.label ?? UUID().uuidString,
+                        label: s.label ?? "Gift",
+                        emoji: s.emoji ?? "🎁",
+                        items: (s.items ?? []).map { mapAPIPost($0) }
+                    )
+                }
+            )
+        }
+    }
+
     // MARK: - Interactions
 
     func recordInteraction(userId: String?, targetId: String, type: String, data: [String: String]? = nil) async {

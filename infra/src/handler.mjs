@@ -8,6 +8,7 @@ import {
   QueryCommand,
   ScanCommand,
   BatchWriteCommand,
+  BatchGetCommand,
   UpdateCommand,
   DeleteCommand,
 } from "@aws-sdk/lib-dynamodb";
@@ -23,6 +24,7 @@ import { CognitoIdentityProviderClient, InitiateAuthCommand } from "@aws-sdk/cli
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { createHash } from "node:crypto";
 import { classifyPin, isMajorUSRetailer } from "./quality.mjs";
+import { interleaveAuthors } from "./feed-diversity.mjs";
 import { sendPushToUser } from "./push.mjs";
 import { mobileRoutes } from "./mobile-routes.mjs";
 import { analyticsRoutes } from "./analytics-routes.mjs";
@@ -161,6 +163,9 @@ function isPublicRoute(method, path) {
   if (method === "GET") {
     if (path === "/feed" || path === "/recommendations" || path === "/pins") return true;
     if (path === "/recipients" || path === "/ideas") return true;
+    // Curated gallery membership + Reddit-mined gift bundles — public catalog
+    // browse surfaces, same trust level as /feed.
+    if (/^\/galleries\/[^/]+$/.test(path) || path === "/bundles") return true;
     if (path === "/birthday-freebies") return true;
     if (path === "/vectors") return true;
     if (path.startsWith("/posts/")) return true;
@@ -439,6 +444,35 @@ const VECTOR_BUCKET = process.env.VECTOR_BUCKET;
 const VECTOR_INDEX = process.env.VECTOR_INDEX;
 const s3v = VECTOR_BUCKET ? new S3VectorsClient({}) : null;
 
+// Hydrate an ordered id list into post items (BatchGet, order preserved,
+// quality-gated). Backs /galleries/{id} and /bundles — their CONFIG rows
+// store postId lists, not documents, so the posts stay the single source
+// of truth for price/image/link freshness.
+async function hydratePosts(ids, limit = 60) {
+  const wanted = [...new Set(ids)].slice(0, Math.min(limit, 100));
+  if (!wanted.length) return [];
+  const found = new Map();
+  for (let i = 0; i < wanted.length; i += 100) {
+    const out = await ddb.send(
+      new BatchGetCommand({
+        RequestItems: { [POSTS]: { Keys: wanted.slice(i, i + 100).map((postId) => ({ postId })) } },
+      })
+    );
+    for (const p of out.Responses?.[POSTS] ?? []) found.set(p.postId, p);
+  }
+  return wanted
+    .map((id) => found.get(id))
+    .filter(Boolean)
+    .map((p) => {
+      const q = classifyPin({
+        title: p.caption ?? p.product?.name, domain: p.domain ?? p.merchant,
+        link: p.url ?? p.productUrl, price: p.price ?? p.product?.price, giftType: p.giftType,
+      });
+      return { ...p, contentType: q.contentType, qualityScore: q.qualityScore, feedEligible: q.feedEligible };
+    })
+    .filter((p) => p.feedEligible);
+}
+
 // MTL value model (SageMaker serverless endpoint, infra/ml). When configured,
 // /recommendations re-ranks its kNN candidates by
 //   Score = 2·P_Time + 5·P_Custom + 1·P_Buy
@@ -548,40 +582,7 @@ function scorePost(p, { vibes = [], recipient, occasion, category, budget, event
   return s;
 }
 
-// ── Feed variety: break same-author walls ────────────────────────────────────
-// The catalog seeding put ~35 giftmaxxing_catalog posts at the head of the
-// recency index, and every ranked path happily served them back-to-back — a
-// wall of one author with zero visible personalization. Greedy re-order that
-// PRESERVES score order but (a) allows at most `maxRun` consecutive items from
-// one author and (b) caps one author to `perWindow` slots per `window` items.
-// Items that can't legally place yet slide down (never dropped); if nothing
-// can place (single-author candidate set), the constraint yields gracefully.
-function interleaveAuthors(items, { maxRun = 2, perWindow = 8, window = 12 } = {}) {
-  if (!Array.isArray(items) || items.length <= maxRun) return items;
-  const authorOf = (p) => p.author || p.sourceUser || p.merchant || "";
-  const remaining = [...items];
-  const out = [];
-  while (remaining.length) {
-    let idx = -1;
-    for (let i = 0; i < remaining.length; i++) {
-      const a = authorOf(remaining[i]);
-      let run = 0;
-      for (let j = out.length - 1; j >= 0 && authorOf(out[j]) === a; j--) run++;
-      if (run >= maxRun) continue;
-      let inWindow = 0;
-      for (let j = Math.max(0, out.length - window); j < out.length; j++) {
-        if (authorOf(out[j]) === a) inWindow++;
-      }
-      if (inWindow >= perWindow) continue;
-      idx = i;
-      break;
-    }
-    // Everything left violates the caps (e.g. one-author pool) — degrade to
-    // score order rather than starving the page.
-    out.push(remaining.splice(idx >= 0 ? idx : 0, 1)[0]);
-  }
-  return out;
-}
+
 
 // ── Feed freshness: per-user de-dup + variety ────────────────────────────────
 // The byFeed GSI is newest-first and deterministic, so every visit used to serve
@@ -2784,6 +2785,46 @@ export const handler = async (event) => {
       const recipient = qs.recipient || "anyone";
       const out = await ddb.send(new GetCommand({ TableName: KNOWLEDGE, Key: { recipient } }));
       return out.Item ? json(200, out.Item) : json(404, { error: "unknown recipient" });
+    }
+
+    // GET /galleries/{id} — a curated gift gallery's REAL member items.
+    // Membership is precomputed by infra/ingest/build-shelves.mjs (Titan
+    // text-embed of the shelf theme → kNN → quality/price/brand filters) into
+    // a CONFIG gallery#<id> row; here we just hydrate the posts. 404 lets the
+    // client fall back to its legacy query-by-vibes path.
+    if (method === "GET" && /^\/galleries\/[^/]+$/.test(path)) {
+      const id = decodeURIComponent(path.split("/")[2]);
+      const row = await ddb.send(new GetCommand({ TableName: CONFIG, Key: { key: `gallery#${id}` } }));
+      if (!row.Item?.itemIds?.length) return json(404, { error: "no curated list for that gallery" });
+      const items = await hydratePosts(row.Item.itemIds, Math.min(Number(qs.limit) || 60, 100));
+      return json(200, { id, title: row.Item.title, items }, { "cache-control": "public, max-age=3600" });
+    }
+
+    // GET /bundles?recipient=mom&limit= — Reddit-mined "goes together" gift
+    // bundles resolved to buyable products (build-shelves.mjs). Without a
+    // recipient, serves a sampler across all mined recipients.
+    if (method === "GET" && path === "/bundles") {
+      const limit = Math.min(Number(qs.limit) || 6, 12);
+      let recipients = qs.recipient ? [String(qs.recipient).toLowerCase()] : null;
+      if (!recipients) {
+        const idx = await ddb.send(new GetCommand({ TableName: CONFIG, Key: { key: "bundles#index" } }));
+        recipients = idx.Item?.recipients ?? [];
+      }
+      const bundles = [];
+      for (const r of recipients) {
+        if (bundles.length >= limit) break;
+        const row = await ddb.send(new GetCommand({ TableName: CONFIG, Key: { key: `bundles#${r}` } }));
+        for (const b of row.Item?.bundles ?? []) {
+          if (bundles.length >= limit) break;
+          const slots = [];
+          for (const s of b.slots ?? []) {
+            const items = await hydratePosts(s.itemIds ?? [], 4);
+            if (items.length) slots.push({ key: s.key, label: s.label, emoji: s.emoji, items });
+          }
+          if (slots.length >= 2) bundles.push({ recipient: r, why: b.why, slots });
+        }
+      }
+      return json(200, { bundles }, { "cache-control": "public, max-age=3600" });
     }
 
     // GET /pins?limit= — list embedded Pinterest pins (key + metadata) straight

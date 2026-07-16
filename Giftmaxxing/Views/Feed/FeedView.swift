@@ -85,6 +85,10 @@ struct FeedView: View {
                         viewingPool = pool
                     }
 
+                    // Reddit-mined "goes well together" gift bundles resolved
+                    // to buyable products. Hidden until bundle data exists.
+                    GiftBundlesRail()
+
                     if viewModel.isLoading && viewModel.posts.isEmpty {
                         ForEach(0..<3, id: \.self) { _ in
                             PostCardSkeleton()
