@@ -41,38 +41,52 @@ const bedrock = new BedrockRuntimeClient({ region: REGION });
 const s3v = new S3VectorsClient({ region: REGION });
 
 // Mirrors Giftmaxxing/Models/CuratedCollection.swift ids. themeText is what
-// gets embedded — write it like a caption of the ideal item, not keywords.
+// gets embedded — write it like a caption of the ideal ITEM (the object, the
+// scene), and never say "gift": the catalog is full of generic "Gift Box/Set"
+// listings whose embeddings sit right on top of gift-language queries, so a
+// theme containing "gift" returns the same self-care boxes for every shelf
+// (verified against the live index before this wording).
 const SHELVES = [
   { id: "anniversary-under-50", title: "Anniversary Gifts Under $50",
-    theme: "romantic anniversary gift for a partner: keepsake jewelry, engraved token, scented candle, framed memento", maxPrice: 50, requirePrice: true },
+    theme: "romantic keepsake for a partner: engraved jewelry, love-letter token, scented candle, framed photo memento", maxPrice: 50, requirePrice: true },
   { id: "golf-lover", title: "For the Golf Lover",
-    theme: "golf gift: golf balls, putting accessories, golf glove, sporty outdoor gear for a golfer" },
+    theme: "golf equipment and golfer style: golf balls, putting practice set, golf glove, polo shirt, course accessories" },
   { id: "coffee-obsessed", title: "For the Coffee Obsessed",
-    theme: "coffee lover gift: espresso maker, pour-over brewer, coffee beans, ceramic mug, barista tools" },
+    theme: "espresso machine, pour-over coffee brewer, roasted coffee beans, ceramic mug, barista tools" },
   { id: "tech-wishlist", title: "The Tech Lover's Wishlist",
-    theme: "tech gadget gift: wireless charger, headphones, smart device, sleek desk accessory, cable organizer" },
+    theme: "tech gadgets: wireless charger, headphones, smart device, sleek desk setup, cable organizer" },
   { id: "beauty-glow", title: "Beauty & Glow",
-    theme: "beauty and self-care gift: makeup palette, lipstick, skincare set, glowing skin routine" },
+    theme: "makeup palette, lipstick, skincare serum, blush brush, glowing skin routine" },
   { id: "for-him-essentials", title: "For Him: The Essentials",
-    theme: "men's everyday essentials gift: leather wallet, grooming kit, classic menswear staple, watch" },
+    theme: "men's everyday carry: leather wallet, beard grooming kit, classic menswear staple, watch" },
   { id: "cozy-nights", title: "Cozy Nights In",
-    theme: "cozy night at home gift: scented candle, soft throw blanket, herbal tea set, warm loungewear, book" },
+    theme: "scented candle, soft throw blanket, herbal tea, warm loungewear, a good book by the fire" },
   { id: "under-25", title: "Little Luxuries Under $25",
-    theme: "small delightful gift: stocking stuffer, cute desk trinket, mini treat, fun affordable surprise", maxPrice: 25, requirePrice: true },
+    theme: "small delightful trinket: cute desk object, mini treat, playful surprise, stocking stuffer", maxPrice: 25, requirePrice: true },
   { id: "birthday-showstoppers", title: "Birthday Showstoppers",
-    theme: "standout birthday gift that wows: celebration-worthy, fun, trendy, memorable present" },
+    theme: "celebration showpiece: confetti-worthy, fun, trendy, memorable party centerpiece item" },
   { id: "sustainable", title: "Sustainable & Thoughtful",
-    theme: "eco-friendly sustainable gift: reusable, natural materials, zero waste, ethically made goods" },
+    theme: "eco-friendly reusable goods: natural materials, zero waste, ethically made everyday objects" },
   { id: "fitness-fanatic", title: "For the Fitness Fanatic",
-    theme: "fitness gift: gym gear, workout accessories, running equipment, yoga mat, athletic recovery tools" },
+    theme: "gym workout gear: dumbbells, running shoes, yoga mat, athletic wear, muscle recovery tools" },
   { id: "minimalist", title: "Minimalist Picks",
-    theme: "minimalist design gift: clean lines, premium simple everyday object, understated quality" },
+    theme: "minimalist design object: clean lines, premium simple everyday item, understated quality" },
 ];
 
 const SHELF_SIZE = 60;
 const BRAND_CAP = 8;     // per shelf — no store owns a gallery
+const GIFTBOX_CAP = 6;   // generic "Gift Box/Set/Bundle" listings per shelf
+const MAX_DISTANCE = 0.62; // same relevance gate as /visual-search — beyond
+                           // this the kNN neighbors are "nearest" but unrelated
 const BUNDLE_SLOT_ITEMS = 4;
 const BUNDLES_PER_RECIPIENT = 3;
+
+// Near-duplicate listings (the same product re-ingested under several ids /
+// variants) flood kNN results — dedup on a normalized title prefix.
+const titleKey = (m) => String(m?.title ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().slice(0, 48);
+const isGiftBox = (m) => /gift (box|set|basket)|bundle|care package/i.test(String(m?.title ?? ""));
+// Dead/delisted pages scraped before the product vanished.
+const isDeadListing = (m) => /unavailable|sold out|out of stock|page not found/i.test(String(m?.title ?? ""));
 
 async function embedText(text) {
   const out = await bedrock.send(new InvokeModelCommand({
@@ -106,23 +120,35 @@ async function curateShelf(shelf, dry) {
   const vec = await embedText(shelf.theme);
   const hits = await knn(vec, 300);
   const perBrand = new Map();
+  const seenTitles = new Set();
+  let giftBoxes = 0;
   const itemIds = [];
   for (const v of hits) {
     const m = v.metadata ?? {};
+    if (typeof v.distance === "number" && v.distance > MAX_DISTANCE) break; // sorted by distance
     const price = Number(m.price) || 0;
     if (shelf.maxPrice) {
       if (shelf.requirePrice && !(price > 0)) continue; // "Under $X" must hold
       if (price > shelf.maxPrice) continue;
     }
-    if (!eligible(v)) continue;
+    if (!eligible(v) || isDeadListing(m)) continue;
+    const tk = titleKey(m);
+    if (tk && seenTitles.has(tk)) continue; // near-duplicate listing
+    if (isGiftBox(m) && giftBoxes >= GIFTBOX_CAP) continue;
     const brand = m.sourceUser || m.domain || "";
     const n = perBrand.get(brand) ?? 0;
     if (n >= BRAND_CAP) continue;
     perBrand.set(brand, n + 1);
+    if (tk) seenTitles.add(tk);
+    if (isGiftBox(m)) giftBoxes++;
     itemIds.push(v.key);
     if (itemIds.length >= SHELF_SIZE) break;
   }
   console.log(`  ${shelf.id}: ${itemIds.length} items from ${perBrand.size} brands`);
+  if (dry) {
+    const byKey = new Map(hits.map((v) => [v.key, v.metadata?.title ?? ""]));
+    for (const id of itemIds.slice(0, 5)) console.log(`      · ${String(byKey.get(id)).slice(0, 64)}`);
+  }
   if (!dry) {
     await ddb.send(new PutCommand({
       TableName: CONFIG_TABLE,
@@ -132,15 +158,22 @@ async function curateShelf(shelf, dry) {
 }
 
 async function resolveBundleSlot(idea) {
-  const vec = await embedText(`${idea.label} gift`);
+  // Embed the idea NOUN only — appending "gift" drags in generic gift boxes.
+  const vec = await embedText(idea.label);
   const hits = await knn(vec, 40);
   const seenBrands = new Set();
+  const seenTitles = new Set();
   const itemIds = [];
   for (const v of hits) {
-    if (!eligible(v)) continue;
-    const brand = (v.metadata ?? {}).sourceUser || (v.metadata ?? {}).domain || v.key;
+    if (typeof v.distance === "number" && v.distance > MAX_DISTANCE) break;
+    const m = v.metadata ?? {};
+    if (!eligible(v) || isDeadListing(m)) continue;
+    const tk = titleKey(m);
+    if (tk && seenTitles.has(tk)) continue;
+    const brand = m.sourceUser || m.domain || v.key;
     if (seenBrands.has(brand)) continue; // 4 options = 4 different sellers
     seenBrands.add(brand);
+    if (tk) seenTitles.add(tk);
     itemIds.push(v.key);
     if (itemIds.length >= BUNDLE_SLOT_ITEMS) break;
   }

@@ -2666,27 +2666,38 @@ export const handler = async (event) => {
         // Over-read: the quality + de-dup filters below remove listicles/guides
         // (~37%) and already-seen items, so fetch a wider window than the page.
         const fetchN = filters.length ? 150 : Math.min(Math.max(limit * 4, 80), 150);
-        // Variety: on a fresh (uncursored, unfiltered) load, jump to a RANDOM
-        // spot in the catalog instead of always the newest head. Paginated loads
-        // (cursor present) continue deterministically from there.
+        // Variety: on a fresh (uncursored, unfiltered) load, jump to RANDOM
+        // spots in the catalog instead of always the newest head. Posts
+        // adjacent in createdAt are the SAME ingest batch (one store's whole
+        // inventory), so a single seek lands the entire candidate window in a
+        // monoculture — 20/20 beauty pages verified live. Three independent
+        // seeks sample three batches; the merged pool gives the category/brand
+        // interleave something to actually space. Paginated loads (cursor
+        // present) continue deterministically from one stream.
         let kce = "feedPk = :f";
+        let seekPoints = [];
         if (!start && !filters.length && qs.fresh !== "0" && !(qs.recipient && qs.recipient !== "anyone")) {
           const b = await getFeedBounds();
           if (b.max > b.min) {
-            eav[":seek"] = b.min + Math.floor((0.1 + Math.random() * 0.9) * (b.max - b.min));
-            kce = "feedPk = :f AND createdAt <= :seek";
+            // STRATIFIED: one seek per third of the createdAt range. Purely
+            // random seeks can all land inside one mega-batch (Fashion Nova
+            // alone is 262 adjacent rows) and reproduce the monoculture page.
+            const span = b.max - b.min;
+            seekPoints = [0, 1, 2].map(
+              (i) => b.min + Math.floor(((i + 0.2 + Math.random() * 0.8) / 3) * span)
+            );
           }
         }
-        const runQuery = (keyCond, startKey) =>
+        const runQuery = (keyCond, startKey, vals = eav, limitOverride) =>
           ddb.send(
             new QueryCommand({
               TableName: POSTS,
               IndexName: "byFeed",
               KeyConditionExpression: keyCond,
-              ExpressionAttributeValues: eav,
+              ExpressionAttributeValues: vals,
               FilterExpression: filters.length ? filters.join(" AND ") : undefined,
               ScanIndexForward: false, // newest first
-              Limit: fetchN,
+              Limit: limitOverride ?? fetchN,
               ExclusiveStartKey: startKey,
             })
           );
@@ -2713,11 +2724,26 @@ export const handler = async (event) => {
         // deeper into the (older, listicle-heavy) tail. Cursor pages just walk LEK.
         let lastKey = start;
         let toppedUp = false;
+        // Fresh variety load: three parallel windows at independent seek
+        // points, merged before ranking (see the seekPoints comment above).
+        if (seekPoints.length) {
+          const windows = await Promise.all(
+            seekPoints.map((seek) =>
+              runQuery(
+                "feedPk = :f AND createdAt <= :seek",
+                undefined,
+                { ...eav, ":seek": seek },
+                Math.ceil(fetchN / 2)
+              )
+            )
+          );
+          for (const out of windows) take(out.Items);
+          lastKey = windows[windows.length - 1]?.LastEvaluatedKey;
+        }
         for (let attempt = 0; attempt < 6 && eligible.length < limit; attempt++) {
           const out = await runQuery(kce, lastKey);
           take(out.Items);
           lastKey = out.LastEvaluatedKey;
-          if (eav[":seek"]) { delete eav[":seek"]; kce = "feedPk = :f"; } // seek = entry only
           if (eligible.length >= limit) break;
           if (!start && !toppedUp) {
             toppedUp = true;
@@ -2810,19 +2836,32 @@ export const handler = async (event) => {
         const idx = await ddb.send(new GetCommand({ TableName: CONFIG, Key: { key: "bundles#index" } }));
         recipients = idx.Item?.recipients ?? [];
       }
-      const bundles = [];
-      for (const r of recipients) {
-        if (bundles.length >= limit) break;
-        const row = await ddb.send(new GetCommand({ TableName: CONFIG, Key: { key: `bundles#${r}` } }));
-        for (const b of row.Item?.bundles ?? []) {
-          if (bundles.length >= limit) break;
-          const slots = [];
-          for (const s of b.slots ?? []) {
-            const items = await hydratePosts(s.itemIds ?? [], 4);
-            if (items.length) slots.push({ key: s.key, label: s.label, emoji: s.emoji, items });
-          }
-          if (slots.length >= 2) bundles.push({ recipient: r, why: b.why, slots });
+      // Round-robin across recipients (one bundle each, then seconds…) so the
+      // sampler rail reads "for mom / for a friend / for him", not three
+      // bundles for whichever recipient sorts first in the index.
+      const rows = await Promise.all(
+        recipients.map((r) =>
+          ddb.send(new GetCommand({ TableName: CONFIG, Key: { key: `bundles#${r}` } }))
+            .then((o) => ({ r, list: o.Item?.bundles ?? [] }))
+        )
+      );
+      const queue = [];
+      for (let round = 0; queue.length < limit; round++) {
+        const before = queue.length;
+        for (const { r, list } of rows) {
+          if (queue.length >= limit) break;
+          if (list[round]) queue.push({ recipient: r, ...list[round] });
         }
+        if (queue.length === before) break; // all lists exhausted
+      }
+      const bundles = [];
+      for (const b of queue) {
+        const slots = [];
+        for (const s of b.slots ?? []) {
+          const items = await hydratePosts(s.itemIds ?? [], 4);
+          if (items.length) slots.push({ key: s.key, label: s.label, emoji: s.emoji, items });
+        }
+        if (slots.length >= 2) bundles.push({ recipient: b.recipient, why: b.why, slots });
       }
       return json(200, { bundles }, { "cache-control": "public, max-age=3600" });
     }
