@@ -72,3 +72,6 @@ infra/ml/data/
 infra/ml/model/
 infra/ml/clusters.json
 infra/ml/__pycache__/
+
+# Xcode Cloud custom scripts — disabled (ci_post_clone was failing Archive)
+ci_scripts/
