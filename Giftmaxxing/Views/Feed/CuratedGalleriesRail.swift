@@ -8,6 +8,7 @@ struct CuratedGalleriesRail: View {
     var onSelect: (CuratedCollection) -> Void
 
     private let collections = CuratedCollection.all
+    @State private var coverImages: [String: String] = [:]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -37,6 +38,7 @@ struct CuratedGalleriesRail: View {
         }
         .padding(.vertical, 8)
         .background(Color.surface)
+        .task { await loadCoverImages() }
     }
 
     private func card(_ c: CuratedCollection) -> some View {
@@ -45,10 +47,14 @@ struct CuratedGalleriesRail: View {
                 // Color.gradient(for:) already returns a LinearGradient — use it
                 // directly (same pattern as PostCardView / CollectionDetailView).
                 Color.gradient(for: c.grad)
-                Text(c.emoji)
-                    .font(.system(size: 40))
-                    .padding(12)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                if let image = coverImages[c.id] {
+                    CachedAsyncImage(url: image, width: 500)
+                } else {
+                    Text(c.emoji)
+                        .font(.system(size: 40))
+                        .padding(12)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                }
             }
             .frame(width: 210, height: 120)
             .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -66,6 +72,21 @@ struct CuratedGalleriesRail: View {
             }
             .padding(.top, 8)
             .frame(width: 210, alignment: .leading)
+        }
+    }
+
+    private func loadCoverImages() async {
+        await withTaskGroup(of: (String, String?).self) { group in
+            for collection in collections {
+                group.addTask {
+                    let posts = try? await APIClient.shared.fetchGallery(id: collection.id, limit: 12)
+                    return (collection.id, posts?.first(where: { !$0.product.gallery.isEmpty })?.product.gallery.first)
+                }
+            }
+
+            for await (id, image) in group {
+                if let image { coverImages[id] = image }
+            }
         }
     }
 }
