@@ -66,7 +66,12 @@ def main():
         with tarfile.open(tar_path, "w:gz") as tar:
             for fn in ["model.pt", "config.json"]:
                 tar.add(os.path.join(args.model_dir, fn), arcname=fn)
-            for fn in ["inference.py", "mtl_model.py"]:
+            # v2: Reddit idea weights ride with the model (features.py loads
+            # them from model_dir at endpoint start — zero runtime I/O).
+            snap = os.path.join(args.model_dir, "knowledge_snapshot.json")
+            if os.path.exists(snap):
+                tar.add(snap, arcname="knowledge_snapshot.json")
+            for fn in ["inference.py", "mtl_model.py", "features.py"]:
                 tar.add(os.path.join(here, fn), arcname=f"code/{fn}")
         sess.client("s3").upload_file(tar_path, ML_BUCKET, key)
     model_data = f"s3://{ML_BUCKET}/{key}"

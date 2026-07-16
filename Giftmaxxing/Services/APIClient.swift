@@ -421,7 +421,8 @@ actor APIClient {
         vibes: [String]? = nil,
         sourceUser: String? = nil,
         userId: String? = nil,
-        limit: Int = 12
+        limit: Int = 12,
+        rank: String? = nil
     ) async throws -> VectorResponse {
         var params: [String: String] = ["limit": String(limit)]
         if let seedKeys, !seedKeys.isEmpty { params["seedKeys"] = seedKeys.joined(separator: ",") }
@@ -430,6 +431,10 @@ actor APIClient {
         // userId alone is enough: the server seeds the taste centroid from the
         // user's own interaction history (likes/saves) when no seedKeys given.
         if let userId, !userId.isEmpty { params["userId"] = userId }
+        // Interaction model: nil/"fast" -> instant cosine order (front-end
+        // path); "full" -> MTL value-model re-rank (intelligent back-end
+        // path, called after first paint — may take seconds on a cold start).
+        if let rank { params["rank"] = rank }
 
         return try await get("/recommendations", params: params)
     }

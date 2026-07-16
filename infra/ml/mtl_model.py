@@ -1,4 +1,4 @@
-"""Shared-bottom multi-task network for the gift feed value model.
+"""Shared-bottom multi-task network for the gift feed value model (v2).
 
 Three heads predict concrete user actions on a (user, item) pair:
   P_Time   — user dwells > 60 s on the item
@@ -8,11 +8,20 @@ Three heads predict concrete user actions on a (user, item) pair:
 Feed sort order uses the value model:
   Score = 2·P_Time + 5·P_Custom + 1·P_Buy
 
-Architecture (sized for a small-data regime — thousands of examples):
-  item tower:  1024-d Titan Multimodal embedding -> Linear -> 64
-  user tower:  1024-d taste centroid             -> Linear -> 64
-  shared bottom: [item64 | user64 | aux] -> MLP(128) -> 64  (dropout heavy)
-  heads: three Linear(64 -> 1) sigmoid heads
+v2 architecture (deep shared bottom + task-specific towers):
+
+  item tower:  1024-d Titan Multimodal embedding -> Linear -> 96
+  user tower:  1024-d taste centroid             -> Linear -> 96
+  context:     CTX_DIM raw floats (time-of-day/day-of-week cyclical,
+               relationship one-hot, occasion one-hot, Reddit idea weights —
+               see features.py, the train/serve-shared featurizer)
+  aux:         cosine, price, activity, source one-hots
+
+  shared bottom: [item96 | user96 | ctx | aux] -> 256 -> 128 -> 64
+                 (3 hidden layers; common structure every task benefits from)
+  heads: one small MLP PER TASK (64 -> 32 -> 1) — what drives typing a custom
+         message differs from what drives a quick checkout, so each task gets
+         its own tower to specialize in instead of a single linear readout.
 
 The Titan embedding IS the multi-modal augmentation: it already fuses the
 item's image + title into one vector, so the image-understanding pipeline
@@ -28,27 +37,40 @@ import torch.nn as nn
 TASKS = ["time", "custom", "buy"]
 VALUE_WEIGHTS = {"time": 2.0, "custom": 5.0, "buy": 1.0}
 SRC_ONEHOT = ["pinterest", "shopify", "catalog", "other"]
+MODEL_VERSION = 2
 
 
 class MTLNet(nn.Module):
-    def __init__(self, dim=1024, aux_dim=7, tower=64, hidden=128, bottom=64, dropout=0.3):
+    def __init__(self, dim=1024, aux_dim=7, ctx_dim=20, tower=96,
+                 shared=(256, 128, 64), head_hidden=32, dropout=0.3, version=MODEL_VERSION):
         super().__init__()
         self.item_tower = nn.Sequential(nn.Linear(dim, tower), nn.ReLU())
         self.user_tower = nn.Sequential(nn.Linear(dim, tower), nn.ReLU())
-        self.shared = nn.Sequential(
-            nn.Linear(tower * 2 + aux_dim, hidden), nn.ReLU(), nn.Dropout(dropout),
-            nn.Linear(hidden, bottom), nn.ReLU(), nn.Dropout(dropout),
-        )
-        self.heads = nn.ModuleDict({t: nn.Linear(bottom, 1) for t in TASKS})
-        self.config = {"dim": dim, "aux_dim": aux_dim, "tower": tower,
-                       "hidden": hidden, "bottom": bottom, "dropout": dropout}
 
-    def forward(self, x_item, x_user, x_aux):
-        z = self.shared(torch.cat([self.item_tower(x_item), self.user_tower(x_user), x_aux], dim=-1))
+        layers, width = [], tower * 2 + aux_dim + ctx_dim
+        for h in shared:
+            layers += [nn.Linear(width, h), nn.ReLU(), nn.Dropout(dropout)]
+            width = h
+        self.shared = nn.Sequential(*layers)
+
+        self.heads = nn.ModuleDict({
+            t: nn.Sequential(
+                nn.Linear(width, head_hidden), nn.ReLU(), nn.Dropout(dropout),
+                nn.Linear(head_hidden, 1),
+            )
+            for t in TASKS
+        })
+        self.config = {"dim": dim, "aux_dim": aux_dim, "ctx_dim": ctx_dim, "tower": tower,
+                       "shared": list(shared), "head_hidden": head_hidden,
+                       "dropout": dropout, "version": MODEL_VERSION}
+
+    def forward(self, x_item, x_user, x_aux, x_ctx):
+        z = self.shared(torch.cat(
+            [self.item_tower(x_item), self.user_tower(x_user), x_aux, x_ctx], dim=-1))
         return {t: self.heads[t](z).squeeze(-1) for t in TASKS}  # logits
 
-    def probs(self, x_item, x_user, x_aux):
-        logits = self.forward(x_item, x_user, x_aux)
+    def probs(self, x_item, x_user, x_aux, x_ctx):
+        logits = self.forward(x_item, x_user, x_aux, x_ctx)
         return {t: torch.sigmoid(v) for t, v in logits.items()}
 
 
@@ -73,6 +95,7 @@ def save_model(model, out_dir):
 def load_model(model_dir):
     with open(os.path.join(model_dir, "config.json")) as f:
         cfg = json.load(f)
+    cfg.pop("version", None)
     model = MTLNet(**cfg)
     model.load_state_dict(torch.load(os.path.join(model_dir, "model.pt"),
                                      map_location="cpu", weights_only=True))

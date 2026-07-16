@@ -27,6 +27,11 @@ final class FeedViewModel: ObservableObject {
     // Ranked-but-not-yet-shown candidates (output of the on-device ranker).
     private var rankedBuffer: [RankedCandidate] = []
     private var servedIds = Set<String>()
+    // Interaction model phase-2 state: which slots the fast personalized
+    // picks landed in, and the in-flight background refine (cancelled on
+    // every reload so a stale ranking can't overwrite a fresh page).
+    private var wovenPickIds: [String] = []
+    private var refineTask: Task<Void, Never>?
     private var impressedIds = Set<String>()
     private var dwelledIds = Set<String>()
     private var centroid: [Float]?
@@ -76,6 +81,16 @@ final class FeedViewModel: ObservableObject {
             if let context {
                 cacheResults(posts, context: context)
             }
+            // Interaction model, phase 2 (intelligent back-end): the fast
+            // picks above rendered instantly in cosine order; now ask the
+            // MTL value model for the REAL ranking in the background and
+            // upgrade the below-the-fold slots when it arrives. The user
+            // never waits on the model — a cold endpoint just means this
+            // pass quietly does nothing.
+            refineTask?.cancel()
+            refineTask = Task { [weak self] in
+                await self?.refinePersonalizedPicks()
+            }
         } catch {
             if posts.isEmpty { self.error = error.localizedDescription }
         }
@@ -85,10 +100,12 @@ final class FeedViewModel: ObservableObject {
 
     // Top picks from GET /recommendations?userId= (server-side interaction
     // history → vector kNN). Empty on cold start / signed out — by design.
-    private func fetchPersonalizedPicks() async -> [Post] {
+    // rank "fast" (default) = instant cosine order; "full" = MTL value-model
+    // ranking, used only by the background refine pass.
+    private func fetchPersonalizedPicks(rank: String? = nil) async -> [Post] {
         guard let userId, !userId.isEmpty else { return [] }
-        guard let response = try? await api.fetchVectorRecommendations(userId: userId, limit: 10),
-              response.source == "vector",
+        guard let response = try? await api.fetchVectorRecommendations(userId: userId, limit: 10, rank: rank),
+              response.source == "vector" || response.source == "vector+mtl",
               let items = response.items, !items.isEmpty else { return [] }
         return items.map { item in
             Post(
@@ -119,13 +136,42 @@ final class FeedViewModel: ObservableObject {
     // they lead without monopolizing — the ranked candidates still carry the
     // page. De-duped against everything already served or buffered.
     private func weave(personalized: [Post]) {
+        wovenPickIds = []
         guard !personalized.isEmpty else { return }
         let known = Set(posts.map(\.id)).union(servedIds).union(rankedBuffer.map(\.post.id))
         var slot = 1
         for pick in personalized.filter({ !known.contains($0.id) && $0.product.image != nil }).prefix(4) {
             servedIds.insert(pick.id)
             posts.insert(pick, at: min(slot, posts.count))
+            wovenPickIds.append(pick.id)
             slot += 3
+        }
+    }
+
+    // Phase-2 refine (intelligent back-end of the interaction model): fetch
+    // the MTL value-model ranking and swap it into the woven pick slots the
+    // user hasn't plausibly reached — slot 1 may be on screen, so it stays;
+    // slots 4/7/10 are below the fold seconds after first paint.
+    private func refinePersonalizedPicks() async {
+        guard wovenPickIds.count > 1 else { return }
+        let refined = await fetchPersonalizedPicks(rank: "full")
+        guard !refined.isEmpty, !Task.isCancelled else { return }
+
+        let visibleSafe = Set(posts.prefix(3).map(\.id))
+        var queue = refined.filter { !visibleSafe.contains($0.id) && $0.product.image != nil }
+        for id in wovenPickIds.dropFirst() {
+            guard let idx = posts.firstIndex(where: { $0.id == id }) else { continue }
+            // next refined pick that isn't already placed elsewhere
+            while let head = queue.first,
+                  head.id != id, posts.contains(where: { $0.id == head.id }) {
+                queue.removeFirst()
+            }
+            guard let pick = queue.first else { break }
+            queue.removeFirst()
+            if pick.id != id {
+                servedIds.insert(pick.id)
+                posts[idx] = pick
+            }
         }
     }
 

@@ -478,7 +478,14 @@ async function hydratePosts(ids, limit = 60) {
 //   Score = 2·P_Time + 5·P_Custom + 1·P_Buy
 // instead of raw cosine order. Empty env -> feature off, zero new latency.
 const MTL_ENDPOINT = process.env.MTL_ENDPOINT || "";
-const MTL_TIMEOUT_MS = Number(process.env.MTL_TIMEOUT_MS || 2500);
+// Interaction-model serving split (fast front-end / intelligent back-end):
+// the DEFAULT /recommendations response is the fast path — cosine order,
+// no model invoke, instant. `?rank=full` is the back-end path the client
+// calls in the background after first paint; it runs the MTL value model
+// with a generous deadline (a serverless cold start is fine there because
+// nobody is staring at a spinner).
+const MTL_TIMEOUT_FAST_MS = Number(process.env.MTL_TIMEOUT_MS || 2500);
+const MTL_TIMEOUT_FULL_MS = Number(process.env.MTL_TIMEOUT_FULL_MS || 12000);
 const smr = MTL_ENDPOINT ? new SageMakerRuntimeClient({}) : null;
 
 // Bedrock Titan Multimodal embeddings power visual search: an uploaded image is
@@ -712,7 +719,10 @@ function vecToItem(v) {
 }
 
 // Ranked post-shaped items from S3 Vectors, or null to fall back to facets.
-async function vectorRecommend(seedKeys, { limit, sourceUser }) {
+// rank: "fast" (default) returns cosine order immediately — the front-end
+// path; "full" re-ranks through the MTL value model with request context —
+// the intelligent back-end path (see MTL_TIMEOUT_* above).
+async function vectorRecommend(seedKeys, { limit, sourceUser, rank, context }) {
   const centroid = await getCentroid(seedKeys);
   if (!centroid) return null;
   const seen = new Set(seedKeys);
@@ -732,7 +742,7 @@ async function vectorRecommend(seedKeys, { limit, sourceUser }) {
     .filter((v) => !seen.has(v.key))
     .map(vecToItem)
     .filter((it) => it.feedEligible);
-  const ranked = await mtlRerank(centroid, items, seedKeys.length);
+  const ranked = rank === "full" ? await mtlRerank(centroid, items, seedKeys.length, context) : null;
   return (ranked ?? items).slice(0, limit);
 }
 
@@ -740,7 +750,7 @@ async function vectorRecommend(seedKeys, { limit, sourceUser }) {
 // serverless endpoint). Soft-fails to cosine order on any error or timeout —
 // a cold serverless container (~10-30 s) will miss the deadline, warm up in
 // the background, and serve the next request.
-async function mtlRerank(centroid, items, userEvents) {
+async function mtlRerank(centroid, items, userEvents, context) {
   if (!smr || !items.length) return null;
   try {
     const keys = items.map((it) => it.postId);
@@ -759,12 +769,22 @@ async function mtlRerank(centroid, items, userEvents) {
     const payload = {
       user: centroid,
       user_events: userEvents,
+      // Raw context only — featurization (time cyclical encoding, one-hots,
+      // Reddit idea weights) happens inside the endpoint via features.py,
+      // the same module the training export used. No feature skew possible.
+      context: {
+        ts: Date.now(),
+        relationship: context?.relationship || undefined,
+        occasion: context?.occasion || undefined,
+        recipient: context?.relationship || undefined,
+      },
       items: items
         .filter((it) => vecs.has(it.postId))
         .map((it) => ({
           key: it.postId,
           vector: vecs.get(it.postId),
           price: it.price || 0,
+          title: it.name || undefined,
           source: it.source === "pinterest" || it.postId.startsWith("pin-") ? "pinterest"
             : it.author && it.author !== "pinterest" ? "shopify" : "other",
         })),
@@ -776,7 +796,7 @@ async function mtlRerank(centroid, items, userEvents) {
         ContentType: "application/json",
         Body: JSON.stringify(payload),
       }),
-      { abortSignal: AbortSignal.timeout(MTL_TIMEOUT_MS) }
+      { abortSignal: AbortSignal.timeout(MTL_TIMEOUT_FULL_MS) }
     );
     const scored = JSON.parse(Buffer.from(resp.Body).toString("utf8"));
     const byKey = new Map((scored.items ?? []).map((s) => [s.key, s]));
@@ -3126,7 +3146,15 @@ export const handler = async (event) => {
       const seeds = seedKeys.length ? seedKeys : [...likedTargets];
       if (s3v && seeds.length && (await aiEnabled())) {
         try {
-          const vitems = await vectorRecommend(seeds, { limit, sourceUser: qs.sourceUser });
+          // Interaction model: default = fast front-end path (cosine order,
+          // instant). ?rank=full = intelligent back-end path — the client
+          // calls it AFTER first paint and re-ranks in place when it lands.
+          const vitems = await vectorRecommend(seeds, {
+            limit,
+            sourceUser: qs.sourceUser,
+            rank: qs.rank === "full" ? "full" : "fast",
+            context: { relationship: qs.relationship, occasion: qs.occasion },
+          });
           if (vitems && vitems.length) {
             return json(200, {
               items: interleaveAuthors(vitems.filter(giftTypeOk)),
