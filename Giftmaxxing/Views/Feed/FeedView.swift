@@ -168,11 +168,6 @@ struct FeedView: View {
                     }
                 }
                 .background(Color.surface)
-                .refreshable {
-                    // Pull-to-refresh = a genuinely fresh page (CDN bust +
-                    // new server random-seek), not a replay of the cache.
-                    await viewModel.loadFeed(context: modelContext, forceFresh: true)
-                }
                 .toolbar(.hidden, for: .navigationBar)
                 .overlay(alignment: .top) {
                     if syncEngine.isSyncing {
@@ -203,6 +198,11 @@ struct FeedView: View {
                 .navigationDestination(item: $selectedCollection) { collection in
                     CollectionDetailView(collection: collection)
                 }
+            }
+            .refreshable {
+                // Pull-to-refresh = a genuinely fresh page (CDN bust +
+                // new server random-seek), not a replay of the cache.
+                await viewModel.loadFeed(context: modelContext, forceFresh: true)
             }
         }
         .sheet(item: $selectedPost) { post in
@@ -319,4 +319,3 @@ struct PostCardSkeleton: View {
         .redacted(reason: .placeholder)
     }
 }
-
