@@ -75,8 +75,10 @@ type Store = {
   isFollowing: (userId: string) => boolean;
   // infinite scroll
   loadMore: () => void;
+  refreshFeed: () => Promise<void>;
   hasMore: boolean;
   loadingMore: boolean;
+  refreshing: boolean;
   // overlays
   openPostId: string | null;
   openPost: (id: string | null) => void;
@@ -131,6 +133,7 @@ export function AppStore({ children }: { children: React.ReactNode }) {
   const [openChatId, setOpenChatId] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const loadingRef = useRef(false); // guards against duplicate observer fires
   const seqRef = useRef(0); // makes appended feed item ids unique across cycles
   const offsetRef = useRef(12); // next flat offset into the cycling pin feed
@@ -485,6 +488,54 @@ export function AppStore({ children }: { children: React.ReactNode }) {
     }, 450);
   }, [hasMore, appendUnique, taste]);
 
+  const refreshFeed = useCallback(async () => {
+    if (loadingRef.current || refreshing) return;
+    loadingRef.current = true;
+    setRefreshing(true);
+
+    try {
+      if (isApiConfigured()) {
+        try {
+          const { posts: apiPosts, cursor } = await fetchFeed({
+            limit: 16,
+            userId: getMyUserId(),
+            ...feedFacetsRef.current,
+          });
+          const photos = apiPosts.filter(isPhoto);
+          if (photos.length >= 6) {
+            apiModeRef.current = true;
+            cursorRef.current = cursor;
+            setHasMore(cursor != null);
+            setPosts((prev) => {
+              const userPosts = prev.filter((p) => p.user === "you");
+              const state = loadPostState();
+              return [...userPosts, ...photos.map((p) => {
+                const s = state[p.id];
+                return s ? { ...p, liked: s.liked ?? p.liked, saved: s.saved ?? p.saved } : p;
+              })];
+            });
+            return;
+          }
+        } catch {
+          // Fall through to the bundled feed if the API is unreachable.
+        }
+      }
+
+      apiModeRef.current = false;
+      cursorRef.current = null;
+      offsetRef.current = 12;
+      seqRef.current = 0;
+      setHasMore(true);
+      setPosts((prev) => {
+        const userPosts = prev.filter((p) => p.user === "you");
+        return [...userPosts, ...buildPinFeed(0, 12, taste)];
+      });
+    } finally {
+      setRefreshing(false);
+      loadingRef.current = false;
+    }
+  }, [refreshing, taste]);
+
   const value = useMemo<Store>(
     () => ({
       posts,
@@ -501,8 +552,10 @@ export function AppStore({ children }: { children: React.ReactNode }) {
       toggleFollow,
       isFollowing,
       loadMore,
+      refreshFeed,
       hasMore,
       loadingMore,
+      refreshing,
       openPostId,
       openPost: setOpenPostId,
       storyIndex,
@@ -514,7 +567,7 @@ export function AppStore({ children }: { children: React.ReactNode }) {
       togglePinChat,
       togglePinMessage,
     }),
-    [posts, follows, toggleLike, toggleSave, claimItem, unclaimItem, claims, reportSeen, addComment, replyAsMaxi, addPost, toggleFollow, isFollowing, loadMore, hasMore, loadingMore, openPostId, storyIndex, groupChats, openChatId, sendChatMessage, togglePinChat, togglePinMessage]
+    [posts, follows, toggleLike, toggleSave, claimItem, unclaimItem, claims, reportSeen, addComment, replyAsMaxi, addPost, toggleFollow, isFollowing, loadMore, refreshFeed, hasMore, loadingMore, refreshing, openPostId, storyIndex, groupChats, openChatId, sendChatMessage, togglePinChat, togglePinMessage]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

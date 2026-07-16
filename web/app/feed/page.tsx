@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, type TouchEvent, useEffect, useRef, useState } from "react";
 import { StoriesTray } from "@/components/app/stories";
 import { PostCard } from "@/components/app/post-card";
 import { RightRail } from "@/components/app/right-rail";
@@ -13,10 +13,27 @@ import { useStore } from "@/components/app/store";
 import { type Fundraiser, loadFundraisers } from "@/lib/fundraisers";
 
 export default function FeedPage() {
-  const { posts, loadMore, hasMore, loadingMore } = useStore();
+  const { posts, loadMore, refreshFeed, hasMore, loadingMore, refreshing } = useStore();
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const [pullDistance, setPullDistance] = useState(0);
   const [pools, setPools] = useState<Fundraiser[]>([]);
   const feedPools = pools.slice(0, 3);
+
+  const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    if (window.scrollY === 0) touchStartY.current = event.touches[0].clientY;
+  };
+  const onTouchMove = (event: TouchEvent<HTMLDivElement>) => {
+    if (touchStartY.current === null || refreshing) return;
+    const distance = event.touches[0].clientY - touchStartY.current;
+    if (distance > 0) setPullDistance(Math.min(distance, 96));
+  };
+  const onTouchEnd = async () => {
+    if (touchStartY.current === null) return;
+    touchStartY.current = null;
+    if (pullDistance >= 64) await refreshFeed();
+    setPullDistance(0);
+  };
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -39,8 +56,18 @@ export default function FeedPage() {
   }, [loadMore, hasMore, loadingMore, posts.length]);
 
   return (
-    <div className="mx-auto flex max-w-5xl justify-center gap-12 px-3 py-6 sm:px-5">
+    <div
+      className="mx-auto flex max-w-5xl justify-center gap-12 px-3 py-6 sm:px-5"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
       <div className="w-full max-w-[470px] space-y-5">
+        {(refreshing || pullDistance > 0) && (
+          <div className="-mb-2 flex h-6 items-center justify-center text-xs font-semibold text-ink-faint" aria-live="polite">
+            {refreshing ? "Refreshing feed…" : pullDistance >= 64 ? "Release to refresh" : "Pull to refresh"}
+          </div>
+        )}
         <EventBanner />
         <GiftPromptCards />
         <ConsultCta />
