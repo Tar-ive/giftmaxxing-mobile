@@ -246,6 +246,7 @@ All us-east-1. Bedrock prices ✅ **verified via the AWS Price List API** (`Amaz
 - [x] **P1 Recommendation-API-first feed + full-catalog vector backfill driver** — ✅ CODE COMPLETE (Jul 2026), full spec + corrections in **§15**. (1) **Client:** iOS Home is now recommendation-API-first — `FeedViewModel.fetchPersonalizedPicks()` calls the LIVE `GET /recommendations?userId=` (server-side interaction history → taste centroid → S3 Vectors kNN) concurrently with the generic candidate page and weaves `source:"vector"` picks into slots 1/4/7/10; cold start (`source:"facet"`/empty) contributes nothing so the generic page stands alone — exactly the proposed fallback UX. `fetchVectorRecommendations` gained `userId:`. (2) **Backfill driver:** `infra/ingest/backfill-vectors.mjs` (`npm run backfill:vectors`) scans POSTS, diffs against the vector index, reports missing-by-brand, writes an `embed.mjs` manifest (top-20 brands first, junk excluded). **Correction adopted: Titan (not CLIP)** — CLIP is a different embedding space and cannot be fused with the 1024-d Titan index; `embed.mjs` already fetches remote imageUrls; ~21.3k images ≈ $0.64 one-time. (3) **Pools/clustering:** manual pools = the shipped `CuratedCollection` galleries + persona→vibes; the SageMaker clustering + expert-seeded cold start + `pool#<clusterId>` serving layer is specced in §15.3 (needs AWS + production interactions). **⏳ AWS-GATED (infra agent):** run `npm run backfill:vectors` → `node embed.mjs --manifest backfill.manifest.json` (§15.2 runbook).
 - [x] **P1 MTL value model + SageMaker recommendation stack (§16)** — ✅ CODE COMPLETE + trained (Jul 2026): `infra/ml/` (export → shared-bottom MTL `P_Time`/`P_Custom`/`P_Buy`, `Score = 2·Pt + 5·Pc + 1·Pb` → serverless-endpoint inference → k-means gift grouping over the Titan vectors → SageMaker notebook), `/recommendations` MTL re-rank behind `MTL_ENDPOINT` env (dark by default, soft-fallback to cosine), iOS `custom_message` instrumentation for the P_Custom label. ⏳ **AWS-gated:** deploy Lambda + endpoint per §16.5 runbook; P_Custom/P_Buy heads stay masked until instrumented labels accrue.
 - [x] **P1 Feed diversity + real gallery curation + Reddit bundle serving** — ✅ CODE COMPLETE (Jul 2026), root causes + design in the PR: (1) **Diversity spacing**: `infra/src/feed-diversity.mjs` (extracted `interleaveAuthors`, now spaces BRAND ≤2-run/≤4-per-12 and CATEGORY ≤2-run/≤5-per-12, greedy with graceful degradation; applied to every /feed + /recommendations path incl. MTL output; tests in `feed-diversity.test.mjs`) + iOS `OnDeviceRanker` (category penalty ×0.92→×0.55 + ≥4-of-8 ×0.6, `W.gallery` 0.22→0.10 — it was the largest boost and made the feed a Shopify wall). Fixes "15 shoes back-to-back". (2) **Real gallery membership**: `infra/ingest/build-shelves.mjs` — Titan TEXT-embeds each shelf theme sentence → kNN in the image space → quality/price/brand-cap filters → CONFIG `gallery#<id>` rows; served by **`GET /galleries/{id}`**; `CollectionDetailView` prefers the curated list, falls back to legacy vibe-query (vibe tags proved store-level junk: 'romantic'=0, 'golf'=0 posts). (3) **Reddit "goes together" bundles**: same script resolves KNOWLEDGE co-occurrence bundles (16 recipients) to buyable products per idea → CONFIG `bundles#<recipient>` rows; **`GET /bundles`** + iOS `GiftBundlesRail` ("Goes well together", hidden until data exists). ⏳ **AWS-gated:** `node build-shelves.mjs` (Bedrock + S3 Vectors + CONFIG writes), then Lambda + App Runner deploy per the standing runbook.
+- [x] **P1 MTL v2: interaction-model serving + deep context/Reddit-aware net (§16.6)** — ✅ CODE COMPLETE + retrained (Jul 2026): fast-default `/recommendations` + `?rank=full` background refine (client two-phase in `FeedViewModel`), `features.py` shared train/serve featurizer (time/relationship/occasion/Reddit idea weights, CTX_DIM=20), deep shared bottom (256→128→64) + per-task MLP heads, knowledge snapshot in the model artifact. ⏳ AWS: endpoint rolled via `deploy_endpoint.py`; Lambda deploy per standing runbook.
 - [ ] **P1 Native ads** — `Post.sponsored`, `PostCard` label + CTA, interleave by cadence ranked by taste, frequency cap + hide.
 - [ ] **P2 Deal monitoring backend** — EventBridge cron → deal-finder Lambda, price-tracker Lambda (Amazon PA-API 5.0 + Walmart API), DynamoDB price history + watchlist tables, SNS/SES notifications. Feed integration: deal cards ranked alongside organic content by taste vector + deal quality score. Maxi AI deal suggestions via Bedrock (Claude/Titan).
 - [ ] **P2 Harden write path (optimized arch, §12.2)** — SQS + DLQ between ingest and embed, Step Functions orchestration, pHash dedup, EventBridge re-sync, Secrets Manager, observability. Add OpenSearch hot tier only if real-time ANN latency at scale demands it.
@@ -713,3 +714,32 @@ P_Custom.
 Costs: training ≈ pennies (spot, minutes), serverless inference ≈ $ single
 digits/mo at current traffic, `giftmaxxing-dev-ml` storage ≈ pennies. No idle
 cost anywhere.
+
+### 16.6 v2 — interaction model + deep MTL with context & Reddit features (Jul 2026)
+
+**Serving = "fast front-end + intelligent back-end"** (Thinking-Machines-style
+interaction model): `GET /recommendations` DEFAULTS to the fast path — cosine
+order, no model invoke, instant. **`?rank=full`** is the back-end path: MTL
+value-model re-rank with a 12 s deadline (`MTL_TIMEOUT_FULL_MS`) — cold starts
+are fine because the iOS client calls it AFTER first paint
+(`FeedViewModel.refinePersonalizedPicks()`) and swaps the refined ranking into
+the below-the-fold pick slots only (slot 1 may be on screen; it stays).
+A stale refine is cancelled on every reload.
+
+**Model v2** (`infra/ml/mtl_model.py`, version=2): item/user towers (1024→96)
+→ deep shared bottom **256→128→64** (3 hidden layers) → **per-task MLP heads**
+(64→32→1) so what drives a custom message can be learned separately from what
+drives a quick buy. New **context input (20-d, `features.py`)**: cyclical
+time-of-day/day-of-week, relationship one-hot, occasion one-hot, and **Reddit
+knowledge features** — the item title is matched against the r/Gifts idea
+lexicon and carries that idea's global + per-recipient popularity weight
+(snapshot `knowledge_snapshot.json` rides inside the model artifact; zero
+runtime I/O).
+
+**Training/inference separation without skew:** `features.py` is the single
+featurizer imported by BOTH `export_training_data.py` (offline) and
+`inference.py` (endpoint); the Lambda sends only RAW context
+(ts/relationship/occasion/title). Relationship/occasion are historically
+untracked so they train as zeros until instrumented context accrues — the
+pipeline is already plumbed. Retrained Jul 2026: P_Time val AUC ≈ 0.99 (still
+1 val positive — directional).

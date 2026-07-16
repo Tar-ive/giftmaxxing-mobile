@@ -39,9 +39,12 @@ import time
 import boto3
 import numpy as np
 
+from features import CTX_DIM, KnowledgeFeatures, build_context
+
 ENV = "giftmaxxing-dev"
 ANALYTICS = f"{ENV}-analytics"
 INTERACTIONS = f"{ENV}-interactions"
+KNOWLEDGE = f"{ENV}-knowledge"
 POSTS = f"{ENV}-posts"
 VECTOR_BUCKET = f"{ENV}-vectors"
 VECTOR_INDEX = "pins"
@@ -89,6 +92,33 @@ def fetch_vectors(keys):
                 v.get("metadata") or {},
             )
     return vecs
+
+
+def build_knowledge_snapshot():
+    """KNOWLEDGE table -> the compact idea-weight snapshot consumed by
+    features.KnowledgeFeatures. Ships inside the dataset + model artifact so
+    training and the endpoint featurize identically with zero runtime I/O."""
+    rows = scan_all(KNOWLEDGE)
+    ideas = {}
+    max_count = 1.0
+    for row in rows:
+        recipient = attr(row, "recipient")
+        for entry in row.get("ideas", {}).get("L", []):
+            m = entry.get("M", {})
+            key, label = attr(m, "key"), attr(m, "label")
+            count = attr(m, "count", "N") or 0.0
+            if not key:
+                continue
+            idea = ideas.setdefault(key, {"label": label or key, "count": 0.0, "recipients": {}})
+            idea["count"] += count
+            if recipient:
+                idea["recipients"][recipient] = max(idea["recipients"].get(recipient, 0.0), count)
+            max_count = max(max_count, idea["count"])
+    for idea in ideas.values():
+        idea["global"] = round(idea.pop("count") / max_count, 4)
+        rmax = max(idea["recipients"].values(), default=1.0) or 1.0
+        idea["recipients"] = {r: round(c / rmax, 4) for r, c in idea["recipients"].items()}
+    return {"ideas": ideas}
 
 
 def main():
@@ -186,13 +216,22 @@ def main():
         return (m / n).astype(np.float32) if n > 0 else None
 
     # ---- 5. Assemble tensors ----------------------------------------------
+    # Context features (features.py, shared with inference): time of exposure
+    # is real per example; relationship/occasion are historically untracked so
+    # they encode as zeros ("unknown") until instrumented interaction context
+    # accrues — the pipeline is already plumbed for them. Reddit idea weights
+    # come from the knowledge snapshot matched against the item title.
+    snapshot = build_knowledge_snapshot()
+    kf = KnowledgeFeatures(snapshot)
+    print(f"knowledge snapshot: {len(snapshot['ideas'])} ideas")
+
     SRC_ONEHOT = ["pinterest", "shopify", "catalog", "other"]
-    X_item, X_user, X_aux, Y, keys = [], [], [], [], []
+    X_item, X_user, X_aux, X_ctx, Y, keys = [], [], [], [], [], []
     zero = np.zeros(DIM, dtype=np.float32)
     for user, post, ts, yt, yc, yb in rows:
         if post not in vec_map:
             continue
-        iv = vec_map[post][0]
+        iv, imeta = vec_map[post]
         ivn = iv / (np.linalg.norm(iv) or 1.0)
         uv = centroid_before(user, ts)
         cos = float(np.dot(uv, ivn)) if uv is not None else 0.0
@@ -201,11 +240,13 @@ def main():
         X_user.append(uv if uv is not None else zero)
         X_aux.append([cos, np.log1p(price.get(post, 0.0)),
                       np.log1p(user_event_count.get(user, 0)), *onehot])
+        X_ctx.append(build_context(ts_ms=ts, title=imeta.get("title"), knowledge=kf))
         Y.append([yt, yc, yb])
         keys.append(f"{user}|{post}")
 
     X_item = np.stack(X_item); X_user = np.stack(X_user)
-    X_aux = np.asarray(X_aux, dtype=np.float32); Y = np.asarray(Y, dtype=np.float32)
+    X_aux = np.asarray(X_aux, dtype=np.float32); X_ctx = np.asarray(X_ctx, dtype=np.float32)
+    Y = np.asarray(Y, dtype=np.float32)
     pos = Y.sum(axis=0).astype(int)
     print(f"final examples: {len(Y)}  positives — time: {pos[0]}, custom: {pos[1]}, buy: {pos[2]}")
 
@@ -220,7 +261,8 @@ def main():
     os.makedirs(args.out, exist_ok=True)
     stamp = time.strftime("%Y-%m-%dT%H-%M-%S")
     meta = {
-        "created": stamp, "dim": DIM, "aux_dim": X_aux.shape[1],
+        "created": stamp, "dim": DIM, "aux_dim": X_aux.shape[1], "ctx_dim": X_ctx.shape[1],
+        "features_version": 2,
         "aux_features": ["cos_user_item", "log1p_price", "log1p_user_events", *[f"src_{s}" for s in SRC_ONEHOT]],
         "labels": ["y_time_gt60s", "y_custom_message", "y_buy_intent"],
         "n_train": int((~is_val).sum()), "n_val": int(is_val.sum()),
@@ -230,17 +272,19 @@ def main():
     for name, mask in [("train", ~is_val), ("val", is_val)]:
         np.savez_compressed(
             os.path.join(args.out, f"{name}.npz"),
-            X_item=X_item[mask], X_user=X_user[mask], X_aux=X_aux[mask],
+            X_item=X_item[mask], X_user=X_user[mask], X_aux=X_aux[mask], X_ctx=X_ctx[mask],
             Y=Y[mask], keys=np.array(keys, dtype=object)[mask],
         )
     with open(os.path.join(args.out, "meta.json"), "w") as f:
         json.dump(meta, f, indent=2)
-    print(f"wrote {args.out}/train.npz ({meta['n_train']}), val.npz ({meta['n_val']}), meta.json")
+    with open(os.path.join(args.out, "knowledge_snapshot.json"), "w") as f:
+        json.dump(snapshot, f)
+    print(f"wrote {args.out}/train.npz ({meta['n_train']}), val.npz ({meta['n_val']}), meta.json, knowledge_snapshot.json")
 
     if args.s3_bucket:
         s3 = session.client("s3", region_name="us-east-1")
         prefix = f"datasets/mtl/{stamp}"
-        for fn in ["train.npz", "val.npz", "meta.json"]:
+        for fn in ["train.npz", "val.npz", "meta.json", "knowledge_snapshot.json"]:
             s3.upload_file(os.path.join(args.out, fn), args.s3_bucket, f"{prefix}/{fn}")
         print(f"uploaded to s3://{args.s3_bucket}/{prefix}/")
 

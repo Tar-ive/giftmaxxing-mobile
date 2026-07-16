@@ -26,13 +26,16 @@ from mtl_model import MTLNet, TASKS, save_model
 
 def load_split(path):
     d = np.load(path, allow_pickle=True)
+    n = len(d["Y"])
+    # v1 datasets predate context features -> zero ctx keeps them loadable.
+    ctx = d["X_ctx"] if "X_ctx" in d else np.zeros((n, 20), dtype=np.float32)
     return (torch.from_numpy(d["X_item"]), torch.from_numpy(d["X_user"]),
-            torch.from_numpy(d["X_aux"]), torch.from_numpy(d["Y"]))
+            torch.from_numpy(d["X_aux"]), torch.from_numpy(ctx), torch.from_numpy(d["Y"]))
 
 
-def aucs(model, xi, xu, xa, y):
+def aucs(model, xi, xu, xa, xc, y):
     with torch.no_grad():
-        p = model.probs(xi, xu, xa)
+        p = model.probs(xi, xu, xa, xc)
     out = {}
     for k, t in enumerate(TASKS):
         yt = y[:, k].numpy()
@@ -55,9 +58,9 @@ def main():
     args = ap.parse_args()
     torch.manual_seed(args.seed)
 
-    xi, xu, xa, y = load_split(os.path.join(args.data, "train.npz"))
-    vxi, vxu, vxa, vy = load_split(os.path.join(args.data, "val.npz"))
-    model = MTLNet(dim=xi.shape[1], aux_dim=xa.shape[1], dropout=args.dropout)
+    xi, xu, xa, xc, y = load_split(os.path.join(args.data, "train.npz"))
+    vxi, vxu, vxa, vxc, vy = load_split(os.path.join(args.data, "val.npz"))
+    model = MTLNet(dim=xi.shape[1], aux_dim=xa.shape[1], ctx_dim=xc.shape[1], dropout=args.dropout)
 
     # per-head pos_weight; mask heads with no train positives
     losses, active = {}, []
@@ -80,12 +83,12 @@ def main():
         total = 0.0
         for i in range(0, n, args.batch):
             idx = perm[i : i + args.batch]
-            logits = model(xi[idx], xu[idx], xa[idx])
+            logits = model(xi[idx], xu[idx], xa[idx], xc[idx])
             loss = sum(losses[t](logits[t], y[idx, k]) for k, t in active) / len(active)
             opt.zero_grad(); loss.backward(); opt.step()
             total += float(loss) * len(idx)
         model.eval()
-        va = aucs(model, vxi, vxu, vxa, vy)
+        va = aucs(model, vxi, vxu, vxa, vxc, vy)
         # Early-stop only on heads that are actually being trained — an
         # unmasked-but-untrained head's val AUC is noise and must not steer.
         steer = [v for t, v in va.items() if t in {t2 for _, t2 in active}]
@@ -104,7 +107,11 @@ def main():
     if best_state:
         model.load_state_dict(best_state)
     save_model(model, args.out)
-    final = {"val_auc": aucs(model, vxi, vxu, vxa, vy), "train_auc": aucs(model, xi, xu, xa, y),
+    snap = os.path.join(args.data, "knowledge_snapshot.json")
+    if os.path.exists(snap):
+        import shutil
+        shutil.copy(snap, os.path.join(args.out, "knowledge_snapshot.json"))
+    final = {"val_auc": aucs(model, vxi, vxu, vxa, vxc, vy), "train_auc": aucs(model, xi, xu, xa, xc, y),
              "active_heads": [t for _, t in active]}
     with open(os.path.join(args.out, "metrics.json"), "w") as f:
         json.dump(final, f, indent=2)
