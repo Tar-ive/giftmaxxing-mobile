@@ -70,6 +70,35 @@ final class OnDeviceRankerTests: XCTestCase {
         XCTAssertEqual(ranked.first?.post.id, "cozy-item")
     }
 
+    // Regression: a same-category wall spanning MULTIPLE brands ("15 shoes
+    // from Vessi/Rothy's/Allbirds back-to-back") must be broken up by the
+    // Layer-5 category spacing even though author spacing never triggers.
+    func testCategoryWallAcrossBrandsIsSpaced() {
+        let shoes = (0..<12).map { i in
+            makePost(id: "shoe-\(i)", name: "Runner Sneaker \(i)",
+                     author: ["vessi", "rothys", "allbirds"][i % 3],
+                     likes: 400, category: "shoes")
+        }
+        let other = (0..<6).map { i in
+            makePost(id: "other-\(i)", name: "Ceramic Mug \(i)",
+                     author: "brand-\(i)", likes: 50,
+                     category: ["tech", "kitchen", "home"][i % 3])
+        }
+        let ranked = OnDeviceRanker.rank(candidates: shoes + other, profile: TasteSnapshot())
+        let firstTen = ranked.prefix(10)
+        // Longest same-category run in the first screen must stay short.
+        var longestRun = 0, run = 0
+        var prev: String?
+        for r in firstTen {
+            let c = r.post.category ?? ""
+            run = (c == prev) ? run + 1 : 1
+            prev = c
+            longestRun = max(longestRun, run)
+        }
+        XCTAssertLessThanOrEqual(longestRun, 4, "category run of \(longestRun) in the first screen")
+        XCTAssertFalse(firstTen.allSatisfy { $0.post.category == "shoes" }, "first screen was all shoes")
+    }
+
     // Budget fit: within-budget gets +0.15, far-over-budget bottoms at -0.1 —
     // a 0.25 spread, > explore noise.
     func testBudgetFitOutranksBlownBudget() {

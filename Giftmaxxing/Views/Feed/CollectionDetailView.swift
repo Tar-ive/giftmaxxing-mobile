@@ -115,6 +115,21 @@ struct CollectionDetailView: View {
     private func load() async {
         isLoading = true
         defer { isLoading = false }
+
+        // Prefer the server-curated member list (semantic curation, see
+        // build-shelves.mjs) — the legacy vibe-query below is the fallback
+        // for shelves that haven't been curated yet.
+        if let curated = try? await APIClient.shared.fetchGallery(id: collection.id),
+           curated.count >= 8 {
+            var seen = Set<String>()
+            posts = curated.filter { post in
+                guard seen.insert(post.id).inserted else { return false }
+                if let cap = collection.maxPrice, post.product.price > 0, post.product.price > cap { return false }
+                return post.product.image != nil
+            }
+            if posts.count >= 8 { return }
+        }
+
         guard let page = try? await APIClient.shared.fetchFeed(
             limit: 40,
             vibes: collection.vibes.isEmpty ? nil : collection.vibes,

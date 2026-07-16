@@ -54,7 +54,11 @@ enum OnDeviceRanker {
         static let vector = 0.35
         static let vectorNeg = 0.25   // similarity to the HIDDEN-items centroid
         static let giftTypeLean = 0.12 // product-vs-service preference
-        static let gallery = 0.22      // multi-image product carousels (Shopify/Etsy)
+        // Multi-image product carousels (Shopify/Etsy). Was 0.22 — the single
+        // largest discretionary boost, which turned the top of every feed into
+        // a wall of the big Shopify inventories (shoes/gym apparel). Still a
+        // positive nudge, no longer a takeover.
+        static let gallery = 0.10
         static let explore = 0.11
     }
 
@@ -252,7 +256,14 @@ enum OnDeviceRanker {
                 let author = entry.0.post.user
                 if recentAuthors.suffix(3).contains(author) { s *= 0.6 }
                 if recentAuthors.filter({ $0 == author }).count >= 3 { s *= 0.5 }
-                if recentCategories.suffix(2).contains(entry.signals.category) { s *= 0.92 }
+                // Category spacing must bite as hard as author spacing: a
+                // "shoe wall" spans three brands, so author checks alone let
+                // 15 same-category items stack. (0.92 was a no-op.)
+                let category = entry.signals.category
+                if !category.isEmpty {
+                    if recentCategories.suffix(2).contains(category) { s *= 0.55 }
+                    if recentCategories.filter({ $0 == category }).count >= 4 { s *= 0.6 }
+                }
                 if s > bestScore { bestScore = s; bestIdx = i }
             }
             let picked = pool.remove(at: bestIdx)
