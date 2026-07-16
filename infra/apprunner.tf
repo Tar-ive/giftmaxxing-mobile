@@ -125,6 +125,7 @@ resource "aws_apprunner_service" "api" {
           GRAPH_TABLE        = aws_dynamodb_table.graph.name
           CONFIG_TABLE       = aws_dynamodb_table.config.name
           ANALYTICS_TABLE    = aws_dynamodb_table.analytics.name
+          DEVICES_TABLE      = aws_dynamodb_table.devices.name
 
           AUTH_ENFORCE       = var.auth_enforce ? "1" : "0"
           ADMIN_API_SECRET   = var.admin_api_secret
