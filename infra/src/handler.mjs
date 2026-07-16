@@ -47,6 +47,8 @@ const EVENTS = process.env.EVENTS_TABLE;
 const GRAPH = process.env.GRAPH_TABLE;
 const CONFIG = process.env.CONFIG_TABLE;
 const FRIENDS = process.env.FRIENDS_TABLE;
+const ANALYTICS = process.env.ANALYTICS_TABLE;
+const DEVICES = process.env.DEVICES_TABLE;
 const COGNITO_CLIENT_ID = process.env.COGNITO_CLIENT_ID || "";
 const LOGIN_RESET_URL = process.env.LOGIN_RESET_URL || "";
 const LOGIN_EMAIL_FROM = process.env.LOGIN_EMAIL_FROM || "";
@@ -2449,12 +2451,138 @@ async function purgeByPartition(table, pkName, pkValue, keyAttrs) {
   return deleted;
 }
 
-// Irreversibly delete everything we hold for a user: their profile, every
-// interaction, the soft profiles (connections) they own, their events, their
-// graph rows, and their friend edges. Each table is keyed by the user id (or,
-// for GRAPH/FRIENDS, `pk`), so a per-partition query + batch delete clears them.
+// POOLS is keyed by poolId, so the user's rows there (their MEMBER#, CONTRIB#
+// and MSG# items) are found with a filtered scan. META rows the user organized
+// are the group's shared record — other members still need the pool — so they
+// are kept but stripped of the organizer's identity instead of deleted.
+async function purgePoolRows(userId) {
+  if (!POOLS || !userId) return 0;
+  let cleared = 0;
+  let lastKey;
+  try {
+    do {
+      const out = await ddb.send(
+        new ScanCommand({
+          TableName: POOLS,
+          FilterExpression: "userId = :u OR memberId = :u OR organizerId = :u",
+          ExpressionAttributeValues: { ":u": userId },
+          ExclusiveStartKey: lastKey,
+        })
+      );
+      for (const it of out.Items ?? []) {
+        if (it.itemId === "META") {
+          await ddb.send(
+            new UpdateCommand({
+              TableName: POOLS,
+              Key: { poolId: it.poolId, itemId: "META" },
+              UpdateExpression: "SET organizerId = :d, organizerName = :n",
+              ExpressionAttributeValues: { ":d": "deleted", ":n": "a former member" },
+            })
+          );
+        } else {
+          await ddb.send(
+            new DeleteCommand({ TableName: POOLS, Key: { poolId: it.poolId, itemId: it.itemId } })
+          );
+        }
+        cleared++;
+      }
+      lastKey = out.LastEvaluatedKey;
+    } while (lastKey);
+  } catch (e) {
+    console.warn("purge POOLS failed:", e.message);
+  }
+  return cleared;
+}
+
+// CHALLENGES partitions belong to the sender who created them. Find the META
+// rows this user owns and purge each challenge wholesale — deck items and the
+// guests' RESP# rows included, since those responses exist only for the sender.
+async function purgeOwnedChallenges(userId) {
+  if (!CHALLENGES || !userId) return 0;
+  let deleted = 0;
+  let lastKey;
+  try {
+    do {
+      const out = await ddb.send(
+        new ScanCommand({
+          TableName: CHALLENGES,
+          FilterExpression: "itemId = :m AND senderId = :u",
+          ExpressionAttributeValues: { ":m": "META", ":u": userId },
+          ProjectionExpression: "challengeId",
+          ExclusiveStartKey: lastKey,
+        })
+      );
+      for (const it of out.Items ?? []) {
+        deleted += await purgeByPartition(CHALLENGES, "challengeId", it.challengeId, [
+          "challengeId",
+          "itemId",
+        ]);
+      }
+      lastKey = out.LastEvaluatedKey;
+    } while (lastKey);
+  } catch (e) {
+    console.warn("purge CHALLENGES failed:", e.message);
+  }
+  return deleted;
+}
+
+// Sign-in writes `email#<addr>` alias rows pointing at the canonical user id
+// (see resolveCanonicalUserId). Left behind, they would re-link a future
+// sign-in with the deleted account's email, so clear every alias it owns.
+async function purgeEmailAliases(userId) {
+  if (!USERS || !userId) return 0;
+  let deleted = 0;
+  let lastKey;
+  try {
+    do {
+      const out = await ddb.send(
+        new ScanCommand({
+          TableName: USERS,
+          FilterExpression: "#a = :t AND canonicalUserId = :u",
+          ExpressionAttributeNames: { "#a": "alias" },
+          ExpressionAttributeValues: { ":t": true, ":u": userId },
+          ProjectionExpression: "userId",
+          ExclusiveStartKey: lastKey,
+        })
+      );
+      for (const it of out.Items ?? []) {
+        await ddb.send(new DeleteCommand({ TableName: USERS, Key: { userId: it.userId } }));
+        deleted++;
+      }
+      lastKey = out.LastEvaluatedKey;
+    } while (lastKey);
+  } catch (e) {
+    console.warn("purge email aliases failed:", e.message);
+  }
+  return deleted;
+}
+
+// Irreversibly delete everything we hold for a user: their profile (and its
+// email# alias rows), every interaction, the soft profiles (connections) they
+// own, their events, their graph rows (incl. Maxi memory + photo seeds), their
+// friend edges and DMs, their analytics history, their push-device tokens,
+// their group-gift rows, and the swipe challenges they created. Tables keyed
+// by the user id (or `pk`) use a per-partition query + batch delete; POOLS,
+// CHALLENGES and the alias rows key by other ids, so those go through a
+// filtered scan (see the helpers above). The privacy policy promises exactly
+// this scope — extend both together.
 async function purgeAccount(userId) {
-  const summary = { profile: 0, interactions: 0, connections: 0, events: 0, graph: 0, friends: 0 };
+  const summary = {
+    profile: 0,
+    aliases: 0,
+    interactions: 0,
+    connections: 0,
+    events: 0,
+    graph: 0,
+    friends: 0,
+    analytics: 0,
+    devices: 0,
+    pools: 0,
+    challenges: 0,
+  };
+  // Clear the alias rows before the profile: the scan matches on
+  // canonicalUserId, which does not depend on the profile item existing.
+  summary.aliases = await purgeEmailAliases(userId);
   if (USERS) {
     try {
       await ddb.send(new DeleteCommand({ TableName: USERS, Key: { userId } }));
@@ -2468,6 +2596,10 @@ async function purgeAccount(userId) {
   summary.events = await purgeByPartition(EVENTS, "userId", userId, ["userId", "eventId"]);
   summary.graph = await purgeByPartition(GRAPH, "pk", userId, ["pk", "sk"]);
   summary.friends = await purgeByPartition(FRIENDS, "pk", userId, ["pk", "sk"]);
+  summary.analytics = await purgeByPartition(ANALYTICS, "userId", userId, ["userId", "sk"]);
+  summary.devices = await purgeByPartition(DEVICES, "userId", userId, ["userId", "deviceId"]);
+  summary.pools = await purgePoolRows(userId);
+  summary.challenges = await purgeOwnedChallenges(userId);
   return summary;
 }
 

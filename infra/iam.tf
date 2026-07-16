@@ -51,6 +51,10 @@ data "aws_iam_policy_document" "ddb_access" {
       "${aws_dynamodb_table.graph.arn}/index/*",
       aws_dynamodb_table.analytics.arn,
       "${aws_dynamodb_table.analytics.arn}/index/*",
+      # Account deletion (purgeAccount) batch-deletes the user's push-token
+      # rows; the mobile_push policy (sns-apns.tf) lacks BatchWriteItem/Scan
+      # and is not attached to the App Runner role at all.
+      aws_dynamodb_table.devices.arn,
     ]
   }
 }

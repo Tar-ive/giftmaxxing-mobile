@@ -16,7 +16,7 @@ export default function PrivacyPage() {
         ← Giftmaxxing
       </Link>
       <h1 className="mt-6 font-display text-3xl font-extrabold text-ink">Privacy</h1>
-      <p className="mt-2 text-sm text-ink-faint">Last updated June 2026</p>
+      <p className="mt-2 text-sm text-ink-faint">Last updated July 2026</p>
 
       <section className="mt-8 space-y-4 text-sm leading-relaxed text-ink-soft">
         <p>
@@ -47,8 +47,21 @@ export default function PrivacyPage() {
         </p>
         <p>
           <strong className="text-ink">You have full ownership of your data.</strong> You can
-          export or delete it at any time. Deleting your account removes your profile,
-          recipients, saved events, and Maxi&apos;s memory of you.
+          export or delete it at any time. Deleting your account removes your profile and
+          sign-in identity (including the email links behind it), recipients, saved events,
+          gift boards, connections and soft profiles you created, friends and direct
+          messages, your group-gift contributions and chat messages, the swipe challenges
+          you shared (including the responses collected through them), Maxi&apos;s memory of
+          you, your analytics history, and your push-notification device tokens.
+        </p>
+        <p>
+          <strong className="text-ink">What we keep, and for how long.</strong> Behavioral
+          analytics from the app — things like taps, time spent on a card, and in-app search
+          queries — are kept for <strong className="text-ink">at most 90 days</strong> and
+          then expire automatically (immediately if you delete your account). Photos you
+          submit for visual search are converted into a numeric taste vector used to find
+          similar gifts; we keep that vector, not a browsable copy of your photo, and it is
+          removed with your account too.
         </p>
 
         <h2 id="sender" className="scroll-mt-24 pt-4 font-display text-xl font-bold text-ink">
@@ -123,7 +136,9 @@ export default function PrivacyPage() {
             <strong className="text-ink">Delete all my data</strong> — permanently remove
             the locally stored profile, saved items, interaction history, cart, and related
             information. If you&apos;re signed in and the server is available, we also
-            request server-side deletion.
+            request server-side deletion, which covers everything listed under &ldquo;You
+            have full ownership of your data&rdquo; above. In the iOS app, the same full
+            deletion lives at You → Account → Delete Account.
           </li>
         </ul>
         <p>
