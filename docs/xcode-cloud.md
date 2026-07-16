@@ -19,17 +19,13 @@ So Xcode Cloud is *optional*, not required. Both can coexist — they'd just
 produce two builds per push to `main` (disable one of the archive paths if
 that's noisy).
 
-## Why this repo needs `ci_scripts/ci_post_clone.sh`
+## Xcode Cloud custom scripts
 
-Xcode Cloud clones the repo and expects an `.xcodeproj`/`.xcworkspace` to
-exist. This repo generates the project with **XcodeGen** from `project.yml`
-and gitignores `GoogleService-Info.plist`. The committed
-[`ci_scripts/ci_post_clone.sh`](../ci_scripts/ci_post_clone.sh) (Apple's
-official custom-script hook) fixes both:
-
-1. `brew install xcodegen && xcodegen generate`
-2. Decodes `GOOGLE_SERVICE_INFO_PLIST_B64` (an Xcode Cloud environment
-   variable you set, marked *Secret*) into `Giftmaxxing/GoogleService-Info.plist`
+`ci_scripts/` is **gitignored** — the previous `ci_post_clone.sh` was failing
+Archive (`Running ci_post_clone.sh script failed`). Prefer GitHub Actions
+(`ios-testflight.yml`) for CI/TestFlight. If you re-enable Xcode Cloud later,
+add a local-only `ci_scripts/ci_post_clone.sh` (xcodegen + GoogleService-Info)
+or commit a committed `.xcodeproj` so Archive doesn't need the hook.
 
 ## One-time setup (must be done by an Apple Developer account holder)
 
