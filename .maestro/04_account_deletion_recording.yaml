@@ -1,0 +1,76 @@
+# App Review evidence flow — Guideline 5.1.1(v) account deletion.
+#
+# Drives: sign in (demo account via the DEBUG e2e hook) → You → Account →
+# Delete Account → confirm → back at the signed-out wall. Run it while
+# `xcrun simctl io <udid> recordVideo` captures the screen; the recording
+# goes into App Review Information → Notes.
+#
+#   maestro --device <UDID> test \
+#     -e E2E_EMAIL=... -e E2E_PASSWORD=... .maestro/04_account_deletion_recording.yaml
+#
+# ⚠️ This DELETES the account it signs in with (server-side purge included).
+# Recreate the demo account afterwards (see .maestro/README.md).
+appId: com.giftmaxxing.ios
+name: appstore — account deletion recording
+tags:
+  - review-evidence
+---
+- launchApp:
+    clearState: true
+    permissions:
+      notifications: allow
+    arguments:
+      e2eEmail: ${E2E_EMAIL}
+      e2ePassword: ${E2E_PASSWORD}
+
+# Fresh identities get Maxi's consult; established ones go straight in.
+- extendedWaitUntil:
+    optional: true
+    visible: "Skip for now"
+    timeout: 12000
+- runFlow:
+    when:
+      visible: "Skip for now"
+    commands:
+      - tapOn: "Skip for now"
+
+# Land on Home signed in — linger a beat so the recording shows real state.
+- extendedWaitUntil:
+    visible: "Home"
+    timeout: 15000
+- extendedWaitUntil:
+    optional: true
+    visible: "never-matches-just-waiting"
+    timeout: 4000
+
+# You tab → Account section → Delete Account.
+- tapOn: "You"
+- scrollUntilVisible:
+    element: "Delete Account"
+    direction: DOWN
+    timeout: 20000
+- extendedWaitUntil:
+    optional: true
+    visible: "never-matches-just-waiting"
+    timeout: 1500
+- tapOn: "Delete Account"
+
+# Two-step destructive confirm (alert: "Delete your account?").
+- extendedWaitUntil:
+    visible: "Delete your account?"
+    timeout: 8000
+- extendedWaitUntil:
+    optional: true
+    visible: "never-matches-just-waiting"
+    timeout: 2000
+- tapOn: "Delete Account"
+
+# Deletion purges the server account and signs out — the recording must end
+# on the signed-out wall to satisfy "initiation to confirmation".
+- extendedWaitUntil:
+    visible: "Continue with Google"
+    timeout: 30000
+- extendedWaitUntil:
+    optional: true
+    visible: "never-matches-just-waiting"
+    timeout: 3000
