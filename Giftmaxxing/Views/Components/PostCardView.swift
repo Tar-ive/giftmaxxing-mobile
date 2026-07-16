@@ -16,14 +16,14 @@ struct PostCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack(spacing: 10) {
-                AvatarView(name: post.user, grad: post.product.grad, size: 32)
+                AvatarView(name: displayAuthor, grad: post.product.grad, size: 32)
 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(post.user)
+                    Text(displayAuthor)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Color.ink)
-                    if let source = post.source {
-                        Text(source)
+                    if let retailer = retailerLabel {
+                        Text(retailer)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -225,6 +225,31 @@ struct PostCardView: View {
         if !brand.isEmpty, lower.contains(brand) { return nil }
         if let domain = post.domain?.lowercased(), !domain.isEmpty, lower.contains(domain) { return nil }
         return reason
+    }
+
+    private var displayAuthor: String {
+        let brand = post.product.brand.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !brand.isEmpty, brand.lowercased() != "reddit" { return brand }
+        return cleanedLabel(post.source ?? post.user)
+    }
+
+    private var retailerLabel: String? {
+        let source = post.source.map(cleanedLabel)
+        guard let source, !source.isEmpty,
+              source.caseInsensitiveCompare(displayAuthor) != .orderedSame else { return nil }
+        return source
+    }
+
+    private func cleanedLabel(_ value: String) -> String {
+        let normalized = value
+            .replacingOccurrences(of: "_", with: " ")
+            .split(separator: " ")
+            .map { $0.prefix(1).uppercased() + $0.dropFirst().lowercased() }
+            .joined(separator: " ")
+        if normalized.lowercased().hasPrefix("shopify ") {
+            return String(normalized.dropFirst("shopify ".count))
+        }
+        return normalized
     }
 
     private func actionButton(
