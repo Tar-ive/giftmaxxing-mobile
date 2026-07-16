@@ -19,13 +19,28 @@ So Xcode Cloud is *optional*, not required. Both can coexist — they'd just
 produce two builds per push to `main` (disable one of the archive paths if
 that's noisy).
 
-## Xcode Cloud custom scripts
+## Why this repo needs `ci_scripts/ci_post_clone.sh`
 
-`ci_scripts/` is **gitignored** — the previous `ci_post_clone.sh` was failing
-Archive (`Running ci_post_clone.sh script failed`). Prefer GitHub Actions
-(`ios-testflight.yml`) for CI/TestFlight. If you re-enable Xcode Cloud later,
-add a local-only `ci_scripts/ci_post_clone.sh` (xcodegen + GoogleService-Info)
-or commit a committed `.xcodeproj` so Archive doesn't need the hook.
+Xcode Cloud clones the repo and expects an `.xcodeproj` at the root.
+`Giftmaxxing.xcodeproj` is **gitignored** and generated from `project.yml` via
+XcodeGen, so Archive without the hook fails with *Project Giftmaxxing.xcodeproj
+does not exist*.
+
+[`ci_scripts/ci_post_clone.sh`](../ci_scripts/ci_post_clone.sh) (Apple's
+post-clone hook) does:
+
+1. Install XcodeGen if needed (`brew`, with retries / no auto-update — Xcode
+   Cloud `brew` is flaky), then `xcodegen generate`
+2. Optionally decode `GOOGLE_SERVICE_INFO_PLIST_B64` (Xcode Cloud Secret) into
+   `Giftmaxxing/GoogleService-Info.plist`
+
+**Why an earlier build showed `ci_post_clone.sh … exited with code 1`:** Apple's
+UI only surfaces that one-liner (no script stdout in the GitHub check summary).
+The script content was unchanged between a green Archive (#61) and a red one
+(#62); `project.yml` didn't change either. Most likely a transient
+`brew install xcodegen` / Homebrew network failure on Xcode Cloud. The restored
+script skips brew when `xcodegen` is already present, retries once, and verifies
+the `.xcodeproj` before exiting 0.
 
 ## One-time setup (must be done by an Apple Developer account holder)
 
