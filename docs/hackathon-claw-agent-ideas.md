@@ -144,3 +144,104 @@ A heartbeat agent fusing **Texas open streaming datasets** (transit, NOAA weathe
 | Cameron | UC Berkeley AI 2025 | Grand Prize | Always-on ambient camera agent (heartbeat exemplar) |
 
 **Two near-identical upcoming events worth scouting for format/judges:** Ruya AI "Self-Improving Agents" Hackathon 2026; "Self Improving Agents Hack" (self-improving agents on real-time data). The Circle **USDC OpenClaw Hackathon** (Feb 2026) is the closest precedent to *this* event's "Claw Agent" framing — it was literally run by agents on a heartbeat loop.
+
+---
+
+## 4. Deep-dive: Idea 3 variant — "Front-Run" prediction-market mispricing agent (Polymarket)
+
+> Added after a focused pass on the "take Polymarket data + scalping + predict deals before
+> they happen" direction. Concept, feasibility, comparable winners, and a build plan.
+
+### 4.1 The concept, sharpened
+In prediction markets the **price *is* the probability**, so "predict a deal before it happens"
+= **catch a repricing before the crowd does**. The product:
+
+> A heartbeat agent that streams **live Polymarket odds + a news firehose**, detects when fresh
+> information implies a probability the market hasn't repriced yet (the "mispricing" / "deal"),
+> and fires a ranked signal — with **paper-tracked PnL** — before the move. "Scalping" = capturing
+> the short window between signal and repricing.
+
+### 4.2 Feasibility — the API is on our side
+- **Public Polymarket WebSocket, no auth, no wallet:** `wss://ws-subscriptions-clob.polymarket.com/ws/market`
+  streams `book`, `price_change`, `last_trade_price`, `best_bid_ask`, `new_market`, `market_resolved`.
+  This satisfies "genuine streaming, not a static download" for the Red Hat track.
+- **Read-only data needs zero credentials.** Gamma REST (`gamma-api.polymarket.com`) for market
+  metadata + `outcomePrices`; CLOB REST (`clob.polymarket.com`) for `/book`, `/price`, `/prices-history`;
+  `py-clob-client` for history. A wallet (Polygon + USDC, EIP-712 signed orders) is needed **only to
+  execute trades** — so build **read-only signals + paper trading** to stay demoable and clean.
+- **Pair with a free news feed:** GDELT (free global event stream) or X/Twitter (paid) for the
+  "news moves the market" catalyst story. Kalshi (US-regulated, needs an API key even to stream) is the
+  fallback if judges want a real-money/regulated narrative; Manifold is play-money (weak signal).
+
+### 4.3 Strategic caution — this event has NO Polymarket sponsor
+Every **confirmed** Polymarket winner below won at events with a **Polymarket sponsor track**
+(HackASU, NexHacks). Here, Polymarket is just the **live feed for the Red Hat track**; the 30
+sponsor-tech points come from **Nemotron + vLLM + HiddenLayer + NemoClaw**. Winning framing:
+*Polymarket = the exotic real feed; the NVIDIA stack = how we reason on it fast and cheap.*
+
+### 4.4 Track & bounty mapping
+- **Red Hat Live Data (primary)** — no-auth WebSocket = provable streaming; fuse odds + news = the
+  "multiple live feeds" pattern judges reward.
+- **Recursive Intelligence (stack)** — the agent remembers which signal sources actually front-ran
+  moves and improves **hit-rate / Brier score over runs** → a measurable run-1-vs-run-N delta (the
+  track's explicit bonus criterion). No comparable project showed this.
+- **vLLM $500 + Nemotron** — serve a small **Nemotron on vLLM** as the classifier scoring hundreds of
+  markets concurrently under the heartbeat = the "small-model-punch + throughput" rubric verbatim.
+- **HiddenLayer** — scraped news/social is untrusted → route through Runtime Security.
+- **NemoClaw + OpenShell** — if we add real trade execution, contain the wallet/keys behind a policy
+  (no trade > $X, no un-approved market, human-approval on edge cases).
+- **Antler** — pitch the **signals/intelligence layer** (decision support), NOT an unlicensed auto-trading
+  bot — cleaner market + fewer regulatory questions.
+
+### 4.5 Comparable winning / reference projects
+**Confirmed sponsor-track winners (closest templates):**
+- **Kairos** — HackASU 2025, *won* Polymarket × Claude ($1k). Finds **mispricing**, emits **arbitrage
+  hedge vectors with proofs**, streams live Polymarket prices, memory-aware Claude copilot.
+  https://devpost.com/software/kairos-3qnji4
+- **Pindex** — NexHacks (Jan 2026), *won* Polymarket track. "Agentic index funds for Polymarket":
+  classifies market relationships and auto-diversifies across correlated markets.
+  https://devpost.com/software/a-vckqad
+
+**Architectural inspiration — Prophet Hacks 2026 (live-PnL Polymarket/Kalshi hackathon; placement
+unpublished, treat as references not confirmed wins):**
+- **TradeWizard** — league of 12+ specialist agents flag mispricings w/ explainable bull/bear cases in
+  <30s (LangGraph). https://devpost.com/software/tradewizard-g7x98n
+- **Inefficient Markets** — Gemini+Claude+Grok parallel forecasters anchored on live Kalshi/Polymarket
+  priors, liquidity-weighted. https://devpost.com/software/inefficient-markets
+- **Forecaster / "Brier Patch"** — market price as authoritative prior, nightly calibration refit,
+  LLM ensemble only on thin liquidity (MIT code). https://devpost.com/software/forecaster
+- **Polymarket Signal Agent** — 8-stage loop discover→news→analyze→calibrate→**Kelly sizing**→
+  cross-platform **arbitrage**→one-click execute; multi-LLM on Groq (small open models).
+  https://devpost.com/software/polymarket-signal-agent
+
+**Recurring winning stack:** live feed → multi-agent/LLM ensemble treating price as a prior →
+calibration + Kelly sizing → arbitrage-across-correlated-markets → alert or one-click execute.
+
+### 4.6 How we stand out (gaps nobody in the pool filled)
+1. **Real heartbeat + measurable self-improvement** — a run-1-vs-run-N Brier/hit-rate curve. Every
+   comparable project is request-driven; this alone can win Recursive Intelligence.
+2. **Small-open-model throughput** — Nemotron-on-vLLM scanning hundreds of markets concurrently vs.
+   their hosted frontier APIs = the vLLM $500 rubric.
+3. **Catalyst narration** — detect a probability jump, pull the GDELT/X headline in the same window,
+   have the agent explain *why* it moved. Memorable live demo.
+4. **Read-only + paper-PnL** — an "intelligence layer," not an unlicensed trading bot → demoable and
+   the right Antler framing.
+
+### 4.7 Weekend build plan (read-only, no wallet)
+1. **Ingest:** subscribe to the Polymarket `market` WebSocket for a curated set of liquid markets;
+   normalize `price_change` / `last_trade_price` into an event stream. Poll GDELT for headlines.
+2. **Heartbeat loop:** every N seconds the agent wakes, diffs current odds vs. its expected odds,
+   and for any market with a fresh news catalyst not yet reflected in price, scores a "repricing
+   likelihood" with **Nemotron-on-vLLM** (batched across all watched markets).
+3. **Signal + paper trade:** emit a ranked alert (market, direction, confidence, catalyst headline);
+   record a paper position and mark-to-market it on later ticks → **live PnL + Brier**.
+4. **Persistent memory:** store every signal + its realized outcome; a nightly self-eval updates
+   per-source reliability weights → the recursive-intelligence delta.
+5. **Security:** route ingested news through **HiddenLayer**; if adding real execution, gate the
+   wallet behind an **OpenShell** policy.
+6. **Demo:** dashboard showing the live feed, a signal firing on a real tick, the catalyst headline,
+   and the run-1-vs-run-N accuracy curve. Loom it.
+
+**Risks to name in the write-up:** market efficiency (edges are thin/fleeting — lead with calibration
+and honest PnL, not fantasy returns); `prices-history` returns ≥12h granularity on resolved markets
+(GitHub #216) — use live WS ticks for fine granularity; trading real money is out of scope by design.
