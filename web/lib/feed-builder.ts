@@ -47,8 +47,6 @@ export function shortTitle(title: string): string {
   return base.length > 60 ? base.slice(0, 57).trimEnd() + "…" : base;
 }
 
-const TIMES = ["3m", "12m", "41m", "1h", "2h", "5h", "8h", "11h", "1d", "2d", "3d"];
-
 export function pinToProduct(pin: Pin): Product {
   return {
     id: pin.id,
@@ -65,6 +63,8 @@ export function pinToPost(pin: Pin, idx: number, taste?: Taste): Post {
   const h = hash(pin.id);
   const author = AUTHORS[h % AUTHORS.length];
   const likes = 40 + (h % 1860);
+  // Keep bundled fallback posts on the same timestamp path as API posts.
+  const createdAt = Date.now() - (3 + (h % 72)) * 60 * 60 * 1000;
   const nComments = h % 3; // 0..2
   const comments: Comment[] = Array.from({ length: nComments }, (_, i) => {
     const cu = AUTHORS[(h + i + 1) % AUTHORS.length];
@@ -77,7 +77,8 @@ export function pinToPost(pin: Pin, idx: number, taste?: Taste): Post {
   return {
     id: pin.id,
     user: author,
-    time: TIMES[h % TIMES.length],
+    createdAt,
+    time: "",
     product: pinToProduct(pin),
     caption: CAPTIONS[h % CAPTIONS.length],
     likes,

@@ -151,6 +151,7 @@ export function mapApiPost(api: ApiPost): Post {
   return {
     id: api.postId,
     user: api.author ?? "reddit",
+    createdAt: api.createdAt,
     time: relativeTime(api.createdAt),
     product: {
       id: p.id ?? api.postId,

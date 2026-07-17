@@ -1,14 +1,34 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { GRADIENTS } from "@/lib/data";
 import { hiResImage } from "@/lib/images";
 import { resolveUser, commentCountOf, type Post } from "@/lib/social";
 import { useCurrentUser, displayUser } from "@/lib/identity";
-import { Avatar, Icons } from "@/components/ui";
+import { Icons } from "@/components/ui";
 import { useStore } from "@/components/app/store";
 import { useMaxi } from "@/components/app/maxi-provider";
+import { relativeTime } from "@/lib/api";
+
+function BrandMark({ brand }: { brand: string }) {
+  const label = brand.trim() || "Shop";
+  const domain = label.toLowerCase().replace(/[^a-z0-9]+/g, "") + ".com";
+  return (
+    <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border border-line bg-white text-[10px] font-bold text-ink-soft">
+      {/* Brand favicon gives retailer posts a recognizable mark when available. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+        alt=""
+        className="h-5 w-5"
+        onError={(event) => {
+          event.currentTarget.style.display = "none";
+          event.currentTarget.parentElement!.textContent = label.slice(0, 2).toUpperCase();
+        }}
+      />
+    </span>
+  );
+}
 
 export function PostCard({ post }: { post: Post }) {
   const { toggleLike, toggleSave, addComment, replyAsMaxi, toggleFollow, isFollowing, openPost, reportSeen } = useStore();
@@ -72,13 +92,9 @@ export function PostCard({ post }: { post: Post }) {
     <article ref={articleRef} className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
       {/* header */}
       <div className="flex items-center gap-3 px-4 py-3">
-        <Link href={`/feed/${u.id}`}>
-          <Avatar grad={u.grad} label={u.name} size={38} />
-        </Link>
+        <BrandMark brand={post.product.brand} />
         <div className="leading-tight">
-          <Link href={`/feed/${u.id}`} className="text-sm font-bold text-ink hover:underline">
-            {u.handle}
-          </Link>
+          <p className="text-sm font-bold text-ink">{post.product.brand || post.source || "Shop"}</p>
           {post.rec ? (
             <p className="flex items-center gap-1 text-xs text-coral">
               <Icons.sparkle size={12} />
@@ -87,12 +103,7 @@ export function PostCard({ post }: { post: Post }) {
             </p>
           ) : (
             <p className="text-xs text-ink-faint">
-              {post.time}
-              {post.source && (
-                <span className="ml-1.5 rounded-full bg-coral-soft px-1.5 py-0.5 text-[10px] font-semibold text-coral-ink">
-                  via {post.source}
-                </span>
-              )}
+              {relativeTime(post.createdAt) || "recently"}
             </p>
           )}
         </div>
