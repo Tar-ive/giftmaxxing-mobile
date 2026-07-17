@@ -41,7 +41,7 @@ export function LaunchPage() {
     <main className={styles.page}>
       <header className={styles.header}>
         <Link href="/" className={styles.brand} aria-label="Giftmaxxing home">
-          <Image src="/app-icon.png" width={38} height={38} alt="" priority />
+          <Image src="/app-icon-v2.png" width={38} height={38} alt="" priority />
           <span>giftmaxxing</span>
         </Link>
         <nav aria-label="Main navigation">
@@ -156,7 +156,13 @@ export function LaunchPage() {
       </section>
 
       <section id="launch" className={styles.launch}>
-        <Image src="/app-icon.png" width={88} height={88} alt="Giftmaxxing app icon" />
+        <Image
+          src="/app-icon-v2.png"
+          width={88}
+          height={88}
+          className={styles.appIcon}
+          alt="Giftmaxxing app icon"
+        />
         <p className={styles.eyebrow}>App Store launch</p>
         <h2>Your next great gift is almost here.</h2>
         <p>
@@ -173,7 +179,7 @@ export function LaunchPage() {
 
       <footer className={styles.footer}>
         <div className={styles.brand}>
-          <Image src="/app-icon.png" width={34} height={34} alt="" />
+          <Image src="/app-icon-v2.png" width={34} height={34} alt="" />
           <span>giftmaxxing</span>
         </div>
         <p>Thoughtful gifting, finally figured out.</p>

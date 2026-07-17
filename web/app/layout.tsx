@@ -66,7 +66,6 @@ export const metadata: Metadata = {
     description:
       "Know what they'll love before you buy. Giftmaxxing for iPhone is launching soon.",
   },
-  icons: { icon: "/favicon.ico" },
   // Safari's native Smart App Banner ("Open in the Giftmaxxing app") on every
   // page, including shared invite links — the lowest-friction app conversion
   // surface iOS offers. No-op until the App Store id is configured.
