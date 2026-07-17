@@ -93,7 +93,11 @@ for (index, shot) in shots.enumerated() {
     shot.background.setFill()
     NSRect(x: 0, y: 0, width: 1320, height: 2868).fill()
 
-    icon.draw(in: NSRect(x: 118, y: 2660, width: 82, height: 82))
+    let iconRect = NSRect(x: 118, y: 2660, width: 82, height: 82)
+    NSGraphicsContext.saveGraphicsState()
+    NSBezierPath(roundedRect: iconRect, xRadius: 18, yRadius: 18).addClip()
+    icon.draw(in: iconRect)
+    NSGraphicsContext.restoreGraphicsState()
     drawText(
         "giftmaxxing",
         rect: NSRect(x: 224, y: 2674, width: 500, height: 54),

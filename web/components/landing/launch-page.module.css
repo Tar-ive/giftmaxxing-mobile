@@ -44,6 +44,11 @@
 
 .brand img { border-radius: 10px; }
 
+.appIcon {
+  border-radius: 22%;
+  box-shadow: 0 18px 42px rgb(18 25 58 / 22%);
+}
+
 .header nav,
 .footer nav {
   align-items: center;
