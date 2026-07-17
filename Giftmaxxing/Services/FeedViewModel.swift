@@ -70,7 +70,7 @@ final class FeedViewModel: ObservableObject {
             // interactions yet → source:"facet" or empty) it contributes
             // nothing and the generic page stands alone, so the experience is
             // seamless either way.
-            async let personalizedTask = fetchPersonalizedPicks()
+            async let personalizedTask = fetchPersonalizedPicks(forceFresh: forceFresh)
             try await fetchAndRankNextPage()
             posts = drain(uiPageSize)
             weave(personalized: await personalizedTask)
@@ -102,9 +102,14 @@ final class FeedViewModel: ObservableObject {
     // history → vector kNN). Empty on cold start / signed out — by design.
     // rank "fast" (default) = instant cosine order; "full" = MTL value-model
     // ranking, used only by the background refine pass.
-    private func fetchPersonalizedPicks(rank: String? = nil) async -> [Post] {
+    private func fetchPersonalizedPicks(rank: String? = nil, forceFresh: Bool = false) async -> [Post] {
         guard let userId, !userId.isEmpty else { return [] }
-        guard let response = try? await api.fetchVectorRecommendations(userId: userId, limit: 10, rank: rank),
+        guard let response = try? await api.fetchVectorRecommendations(
+            userId: userId,
+            limit: 10,
+            rank: rank,
+            cacheBuster: forceFresh ? cacheBuster : nil
+        ),
               response.source == "vector" || response.source == "vector+mtl",
               let items = response.items, !items.isEmpty else { return [] }
         return items.map { item in

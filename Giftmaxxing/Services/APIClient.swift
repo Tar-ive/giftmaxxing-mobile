@@ -422,7 +422,8 @@ actor APIClient {
         sourceUser: String? = nil,
         userId: String? = nil,
         limit: Int = 12,
-        rank: String? = nil
+        rank: String? = nil,
+        cacheBuster: String? = nil
     ) async throws -> VectorResponse {
         var params: [String: String] = ["limit": String(limit)]
         if let seedKeys, !seedKeys.isEmpty { params["seedKeys"] = seedKeys.joined(separator: ",") }
@@ -435,6 +436,10 @@ actor APIClient {
         // path); "full" -> MTL value-model re-rank (intelligent back-end
         // path, called after first paint — may take seconds on a cold start).
         if let rank { params["rank"] = rank }
+        // Personalized recommendations are also behind CloudFront. A pull
+        // must use a new URL so a prior response cannot mask fresh interaction
+        // signals or a newly generated vector ranking.
+        if let cacheBuster { params["r"] = cacheBuster }
 
         return try await get("/recommendations", params: params)
     }
