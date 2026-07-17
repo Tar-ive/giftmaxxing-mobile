@@ -38,9 +38,9 @@ const jetbrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://giftmaxxing.vercel.app"),
-  title: "Giftmaxxing — gifting, finally figured out",
+  title: "Giftmaxxing — thoughtful gifting, finally figured out",
   description:
-    "The social gifting app with an AI companion. Discover finds from friends, build wishlists nobody double-buys, pool money for group gifts, and let Maxi find the perfect gift in your budget.",
+    "Discover thoughtful gifts, remember every moment, and pick together. Giftmaxxing for iPhone is launching soon on the App Store.",
   applicationName: "Giftmaxxing",
   keywords: [
     "gifting",
@@ -52,9 +52,9 @@ export const metadata: Metadata = {
     "Giftmaxxing",
   ],
   openGraph: {
-    title: "Giftmaxxing — gifting, finally figured out",
+    title: "Giftmaxxing — thoughtful gifting, finally figured out",
     description:
-      "Discover gift finds from friends, build shared wishlists, pool money for group gifts, and let Maxi—your AI gift companion—nail the perfect present every time.",
+      "Know what they'll love before you buy. Giftmaxxing for iPhone is launching soon.",
     url: "https://giftmaxxing.vercel.app",
     siteName: "Giftmaxxing",
     type: "website",
@@ -62,9 +62,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Giftmaxxing — gifting, finally figured out",
+    title: "Giftmaxxing — thoughtful gifting, finally figured out",
     description:
-      "Social gifting with an AI companion. Discover finds, build shared wishlists, pool money for group gifts, and let Maxi nail the perfect present every time.",
+      "Know what they'll love before you buy. Giftmaxxing for iPhone is launching soon.",
   },
   icons: { icon: "/favicon.ico" },
   // Safari's native Smart App Banner ("Open in the Giftmaxxing app") on every

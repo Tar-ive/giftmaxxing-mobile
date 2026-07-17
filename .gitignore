@@ -32,6 +32,7 @@ recordings/
 *.xcworkspace/xcuserdata/
 build/
 DerivedData/
+design-audit/
 *.pbxuser
 *.mode1v3
 *.mode2v3
@@ -72,4 +73,3 @@ infra/ml/data/
 infra/ml/model/
 infra/ml/clusters.json
 infra/ml/__pycache__/
-
