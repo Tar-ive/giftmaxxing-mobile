@@ -24,6 +24,12 @@ struct SwipeList: Identifiable, Codable, Hashable {
     // along with the board's share message.
     var letter: String?
 
+    // Private purchase checklist — the postIds the giver has already bought.
+    // Local to the giver: it never rides along in the shared swipe deck (that
+    // stays a clean yes/no for the recipient), only syncs across the giver's
+    // own devices via the giftBoards profile like everything else here.
+    var boughtPostIds: Set<String>?
+
     // Sharing state — set once the board has been sent as a swipe deck. The
     // link goes stale the moment the board's CONTENTS change, not just its
     // count, so the exact item set it was built for rides along.
@@ -40,6 +46,15 @@ struct SwipeList: Identifiable, Codable, Hashable {
     func note(for postId: String) -> String? {
         guard let note = notes?[postId], !note.isEmpty else { return nil }
         return note
+    }
+
+    func isBought(_ postId: String) -> Bool { boughtPostIds?.contains(postId) ?? false }
+
+    // How many of the board's current items are checked off. Only counts items
+    // still on the board, so removing a bought item doesn't leave a stale tally.
+    var boughtCount: Int {
+        guard let boughtPostIds else { return 0 }
+        return posts.reduce(0) { $0 + (boughtPostIds.contains($1.id) ? 1 : 0) }
     }
 }
 
@@ -148,6 +163,26 @@ final class SwipeListStore: ObservableObject {
                 AnalyticsEngine.shared.trackContentAction(.customMessage, postId: post.id, source: "gift_letter")
             }
         }
+    }
+
+    // Private "bought" checklist. Marking an item bought never touches taste
+    // signals (buying is a keep, not an un-save) and never rides along in the
+    // shared deck — it's the giver's own tracking, synced across their own
+    // devices only. Toggling again unchecks it.
+    func toggleBought(_ postId: String, in listId: String) {
+        guard let idx = lists.firstIndex(where: { $0.id == listId }) else { return }
+        var bought = lists[idx].boughtPostIds ?? []
+        let nowBought = !bought.contains(postId)
+        if nowBought { bought.insert(postId) } else { bought.remove(postId) }
+        lists[idx].boughtPostIds = bought.isEmpty ? nil : bought
+        persist()
+        if nowBought {
+            AnalyticsEngine.shared.trackScreenView(screen: "swipe_list_bought")
+        }
+    }
+
+    func isBought(_ postId: String, in listId: String) -> Bool {
+        lists.first(where: { $0.id == listId })?.isBought(postId) ?? false
     }
 
     func deleteList(id: String) {
