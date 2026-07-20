@@ -543,14 +543,56 @@ struct SwipeListDetailView: View {
                 }
             }
 
+            boughtProgress(list)
+
             ForEach(list.posts) { post in
-                itemRow(post)
+                itemRow(post, bought: list.isBought(post.id))
             }
         }
     }
 
-    private func itemRow(_ post: Post) -> some View {
+    // Private purchase checklist tally — how many of these you've bought. Only
+    // you see this; it never rides along in the deck the recipient swipes.
+    @ViewBuilder
+    private func boughtProgress(_ list: SwipeList) -> some View {
+        let total = list.posts.count
+        let bought = list.boughtCount
+        if total > 0 && bought > 0 {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: bought == total ? "checkmark.seal.fill" : "checklist")
+                        .font(.system(size: 12, weight: .bold))
+                    Text(bought == total ? "All \(total) bought 🎉" : "\(bought) of \(total) bought")
+                        .font(.system(size: 12, weight: .bold))
+                }
+                .foregroundStyle(Color.coral)
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.coralSoft).frame(height: 5)
+                        Capsule().fill(Color.coral)
+                            .frame(width: geo.size.width * CGFloat(bought) / CGFloat(total), height: 5)
+                    }
+                }
+                .frame(height: 5)
+            }
+            .padding(.bottom, 2)
+        }
+    }
+
+    private func itemRow(_ post: Post, bought: Bool) -> some View {
         HStack(spacing: 12) {
+            // Private "bought" checkbox — tap to check off a gift you've
+            // purchased. Registry-style, so you can see at a glance what's left.
+            Button {
+                store.toggleBought(post.id, in: listId)
+            } label: {
+                Image(systemName: bought ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 22))
+                    .foregroundStyle(bought ? Color.coral : Color.inkSecondary.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(bought ? "Mark \(post.product.name) as not bought" : "Mark \(post.product.name) as bought")
+
             Button {
                 selectedPost = post
             } label: {
@@ -569,6 +611,7 @@ struct SwipeListDetailView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(post.product.name)
                             .font(.system(size: 14, weight: .semibold))
+                            .strikethrough(bought, color: Color.inkSecondary)
                             .foregroundStyle(Color.ink)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
@@ -593,6 +636,7 @@ struct SwipeListDetailView: View {
                 }
             }
             .buttonStyle(.plain)
+            .opacity(bought ? 0.55 : 1)
 
             Spacer()
 
