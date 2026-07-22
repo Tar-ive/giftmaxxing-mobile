@@ -118,6 +118,7 @@ struct AvatarView: View {
     let grad: GradientStyle
     var size: CGFloat = 40
     var imageUrl: String? = nil
+    var anonymousFallback = false
 
     private var initials: String {
         let parts = name.split(separator: " ")
@@ -132,6 +133,10 @@ struct AvatarView: View {
             Color.gradient(for: grad)
             if let imageUrl {
                 CachedAsyncImage(url: imageUrl, width: Int(size * 3))
+            } else if anonymousFallback {
+                Image(systemName: "person.crop.circle.fill")
+                    .font(.system(size: size * 0.74))
+                    .foregroundStyle(.white.opacity(0.94))
             } else {
                 Text(initials)
                     .font(.system(size: size * 0.35, weight: .bold, design: .rounded))

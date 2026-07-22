@@ -79,6 +79,18 @@ actor APIClient {
         let _: EmptyResponse = try await post("/ugc/users/\(userId)/block", body: [:])
     }
 
+    func setPostLike(postId: String, liked: Bool) async throws -> PostLikeResponse {
+        try await post("/ugc/posts/\(postId)/like", body: ["liked": liked])
+    }
+
+    func fetchPostComments(postId: String) async throws -> PostCommentsResponse {
+        try await get("/ugc/posts/\(postId)/comments")
+    }
+
+    func addPostComment(postId: String, text: String) async throws -> PostCommentResponse {
+        try await post("/ugc/posts/\(postId)/comments", body: ["text": text])
+    }
+
     func createAvatarUpload(mimeType: String, fileSize: Int) async throws -> AvatarUploadResponse {
         try await post("/ugc/avatar/uploads", body: ["mimeType": mimeType, "fileSize": fileSize])
     }
@@ -822,7 +834,7 @@ actor APIClient {
             likes: api.likes ?? 0,
             liked: false,
             saved: false,
-            comments: [],
+            comments: api.recentComments ?? [],
             commentCount: api.comments,
             source: api.source,
             url: api.url,

@@ -33,6 +33,7 @@ struct MoreView: View {
     @State private var profileVibes: [String] = []
     @State private var profileDislikes: [String] = []
     @State private var profileGiftNote = ""
+    @State private var friendCount = 0
 
     // The gifting persona — local-first, pushed to /me on every edit so the
     // public /people profile serves it to friends.
@@ -95,7 +96,6 @@ struct MoreView: View {
                 VStack(spacing: 20) {
                     personaHeader
                     ownerGiftListSection
-                    ownerTasteSection
                     ugcPostsSection
 
                     Spacer(minLength: 40)
@@ -192,6 +192,7 @@ struct MoreView: View {
                 }
                 #endif
                 connections = (try? await APIClient.shared.fetchConnections(userId: userId)) ?? []
+                friendCount = (try? await APIClient.shared.listFriends(userId: userId, status: "accepted").count) ?? 0
                 ugcPosts = (try? await APIClient.shared.fetchMyUGCPosts()) ?? []
                 if let profile = try? await APIClient.shared.fetchMe(userId: userId) {
                     visibility = profile.visibility == "private" ? "private" : "public"
@@ -267,7 +268,7 @@ struct MoreView: View {
             HStack(alignment: .top, spacing: 16) {
                 PhotosPicker(selection: $avatarSelection, matching: .images) {
                     ZStack(alignment: .bottomTrailing) {
-                        AvatarView(name: displayName, grad: .coral, size: 92, imageUrl: avatarUrl)
+                        AvatarView(name: displayName, grad: .coral, size: 92, imageUrl: avatarUrl, anonymousFallback: true)
                         if isUploadingAvatar {
                             ProgressView()
                                 .tint(.white)
@@ -303,7 +304,7 @@ struct MoreView: View {
                             .multilineTextAlignment(.leading)
                     }
                     .buttonStyle(.plain)
-                    Label("Gift friend", systemImage: "heart.fill")
+                    Label("\(friendCount) \(friendCount == 1 ? "friend" : "friends")", systemImage: "person.2.fill")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(Color.coral)
                         .padding(.horizontal, 10)
@@ -324,16 +325,6 @@ struct MoreView: View {
                     .clipShape(Capsule())
             }
 
-            HStack(spacing: 0) {
-                statCell(value: "\(giftsGiven)", label: "gifts given")
-                statDivider
-                statCell(value: "\(thoughtfulness.points)", label: "Thoughtfulness Pts")
-                statDivider
-                statCell(value: satisfaction.map { "\($0)%" } ?? "—", label: "recipient 💛")
-            }
-            .padding(.vertical, 12)
-            .background(Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .padding(.top, 12)
     }
@@ -341,15 +332,17 @@ struct MoreView: View {
     private var ownerGiftListSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                MoreSectionHeader(title: "Gift list")
+                MoreSectionHeader(title: "Gift ideas for me")
                 Spacer()
-                NavigationLink("Open list") { ShopView() }
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Color.coral)
+                if let list = boards.myGiftIdeas {
+                    NavigationLink("See all") { SwipeListDetailView(listId: list.id) }
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.coral)
+                }
             }
-            if profileShowcase.isEmpty {
-                NavigationLink { ShopView() } label: {
-                    Label("Save gift ideas and they’ll appear here", systemImage: "gift.fill")
+            if boards.myGiftIdeas?.posts.isEmpty != false {
+                Button { appState.selectedTab = .swipe } label: {
+                    Label("Swipe right on gifts you’d love", systemImage: "hand.draw.fill")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Color.ink)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -360,7 +353,16 @@ struct MoreView: View {
                 .buttonStyle(.plain)
             } else {
                 HStack(spacing: 10) {
-                    ForEach(profileShowcase.prefix(2)) { item in giftListCard(item) }
+                    ForEach((boards.myGiftIdeas?.posts ?? []).prefix(2)) { post in
+                        giftListCard(GiftShowcaseItem(
+                            postId: post.id,
+                            name: post.product.name,
+                            imageUrl: post.product.image,
+                            brand: post.product.brand,
+                            price: post.product.price,
+                            productUrl: post.productUrl ?? post.url
+                        ))
+                    }
                 }
             }
         }
@@ -908,6 +910,39 @@ private enum AvatarUploadError: LocalizedError {
 struct UGCProfilePostSheet: View {
     let post: UGCPost
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var giftIdeas = SwipeListStore.shared
+    @State private var liked = false
+    @State private var likeCount = 0
+    @State private var comments: [Comment] = []
+    @State private var draft = ""
+    @State private var sending = false
+
+    private var giftPost: Post {
+        Post(
+            id: post.id,
+            user: post.authorName ?? "Giftmaxxer",
+            authorImageUrl: post.authorImageUrl,
+            time: "",
+            product: Product(
+                id: post.id,
+                name: post.caption,
+                brand: post.authorName ?? "Giftmaxxing",
+                price: 0,
+                grad: .coral,
+                emoji: "🎁",
+                image: post.posterUrl ?? post.mediaUrl
+            ),
+            caption: post.caption,
+            likes: likeCount,
+            liked: liked,
+            comments: comments,
+            commentCount: post.comments,
+            source: "ugc",
+            contentType: post.mediaType == "video" ? "ugc_video" : "ugc_image",
+            mediaUrl: post.mediaUrl,
+            posterUrl: post.posterUrl
+        )
+    }
 
     var body: some View {
         NavigationStack {
@@ -921,9 +956,56 @@ struct UGCProfilePostSheet: View {
                     Text(post.caption)
                         .font(.body)
                         .foregroundStyle(Color.ink)
-                    Label("Live", systemImage: "checkmark.circle.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.success)
+                    HStack(spacing: 20) {
+                        Button { Task { await toggleLike() } } label: {
+                            Label("\(likeCount)", systemImage: liked ? "heart.fill" : "heart")
+                                .foregroundStyle(liked ? Color.coral : Color.ink)
+                        }
+                        Label("\(comments.count)", systemImage: "bubble.left")
+                        if let value = post.mediaUrl ?? post.posterUrl, let url = URL(string: value) {
+                            ShareLink(item: url, subject: Text("Gift find"), message: Text("Found this on Giftmaxxing")) {
+                                Image(systemName: "paperplane")
+                            }
+                        }
+                        Button { giftIdeas.toggleMyGiftIdea(giftPost) } label: {
+                            Image(systemName: giftIdeas.containsInMyGiftIdeas(giftPost) ? "bookmark.fill" : "bookmark")
+                                .foregroundStyle(giftIdeas.containsInMyGiftIdeas(giftPost) ? Color.coral : Color.ink)
+                        }
+                        Spacer()
+                    }
+                    .font(.system(size: 17, weight: .semibold))
+
+                    if !comments.isEmpty {
+                        ForEach(comments) { comment in
+                            HStack(alignment: .top, spacing: 8) {
+                                AvatarView(
+                                    name: comment.user,
+                                    grad: .peach,
+                                    size: 28,
+                                    imageUrl: comment.authorImageUrl,
+                                    anonymousFallback: true
+                                )
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(comment.user).font(.caption.weight(.bold))
+                                    Text(comment.text).font(.subheadline)
+                                }
+                                Spacer()
+                            }
+                        }
+                    }
+                    HStack(spacing: 8) {
+                        TextField("Add a comment…", text: $draft, axis: .vertical)
+                            .lineLimit(1...3)
+                            .padding(10)
+                            .background(Color.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        Button { Task { await sendComment() } } label: {
+                            if sending { ProgressView() }
+                            else { Image(systemName: "arrow.up.circle.fill").font(.title2) }
+                        }
+                        .tint(Color.coral)
+                        .disabled(sending || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
                 }
                 .padding(14)
             }
@@ -935,6 +1017,29 @@ struct UGCProfilePostSheet: View {
                     Button("Done") { dismiss() }
                 }
             }
+            .task {
+                likeCount = post.likes ?? 0
+                comments = (try? await APIClient.shared.fetchPostComments(postId: post.id).items) ?? []
+            }
+        }
+    }
+
+    private func toggleLike() async {
+        liked.toggle()
+        likeCount = max(0, likeCount + (liked ? 1 : -1))
+        if let response = try? await APIClient.shared.setPostLike(postId: post.id, liked: liked) {
+            likeCount = response.likes
+        }
+    }
+
+    private func sendComment() async {
+        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        sending = true
+        defer { sending = false }
+        if let response = try? await APIClient.shared.addPostComment(postId: post.id, text: text) {
+            comments.append(response.item)
+            draft = ""
         }
     }
 

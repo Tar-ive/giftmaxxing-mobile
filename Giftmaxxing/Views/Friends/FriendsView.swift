@@ -352,6 +352,17 @@ struct FriendsView: View {
     }
 }
 
+private extension View {
+    func profileStatusChip() -> some View {
+        font(.system(size: 11, weight: .bold))
+            .foregroundStyle(Color.coral)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.coralSoft)
+            .clipShape(Capsule())
+    }
+}
+
 // MARK: - Shared row / styles
 
 private struct PersonRow<Actions: View>: View {
@@ -434,7 +445,6 @@ struct PublicProfileView: View {
                 profileHeader
                 relationshipActions
                 giftListSection
-                tasteSection
                 postsSection
             }
             .padding(16)
@@ -518,14 +528,21 @@ struct PublicProfileView: View {
 
     private var profileHeader: some View {
         HStack(alignment: .top, spacing: 16) {
-            AvatarView(name: displayed.name, grad: SocialUsers.grad(for: displayed.userId), size: 92, imageUrl: displayed.imageUrl)
+            AvatarView(
+                name: displayed.name,
+                grad: SocialUsers.grad(for: displayed.userId),
+                size: 92,
+                imageUrl: displayed.imageUrl,
+                anonymousFallback: true
+            )
             VStack(alignment: .leading, spacing: 5) {
-                if isFriend {
-                    Label("Gift friends", systemImage: "person.2.fill")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Color.coral)
-                        .padding(.horizontal, 10).padding(.vertical, 6)
-                        .background(Color.coralSoft).clipShape(Capsule())
+                HStack(spacing: 7) {
+                    Label("\(displayed.friendCount ?? 0) friends", systemImage: "person.2.fill")
+                        .profileStatusChip()
+                    if isFriend {
+                        Label("Gift friends", systemImage: "heart.fill")
+                            .profileStatusChip()
+                    }
                 }
                 Text(displayed.name).font(.system(size: 24, weight: .bold, design: .rounded)).foregroundStyle(Color.ink)
                 Text("@\(displayed.handle)").font(.subheadline).foregroundStyle(Color.inkSecondary)
@@ -573,10 +590,10 @@ struct PublicProfileView: View {
         if let showcase = displayed.giftShowcase, !showcase.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("GIFT LIST").font(.system(size: 12, weight: .bold)).tracking(1.2).foregroundStyle(Color.inkSecondary)
+                    Text("GIFT IDEAS FOR ME").font(.system(size: 12, weight: .bold)).tracking(1.2).foregroundStyle(Color.inkSecondary)
                     Spacer()
                     if isFriend {
-                        Button("Open list") { showGiftList = true }
+                        Button("See all") { showGiftList = true }
                             .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.coral)
                     }
                 }

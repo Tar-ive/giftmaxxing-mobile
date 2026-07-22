@@ -30,7 +30,7 @@ import { mobileRoutes } from "./mobile-routes.mjs";
 import { analyticsRoutes } from "./analytics-routes.mjs";
 import { birthdayFreebiesRoute } from "./birthday-freebies.mjs";
 import { friendsRoutes } from "./friends-routes.mjs";
-import { purgeUserAvatar, purgeUserUGC, ugcRoutes } from "./ugc-routes.mjs";
+import { publicPostsForProfile, purgeUserAvatar, purgeUserUGC, ugcRoutes } from "./ugc-routes.mjs";
 import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
@@ -65,6 +65,23 @@ const LOGIN_MAX_PER_IP = 10;
 const LOGIN_MAX_FAILURES = 5;
 const LOGIN_LOCK_MS = 15 * 60_000;
 const loginKey = (email) => createHash("sha256").update(String(email).trim().toLowerCase()).digest("hex");
+
+function includeOwnUGC(items, ownPosts, opts) {
+  const seen = new Set(items.map((item) => item.postId));
+  const merged = [...items];
+  for (const post of ownPosts) {
+    if (!post?.postId || seen.has(post.postId)) continue;
+    const q = feedClassification(post);
+    merged.push({
+      ...post,
+      contentType: q.contentType,
+      qualityScore: q.qualityScore,
+      feedEligible: true,
+      _score: scorePost(post, opts) + q.qualityScore * 0.4 + 2,
+    });
+  }
+  return merged;
+}
 const sourceIp = (event) => event.requestContext?.http?.sourceIp || event.headers?.["x-forwarded-for"]?.split(",")[0]?.trim() || "unknown";
 function loginEntry(email) {
   const key = loginKey(email);
@@ -2794,6 +2811,9 @@ export const handler = async (event) => {
 
       // Per-user de-dup: skip anything this viewer has already seen/liked/saved.
       const exclude = await userExclusions(qs.userId);
+      const ownUGC = !start && qs.userId
+        ? await publicPostsForProfile(qs.userId, 3).catch(() => [])
+        : [];
 
       // Sharded feed path (FEED_SHARDS > 1): the byFeed partition is split across
       // "all#<n>", so scatter-gather a recency window across every shard (filters
@@ -2835,8 +2855,8 @@ export const handler = async (event) => {
             if (!q.feedEligible) continue;
             ranked.push({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, feedEligible: true, _score: scorePost(p, opts) + q.qualityScore * 0.4 });
           }
-          ranked.sort((a, b) => b._score - a._score);
-          const mixed = interleaveUGC(interleaveAuthors(ranked));
+          const withOwnPosts = includeOwnUGC(ranked, ownUGC, opts).sort((a, b) => b._score - a._score);
+          const mixed = interleaveUGC(interleaveAuthors(withOwnPosts));
           let offset = start?._offset ?? 0;
           const personalized = qs.recipient && qs.recipient !== "anyone";
           if (!start && !filters.length && !personalized && qs.fresh !== "0" && ranked.length > limit) {
@@ -2951,8 +2971,8 @@ export const handler = async (event) => {
           }
           if (!lastKey) break;    // reached the end of the range
         }
-        eligible.sort((a, b) => b._score - a._score);
-        return json(200, { items: interleaveUGC(interleaveAuthors(eligible)).slice(0, limit), cursor: encodeCursor(lastKey) });
+        const withOwnPosts = includeOwnUGC(eligible, ownUGC, opts).sort((a, b) => b._score - a._score);
+        return json(200, { items: interleaveUGC(interleaveAuthors(withOwnPosts)).slice(0, limit), cursor: encodeCursor(lastKey) });
       } catch (err) {
         // byFeed GSI not deployed yet (or transient error) -> legacy fallback.
         console.warn("byFeed query failed, falling back to full scan:", err.message);
@@ -2974,7 +2994,7 @@ export const handler = async (event) => {
         .filter((x) => x.q.feedEligible && !exclude.posts.has(x.p.postId) && !exclude.authors.has(x.p.ownerId))
         .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 }))
         .sort((a, b) => b._score - a._score);
-      const rankedMixed = interleaveUGC(interleaveAuthors(ranked));
+      const rankedMixed = interleaveUGC(interleaveAuthors(includeOwnUGC(ranked, ownUGC, opts)));
       const offset = start?._offset ?? 0;
       const page = rankedMixed.slice(offset, offset + limit);
       const nextOffset = offset + limit;

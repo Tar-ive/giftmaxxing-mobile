@@ -4,6 +4,10 @@ import SwiftUI
 struct PostCardView: View {
     let post: Post
     var inSwipeList: Bool = false
+    var inMyGiftIdeas: Bool = false
+    var onLike: (() -> Void)?
+    var onComment: (() -> Void)?
+    var onBookmark: (() -> Void)?
     var onPledge: (() -> Void)?
     var onAddToSwipeList: (() -> Void)?
     var onProductTap: (() -> Void)?
@@ -22,7 +26,13 @@ struct PostCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack(spacing: 10) {
-                AvatarView(name: displayAuthor, grad: post.product.grad, size: 32, imageUrl: post.authorImageUrl)
+                AvatarView(
+                    name: displayAuthor,
+                    grad: post.product.grad,
+                    size: 32,
+                    imageUrl: post.authorImageUrl,
+                    anonymousFallback: isUGC
+                )
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(displayAuthor)
@@ -183,23 +193,42 @@ struct PostCardView: View {
                 withAnimation(.easeIn(duration: 0.2)) { showStory = true }
             }
 
-            // Gifting actions — no likes/comments/shares (this isn't
-            // Instagram): start a gift pool with friends, or file it into a
-            // person's swipe list. Two matched half-width buttons — same
-            // height, same type — so the row reads as one control.
-            HStack(spacing: 8) {
-                actionButton(
-                    icon: "person.2.fill",
-                    label: "Gift pool",
-                    prominent: true,
-                    action: { onPledge?() }
+            HStack(spacing: 15) {
+                socialButton(
+                    icon: post.liked ? "heart.fill" : "heart",
+                    label: post.likes > 0 ? "\(post.likes)" : nil,
+                    active: post.liked,
+                    action: { onLike?() }
                 )
-                actionButton(
-                    icon: inSwipeList ? "checkmark" : "rectangle.stack.badge.plus",
-                    label: inSwipeList ? "On board" : "Gift board",
-                    prominent: false,
-                    action: { onAddToSwipeList?() }
+                socialButton(
+                    icon: "bubble.left",
+                    label: post.displayCommentCount > 0 ? "\(post.displayCommentCount)" : nil,
+                    action: { onComment?() }
                 )
+                if let shareURL {
+                    ShareLink(
+                        item: shareURL,
+                        subject: Text("Gift find: \(post.product.name)"),
+                        message: Text("Found this on Giftmaxxing — \(post.product.name)")
+                    ) {
+                        Image(systemName: "paperplane")
+                            .font(.system(size: 19, weight: .medium))
+                            .foregroundStyle(Color.ink)
+                    }
+                    .accessibilityLabel("Share post")
+                }
+                socialButton(
+                    icon: inMyGiftIdeas ? "bookmark.fill" : "bookmark",
+                    active: inMyGiftIdeas,
+                    action: { onBookmark?() }
+                )
+                Spacer(minLength: 4)
+                giftAction(icon: "person.2.fill", label: "Pool", active: false) { onPledge?() }
+                giftAction(
+                    icon: inSwipeList ? "rectangle.stack.fill.badge.plus" : "rectangle.stack.badge.plus",
+                    label: "Board",
+                    active: inSwipeList
+                ) { onAddToSwipeList?() }
             }
             .padding(.horizontal, 14)
             .padding(.top, 10)
@@ -297,6 +326,12 @@ struct PostCardView: View {
 
     private var isUGC: Bool { post.source == "ugc" }
 
+    private var shareURL: URL? {
+        Affiliate.productUrl(for: post)
+            ?? post.mediaUrl.flatMap(URL.init(string:))
+            ?? post.posterUrl.flatMap(URL.init(string:))
+    }
+
     private func cleanedLabel(_ value: String) -> String {
         let normalized = value
             .replacingOccurrences(of: "_", with: " ")
@@ -309,25 +344,33 @@ struct PostCardView: View {
         return normalized
     }
 
-    private func actionButton(
+    private func socialButton(
         icon: String,
-        label: String,
-        prominent: Bool,
+        label: String? = nil,
+        active: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack(spacing: 5) {
+            HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
-                Text(label)
-                    .font(.system(size: 13, weight: .bold))
-                    .lineLimit(1)
+                    .font(.system(size: 19, weight: .medium))
+                if let label { Text(label).font(.caption.weight(.semibold)) }
             }
-            .foregroundStyle(prominent ? .white : Color.coral)
-            .frame(maxWidth: .infinity)
-            .frame(height: 38)
-            .background(prominent ? Color.coral : Color.coralSoft)
-            .clipShape(Capsule())
+            .foregroundStyle(active ? Color.coral : Color.ink)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func giftAction(icon: String, label: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 2) {
+                Image(systemName: icon).font(.system(size: 14, weight: .semibold))
+                Text(label).font(.system(size: 9, weight: .bold))
+            }
+            .foregroundStyle(active ? Color.coral : Color.ink)
+            .frame(minWidth: 38, minHeight: 38)
+            .background(active ? Color.coralSoft : Color.surfaceSunken)
+            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
         }
         .buttonStyle(.plain)
     }

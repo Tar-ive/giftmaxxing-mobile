@@ -19,6 +19,9 @@ struct PostDetailView: View {
     // Carousel position for the "n/N" counter; resets when the sheet swaps to
     // a similar product in place.
     @State private var galleryIndex = 0
+    @State private var comments: [Comment] = []
+    @State private var commentDraft = ""
+    @State private var sendingComment = false
 
     // The sheet can swap to a similar product in place (swipe-right-for-similar).
     private var activePost: Post { displayedPost ?? post }
@@ -74,7 +77,13 @@ struct PostDetailView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         // Poster row
                         HStack(spacing: 10) {
-                            AvatarView(name: activePost.user, grad: activePost.product.grad, size: 36)
+                            AvatarView(
+                                name: activePost.user,
+                                grad: activePost.product.grad,
+                                size: 36,
+                                imageUrl: activePost.authorImageUrl,
+                                anonymousFallback: activePost.source == "ugc"
+                            )
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(activePost.user)
                                     .font(.system(size: 14, weight: .semibold))
@@ -165,10 +174,13 @@ struct PostDetailView: View {
                                     .font(.system(size: 15, weight: .semibold))
                                     .foregroundStyle(activePost.liked ? Color.coral : Color.ink)
                             }
-                            Button(action: { onSave?() }) {
-                                Image(systemName: activePost.saved ? "bookmark.fill" : "bookmark")
+                            Button {
+                                if let onSave { onSave() }
+                                else { swipeLists.toggleMyGiftIdea(activePost) }
+                            } label: {
+                                Image(systemName: (activePost.saved || swipeLists.containsInMyGiftIdeas(activePost)) ? "bookmark.fill" : "bookmark")
                                     .font(.system(size: 18))
-                                    .foregroundStyle(activePost.saved ? Color.coral : Color.ink)
+                                    .foregroundStyle((activePost.saved || swipeLists.containsInMyGiftIdeas(activePost)) ? Color.coral : Color.ink)
                             }
                             Button(action: { showListPicker = true }) {
                                 Image(systemName: swipeLists.contains(activePost)
@@ -178,7 +190,7 @@ struct PostDetailView: View {
                                     .foregroundStyle(swipeLists.contains(activePost) ? Color.coral : Color.ink)
                             }
                             .accessibilityLabel("Add to a Gift Board")
-                            if let shareUrl = Affiliate.productUrl(for: activePost) {
+                            if let shareUrl = shareURL(for: activePost) {
                                 // Share a friendly message, not a bare URL (bare
                                 // retailer URLs make the share sheet surface odd
                                 // suggestions like birthday reminders).
@@ -283,29 +295,48 @@ struct PostDetailView: View {
                         }
 
                         // Comments
-                        if !activePost.comments.isEmpty {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("Comments")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(.secondary)
-                                    .textCase(.uppercase)
-                                ForEach(activePost.comments) { comment in
-                                    HStack(alignment: .top, spacing: 8) {
-                                        AvatarView(name: comment.user, grad: .peach, size: 26)
-                                        VStack(alignment: .leading, spacing: 1) {
-                                            Text(comment.user)
-                                                .font(.system(size: 12, weight: .semibold))
-                                                .foregroundStyle(Color.ink)
-                                            Text(comment.text)
-                                                .font(.system(size: 13))
-                                                .foregroundStyle(Color.ink)
-                                        }
-                                        Spacer()
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Comments")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                            ForEach(comments) { comment in
+                                HStack(alignment: .top, spacing: 8) {
+                                    AvatarView(
+                                        name: comment.user,
+                                        grad: .peach,
+                                        size: 26,
+                                        imageUrl: comment.authorImageUrl,
+                                        anonymousFallback: true
+                                    )
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(comment.user)
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundStyle(Color.ink)
+                                        Text(comment.text)
+                                            .font(.system(size: 13))
+                                            .foregroundStyle(Color.ink)
                                     }
+                                    Spacer()
                                 }
                             }
-                            .padding(.top, 10)
+                            HStack(spacing: 8) {
+                                TextField("Add a comment…", text: $commentDraft, axis: .vertical)
+                                    .lineLimit(1...3)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 9)
+                                    .background(Color.cream)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                Button { Task { await sendComment() } } label: {
+                                    if sendingComment { ProgressView().tint(Color.coral) }
+                                    else { Image(systemName: "arrow.up.circle.fill").font(.title2) }
+                                }
+                                .foregroundStyle(Color.coral)
+                                .disabled(sendingComment || commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                .accessibilityLabel("Post comment")
+                            }
                         }
+                        .padding(.top, 10)
                     }
                     .padding(16)
                 }
@@ -331,12 +362,38 @@ struct PostDetailView: View {
             }
             .task {
                 await loadSimilar(for: post)
+                await loadComments(for: post)
             }
             .onChange(of: activePost.id) { _, _ in
                 galleryIndex = 0
+                Task { await loadComments(for: activePost) }
             }
         }
         .presentationDragIndicator(.visible)
+    }
+
+    private func shareURL(for post: Post) -> URL? {
+        Affiliate.productUrl(for: post)
+            ?? post.mediaUrl.flatMap(URL.init(string:))
+            ?? post.posterUrl.flatMap(URL.init(string:))
+    }
+
+    private func loadComments(for post: Post) async {
+        comments = post.comments
+        if let response = try? await APIClient.shared.fetchPostComments(postId: post.id) {
+            comments = response.items
+        }
+    }
+
+    private func sendComment() async {
+        let text = commentDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        sendingComment = true
+        defer { sendingComment = false }
+        if let response = try? await APIClient.shared.addPostComment(postId: activePost.id, text: text) {
+            comments.append(response.item)
+            commentDraft = ""
+        }
     }
 
     // Vector recs seeded by the product (same kNN the web uses); falls back

@@ -394,6 +394,10 @@ final class FeedViewModel: ObservableObject {
             updateCache(postId: post.id, liked: liked, likes: posts[index].likes, context: context)
         }
         Task {
+            if let result = try? await APIClient.shared.setPostLike(postId: post.id, liked: liked),
+               let liveIndex = posts.firstIndex(where: { $0.id == post.id }) {
+                posts[liveIndex].likes = result.likes
+            }
             await TasteProfileStore.shared.record(tasteEvent(liked ? .like : .unlike, post))
             await InteractionQueue.shared.enqueue(userId: userId, targetId: post.id, type: liked ? "like" : "unlike")
             if liked { await seedVector(for: post) }

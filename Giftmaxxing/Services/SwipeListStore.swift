@@ -64,6 +64,7 @@ struct SwipeList: Identifiable, Codable, Hashable {
 @MainActor
 final class SwipeListStore: ObservableObject {
     static let shared = SwipeListStore()
+    static let myGiftIdeasName = "Gift ideas for me"
 
     @Published private(set) var lists: [SwipeList] = []
 
@@ -93,6 +94,40 @@ final class SwipeListStore: ObservableObject {
     var allPosts: [Post] {
         var seen = Set<String>()
         return lists.flatMap(\.posts).filter { seen.insert($0.id).inserted }
+    }
+
+    var myGiftIdeas: SwipeList? {
+        lists.first { $0.relationship == "self" || $0.name == Self.myGiftIdeasName }
+    }
+
+    func containsInMyGiftIdeas(_ post: Post) -> Bool {
+        myGiftIdeas?.posts.contains(where: { $0.id == post.id }) ?? false
+    }
+
+    @discardableResult
+    func addToMyGiftIdeas(_ post: Post) -> SwipeList {
+        let id: String
+        if let list = myGiftIdeas {
+            id = list.id
+        } else {
+            let list = SwipeList(name: Self.myGiftIdeasName, relationship: "self")
+            lists.insert(list, at: 0)
+            id = list.id
+        }
+        guard let index = lists.firstIndex(where: { $0.id == id }) else { return lists[0] }
+        if !lists[index].posts.contains(where: { $0.id == post.id }) {
+            lists[index].posts.insert(post, at: 0)
+            persist()
+        }
+        return lists[index]
+    }
+
+    func toggleMyGiftIdea(_ post: Post) {
+        if let list = myGiftIdeas, list.posts.contains(where: { $0.id == post.id }) {
+            remove(id: post.id, from: list.id)
+        } else {
+            _ = addToMyGiftIdeas(post)
+        }
     }
 
     func contains(_ post: Post) -> Bool {

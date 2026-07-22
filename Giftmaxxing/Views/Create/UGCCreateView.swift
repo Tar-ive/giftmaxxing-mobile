@@ -5,6 +5,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct UGCCreateView: View {
+    @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var authManager: AuthManager
     @StateObject private var model = UGCCreateViewModel()
     @State private var selection: PhotosPickerItem?
@@ -187,7 +188,10 @@ struct UGCCreateView: View {
             }
             Button {
                 Task {
-                    if await model.publish() { hapticTrigger += 1 }
+                    if await model.publish() {
+                        hapticTrigger += 1
+                        appState.selectedTab = .feed
+                    }
                 }
             } label: {
                 Label(model.isPublishing ? "Posting…" : "Post", systemImage: "arrow.up.circle.fill")
@@ -354,8 +358,9 @@ final class UGCCreateViewModel: ObservableObject {
             progress = 1
             progressLabel = "Sent for review"
             posts.insert(upload.post, at: 0)
+            UGCPostingStore.shared.begin(upload.post, preview: media.previewImage)
             clearDraft()
-            await poll(postId: upload.post.postId)
+            Task { await poll(postId: upload.post.postId) }
             return true
         } catch {
             self.error = error.localizedDescription
@@ -370,6 +375,7 @@ final class UGCCreateViewModel: ObservableObject {
             try? await Task.sleep(for: .seconds(4))
             guard let post = try? await APIClient.shared.fetchUGCPost(postId: postId) else { continue }
             if let index = posts.firstIndex(where: { $0.id == post.id }) { posts[index] = post }
+            UGCPostingStore.shared.update(post)
             if post.isTerminal { return }
         }
     }

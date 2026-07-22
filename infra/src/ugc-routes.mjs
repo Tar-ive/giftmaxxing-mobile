@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   BatchWriteCommand,
+  DeleteCommand,
   DynamoDBDocumentClient,
   GetCommand,
   PutCommand,
@@ -291,17 +292,25 @@ async function listPosts(ownerId, limit) {
 
 export async function publicPostsForProfile(ownerId, limit = 12) {
   if (!POSTS || !ownerId) return [];
-  const out = await ddb.send(new QueryCommand({
-    TableName: POSTS,
-    IndexName: "byAuthor",
-    KeyConditionExpression: "author = :author",
-    ExpressionAttributeValues: { ":author": ownerId },
-    ScanIndexForward: false,
-    Limit: Math.min(Math.max(Number(limit) || 12, 1), 24),
-  }));
-  return (out.Items ?? [])
-    .filter((item) => item.source === "ugc" && item.processingStatus === "READY" && item.moderationStatus === "APPROVED")
-    .map(publicPost);
+  const wanted = Math.min(Math.max(Number(limit) || 12, 1), 24);
+  const items = [];
+  let cursor;
+  do {
+    const out = await ddb.send(new QueryCommand({
+      TableName: POSTS,
+      IndexName: "byAuthor",
+      KeyConditionExpression: "author = :author",
+      ExpressionAttributeValues: { ":author": ownerId },
+      ScanIndexForward: false,
+      Limit: 24,
+      ExclusiveStartKey: cursor,
+    }));
+    items.push(...(out.Items ?? []).filter(
+      (item) => item.source === "ugc" && item.processingStatus === "READY" && item.moderationStatus === "APPROVED"
+    ));
+    cursor = out.LastEvaluatedKey;
+  } while (cursor && items.length < wanted);
+  return items.slice(0, wanted).map(publicPost);
 }
 
 async function getPost(postId, ownerId) {
@@ -331,6 +340,76 @@ async function reportPost(postId, ownerId, body) {
   return json(201, { ok: true });
 }
 
+async function engagementTarget(postId) {
+  const out = await ddb.send(new GetCommand({ TableName: POSTS, Key: { postId } }));
+  const item = out.Item;
+  if (!item || item.feedEligible === false || (item.source === "ugc" && item.processingStatus !== "READY")) {
+    return { error: json(404, { error: "post not found" }) };
+  }
+  return { item };
+}
+
+async function setLike(postId, ownerId, body) {
+  if (!INTERACTIONS) return json(503, { error: "likes are not configured" });
+  const target = await engagementTarget(postId);
+  if (target.error) return target.error;
+  const key = { userId: ownerId, targetId: `like#${postId}` };
+  const existing = await ddb.send(new GetCommand({ TableName: INTERACTIONS, Key: key }));
+  const liked = body.liked !== false;
+  if (liked && !existing.Item) {
+    await ddb.send(new PutCommand({
+      TableName: INTERACTIONS,
+      Item: { ...key, target: postId, type: "like", createdAt: Date.now() },
+    }));
+  } else if (!liked && existing.Item) {
+    await ddb.send(new DeleteCommand({ TableName: INTERACTIONS, Key: key }));
+  }
+  const changed = liked !== Boolean(existing.Item);
+  const likes = Math.max(0, Number(target.item.likes ?? 0) + (changed ? (liked ? 1 : -1) : 0));
+  if (changed) {
+    await ddb.send(new UpdateCommand({
+      TableName: POSTS,
+      Key: { postId },
+      UpdateExpression: "SET likes = :likes, updatedAt = :now",
+      ExpressionAttributeValues: { ":likes": likes, ":now": Date.now() },
+    }));
+  }
+  return json(200, { liked, likes });
+}
+
+async function listComments(postId) {
+  const target = await engagementTarget(postId);
+  if (target.error) return target.error;
+  return json(200, { items: target.item.recentComments ?? [], count: Number(target.item.comments ?? 0) });
+}
+
+async function addComment(postId, ownerId, body) {
+  const target = await engagementTarget(postId);
+  if (target.error) return target.error;
+  const text = String(body.text ?? "").trim().slice(0, 300);
+  if (!text) return json(400, { error: "comment required" });
+  const user = USERS
+    ? await ddb.send(new GetCommand({ TableName: USERS, Key: { userId: ownerId } })).catch(() => ({}))
+    : {};
+  const comment = {
+    id: randomUUID(),
+    userId: ownerId,
+    user: String(user.Item?.name ?? user.Item?.identity?.name ?? "Giftmaxxer").slice(0, 80),
+    authorImageUrl: user.Item?.identity?.imageUrl ?? user.Item?.imageUrl ?? null,
+    text,
+    createdAt: Date.now(),
+  };
+  const recentComments = [...(target.item.recentComments ?? []), comment].slice(-50);
+  const count = Number(target.item.comments ?? 0) + 1;
+  await ddb.send(new UpdateCommand({
+    TableName: POSTS,
+    Key: { postId },
+    UpdateExpression: "SET recentComments = :items, comments = :count, updatedAt = :now",
+    ExpressionAttributeValues: { ":items": recentComments, ":count": count, ":now": Date.now() },
+  }));
+  return json(201, { item: comment, count });
+}
+
 async function blockUser(blockedUserId, ownerId) {
   if (!INTERACTIONS) return json(503, { error: "blocking is not configured" });
   if (!blockedUserId || blockedUserId === ownerId) return json(400, { error: "invalid user" });
@@ -358,12 +437,15 @@ export async function ugcRoutes(method, path, body, qs, auth) {
   if (method === "GET" && path === "/ugc/posts") return listPosts(ownerId, qs.limit);
   const blockMatch = /^\/ugc\/users\/([^/]+)\/block$/.exec(path);
   if (method === "POST" && blockMatch) return blockUser(decodeURIComponent(blockMatch[1]), ownerId);
-  const match = /^\/ugc\/posts\/([^/]+)(?:\/(complete|report))?$/.exec(path);
+  const match = /^\/ugc\/posts\/([^/]+)(?:\/(complete|report|like|comments))?$/.exec(path);
   if (!match) return json(404, { error: `no route for ${method} ${path}` });
   const postId = decodeURIComponent(match[1]);
   if (method === "GET" && !match[2]) return getPost(postId, ownerId);
   if (method === "POST" && match[2] === "complete") return markComplete(postId, ownerId);
   if (method === "POST" && match[2] === "report") return reportPost(postId, ownerId, body);
+  if (method === "POST" && match[2] === "like") return setLike(postId, ownerId, body);
+  if (method === "GET" && match[2] === "comments") return listComments(postId);
+  if (method === "POST" && match[2] === "comments") return addComment(postId, ownerId, body);
   return json(405, { error: "method not allowed" });
 }
 

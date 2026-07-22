@@ -82,8 +82,22 @@ function publicCard(item, allowPrivate = false) {
             .map(([k, v]) => [String(k).slice(0, 20), String(v).trim().slice(0, 24)])
         )
       : null;
-  const giftShowcase = Array.isArray(item.giftShowcase)
-    ? item.giftShowcase
+  const selfBoard = Array.isArray(item.giftBoards)
+    ? item.giftBoards.find((b) => b?.relationship === "self" || b?.name === "Gift ideas for me")
+    : null;
+  const boardIdeas = Array.isArray(selfBoard?.posts)
+    ? selfBoard.posts.map((p) => ({
+        postId: p?.id,
+        name: p?.product?.name,
+        imageUrl: p?.product?.image,
+        brand: p?.product?.brand,
+        price: p?.product?.price,
+        productUrl: p?.productUrl ?? p?.url,
+      }))
+    : [];
+  const showcaseSource = boardIdeas.length ? boardIdeas : item.giftShowcase;
+  const giftShowcase = Array.isArray(showcaseSource)
+    ? showcaseSource
         .slice(0, 6)
         .map((g) => ({
           postId: String(g?.postId ?? "").slice(0, 80),
@@ -152,6 +166,16 @@ async function getFriendship(userId, otherUserId) {
   return out.Item ?? null;
 }
 
+async function acceptedFriendCount(userId) {
+  if (!FRIENDS || !userId) return 0;
+  const out = await ddb.send(new QueryCommand({
+    TableName: FRIENDS,
+    KeyConditionExpression: "pk = :pk AND begins_with(sk, :friend)",
+    ExpressionAttributeValues: { ":pk": userId, ":friend": "FRIEND#" },
+  }));
+  return (out.Items ?? []).filter((item) => item.status === "accepted").length;
+}
+
 // ── Public people discovery ──────────────────────────────────────────────────
 
 async function searchPeople(qs) {
@@ -195,7 +219,10 @@ async function getPerson(userId, viewerId) {
     }
   }
   if (!card) return json(404, { error: "not found or private" });
-  card.posts = await publicPostsForProfile(userId).catch(() => []);
+  [card.posts, card.friendCount] = await Promise.all([
+    publicPostsForProfile(userId).catch(() => []),
+    acceptedFriendCount(userId).catch(() => 0),
+  ]);
   return json(200, { item: card });
 }
 

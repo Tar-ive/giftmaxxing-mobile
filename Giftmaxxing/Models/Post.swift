@@ -119,4 +119,7 @@ struct Comment: Identifiable, Codable, Hashable {
     let id: String
     var user: String
     var text: String
+    var userId: String? = nil
+    var authorImageUrl: String? = nil
+    var createdAt: Double? = nil
 }

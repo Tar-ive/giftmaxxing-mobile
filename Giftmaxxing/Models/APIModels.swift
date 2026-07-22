@@ -30,6 +30,7 @@ struct APIPost: Codable {
     var contentType: String?
     var mediaUrl: String?
     var posterUrl: String?
+    var recentComments: [Comment]? = nil
     var feedEligible: Bool?
     // Products vs gift-able services (a year of Netflix, a Costco membership…).
     var giftType: String?
@@ -44,6 +45,8 @@ struct UGCPost: Identifiable, Codable, Hashable {
     var authorName: String?
     var authorImageUrl: String?
     var caption: String
+    var likes: Int? = nil
+    var comments: Int? = nil
     var mediaType: String
     var mimeType: String?
     var mediaUrl: String?
@@ -84,6 +87,21 @@ struct UGCCompleteResponse: Codable {
     var ok: Bool
     var postId: String
     var status: String?
+}
+
+struct PostLikeResponse: Codable {
+    var liked: Bool
+    var likes: Int
+}
+
+struct PostCommentsResponse: Codable {
+    var items: [Comment]
+    var count: Int
+}
+
+struct PostCommentResponse: Codable {
+    var item: Comment
+    var count: Int
 }
 
 struct AvatarUploadResponse: Codable {
@@ -482,6 +500,7 @@ struct PublicPerson: Codable, Identifiable, Hashable {
     var giftNote: String?
     var giftShowcase: [GiftShowcaseItem]?
     var posts: [UGCPost]?
+    var friendCount: Int? = nil
 
     var id: String { userId }
 }

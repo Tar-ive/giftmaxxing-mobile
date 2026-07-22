@@ -140,6 +140,7 @@ final class SwipeViewModel: ObservableObject {
         isSwiping = true
         yesCount += 1
         let card = cards[currentIndex]
+        SwipeListStore.shared.addToMyGiftIdeas(card)
         // Taste profile + batched upload (one Lambda invocation per ~10 swipes).
         record(.like, for: card, uploadAs: "like", decisionMs: decisionMs())
 
