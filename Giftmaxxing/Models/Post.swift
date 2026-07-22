@@ -4,6 +4,7 @@ struct Post: Identifiable, Codable, Hashable {
     let id: String
     var user: String
     var ownerId: String?
+    var authorImageUrl: String?
     var time: String
     var product: Product
     var caption: String
@@ -44,7 +45,7 @@ struct Post: Identifiable, Codable, Hashable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, user, ownerId, time, product, caption, likes, liked, saved
+        case id, user, ownerId, authorImageUrl, time, product, caption, likes, liked, saved
         case comments, commentCount, source, url, productUrl, rec, reason
         case recipient, occasion, category, domain, qualityScore, feedEligible
         case giftType, serviceDuration
@@ -55,6 +56,7 @@ struct Post: Identifiable, Codable, Hashable {
         id: String,
         user: String,
         ownerId: String? = nil,
+        authorImageUrl: String? = nil,
         time: String,
         product: Product,
         caption: String,
@@ -84,6 +86,7 @@ struct Post: Identifiable, Codable, Hashable {
         self.id = id
         self.user = user
         self.ownerId = ownerId
+        self.authorImageUrl = authorImageUrl
         self.time = time
         self.product = product
         self.caption = caption

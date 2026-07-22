@@ -22,7 +22,7 @@ struct PostCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack(spacing: 10) {
-                AvatarView(name: displayAuthor, grad: post.product.grad, size: 32)
+                AvatarView(name: displayAuthor, grad: post.product.grad, size: 32, imageUrl: post.authorImageUrl)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(displayAuthor)

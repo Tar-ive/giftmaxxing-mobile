@@ -1,5 +1,8 @@
+import AVKit
+import PhotosUI
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct MoreView: View {
     @EnvironmentObject private var appState: AppState
@@ -18,6 +21,12 @@ struct MoreView: View {
     @State private var showDeleteConfirm = false
     @State private var isDeleting = false
     @State private var deleteError: String?
+    @State private var avatarSelection: PhotosPickerItem?
+    @State private var avatarUrl: String?
+    @State private var avatarError: String?
+    @State private var isUploadingAvatar = false
+    @State private var ugcPosts: [UGCPost] = []
+    @State private var selectedUGCPost: UGCPost?
 
     // The gifting persona — local-first, pushed to /me on every edit so the
     // public /people profile serves it to friends.
@@ -70,6 +79,10 @@ struct MoreView: View {
         return Int((Double(yes) / Double(total) * 100).rounded())
     }
 
+    private var liveUGCPosts: [UGCPost] {
+        ugcPosts.filter { $0.processingStatus == "READY" }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -78,6 +91,8 @@ struct MoreView: View {
                     // A curator profile, not a personal one: who you are AS A
                     // GIFTER. Finite by design — no infinite anything.
                     personaHeader
+
+                    ugcPostsSection
 
                     if !thoughtfulness.badges.isEmpty {
                         badgesRow
@@ -329,6 +344,14 @@ struct MoreView: View {
         } message: {
             Text("This permanently erases your account and all your data — profile, gift boards, pools, saved ideas, and connections. This cannot be undone.")
         }
+        .alert("Couldn’t update photo", isPresented: Binding(
+            get: { avatarError != nil },
+            set: { if !$0 { avatarError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(avatarError ?? "Please try another photo.")
+        }
         .sheet(isPresented: $showSignIn) {
             SignInView(showSignIn: $showSignIn)
                 .environmentObject(authManager)
@@ -357,11 +380,20 @@ struct MoreView: View {
         .sheet(item: $signatureGift) { gift in
             SignatureGiftStorySheet(gift: gift)
         }
+        .sheet(item: $selectedUGCPost) { post in
+            UGCProfilePostSheet(post: post)
+        }
+        .onChange(of: avatarSelection) { _, item in
+            guard let item else { return }
+            Task { await uploadAvatar(item) }
+        }
         .task {
             if let userId = authManager.userId {
                 connections = (try? await APIClient.shared.fetchConnections(userId: userId)) ?? []
+                ugcPosts = (try? await APIClient.shared.fetchMyUGCPosts()) ?? []
                 if let profile = try? await APIClient.shared.fetchMe(userId: userId) {
                     visibility = profile.visibility == "private" ? "private" : "public"
+                    avatarUrl = profile.imageUrl
                     // Adopt server persona on a fresh install; local edits win
                     // otherwise (they're pushed on every save).
                     if tagline.isEmpty, let t = profile.tagline { tagline = t }
@@ -414,17 +446,38 @@ struct MoreView: View {
     // ── Persona sections ──────────────────────────────────────────────────
 
     private var personaHeader: some View {
-        VStack(spacing: 10) {
-            Circle()
-                .fill(Color.gradient(for: .coral))
-                .frame(width: 72, height: 72)
-                .overlay {
-                    Text(String(authManager.displayName?.prefix(1) ?? "🎁"))
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundStyle(.white)
+        let displayName = authManager.displayName ?? "Giftmaxxer"
+        return VStack(spacing: 10) {
+            PhotosPicker(selection: $avatarSelection, matching: .images) {
+                ZStack(alignment: .bottomTrailing) {
+                    AvatarView(
+                        name: displayName,
+                        grad: .coral,
+                        size: 80,
+                        imageUrl: avatarUrl
+                    )
+                    if isUploadingAvatar {
+                        ProgressView()
+                            .tint(.white)
+                            .frame(width: 28, height: 28)
+                            .background(Color.ink.opacity(0.72))
+                            .clipShape(Circle())
+                    } else {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 28, height: 28)
+                            .background(Color.coral)
+                            .clipShape(Circle())
+                            .overlay(Circle().stroke(Color.cream, lineWidth: 2))
+                    }
                 }
+            }
+            .buttonStyle(.plain)
+            .disabled(isUploadingAvatar || !authManager.isAuthenticated)
+            .accessibilityLabel(avatarUrl == nil ? "Add profile photo" : "Change profile photo")
 
-            Text(authManager.displayName ?? "Giftmaxxer")
+            Text(displayName)
                 .font(.displaySmall)
                 .foregroundStyle(Color.ink)
 
@@ -461,6 +514,91 @@ struct MoreView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .padding(.top, 12)
+    }
+
+    private var ugcPostsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                MoreSectionHeader(title: "Your posts")
+                Spacer()
+                if !ugcPosts.isEmpty {
+                    Text("\(liveUGCPosts.count) live")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.inkSecondary)
+                }
+            }
+
+            if liveUGCPosts.isEmpty {
+                HStack(spacing: 12) {
+                    Image(systemName: "square.grid.3x3")
+                        .font(.title2)
+                        .foregroundStyle(Color.coral)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Your live gift finds will appear here")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.ink)
+                        Text("Create a post to start your profile gallery.")
+                            .font(.caption)
+                            .foregroundStyle(Color.inkSecondary)
+                    }
+                    Spacer()
+                }
+                .padding(14)
+                .background(Color.surface)
+                .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
+            } else {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 3), count: 3), spacing: 3) {
+                    ForEach(liveUGCPosts) { post in
+                        Button { selectedUGCPost = post } label: {
+                            ZStack {
+                                Color.surfaceSunken
+                                CachedAsyncImage(
+                                    url: post.posterUrl ?? (post.mediaType == "image" ? post.mediaUrl : nil),
+                                    width: 260
+                                )
+                                if post.mediaType == "video" {
+                                    Image(systemName: "play.fill")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(.white)
+                                        .padding(7)
+                                        .background(.black.opacity(0.55))
+                                        .clipShape(Circle())
+                                }
+                            }
+                            .aspectRatio(1, contentMode: .fill)
+                            .clipped()
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Open post: \(post.caption)")
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.md, style: .continuous))
+            }
+        }
+    }
+
+    private func uploadAvatar(_ item: PhotosPickerItem) async {
+        isUploadingAvatar = true
+        defer {
+            isUploadingAvatar = false
+            avatarSelection = nil
+        }
+        do {
+            guard let raw = try await item.loadTransferable(type: Data.self),
+                  let source = UIImage(data: raw) else { throw AvatarUploadError.unreadable }
+            let maxSide: CGFloat = 1600
+            let scale = min(1, maxSide / max(source.size.width, source.size.height))
+            let size = CGSize(width: source.size.width * scale, height: source.size.height * scale)
+            let image = UIGraphicsImageRenderer(size: size).image { _ in
+                source.draw(in: CGRect(origin: .zero, size: size))
+            }
+            guard let data = image.jpegData(compressionQuality: 0.88) else { throw AvatarUploadError.unreadable }
+            let upload = try await APIClient.shared.createAvatarUpload(mimeType: "image/jpeg", fileSize: data.count)
+            try await APIClient.shared.uploadAvatar(data: data, to: upload.uploadUrl, headers: upload.uploadHeaders)
+            avatarUrl = try await APIClient.shared.completeAvatarUpload(avatarId: upload.avatarId)
+        } catch {
+            avatarError = error.localizedDescription
+        }
     }
 
     private var statDivider: some View {
@@ -656,6 +794,58 @@ struct MoreView: View {
             deleteError = "Couldn't delete your account. Check your connection and try again."
         }
         isDeleting = false
+    }
+}
+
+private enum AvatarUploadError: LocalizedError {
+    case unreadable
+
+    var errorDescription: String? { "That photo couldn’t be prepared. Please choose another one." }
+}
+
+private struct UGCProfilePostSheet: View {
+    let post: UGCPost
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    media
+                        .frame(maxWidth: .infinity)
+                        .aspectRatio(4 / 5, contentMode: .fit)
+                        .background(Color.surfaceSunken)
+                        .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
+                    Text(post.caption)
+                        .font(.body)
+                        .foregroundStyle(Color.ink)
+                    Label("Live", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.success)
+                }
+                .padding(14)
+            }
+            .background(Color.cream)
+            .navigationTitle("Post")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var media: some View {
+        if post.mediaType == "video", let value = post.mediaUrl, let url = URL(string: value) {
+            VideoPlayer(player: AVPlayer(url: url))
+        } else if let image = post.posterUrl ?? post.mediaUrl {
+            CachedAsyncImage(url: image, width: 900)
+        } else {
+            Image(systemName: post.mediaType == "video" ? "video.fill" : "photo.fill")
+                .font(.largeTitle)
+                .foregroundStyle(Color.inkTertiary)
+        }
     }
 }
 

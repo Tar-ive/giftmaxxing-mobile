@@ -285,8 +285,18 @@ final class FeedViewModel: ObservableObject {
     }
 
     private func drain(_ n: Int) -> [Post] {
-        let batch = rankedBuffer.prefix(n)
-        rankedBuffer.removeFirst(batch.count)
+        let count = min(n, rankedBuffer.count)
+        var batch = Array(rankedBuffer.prefix(count))
+        rankedBuffer.removeFirst(count)
+        let slot = min(2, max(0, batch.count - 1))
+        if let index = batch.firstIndex(where: { $0.post.source == "ugc" }), index > slot {
+            batch.insert(batch.remove(at: index), at: slot)
+        } else if !batch.contains(where: { $0.post.source == "ugc" }),
+                  let index = rankedBuffer.firstIndex(where: { $0.post.source == "ugc" }) {
+            let ugc = rankedBuffer.remove(at: index)
+            if let displaced = batch.popLast() { rankedBuffer.insert(displaced, at: 0) }
+            batch.insert(ugc, at: min(slot, batch.count))
+        }
         return batch.map { candidate in
             servedIds.insert(candidate.post.id)
             var post = candidate.post

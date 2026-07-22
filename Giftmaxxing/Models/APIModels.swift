@@ -4,6 +4,7 @@ struct APIPost: Codable {
     let postId: String
     var author: String?
     var authorName: String?
+    var authorImageUrl: String?
     var ownerId: String?
     var createdAt: Double?
     var likes: Int?
@@ -41,6 +42,7 @@ struct APIPost: Codable {
 struct UGCPost: Identifiable, Codable {
     let postId: String
     var authorName: String?
+    var authorImageUrl: String?
     var caption: String
     var mediaType: String
     var mimeType: String?
@@ -82,6 +84,18 @@ struct UGCCompleteResponse: Codable {
     var ok: Bool
     var postId: String
     var status: String?
+}
+
+struct AvatarUploadResponse: Codable {
+    var avatarId: String
+    var uploadUrl: String
+    var uploadHeaders: [String: String]
+    var expiresIn: Int
+}
+
+struct AvatarCompleteResponse: Codable {
+    var ok: Bool
+    var imageUrl: String
 }
 
 struct APIProduct: Codable {

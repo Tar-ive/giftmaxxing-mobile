@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { interleaveAuthors } from "./feed-diversity.mjs";
+import { interleaveAuthors, interleaveUGC } from "./feed-diversity.mjs";
 
 const item = (id, author, category) => ({ postId: id, author, category });
 
@@ -59,4 +59,19 @@ test("untagged items never block placement", () => {
 test("keeps relative score order within constraints (stable head)", () => {
   const items = [item("a", "b1", "tech"), item("b", "b2", "kitchen"), item("c", "b3", "beauty")];
   assert.deepEqual(interleaveAuthors(items).map((p) => p.postId), ["a", "b", "c"]);
+});
+
+test("reserves feed slots for the newest approved UGC", () => {
+  const catalog = Array.from({ length: 20 }, (_, i) => ({ postId: `p${i}`, source: "catalog" }));
+  const oldUGC = { postId: "u-old", source: "ugc", createdAt: 10 };
+  const newUGC = { postId: "u-new", source: "ugc", createdAt: 20 };
+  const out = interleaveUGC([...catalog, oldUGC, newUGC]);
+  assert.equal(out[2].postId, "u-new");
+  assert.equal(out[10].postId, "u-old");
+  assert.equal(new Set(out.map((item) => item.postId)).size, out.length);
+});
+
+test("leaves catalog-only pages untouched", () => {
+  const catalog = [item("a", "one", "tech"), item("b", "two", "home")];
+  assert.equal(interleaveUGC(catalog), catalog);
 });

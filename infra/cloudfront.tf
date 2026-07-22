@@ -174,6 +174,16 @@ resource "aws_cloudfront_distribution" "api" {
     cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
   }
 
+  ordered_cache_behavior {
+    path_pattern           = "/avatars/public/*"
+    target_origin_id       = "media"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
+  }
+
   # Cached long: immutable pin embeddings for the on-device ranker.
   ordered_cache_behavior {
     path_pattern           = "/vectors"

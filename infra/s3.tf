@@ -49,8 +49,11 @@ data "aws_cloudfront_cache_policy" "caching_optimized" {
 
 data "aws_iam_policy_document" "media_cloudfront" {
   statement {
-    actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.media.arn}/ugc/public/*"]
+    actions = ["s3:GetObject"]
+    resources = [
+      "${aws_s3_bucket.media.arn}/ugc/public/*",
+      "${aws_s3_bucket.media.arn}/avatars/public/*",
+    ]
     principals {
       type        = "Service"
       identifiers = ["cloudfront.amazonaws.com"]

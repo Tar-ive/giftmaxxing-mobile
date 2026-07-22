@@ -79,6 +79,28 @@ actor APIClient {
         let _: EmptyResponse = try await post("/ugc/users/\(userId)/block", body: [:])
     }
 
+    func createAvatarUpload(mimeType: String, fileSize: Int) async throws -> AvatarUploadResponse {
+        try await post("/ugc/avatar/uploads", body: ["mimeType": mimeType, "fileSize": fileSize])
+    }
+
+    func uploadAvatar(data: Data, to uploadURL: String, headers: [String: String]) async throws {
+        guard let url = URL(string: uploadURL) else { throw APIError.invalidResponse }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        headers.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
+        let (_, response) = try await uploadSession.upload(for: request, from: data)
+        try validateResponse(response)
+    }
+
+    func completeAvatarUpload(avatarId: String) async throws -> String {
+        let response: AvatarCompleteResponse = try await post("/ugc/avatar/uploads/\(avatarId)/complete", body: [:])
+        return absoluteMediaURL(response.imageUrl) ?? response.imageUrl
+    }
+
+    func removeAvatar() async throws {
+        let _: EmptyResponse = try await delete("/ugc/avatar")
+    }
+
     // MARK: - Feed
 
     func fetchFeed(
@@ -264,7 +286,10 @@ actor APIClient {
 
     func fetchMe(userId: String) async throws -> UserProfile? {
         let response: UserProfileResponse = try await get("/me", params: ["userId": userId])
-        return response.item
+        var profile = response.item
+        let imageUrl = profile?.imageUrl
+        profile?.imageUrl = absoluteMediaURL(imageUrl)
+        return profile
     }
 
     // DELETE /account — App Store 5.1.1(v). Permanently deletes the signed-in
@@ -783,6 +808,7 @@ actor APIClient {
             id: api.postId,
             user: api.authorName ?? api.author ?? "reddit",
             ownerId: api.ownerId,
+            authorImageUrl: absoluteMediaURL(api.authorImageUrl),
             time: relativeTime(ms: api.createdAt),
             product: product,
             caption: api.caption ?? "",
@@ -818,6 +844,7 @@ actor APIClient {
 
     private func normalizeUGCPost(_ post: UGCPost) -> UGCPost {
         var post = post
+        post.authorImageUrl = absoluteMediaURL(post.authorImageUrl)
         post.mediaUrl = absoluteMediaURL(post.mediaUrl)
         post.posterUrl = absoluteMediaURL(post.posterUrl)
         return post

@@ -9,17 +9,22 @@ import {
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
   DeleteObjectsCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { DetectModerationLabelsCommand, RekognitionClient } from "@aws-sdk/client-rekognition";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { blockedModerationLabels } from "./ugc-policy.mjs";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
 });
 const s3 = new S3Client({});
+const rekognition = new RekognitionClient({});
 const POSTS = process.env.POSTS_TABLE;
 const USERS = process.env.USERS_TABLE;
 const INTERACTIONS = process.env.INTERACTIONS_TABLE;
@@ -37,6 +42,8 @@ const VIDEO_TYPES = new Map([
 ]);
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
+const MAX_AVATAR_BYTES = 10 * 1024 * 1024;
+const AVATAR_TYPES = new Map([["image/jpeg", "jpg"], ["image/png", "png"]]);
 
 const json = (statusCode, body) => ({
   statusCode,
@@ -83,12 +90,14 @@ async function createUpload(body, ownerId) {
     ? await ddb.send(new GetCommand({ TableName: USERS, Key: { userId: ownerId } })).catch(() => ({}))
     : {};
   const authorName = String(user.Item?.name ?? user.Item?.identity?.name ?? "Giftmaxxer").slice(0, 80);
+  const authorImageUrl = user.Item?.identity?.imageUrl ?? user.Item?.imageUrl ?? null;
   const now = Date.now();
   const item = {
     postId,
     ownerId,
     author: ownerId,
     authorName,
+    authorImageUrl,
     createdAt: now,
     updatedAt: now,
     caption,
@@ -130,6 +139,118 @@ async function createUpload(body, ownerId) {
     posterUploadHeaders: posterUploadUrl ? { "Content-Type": "image/jpeg" } : null,
     expiresIn: 900,
   });
+}
+
+async function createAvatarUpload(body, ownerId) {
+  if (!USERS || !MEDIA_BUCKET) return json(503, { error: "profile photos are not configured" });
+  const mimeType = String(body.mimeType ?? "").toLowerCase();
+  const extension = AVATAR_TYPES.get(mimeType);
+  const fileSize = Number(body.fileSize);
+  if (!extension) return json(400, { error: "profile photo must be JPEG or PNG" });
+  if (!Number.isFinite(fileSize) || fileSize <= 0 || fileSize > MAX_AVATAR_BYTES) {
+    return json(400, { error: "profile photo is too large" });
+  }
+  const avatarId = randomUUID();
+  const rawKey = `avatars/raw/${safeOwner(ownerId)}/${avatarId}.${extension}`;
+  const pending = { avatarId, rawKey, mimeType, fileSize, createdAt: Date.now() };
+  await ddb.send(new UpdateCommand({
+    TableName: USERS,
+    Key: { userId: ownerId },
+    UpdateExpression: "SET avatarUpload = :pending",
+    ExpressionAttributeValues: { ":pending": pending },
+  }));
+  const uploadHeaders = { "Content-Type": mimeType, "Content-Length": String(fileSize) };
+  const uploadUrl = await getSignedUrl(
+    s3,
+    new PutObjectCommand({ Bucket: MEDIA_BUCKET, Key: rawKey, ContentType: mimeType, ContentLength: fileSize }),
+    { expiresIn: 900 }
+  );
+  return json(201, { avatarId, uploadUrl, uploadHeaders, expiresIn: 900 });
+}
+
+async function syncAuthorImage(ownerId, imageUrl) {
+  if (!POSTS) return;
+  const out = await ddb.send(new QueryCommand({
+    TableName: POSTS,
+    IndexName: "byAuthor",
+    KeyConditionExpression: "author = :author",
+    ExpressionAttributeValues: { ":author": ownerId },
+  }));
+  await Promise.all((out.Items ?? []).filter((item) => item.source === "ugc").map((item) => {
+    const input = {
+      TableName: POSTS,
+      Key: { postId: item.postId },
+      UpdateExpression: imageUrl ? "SET authorImageUrl = :image" : "REMOVE authorImageUrl",
+    };
+    if (imageUrl) input.ExpressionAttributeValues = { ":image": imageUrl };
+    return ddb.send(new UpdateCommand(input));
+  }));
+}
+
+async function completeAvatarUpload(avatarId, ownerId) {
+  const user = await ddb.send(new GetCommand({ TableName: USERS, Key: { userId: ownerId } }));
+  const pending = user.Item?.avatarUpload;
+  if (!pending || pending.avatarId !== avatarId) return json(404, { error: "profile photo upload not found" });
+  try {
+    const object = await s3.send(new HeadObjectCommand({ Bucket: MEDIA_BUCKET, Key: pending.rawKey }));
+    if (!object.ContentLength || object.ContentLength > MAX_AVATAR_BYTES) throw new Error("invalid upload size");
+    const moderation = await rekognition.send(new DetectModerationLabelsCommand({
+      Image: { S3Object: { Bucket: MEDIA_BUCKET, Name: pending.rawKey } },
+      MinConfidence: 50,
+    }));
+    const blocked = blockedModerationLabels(moderation.ModerationLabels);
+    if (blocked.length) {
+      await s3.send(new DeleteObjectCommand({ Bucket: MEDIA_BUCKET, Key: pending.rawKey })).catch(() => {});
+      await ddb.send(new UpdateCommand({ TableName: USERS, Key: { userId: ownerId }, UpdateExpression: "REMOVE avatarUpload" }));
+      return json(422, { error: "profile photo failed safety review" });
+    }
+    const extension = AVATAR_TYPES.get(pending.mimeType);
+    const publicKey = `avatars/public/${safeOwner(ownerId)}/${avatarId}.${extension}`;
+    await s3.send(new CopyObjectCommand({
+      Bucket: MEDIA_BUCKET,
+      Key: publicKey,
+      CopySource: `${MEDIA_BUCKET}/${pending.rawKey}`,
+      ContentType: pending.mimeType,
+      MetadataDirective: "REPLACE",
+    }));
+    const imageUrl = mediaPath(publicKey);
+    const identity = { ...(user.Item?.identity ?? {}), imageUrl };
+    await ddb.send(new UpdateCommand({
+      TableName: USERS,
+      Key: { userId: ownerId },
+      UpdateExpression: "SET #identity = :identity, imageUrl = :image, updatedAt = :now REMOVE avatarUpload",
+      ExpressionAttributeNames: { "#identity": "identity" },
+      ExpressionAttributeValues: { ":identity": identity, ":image": imageUrl, ":now": Date.now() },
+    }));
+    await syncAuthorImage(ownerId, imageUrl);
+    await s3.send(new DeleteObjectCommand({ Bucket: MEDIA_BUCKET, Key: pending.rawKey })).catch(() => {});
+    const oldKey = String(user.Item?.identity?.imageUrl ?? user.Item?.imageUrl ?? "").replace(/^\//, "");
+    if (oldKey.startsWith("avatars/public/") && oldKey !== publicKey) {
+      await s3.send(new DeleteObjectCommand({ Bucket: MEDIA_BUCKET, Key: oldKey })).catch(() => {});
+    }
+    return json(200, { ok: true, imageUrl });
+  } catch (error) {
+    console.warn("profile photo processing failed", error.message);
+    return json(409, { error: "profile photo upload is incomplete" });
+  }
+}
+
+async function removeAvatar(ownerId) {
+  const user = await ddb.send(new GetCommand({ TableName: USERS, Key: { userId: ownerId } }));
+  const key = String(user.Item?.identity?.imageUrl ?? user.Item?.imageUrl ?? "").replace(/^\//, "");
+  const identity = { ...(user.Item?.identity ?? {}), imageUrl: null };
+  await ddb.send(new UpdateCommand({
+    TableName: USERS,
+    Key: { userId: ownerId },
+    UpdateExpression: "SET #identity = :identity, imageUrl = :empty, updatedAt = :now REMOVE avatarUpload",
+    ExpressionAttributeNames: { "#identity": "identity" },
+    ExpressionAttributeValues: { ":identity": identity, ":empty": null, ":now": Date.now() },
+  }));
+  await syncAuthorImage(ownerId, null);
+  if (key.startsWith("avatars/public/")) {
+    await s3.send(new DeleteObjectCommand({ Bucket: MEDIA_BUCKET, Key: key })).catch(() => {});
+  }
+  return json(200, { ok: true });
 }
 
 async function markComplete(postId, ownerId) {
@@ -214,6 +335,10 @@ async function blockUser(blockedUserId, ownerId) {
 export async function ugcRoutes(method, path, body, qs, auth) {
   const ownerId = auth?.sub;
   if (!ownerId) return json(401, { error: "sign in required" });
+  if (method === "POST" && path === "/ugc/avatar/uploads") return createAvatarUpload(body, ownerId);
+  const avatarMatch = /^\/ugc\/avatar\/uploads\/([^/]+)\/complete$/.exec(path);
+  if (method === "POST" && avatarMatch) return completeAvatarUpload(decodeURIComponent(avatarMatch[1]), ownerId);
+  if (method === "DELETE" && path === "/ugc/avatar") return removeAvatar(ownerId);
   if (method === "POST" && path === "/ugc/uploads") return createUpload(body, ownerId);
   if (method === "GET" && path === "/ugc/posts") return listPosts(ownerId, qs.limit);
   const blockMatch = /^\/ugc\/users\/([^/]+)\/block$/.exec(path);
@@ -255,4 +380,19 @@ export async function purgeUserUGC(ownerId) {
   }
   await batchDeletePosts(posts);
   return posts.length;
+}
+
+export async function purgeUserAvatar(ownerId) {
+  if (!USERS || !MEDIA_BUCKET) return 0;
+  const user = await ddb.send(new GetCommand({ TableName: USERS, Key: { userId: ownerId } })).catch(() => ({}));
+  const keys = [
+    String(user.Item?.identity?.imageUrl ?? user.Item?.imageUrl ?? "").replace(/^\//, ""),
+    user.Item?.avatarUpload?.rawKey,
+  ].filter((key) => key?.startsWith("avatars/"));
+  if (!keys.length) return 0;
+  await s3.send(new DeleteObjectsCommand({
+    Bucket: MEDIA_BUCKET,
+    Delete: { Objects: keys.map((Key) => ({ Key })), Quiet: true },
+  })).catch(() => {});
+  return keys.length;
 }

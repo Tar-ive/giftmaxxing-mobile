@@ -24,13 +24,13 @@ import { CognitoIdentityProviderClient, InitiateAuthCommand } from "@aws-sdk/cli
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { createHash } from "node:crypto";
 import { classifyPin, isMajorUSRetailer } from "./quality.mjs";
-import { interleaveAuthors } from "./feed-diversity.mjs";
+import { interleaveAuthors, interleaveUGC } from "./feed-diversity.mjs";
 import { sendPushToUser } from "./push.mjs";
 import { mobileRoutes } from "./mobile-routes.mjs";
 import { analyticsRoutes } from "./analytics-routes.mjs";
 import { birthdayFreebiesRoute } from "./birthday-freebies.mjs";
 import { friendsRoutes } from "./friends-routes.mjs";
-import { purgeUserUGC, ugcRoutes } from "./ugc-routes.mjs";
+import { purgeUserAvatar, purgeUserUGC, ugcRoutes } from "./ugc-routes.mjs";
 import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
@@ -2599,10 +2599,12 @@ async function purgeAccount(userId) {
     pools: 0,
     challenges: 0,
     ugcPosts: 0,
+    avatarObjects: 0,
   };
   // Clear the alias rows before the profile: the scan matches on
   // canonicalUserId, which does not depend on the profile item existing.
   summary.aliases = await purgeEmailAliases(userId);
+  summary.avatarObjects = await purgeUserAvatar(userId);
   if (USERS) {
     try {
       await ddb.send(new DeleteCommand({ TableName: USERS, Key: { userId } }));
@@ -2730,8 +2732,9 @@ export const handler = async (event) => {
       if (!identity) return json(401, { error: "invalid provider token" });
       const userId = await resolveCanonicalUserId(identity.providerId, identity.email);
       const name = typeof body.name === "string" && body.name.trim() ? body.name.trim().slice(0, 80) : identity.name;
-      // Keep the users row warm (merge-safe, same shape as POST /me/identity).
+      // Keep the users row warm without wiping a profile photo on every login.
       try {
+        const existing = await ddb.send(new GetCommand({ TableName: USERS, Key: { userId } }));
         await ddb.send(
           new UpdateCommand({
             TableName: USERS,
@@ -2739,7 +2742,11 @@ export const handler = async (event) => {
             UpdateExpression: "SET #id = :id, lastSeenAt = :now, createdAt = if_not_exists(createdAt, :now)",
             ExpressionAttributeNames: { "#id": "identity" },
             ExpressionAttributeValues: {
-              ":id": { email: identity.email ?? null, name: name ?? null, imageUrl: null },
+              ":id": {
+                ...(existing.Item?.identity ?? {}),
+                email: identity.email ?? existing.Item?.identity?.email ?? null,
+                name: name ?? existing.Item?.identity?.name ?? null,
+              },
               ":now": Date.now(),
             },
           })
@@ -2829,7 +2836,7 @@ export const handler = async (event) => {
             ranked.push({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, feedEligible: true, _score: scorePost(p, opts) + q.qualityScore * 0.4 });
           }
           ranked.sort((a, b) => b._score - a._score);
-          const mixed = interleaveAuthors(ranked);
+          const mixed = interleaveUGC(interleaveAuthors(ranked));
           let offset = start?._offset ?? 0;
           const personalized = qs.recipient && qs.recipient !== "anyone";
           if (!start && !filters.length && !personalized && qs.fresh !== "0" && ranked.length > limit) {
@@ -2945,7 +2952,7 @@ export const handler = async (event) => {
           if (!lastKey) break;    // reached the end of the range
         }
         eligible.sort((a, b) => b._score - a._score);
-        return json(200, { items: interleaveAuthors(eligible).slice(0, limit), cursor: encodeCursor(lastKey) });
+        return json(200, { items: interleaveUGC(interleaveAuthors(eligible)).slice(0, limit), cursor: encodeCursor(lastKey) });
       } catch (err) {
         // byFeed GSI not deployed yet (or transient error) -> legacy fallback.
         console.warn("byFeed query failed, falling back to full scan:", err.message);
@@ -2967,7 +2974,7 @@ export const handler = async (event) => {
         .filter((x) => x.q.feedEligible && !exclude.posts.has(x.p.postId) && !exclude.authors.has(x.p.ownerId))
         .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 }))
         .sort((a, b) => b._score - a._score);
-      const rankedMixed = interleaveAuthors(ranked);
+      const rankedMixed = interleaveUGC(interleaveAuthors(ranked));
       const offset = start?._offset ?? 0;
       const page = rankedMixed.slice(offset, offset + limit);
       const nextOffset = offset + limit;
@@ -4776,6 +4783,7 @@ export const handler = async (event) => {
       const { userId, email, name, imageUrl } = body;
       if (!userId) return json(400, { error: "userId required" });
       const now = Date.now();
+      const existing = await ddb.send(new GetCommand({ TableName: USERS, Key: { userId } }));
       await ddb.send(
         new UpdateCommand({
           TableName: USERS,
@@ -4783,7 +4791,12 @@ export const handler = async (event) => {
           UpdateExpression: "SET #id = :id, lastSeenAt = :now, createdAt = if_not_exists(createdAt, :now)",
           ExpressionAttributeNames: { "#id": "identity" },
           ExpressionAttributeValues: {
-            ":id": { email: email ?? null, name: name ?? null, imageUrl: imageUrl ?? null },
+            ":id": {
+              ...(existing.Item?.identity ?? {}),
+              email: email ?? existing.Item?.identity?.email ?? null,
+              name: name ?? existing.Item?.identity?.name ?? null,
+              imageUrl: imageUrl ?? existing.Item?.identity?.imageUrl ?? null,
+            },
             ":now": now,
           },
         })
