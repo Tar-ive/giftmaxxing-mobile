@@ -30,19 +30,19 @@ struct CoachMarksView: View {
         Step(
             icon: "rectangle.stack.badge.plus",
             title: "Your Gift Boards",
-            line: "The idea you just saved lives here — one board per person, with your why-notes and a gift letter. Share one and they swipe yes/no.",
+            line: "One board per person. Share it and they swipe yes/no.",
             hint: "Swipe tab → For someone"
         ),
         Step(
             icon: "calendar",
             title: "Your gift calendar",
-            line: "Birthdays and dates live in Circles. For each one, Maxi paces you: explore → narrow → write the letter → send.",
+            line: "Birthdays and dates live in Circles — Maxi paces each one.",
             hint: "Circles tab"
         ),
         Step(
             icon: "chart.line.uptrend.xyaxis",
             title: "Your Gifting Mind",
-            line: "Your profile grows as you gift — Thoughtfulness Points, badges, and how recipients really reacted. Empty today, telling later.",
+            line: "Points, badges, and how recipients really reacted.",
             hint: "You tab"
         ),
         Step(

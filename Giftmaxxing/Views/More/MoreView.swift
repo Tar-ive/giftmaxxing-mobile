@@ -1,10 +1,12 @@
 import SwiftUI
+import SwiftData
 
 struct MoreView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var authManager: AuthManager
     @EnvironmentObject private var pushManager: PushManager
     @EnvironmentObject private var syncEngine: SyncEngine
+    @Environment(\.modelContext) private var modelContext
     @ObservedObject private var thoughtfulness = ThoughtfulnessStore.shared
     @ObservedObject private var boards = SwipeListStore.shared
     @ObservedObject private var pools = PoolsStore.shared
@@ -17,10 +19,12 @@ struct MoreView: View {
     @State private var isDeleting = false
     @State private var deleteError: String?
 
-    // The gifting persona — editable, local-first (server sync with the
-    // public /people profile is an infra follow-up).
+    // The gifting persona — local-first, pushed to /me on every edit so the
+    // public /people profile serves it to friends.
     @AppStorage("gifting_tagline") private var tagline = ""
     @AppStorage("gifting_philosophy") private var philosophy = ""
+    // Fingerprint of the last showcase synced to the server, to skip no-op PUTs.
+    @AppStorage("gifting_showcase_synced") private var showcaseSynced = ""
     @State private var editingTagline = false
     @State private var editingPhilosophy = false
 
@@ -101,7 +105,7 @@ struct MoreView: View {
                             FriendsView()
                         }
 
-                        MoreRow(icon: "sparkles", title: "Edit taste", subtitle: "Maxi asks — sizes, vibes, dislikes") {
+                        MoreRow(icon: "sparkles", title: "Edit taste", subtitle: "Sizes, vibes, dislikes") {
                             TasteInterviewView()
                         }
 
@@ -109,7 +113,7 @@ struct MoreView: View {
                             ShopView()
                         }
 
-                        MoreRow(icon: "leaf.fill", title: "Intentional Discover", subtitle: "A slower shelf, ranked by meaning") {
+                        MoreRow(icon: "leaf.fill", title: "Intentional Discover", subtitle: "Ranked by meaning") {
                             DiscoverView()
                         }
                     }
@@ -128,7 +132,7 @@ struct MoreView: View {
                                     Text("Profile visibility")
                                         .font(.system(size: 15, weight: .medium))
                                         .foregroundStyle(Color.ink)
-                                    Text(visibility == "private" ? "Only accepted friends can open your profile" : "Anyone can find your profile")
+                                    Text(visibility == "private" ? "Friends only" : "Anyone can view")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -334,7 +338,10 @@ struct MoreView: View {
                 title: "Your tagline",
                 prompt: "One line on your gifting style — e.g. “Making my friends cry happy tears since 2024”",
                 text: tagline
-            ) { tagline = String($0.prefix(80)) }
+            ) {
+                tagline = String($0.prefix(80))
+                Task { await pushPersona() }
+            }
         }
         .sheet(isPresented: $editingPhilosophy) {
             NoteEditorSheet(
@@ -342,7 +349,10 @@ struct MoreView: View {
                 prompt: "What matters to you when you give? e.g. “I choose gifts that tell a story.”",
                 text: philosophy,
                 long: true
-            ) { philosophy = String($0.prefix(500)) }
+            ) {
+                philosophy = String($0.prefix(500))
+                Task { await pushPersona() }
+            }
         }
         .sheet(item: $signatureGift) { gift in
             SignatureGiftStorySheet(gift: gift)
@@ -352,9 +362,53 @@ struct MoreView: View {
                 connections = (try? await APIClient.shared.fetchConnections(userId: userId)) ?? []
                 if let profile = try? await APIClient.shared.fetchMe(userId: userId) {
                     visibility = profile.visibility == "private" ? "private" : "public"
+                    // Adopt server persona on a fresh install; local edits win
+                    // otherwise (they're pushed on every save).
+                    if tagline.isEmpty, let t = profile.tagline { tagline = t }
+                    if philosophy.isEmpty, let p = profile.philosophy { philosophy = p }
                 }
+                await syncShowcase(userId: userId)
             }
         }
+    }
+
+    // ── Persona → server sync ─────────────────────────────────────────────
+
+    private func pushPersona() async {
+        guard let userId = authManager.userId else { return }
+        try? await APIClient.shared.saveMeRaw(userId: userId, profile: [
+            "tagline": tagline,
+            "philosophy": philosophy,
+        ])
+    }
+
+    // The profile's "gifts I'd love" photos: recently liked/saved feed finds
+    // first, then signature gifts (why-noted board items) to fill. Synced to
+    // /me so friends see them on the public profile.
+    private func syncShowcase(userId: String) async {
+        var items: [[String: Any]] = []
+        var seen = Set<String>()
+        var descriptor = FetchDescriptor<CachedPost>(
+            predicate: #Predicate { $0.liked || $0.saved },
+            sortBy: [SortDescriptor(\.cachedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 6
+        for cached in (try? modelContext.fetch(descriptor)) ?? [] where seen.insert(cached.postId).inserted {
+            var item: [String: Any] = ["postId": cached.postId, "name": cached.productName]
+            if let image = cached.productImage { item["imageUrl"] = image }
+            items.append(item)
+        }
+        for gift in signatureGifts where items.count < 6 && seen.insert(gift.post.id).inserted {
+            var item: [String: Any] = ["postId": gift.post.id, "name": gift.post.product.name, "why": gift.why]
+            if let image = gift.post.product.image { item["imageUrl"] = image }
+            items.append(item)
+        }
+        let fingerprint = items.compactMap { $0["postId"] as? String }.joined(separator: ",")
+        guard fingerprint != showcaseSynced else { return }
+        do {
+            try await APIClient.shared.saveMeRaw(userId: userId, profile: ["giftShowcase": items])
+            showcaseSynced = fingerprint
+        } catch {}
     }
 
     // ── Persona sections ──────────────────────────────────────────────────
@@ -455,7 +509,7 @@ struct MoreView: View {
                     .foregroundStyle(Color.coral)
             }
             Text(philosophy.isEmpty
-                 ? "What do you believe about giving? A sentence here tells people what kind of gifter you are."
+                 ? "What do you believe about giving?"
                  : philosophy)
                 .font(.system(size: 14))
                 .foregroundStyle(philosophy.isEmpty ? .secondary : Color.ink)
@@ -493,9 +547,6 @@ struct MoreView: View {
                     .buttonStyle(.plain)
                 }
             }
-            Text("Gifts you wrote a why for — tap one to read its story.")
-                .font(.system(size: 11))
-                .foregroundStyle(.tertiary)
         }
     }
 
@@ -539,7 +590,7 @@ struct MoreView: View {
         VStack(alignment: .leading, spacing: 8) {
             MoreSectionHeader(title: "Thank-yous & reactions")
             if connections.isEmpty {
-                Text("When someone swipes a board or challenge you sent, their reaction lands here — the proof your gifts land.")
+                Text("Reactions to boards you send land here.")
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)

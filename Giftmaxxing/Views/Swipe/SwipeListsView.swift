@@ -19,7 +19,7 @@ struct SwipeListsHomeView: View {
                         .foregroundStyle(.secondary)
                     Text("No Gift Boards yet")
                         .font(.displaySmall)
-                    Text("Make a board for someone — say, your girlfriend's birthday — then add finds from the feed or search. Send it and every swipe tells you buy / don't buy.")
+                    Text("Save finds for someone, send the board, and every swipe tells you buy or don't.")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -328,7 +328,7 @@ struct SwipeListDetailView: View {
                         Text("Write a digital gift letter")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(Color.ink)
-                        Text("Words outlast wrapping — it rides along when you send the board. +40 pts")
+                        Text("Rides along when you send the board. +40 pts")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                     }
@@ -379,7 +379,7 @@ struct SwipeListDetailView: View {
                 }
                 Spacer()
             }
-            Text("They swipe right on what they'd love, left on what they wouldn't — you see every answer here. No guessing.")
+            Text("Their swipes land here — no guessing.")
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
         }

@@ -22,6 +22,8 @@ struct UGCCreateView: View {
                         preview(media)
                         caption
                         publishButton
+                    } else if model.isPreparing {
+                        preparingCard
                     } else {
                         mediaPicker
                     }
@@ -70,18 +72,26 @@ struct UGCCreateView: View {
     }
 
     private var intro: some View {
-        VStack(alignment: .leading, spacing: ThemeSpacing.xs) {
-            Text("Share a gift find")
-                .font(.title2.weight(.bold))
-                .fontDesign(.rounded)
+        Text("Share a gift find")
+            .font(.title2.weight(.bold))
+            .fontDesign(.rounded)
+            .foregroundStyle(Color.ink)
+    }
+
+    // Videos are re-encoded to H.264 on-device before upload (safety review
+    // can't decode HEVC) — that can take a moment for long clips.
+    private var preparingCard: some View {
+        VStack(spacing: ThemeSpacing.md) {
+            ProgressView()
+            Text("Preparing your video…")
+                .font(.headline)
                 .foregroundStyle(Color.ink)
-            Text("Post an unboxing, a thoughtful idea, or something worth gifting.")
-                .font(.body)
-                .foregroundStyle(Color.inkSecondary)
-            Label("Every upload is screened before it can appear in the feed.", systemImage: "checkmark.shield.fill")
-                .font(.footnote)
-                .foregroundStyle(Color.inkSecondary)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, ThemeSpacing.xl)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.xl, style: .continuous))
+        .cardElevation()
     }
 
     private var mediaPicker: some View {
@@ -92,9 +102,6 @@ struct UGCCreateView: View {
                     .foregroundStyle(Color.coral)
                 Text("Choose a photo or video")
                     .font(.headline)
-                Text("Photos up to 20 MB · videos up to 200 MB")
-                    .font(.footnote)
-                    .foregroundStyle(Color.inkSecondary)
             }
             .foregroundStyle(Color.ink)
             .frame(maxWidth: .infinity)
@@ -278,12 +285,15 @@ final class UGCCreateViewModel: ObservableObject {
     @Published var media: SelectedUGCMedia?
     @Published var caption = ""
     @Published var posts: [UGCPost] = []
+    @Published var isPreparing = false
     @Published var isPublishing = false
     @Published var progress = 0.0
     @Published var progressLabel = "Preparing upload"
     @Published var error: String?
 
     func load(_ item: PhotosPickerItem) async {
+        isPreparing = true
+        defer { isPreparing = false }
         do {
             if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {
                 guard let movie = try await item.loadTransferable(type: TransferableVideo.self) else {
@@ -353,9 +363,11 @@ final class UGCCreateViewModel: ObservableObject {
         }
     }
 
+    // Video safety review is an async Rekognition job that routinely takes a
+    // couple of minutes — poll long enough to catch the terminal state.
     private func poll(postId: String) async {
-        for _ in 0..<20 {
-            try? await Task.sleep(for: .seconds(2))
+        for _ in 0..<45 {
+            try? await Task.sleep(for: .seconds(4))
             guard let post = try? await APIClient.shared.fetchUGCPost(postId: postId) else { continue }
             if let index = posts.firstIndex(where: { $0.id == post.id }) { posts[index] = post }
             if post.isTerminal { return }
@@ -388,8 +400,38 @@ struct SelectedUGCMedia {
         let image = UIImage(cgImage: frame)
         let poster = FileManager.default.temporaryDirectory.appendingPathComponent("ugc-poster-\(UUID().uuidString).jpg")
         try image.jpegData(compressionQuality: 0.82)?.write(to: poster, options: .atomic)
-        let type = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "video/quicktime"
-        return SelectedUGCMedia(kind: .video, fileURL: url, posterURL: poster, previewImage: image, mimeType: type)
+        let (fileURL, mimeType) = try await normalizeForModeration(asset: asset, originalURL: url)
+        return SelectedUGCMedia(kind: .video, fileURL: fileURL, posterURL: poster, previewImage: image, mimeType: mimeType)
+    }
+
+    // Server-side safety review runs Rekognition Video, which only decodes
+    // H.264 — iPhones capture HEVC by default, so those uploads came back
+    // "Processing failed". Anything not already H.264 gets exported to an
+    // H.264 MP4 here before upload.
+    private static func normalizeForModeration(asset: AVURLAsset, originalURL: URL) async throws -> (URL, String) {
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        guard let track = tracks.first else { throw UGCSelectionError.unreadable }
+        let descriptions = try await track.load(.formatDescriptions)
+        let isH264 = descriptions.contains { CMFormatDescriptionGetMediaSubType($0) == kCMVideoCodecType_H264 }
+        if isH264 {
+            let type = UTType(filenameExtension: originalURL.pathExtension)?.preferredMIMEType ?? "video/quicktime"
+            return (originalURL, type)
+        }
+        guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPreset1920x1080) else {
+            throw UGCSelectionError.unreadable
+        }
+        let output = FileManager.default.temporaryDirectory.appendingPathComponent("ugc-h264-\(UUID().uuidString).mp4")
+        session.outputURL = output
+        session.outputFileType = .mp4
+        session.shouldOptimizeForNetworkUse = true
+        await withCheckedContinuation { continuation in
+            session.exportAsynchronously { continuation.resume() }
+        }
+        guard session.status == .completed else {
+            throw session.error ?? UGCSelectionError.unreadable
+        }
+        try? FileManager.default.removeItem(at: originalURL)
+        return (output, "video/mp4")
     }
 
     func fileSize() throws -> Int {

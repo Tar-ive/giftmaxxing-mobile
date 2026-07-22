@@ -123,7 +123,23 @@ struct FriendsView: View {
                         handle: friend.handle,
                         interests: friend.interests,
                         grad: SocialUsers.grad(for: friend.friendId)
-                    ) { EmptyView() }
+                    ) {
+                        // The friend's full gifting profile — sizes, dislikes,
+                        // and the gifts they'd love (friend-gated server-side).
+                        NavigationLink {
+                            PublicProfileView(person: PublicPerson(
+                                userId: friend.friendId,
+                                name: friend.name ?? friend.friendId,
+                                handle: friend.handle ?? "",
+                                bio: friend.bio,
+                                interests: friend.interests
+                            ))
+                        } label: {
+                            Image(systemName: "person.crop.circle")
+                                .font(.system(size: 20))
+                                .foregroundStyle(Color.coral)
+                        }
+                    }
 
                     HStack(spacing: 8) {
                         Button {
@@ -392,6 +408,8 @@ private struct FriendPillStyle: ButtonStyle {
 
 /// Public search results lead to this compact, share-safe profile. The API
 /// returns a private profile here only when the viewer is an accepted friend.
+/// Beyond the persona, this is the "gift them right" page: their sizes,
+/// dislikes, standing note, and photos of gifts they'd love.
 private struct PublicProfileView: View {
     let person: PublicPerson
     @State private var profile: PublicPerson?
@@ -411,23 +429,95 @@ private struct PublicProfileView: View {
                 Text("@\(displayed.handle)")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                if let tagline = displayed.tagline, !tagline.isEmpty {
+                    Text(tagline)
+                        .font(.system(size: 14))
+                        .multilineTextAlignment(.center)
+                }
                 if let bio = displayed.bio, !bio.isEmpty {
                     Text(bio)
                         .font(.body)
                         .multilineTextAlignment(.center)
                 }
+
+                if let philosophy = displayed.philosophy, !philosophy.isEmpty {
+                    profileCard("How they gift") {
+                        Text("“\(philosophy)”")
+                            .font(.system(size: 14))
+                            .italic()
+                            .foregroundStyle(Color.ink)
+                    }
+                }
+
+                if let showcase = displayed.giftShowcase, !showcase.isEmpty {
+                    profileCard("Gifts they'd love") {
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8), GridItem(.flexible())], spacing: 8) {
+                            ForEach(showcase) { item in
+                                VStack(alignment: .leading, spacing: 3) {
+                                    ZStack {
+                                        Color.cream
+                                        if let image = item.imageUrl {
+                                            CachedAsyncImage(url: image, width: 300)
+                                        } else {
+                                            Image(systemName: "gift.fill")
+                                                .foregroundStyle(Color.coral)
+                                        }
+                                    }
+                                    .aspectRatio(1, contentMode: .fit)
+                                    .clipped()
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    if let name = item.name {
+                                        Text(name)
+                                            .font(.system(size: 10, weight: .semibold))
+                                            .foregroundStyle(Color.ink)
+                                            .lineLimit(1)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if let sizes = displayed.clothingSizes, !sizes.isEmpty {
+                    profileCard("Sizes") {
+                        HStack(spacing: 14) {
+                            ForEach(sizes.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
+                                VStack(spacing: 2) {
+                                    Text(value)
+                                        .font(.system(size: 15, weight: .heavy, design: .rounded))
+                                        .foregroundStyle(Color.coral)
+                                    Text(key.capitalized)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            Spacer()
+                        }
+                    }
+                }
+
+                if let note = displayed.giftNote, !note.isEmpty {
+                    profileCard("Good to know") {
+                        Text(note)
+                            .font(.system(size: 14))
+                            .foregroundStyle(Color.ink)
+                    }
+                }
+
+                if let dislikes = displayed.dislikes, !dislikes.isEmpty {
+                    profileCard("Please avoid") {
+                        Text(dislikes.joined(separator: " · "))
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 if let interests = displayed.interests, !interests.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Gift vibes")
-                            .font(.system(size: 14, weight: .bold))
+                    profileCard("Gift vibes") {
                         Text(interests.joined(separator: " · "))
                             .font(.system(size: 14))
                             .foregroundStyle(.secondary)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
-                    .background(Color.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
             }
             .padding(24)
@@ -438,6 +528,18 @@ private struct PublicProfileView: View {
         .task {
             profile = try? await APIClient.shared.fetchPerson(userId: person.userId)
         }
+    }
+
+    private func profileCard(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 14, weight: .bold))
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
 

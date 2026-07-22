@@ -186,7 +186,7 @@ struct PurposeOnboardingView: View {
         VStack(alignment: .leading, spacing: 16) {
             stepTitle(
                 "Never miss their day",
-                subtitle: "Import contacts with birthdays — each becomes a calendar event with paced reminders. Optional, and it never leaves your device except as the events you pick."
+                subtitle: "Import birthdays from your contacts — optional, stays on your device."
             )
 
             if !contactsLoaded && !contactsDenied {
@@ -308,7 +308,7 @@ struct PurposeOnboardingView: View {
                     Text("\(occasion.name) has a birthday in \(occasion.daysUntil) days.")
                         .font(.system(size: 20, weight: .heavy, design: .rounded))
                         .foregroundStyle(Color.ink)
-                    Text("Want to see a few ideas right now? Save one and you've already started their Gift Board — Maxi paces the rest: explore → narrow → letter → send.")
+                    Text("Save one idea now and their Gift Board is started.")
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
                 }
@@ -317,7 +317,7 @@ struct PurposeOnboardingView: View {
                 .background(Color.coralSoft.opacity(0.6))
                 .clipShape(RoundedRectangle(cornerRadius: 18))
             } else {
-                stepTitle("Let's find your first great gift", subtitle: "A 30-second warm-up: pick one idea that feels right and say why. That's the whole Giftmaxxing habit in miniature.")
+                stepTitle("Let's find your first great gift", subtitle: "Pick one idea that feels right and say why.")
             }
         }
     }
@@ -330,7 +330,7 @@ struct PurposeOnboardingView: View {
                 savedPick == nil ? "Pick one that feels right" : "Why does it fit?",
                 subtitle: savedPick == nil
                     ? (nextOccasion.map { "Thinking of \($0.name) —" } ?? "") + " tap the one you'd actually consider."
-                    : "One line is plenty — the note is what makes it a gift, not a purchase."
+                    : "One line is plenty."
             )
 
             if samplePicks.isEmpty {

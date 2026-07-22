@@ -69,6 +69,29 @@ function publicCard(item, allowPrivate = false) {
       .replace(/[^a-z0-9]+/g, "")
       .slice(0, 18) ||
     "user";
+  // The "gift me right" facts: sizes, dislikes, the standing note, and a
+  // photo showcase of gifts the owner would love. Everything is opt-in via
+  // the same visibility gate above and length-capped here.
+  const clothingSizes =
+    item.clothingSizes && typeof item.clothingSizes === "object" && !Array.isArray(item.clothingSizes)
+      ? Object.fromEntries(
+          Object.entries(item.clothingSizes)
+            .filter(([, v]) => typeof v === "string" && v.trim())
+            .slice(0, 8)
+            .map(([k, v]) => [String(k).slice(0, 20), String(v).trim().slice(0, 24)])
+        )
+      : null;
+  const giftShowcase = Array.isArray(item.giftShowcase)
+    ? item.giftShowcase
+        .slice(0, 6)
+        .map((g) => ({
+          postId: String(g?.postId ?? "").slice(0, 80),
+          name: typeof g?.name === "string" ? g.name.slice(0, 120) : null,
+          imageUrl: typeof g?.imageUrl === "string" ? g.imageUrl.slice(0, 500) : null,
+          why: typeof g?.why === "string" ? g.why.slice(0, 200) : null,
+        }))
+        .filter((g) => g.postId)
+    : [];
   return {
     userId: item.userId,
     name,
@@ -82,6 +105,14 @@ function publicCard(item, allowPrivate = false) {
     style: item.style ?? null,
     role: item.role ?? null,
     visibility,
+    tagline: typeof item.tagline === "string" ? item.tagline.slice(0, 120) : null,
+    philosophy: typeof item.philosophy === "string" ? item.philosophy.slice(0, 500) : null,
+    clothingSizes: clothingSizes && Object.keys(clothingSizes).length ? clothingSizes : null,
+    dislikes: Array.isArray(item.dislikes)
+      ? item.dislikes.filter((d) => typeof d === "string").slice(0, 12)
+      : [],
+    giftNote: typeof item.giftNote === "string" ? item.giftNote.slice(0, 240) : null,
+    giftShowcase,
   };
 }
 

@@ -239,6 +239,18 @@ so Dynamic Type works:
 - Minimum text size anywhere: `caption2` (11pt). The current 8–10pt
   literals are banned.
 
+**Copy rules (text density).** Too much text is the fastest way to lose
+warm/calm/intentional:
+
+- Screen intros are **one fragment, not a paragraph**. No multi-sentence
+  subtitles or "why this tab exists" manifestos on primary tabs.
+- Row/card subtitles are ≤ 4 words or absent. Empty states get one short
+  sentence, never two.
+- Explain a feature at the moment of failure or first use (an error, a
+  tooltip), not pre-emptively in standing copy. Size limits, screening
+  notices, and mechanics ("they swipe, you see answers") belong behind
+  the interaction, not in front of it.
+
 ## Layout
 
 - **4pt base grid**; all spacing from the `spacing` scale. Screen gutter

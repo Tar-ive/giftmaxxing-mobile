@@ -2706,7 +2706,17 @@ export const handler = async (event) => {
 
     // Friends / people discovery / 1:1 DMs / circle account claim.
     {
-      const friendsRes = await friendsRoutes(method, path, body, qs, auth);
+      // /people/{id} is public, so the auth gate above never ran — but a
+      // signed-in viewer's identity is what unlocks a private profile they're
+      // friends with. Best-effort parse: a bad/absent token just stays public.
+      let friendsAuth = auth;
+      if (!friendsAuth?.ok && bearerToken(event)) {
+        try {
+          const attempt = await authorizeRequest(event, method, path);
+          if (attempt?.ok) friendsAuth = attempt;
+        } catch {}
+      }
+      const friendsRes = await friendsRoutes(method, path, body, qs, friendsAuth);
       if (friendsRes) return friendsRes;
     }
 

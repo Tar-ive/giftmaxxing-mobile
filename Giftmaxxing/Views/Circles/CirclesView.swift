@@ -34,15 +34,9 @@ struct CirclesView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    // Why this tab exists, in one line.
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Your people, their moments")
-                            .font(.system(size: 24, weight: .heavy, design: .rounded))
-                            .foregroundStyle(Color.ink)
-                        Text("Family, friends, work crews — invite yours once, and every birthday, graduation, and anniversary lands here. Then gift together when the day comes.")
-                            .font(.bodyMedium)
-                            .foregroundStyle(.secondary)
-                    }
+                    Text("Your people, their moments")
+                        .font(.system(size: 24, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Color.ink)
 
                     GiftStreakCard()
 
@@ -59,19 +53,19 @@ struct CirclesView: View {
                     FeatureCard(
                         icon: "person.2.fill",
                         title: "Friends",
-                        subtitle: "Discover people on Giftmaxxing, connect in circles, message & gift."
+                        subtitle: "Connect & message"
                     ) { showFriends = true }
 
                     FeatureCard(
                         icon: "banknote.fill",
                         title: "Gift pools",
-                        subtitle: "Chip in on something big — everyone contributes what they can."
+                        subtitle: "Chip in together"
                     ) { showPools = true }
 
                     FeatureCard(
                         icon: "paperplane.fill",
                         title: "Gift challenge",
-                        subtitle: "Send a swipe deck to learn a friend's taste — no account needed on their end."
+                        subtitle: "Learn a friend's taste"
                     ) { showChallenge = true }
                 }
                 .padding(16)
@@ -268,7 +262,7 @@ struct CirclesView: View {
                             Text("Never miss a birthday again")
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundStyle(Color.ink)
-                            Text("Add a date — or join a circle below — and every moment shows up here.")
+                            Text("Add a date or join a circle.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.leading)
@@ -353,7 +347,7 @@ struct CirclesView: View {
                             Text("Start a circle")
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundStyle(Color.ink)
-                            Text("One link for the family group chat — everyone drops their birthday, the circle becomes your gift calendar.")
+                            Text("One link, everyone's birthdays.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.leading)
@@ -422,7 +416,7 @@ struct CirclesView: View {
             Text("COLLABORATIVE BOARDS")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(.secondary)
-            Text("Co-curate a deck with friends, vote by swiping, split the cost. Every yes is a vote — the tally picks the gift.")
+            Text("Curate together, vote by swiping, split the cost.")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
             NavigationLink(destination: GroupGiftCreateView()) {
@@ -463,8 +457,8 @@ struct GiftStreakCard: View {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(Color.ink)
                 Text(streak > 0
-                     ? "\(thoughtfulness.points) Thoughtfulness Points and counting — one thoughtful act a month keeps it alive."
-                     : "Write a note, share a board, or start a pool this month.")
+                     ? "\(thoughtfulness.points) Thoughtfulness Points"
+                     : "One thoughtful act a month keeps it alive.")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             }

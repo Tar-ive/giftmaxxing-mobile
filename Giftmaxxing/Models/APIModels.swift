@@ -292,6 +292,13 @@ struct UserProfile: Codable {
     var visibility: String?
     // Per-account Gift Boards, synced so they survive sign-out / new devices.
     var giftBoards: [SwipeList]?
+    // The public gifting persona (also served to friends via /people).
+    var tagline: String?
+    var philosophy: String?
+    var clothingSizes: [String: String]?
+    var dislikes: [String]?
+    var giftNote: String?
+    var giftShowcase: [GiftShowcaseItem]?
 
     struct Recipient: Codable, Identifiable {
         var id: String
@@ -452,8 +459,28 @@ struct PublicPerson: Codable, Identifiable, Hashable {
     var style: String?
     var role: String?
     var visibility: String?
+    // Gifting persona + the "gift me right" facts (sizes, dislikes, note,
+    // photos of gifts they'd love) — what friends use to pick well.
+    var tagline: String?
+    var philosophy: String?
+    var clothingSizes: [String: String]?
+    var dislikes: [String]?
+    var giftNote: String?
+    var giftShowcase: [GiftShowcaseItem]?
 
     var id: String { userId }
+}
+
+// One photo in a profile's "gifts I'd love" showcase — a board item the
+// owner wrote a why-note for, or explicitly liked.
+struct GiftShowcaseItem: Codable, Hashable, Identifiable {
+    var postId: String
+    var name: String?
+    var imageUrl: String?
+    var why: String?
+    var forWhom: String?
+
+    var id: String { postId }
 }
 
 struct PeopleSearchResponse: Codable {
