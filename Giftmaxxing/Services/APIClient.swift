@@ -289,6 +289,13 @@ actor APIClient {
         var profile = response.item
         let imageUrl = profile?.imageUrl
         profile?.imageUrl = absoluteMediaURL(imageUrl)
+        if let showcase = profile?.giftShowcase {
+            profile?.giftShowcase = showcase.map { item in
+                var item = item
+                item.imageUrl = absoluteMediaURL(item.imageUrl)
+                return item
+            }
+        }
         return profile
     }
 
@@ -383,12 +390,12 @@ actor APIClient {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty { params["q"] = trimmed }
         let response: PeopleSearchResponse = try await get("/people", params: params)
-        return response.items ?? []
+        return (response.items ?? []).map(normalizePerson)
     }
 
     func fetchPerson(userId: String) async throws -> PublicPerson? {
         let response: PersonResponse = try await get("/people/\(userId)")
-        return response.item
+        return response.item.map(normalizePerson)
     }
 
     func listFriends(userId: String, status: String? = nil) async throws -> [Friendship] {
@@ -848,6 +855,18 @@ actor APIClient {
         post.mediaUrl = absoluteMediaURL(post.mediaUrl)
         post.posterUrl = absoluteMediaURL(post.posterUrl)
         return post
+    }
+
+    private func normalizePerson(_ value: PublicPerson) -> PublicPerson {
+        var person = value
+        person.imageUrl = absoluteMediaURL(person.imageUrl)
+        person.giftShowcase = person.giftShowcase?.map { item in
+            var item = item
+            item.imageUrl = absoluteMediaURL(item.imageUrl)
+            return item
+        }
+        person.posts = person.posts?.map(normalizeUGCPost)
+        return person
     }
 
     private func relativeTime(ms: Double?) -> String {

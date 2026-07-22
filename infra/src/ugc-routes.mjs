@@ -289,6 +289,21 @@ async function listPosts(ownerId, limit) {
   return json(200, { items: (out.Items ?? []).filter((item) => item.source === "ugc").map(publicPost) });
 }
 
+export async function publicPostsForProfile(ownerId, limit = 12) {
+  if (!POSTS || !ownerId) return [];
+  const out = await ddb.send(new QueryCommand({
+    TableName: POSTS,
+    IndexName: "byAuthor",
+    KeyConditionExpression: "author = :author",
+    ExpressionAttributeValues: { ":author": ownerId },
+    ScanIndexForward: false,
+    Limit: Math.min(Math.max(Number(limit) || 12, 1), 24),
+  }));
+  return (out.Items ?? [])
+    .filter((item) => item.source === "ugc" && item.processingStatus === "READY" && item.moderationStatus === "APPROVED")
+    .map(publicPost);
+}
+
 async function getPost(postId, ownerId) {
   const owned = await getOwnedPost(postId, ownerId);
   return owned.error ?? json(200, { item: publicPost(owned.item) });

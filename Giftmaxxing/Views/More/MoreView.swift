@@ -27,6 +27,12 @@ struct MoreView: View {
     @State private var isUploadingAvatar = false
     @State private var ugcPosts: [UGCPost] = []
     @State private var selectedUGCPost: UGCPost?
+    @State private var showSettings = false
+    @State private var profileShowcase: [GiftShowcaseItem] = []
+    @State private var profileSizes: [String: String] = [:]
+    @State private var profileVibes: [String] = []
+    @State private var profileDislikes: [String] = []
+    @State private var profileGiftNote = ""
 
     // The gifting persona — local-first, pushed to /me on every edit so the
     // public /people profile serves it to friends.
@@ -87,243 +93,10 @@ struct MoreView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // ── The public gifting persona ────────────────────────
-                    // A curator profile, not a personal one: who you are AS A
-                    // GIFTER. Finite by design — no infinite anything.
                     personaHeader
-
+                    ownerGiftListSection
+                    ownerTasteSection
                     ugcPostsSection
-
-                    if !thoughtfulness.badges.isEmpty {
-                        badgesRow
-                    }
-
-                    philosophyCard
-
-                    if !signatureGifts.isEmpty {
-                        signatureGiftsSection
-                    }
-
-                    if !openBoards.isEmpty {
-                        searchingForSection
-                    }
-
-                    thankYousSection
-
-                    // Your gifting life. (Group gifting + challenges AND events
-                    // & reminders live in the Circles tab — dates belong with
-                    // the people they're for. This screen is profile + shopping.)
-                    VStack(spacing: 2) {
-                        MoreSectionHeader(title: "Your gifting")
-
-                        MoreRow(icon: "person.2.fill", title: "Friends", subtitle: "Discover, connect, message") {
-                            FriendsView()
-                        }
-
-                        MoreRow(icon: "sparkles", title: "Edit taste", subtitle: "Sizes, vibes, dislikes") {
-                            TasteInterviewView()
-                        }
-
-                        MoreRow(icon: "bag.fill", title: "Shop", subtitle: "Curated picks") {
-                            ShopView()
-                        }
-
-                        MoreRow(icon: "leaf.fill", title: "Intentional Discover", subtitle: "Ranked by meaning") {
-                            DiscoverView()
-                        }
-                    }
-
-                    // Settings
-                    VStack(spacing: 2) {
-                        MoreSectionHeader(title: "Settings")
-
-                        if authManager.isAuthenticated {
-                            HStack(spacing: 12) {
-                                Image(systemName: visibility == "private" ? "lock.fill" : "globe")
-                                    .font(.system(size: 16))
-                                    .foregroundStyle(Color.coral)
-                                    .frame(width: 28)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Profile visibility")
-                                        .font(.system(size: 15, weight: .medium))
-                                        .foregroundStyle(Color.ink)
-                                    Text(visibility == "private" ? "Friends only" : "Anyone can view")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Picker("Profile visibility", selection: $visibility) {
-                                    Text("Public").tag("public")
-                                    Text("Private").tag("private")
-                                }
-                                .pickerStyle(.segmented)
-                                .frame(width: 154)
-                                .disabled(savingVisibility)
-                                .onChange(of: visibility) { _, value in
-                                    Task { await saveVisibility(value) }
-                                }
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
-                            .background(Color.surface)
-                        }
-
-                        Button(action: {
-                            Task { await pushManager.requestPermission() }
-                        }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "bell.fill")
-                                    .font(.system(size: 16))
-                                    .foregroundStyle(Color.coral)
-                                    .frame(width: 28)
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Push Notifications")
-                                        .font(.system(size: 15, weight: .medium))
-                                        .foregroundStyle(Color.ink)
-                                    Text(pushManager.isRegistered ? "Enabled" : "Tap to enable")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-
-                                Spacer()
-
-                                if pushManager.isRegistered {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(.green)
-                                } else {
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption)
-                                        .foregroundStyle(.tertiary)
-                                }
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
-                            .background(Color.surface)
-                        }
-                        .buttonStyle(.plain)
-
-                        Button(action: {
-                            Task {
-                                await syncEngine.performFullSync(
-                                    context: DataController.shared.mainContext,
-                                    userId: authManager.userId
-                                )
-                            }
-                        }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "arrow.triangle.2.circlepath")
-                                    .font(.system(size: 16))
-                                    .foregroundStyle(Color.coral)
-                                    .frame(width: 28)
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Sync Now")
-                                        .font(.system(size: 15, weight: .medium))
-                                        .foregroundStyle(Color.ink)
-                                    if syncEngine.isSyncing {
-                                        Text("Syncing...")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    } else if let lastSync = syncEngine.lastSyncDate {
-                                        Text("Last: \(lastSync, style: .relative) ago")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-
-                                Spacer()
-
-                                if syncEngine.isSyncing {
-                                    ProgressView()
-                                        .scaleEffect(0.8)
-                                }
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 12)
-                            .background(Color.surface)
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    // Account
-                    if authManager.isAuthenticated {
-                        VStack(spacing: 2) {
-                            MoreSectionHeader(title: "Account")
-
-                            Button(action: {
-                                DataController.shared.clearAllData()
-                                authManager.signOut()
-                            }) {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                                        .font(.system(size: 16))
-                                        .foregroundStyle(.red)
-                                        .frame(width: 28)
-
-                                    Text("Sign Out")
-                                        .font(.system(size: 15, weight: .medium))
-                                        .foregroundStyle(.red)
-
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 12)
-                                .background(Color.surface)
-                            }
-                            .buttonStyle(.plain)
-
-                            // Permanent account deletion (App Store 5.1.1(v)).
-                            Button(action: { showDeleteConfirm = true }) {
-                                HStack(spacing: 12) {
-                                    if isDeleting {
-                                        ProgressView().frame(width: 28)
-                                    } else {
-                                        Image(systemName: "trash")
-                                            .font(.system(size: 16))
-                                            .foregroundStyle(.red)
-                                            .frame(width: 28)
-                                    }
-                                    VStack(alignment: .leading, spacing: 1) {
-                                        Text(isDeleting ? "Deleting…" : "Delete Account")
-                                            .font(.system(size: 15, weight: .medium))
-                                            .foregroundStyle(.red)
-                                        Text("Permanently erase your account and all data")
-                                            .font(.system(size: 12))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 12)
-                                .background(Color.surface)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(isDeleting)
-
-                            if let deleteError {
-                                Text(deleteError)
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(.red)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.horizontal, 14)
-                                    .padding(.top, 4)
-                            }
-                        }
-                    }
-
-                    // Support & Legal
-                    VStack(spacing: 2) {
-                        MoreSectionHeader(title: "Support & Legal")
-
-                        MoreRow(icon: "questionmark.circle.fill", title: "Help & Support", subtitle: "Contact us, FAQs") {
-                            SupportView()
-                        }
-
-                        MoreRow(icon: "hand.raised.fill", title: "Privacy Policy", subtitle: "Your data rights") {
-                            PrivacyView()
-                        }
-                    }
 
                     Spacer(minLength: 40)
                 }
@@ -335,6 +108,13 @@ struct MoreView: View {
                 ToolbarItem(placement: .principal) {
                     Text("You")
                         .font(.system(size: 18, weight: .bold, design: .rounded))
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showSettings = true } label: {
+                        Image(systemName: "gearshape.fill")
+                            .foregroundStyle(Color.ink)
+                    }
+                    .accessibilityLabel("Settings")
                 }
             }
         }
@@ -356,6 +136,7 @@ struct MoreView: View {
             SignInView(showSignIn: $showSignIn)
                 .environmentObject(authManager)
         }
+        .sheet(isPresented: $showSettings) { settingsSheet }
         .sheet(isPresented: $editingTagline) {
             NoteEditorSheet(
                 title: "Your tagline",
@@ -387,8 +168,29 @@ struct MoreView: View {
             guard let item else { return }
             Task { await uploadAvatar(item) }
         }
-        .task {
+        .task(id: authManager.userId) {
             if let userId = authManager.userId {
+                #if DEBUG
+                if UserDefaults.standard.bool(forKey: "profilePreview") {
+                    tagline = "Thoughtful gifts, zero guesswork."
+                    profileSizes = ["shirt": "M", "shoes": "8.5", "pants": "28"]
+                    profileVibes = ["foodie", "luxury", "thoughtful"]
+                    profileDislikes = ["candles"]
+                    profileGiftNote = "I love thoughtful gifts"
+                    profileShowcase = previewShowcase
+                    if let profile = try? await APIClient.shared.fetchPerson(userId: userId) {
+                        avatarUrl = profile.imageUrl
+                        tagline = profile.tagline ?? tagline
+                        if let showcase = profile.giftShowcase, !showcase.isEmpty { profileShowcase = showcase }
+                        profileSizes = profile.clothingSizes ?? profileSizes
+                        profileVibes = profile.interests ?? profileVibes
+                        profileDislikes = profile.dislikes ?? profileDislikes
+                        profileGiftNote = profile.giftNote ?? profileGiftNote
+                        ugcPosts = profile.posts ?? []
+                    }
+                    return
+                }
+                #endif
                 connections = (try? await APIClient.shared.fetchConnections(userId: userId)) ?? []
                 ugcPosts = (try? await APIClient.shared.fetchMyUGCPosts()) ?? []
                 if let profile = try? await APIClient.shared.fetchMe(userId: userId) {
@@ -398,9 +200,17 @@ struct MoreView: View {
                     // otherwise (they're pushed on every save).
                     if tagline.isEmpty, let t = profile.tagline { tagline = t }
                     if philosophy.isEmpty, let p = profile.philosophy { philosophy = p }
+                    profileShowcase = profile.giftShowcase ?? []
+                    profileSizes = profile.clothingSizes ?? PersonalizationStore.clothingSizes ?? [:]
+                    profileVibes = profile.interests ?? PersonalizationStore.consultVibes
+                    profileDislikes = profile.dislikes ?? PersonalizationStore.dislikes
+                    profileGiftNote = profile.giftNote ?? PersonalizationStore.giftNote ?? ""
                 }
                 await syncShowcase(userId: userId)
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .consultProfileUpdated)) { _ in
+            loadLocalTaste()
         }
     }
 
@@ -428,11 +238,17 @@ struct MoreView: View {
         for cached in (try? modelContext.fetch(descriptor)) ?? [] where seen.insert(cached.postId).inserted {
             var item: [String: Any] = ["postId": cached.postId, "name": cached.productName]
             if let image = cached.productImage { item["imageUrl"] = image }
+            if !cached.productBrand.isEmpty { item["brand"] = cached.productBrand }
+            if cached.productPrice > 0 { item["price"] = cached.productPrice }
+            if let url = cached.productUrl { item["productUrl"] = url }
             items.append(item)
         }
         for gift in signatureGifts where items.count < 6 && seen.insert(gift.post.id).inserted {
             var item: [String: Any] = ["postId": gift.post.id, "name": gift.post.product.name, "why": gift.why]
             if let image = gift.post.product.image { item["imageUrl"] = image }
+            item["brand"] = gift.post.product.brand
+            item["price"] = gift.post.product.price
+            if let url = gift.post.productUrl ?? gift.post.url { item["productUrl"] = url }
             items.append(item)
         }
         let fingerprint = items.compactMap { $0["postId"] as? String }.joined(separator: ",")
@@ -447,49 +263,56 @@ struct MoreView: View {
 
     private var personaHeader: some View {
         let displayName = authManager.displayName ?? "Giftmaxxer"
-        return VStack(spacing: 10) {
-            PhotosPicker(selection: $avatarSelection, matching: .images) {
-                ZStack(alignment: .bottomTrailing) {
-                    AvatarView(
-                        name: displayName,
-                        grad: .coral,
-                        size: 80,
-                        imageUrl: avatarUrl
-                    )
-                    if isUploadingAvatar {
-                        ProgressView()
-                            .tint(.white)
-                            .frame(width: 28, height: 28)
-                            .background(Color.ink.opacity(0.72))
-                            .clipShape(Circle())
-                    } else {
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 28, height: 28)
-                            .background(Color.coral)
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(Color.cream, lineWidth: 2))
+        return VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 16) {
+                PhotosPicker(selection: $avatarSelection, matching: .images) {
+                    ZStack(alignment: .bottomTrailing) {
+                        AvatarView(name: displayName, grad: .coral, size: 92, imageUrl: avatarUrl)
+                        if isUploadingAvatar {
+                            ProgressView()
+                                .tint(.white)
+                                .frame(width: 30, height: 30)
+                                .background(Color.ink.opacity(0.72))
+                                .clipShape(Circle())
+                        } else {
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 30, height: 30)
+                                .background(Color.coral)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(Color.cream, lineWidth: 3))
+                        }
                     }
                 }
-            }
-            .buttonStyle(.plain)
-            .disabled(isUploadingAvatar || !authManager.isAuthenticated)
-            .accessibilityLabel(avatarUrl == nil ? "Add profile photo" : "Change profile photo")
+                .buttonStyle(.plain)
+                .disabled(isUploadingAvatar || !authManager.isAuthenticated)
+                .accessibilityLabel(avatarUrl == nil ? "Add profile photo" : "Change profile photo")
 
-            Text(displayName)
-                .font(.displaySmall)
-                .foregroundStyle(Color.ink)
-
-            Button {
-                editingTagline = true
-            } label: {
-                Text(tagline.isEmpty ? "Add a tagline — your gifting style in one line" : tagline)
-                    .font(.system(size: 13))
-                    .foregroundStyle(tagline.isEmpty ? .secondary : Color.ink)
-                    .multilineTextAlignment(.center)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(displayName)
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.ink)
+                    Text("@\(profileHandle(displayName))")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.inkSecondary)
+                    Button { editingTagline = true } label: {
+                        Text(tagline.isEmpty ? "Add your gifting tagline" : tagline)
+                            .font(.system(size: 13))
+                            .foregroundStyle(tagline.isEmpty ? Color.coral : Color.ink)
+                            .multilineTextAlignment(.leading)
+                    }
+                    .buttonStyle(.plain)
+                    Label("Gift friend", systemImage: "heart.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Color.coral)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.coralSoft)
+                        .clipShape(Capsule())
+                }
+                Spacer(minLength: 0)
             }
-            .buttonStyle(.plain)
 
             if !authManager.isAuthenticated {
                 Button("Sign in with Apple") { showSignIn = true }
@@ -501,7 +324,6 @@ struct MoreView: View {
                     .clipShape(Capsule())
             }
 
-            // Stats — the gifting record, not follower counts.
             HStack(spacing: 0) {
                 statCell(value: "\(giftsGiven)", label: "gifts given")
                 statDivider
@@ -514,6 +336,128 @@ struct MoreView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .padding(.top, 12)
+    }
+
+    private var ownerGiftListSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                MoreSectionHeader(title: "Gift list")
+                Spacer()
+                NavigationLink("Open list") { ShopView() }
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Color.coral)
+            }
+            if profileShowcase.isEmpty {
+                NavigationLink { ShopView() } label: {
+                    Label("Save gift ideas and they’ll appear here", systemImage: "gift.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.ink)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                        .background(Color.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            } else {
+                HStack(spacing: 10) {
+                    ForEach(profileShowcase.prefix(2)) { item in giftListCard(item) }
+                }
+            }
+        }
+    }
+
+    private func giftListCard(_ item: GiftShowcaseItem) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            ZStack {
+                Color.surfaceSunken
+                if let image = item.imageUrl { CachedAsyncImage(url: image, width: 360) }
+                else { Image(systemName: "gift.fill").foregroundStyle(Color.coral) }
+            }
+            .frame(height: 118)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            Text(item.name ?? "Gift idea")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(Color.ink)
+                .lineLimit(1)
+            HStack {
+                Text(item.brand ?? "Saved find").lineLimit(1)
+                Spacer()
+                if let price = item.price, price > 0 { Text(price, format: .currency(code: "USD")) }
+            }
+            .font(.caption)
+            .foregroundStyle(Color.inkSecondary)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
+    }
+
+    private var ownerTasteSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                MoreSectionHeader(title: "My taste")
+                Spacer()
+                NavigationLink("Edit") { TasteInterviewView() }
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Color.coral)
+            }
+            if !profileSizes.isEmpty { measurementsRow(profileSizes) }
+            if !profileVibes.isEmpty {
+                profileCard(title: "Gift vibes") {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 7) {
+                            ForEach(profileVibes.prefix(6), id: \.self) { vibe in
+                                Text(vibe)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 7)
+                                    .background(Color.coralSoft)
+                                    .clipShape(Capsule())
+                            }
+                        }
+                    }
+                }
+            }
+            if !profileGiftNote.isEmpty || !profileDislikes.isEmpty {
+                profileCard(title: "Good to know") {
+                    if !profileGiftNote.isEmpty { Text(profileGiftNote).foregroundStyle(Color.ink) }
+                    if !profileDislikes.isEmpty {
+                        Label("Avoid \(profileDislikes.joined(separator: ", "))", systemImage: "hand.raised.fill")
+                            .foregroundStyle(Color.inkSecondary)
+                    }
+                }
+            }
+        }
+    }
+
+    private func measurementsRow(_ sizes: [String: String]) -> some View {
+        profileCard(title: "Measurements") {
+            HStack(spacing: 0) {
+                ForEach(orderedSizes(sizes), id: \.0) { key, value in
+                    VStack(spacing: 5) {
+                        Image(systemName: sizeIcon(key))
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Color.coral)
+                        Text(value).font(.system(size: 17, weight: .bold, design: .rounded))
+                        Text(key.capitalized).font(.caption).foregroundStyle(Color.inkSecondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+    }
+
+    private func profileCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).font(.system(size: 14, weight: .bold)).foregroundStyle(Color.ink)
+            content().font(.system(size: 13))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
     }
 
     private var ugcPostsSection: some View {
@@ -764,6 +708,164 @@ struct MoreView: View {
         }
     }
 
+    private var settingsSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 18) {
+                    VStack(spacing: 2) {
+                        MoreSectionHeader(title: "Profile")
+                        MoreRow(icon: "sparkles", title: "Edit taste", subtitle: "Sizes, vibes, dislikes") { TasteInterviewView() }
+                        MoreRow(icon: "person.2.fill", title: "Friends", subtitle: "Discover, connect, message") { FriendsView() }
+                    }
+                    VStack(spacing: 2) {
+                        MoreSectionHeader(title: "Explore")
+                        MoreRow(icon: "bag.fill", title: "Shop", subtitle: "Curated picks") { ShopView() }
+                        MoreRow(icon: "leaf.fill", title: "Intentional Discover", subtitle: "Ranked by meaning") { DiscoverView() }
+                    }
+                    VStack(spacing: 2) {
+                        MoreSectionHeader(title: "Settings")
+                        if authManager.isAuthenticated {
+                            HStack(spacing: 12) {
+                                Image(systemName: visibility == "private" ? "lock.fill" : "globe")
+                                    .foregroundStyle(Color.coral).frame(width: 28)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Profile visibility").font(.system(size: 15, weight: .medium))
+                                    Text(visibility == "private" ? "Friends only" : "Anyone can view")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Picker("Profile visibility", selection: $visibility) {
+                                    Text("Public").tag("public")
+                                    Text("Private").tag("private")
+                                }
+                                .pickerStyle(.segmented)
+                                .frame(width: 142)
+                                .disabled(savingVisibility)
+                                .onChange(of: visibility) { _, value in Task { await saveVisibility(value) } }
+                            }
+                            .padding(14)
+                            .background(Color.surface)
+                        }
+                        settingsButton(
+                            icon: "bell.fill",
+                            title: "Push Notifications",
+                            subtitle: pushManager.isRegistered ? "Enabled" : "Tap to enable"
+                        ) { Task { await pushManager.requestPermission() } }
+                        settingsButton(
+                            icon: "arrow.triangle.2.circlepath",
+                            title: syncEngine.isSyncing ? "Syncing…" : "Sync Now",
+                            subtitle: syncEngine.lastSyncDate.map { "Last synced \($0.formatted(.relative(presentation: .named)))" }
+                        ) {
+                            Task {
+                                await syncEngine.performFullSync(
+                                    context: DataController.shared.mainContext,
+                                    userId: authManager.userId
+                                )
+                            }
+                        }
+                    }
+                    if authManager.isAuthenticated {
+                        VStack(spacing: 2) {
+                            MoreSectionHeader(title: "Account")
+                            settingsButton(icon: "rectangle.portrait.and.arrow.right", title: "Sign Out", role: .destructive) {
+                                DataController.shared.clearAllData()
+                                authManager.signOut()
+                            }
+                            settingsButton(icon: "trash", title: "Delete Account", subtitle: "Permanently erase your account and all data", role: .destructive) {
+                                showDeleteConfirm = true
+                            }
+                        }
+                    }
+                    VStack(spacing: 2) {
+                        MoreSectionHeader(title: "Support & Legal")
+                        MoreRow(icon: "questionmark.circle.fill", title: "Help & Support", subtitle: "Contact us, FAQs") { SupportView() }
+                        MoreRow(icon: "hand.raised.fill", title: "Privacy Policy", subtitle: "Your data rights") { PrivacyView() }
+                    }
+                }
+                .padding(14)
+            }
+            .background(Color.cream)
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { showSettings = false } }
+            }
+        }
+    }
+
+    private func settingsButton(
+        icon: String,
+        title: String,
+        subtitle: String? = nil,
+        role: ButtonRole? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(role: role, action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon).frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.system(size: 15, weight: .medium))
+                    if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) }
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+            }
+            .foregroundStyle(role == .destructive ? Color.red : Color.ink)
+            .padding(14)
+            .background(Color.surface)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func loadLocalTaste() {
+        profileSizes = PersonalizationStore.clothingSizes ?? [:]
+        profileVibes = PersonalizationStore.consultVibes
+        profileDislikes = PersonalizationStore.dislikes
+        profileGiftNote = PersonalizationStore.giftNote ?? ""
+    }
+
+    private func profileHandle(_ name: String) -> String {
+        name.lowercased().filter { $0.isLetter || $0.isNumber }.prefix(22).description
+    }
+
+    private var previewShowcase: [GiftShowcaseItem] {
+        [
+            GiftShowcaseItem(
+                postId: "preview-jacket",
+                name: "Hourglass Work Jacket",
+                imageUrl: "https://cdn.shopify.com/s/files/1/0293/9277/files/V225JK0709_Black_JR_V1.jpg?width=1200",
+                brand: "Fashion Nova",
+                price: 36,
+                productUrl: "https://www.fashionnova.com/products/own-the-room-hourglass-twill-work-jacket-fncolorname-black"
+            ),
+            GiftShowcaseItem(
+                postId: "preview-top",
+                name: "Poise Crew Neck Top",
+                imageUrl: "https://cdn.shopify.com/s/files/1/0156/6146/files/BalletTightCrewNeckTopGSCoolBrownB4C4P_NBZG_0441.jpg?width=1200",
+                brand: "Gymshark",
+                price: 38,
+                productUrl: "https://www.gymshark.com/products/gymshark-poise-crew-neck-short-sleeve-top-ss-tops-brown-ss26"
+            ),
+        ]
+    }
+
+    private func orderedSizes(_ sizes: [String: String]) -> [(String, String)] {
+        let order = ["shirt", "shoes", "pants", "dress", "ring"]
+        return sizes.sorted {
+            (order.firstIndex(of: $0.key.lowercased()) ?? 99) < (order.firstIndex(of: $1.key.lowercased()) ?? 99)
+        }
+        .prefix(3)
+        .map { ($0.key, $0.value) }
+    }
+
+    private func sizeIcon(_ key: String) -> String {
+        switch key.lowercased() {
+        case "shirt": "tshirt.fill"
+        case "shoes", "shoe": "shoe.2.fill"
+        default: "ruler.fill"
+        }
+    }
+
     private func saveVisibility(_ value: String) async {
         guard let userId = authManager.userId else { return }
         savingVisibility = true
@@ -803,7 +905,7 @@ private enum AvatarUploadError: LocalizedError {
     var errorDescription: String? { "That photo couldn’t be prepared. Please choose another one." }
 }
 
-private struct UGCProfilePostSheet: View {
+struct UGCProfilePostSheet: View {
     let post: UGCPost
     @Environment(\.dismiss) private var dismiss
 

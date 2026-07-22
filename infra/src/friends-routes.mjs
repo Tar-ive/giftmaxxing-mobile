@@ -26,6 +26,7 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { sendPushToUser } from "./push.mjs";
+import { publicPostsForProfile } from "./ugc-routes.mjs";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
@@ -89,6 +90,9 @@ function publicCard(item, allowPrivate = false) {
           name: typeof g?.name === "string" ? g.name.slice(0, 120) : null,
           imageUrl: typeof g?.imageUrl === "string" ? g.imageUrl.slice(0, 500) : null,
           why: typeof g?.why === "string" ? g.why.slice(0, 200) : null,
+          brand: typeof g?.brand === "string" ? g.brand.slice(0, 80) : null,
+          price: Number.isFinite(Number(g?.price)) ? Number(g.price) : null,
+          productUrl: typeof g?.productUrl === "string" ? g.productUrl.slice(0, 1000) : null,
         }))
         .filter((g) => g.postId)
     : [];
@@ -191,6 +195,7 @@ async function getPerson(userId, viewerId) {
     }
   }
   if (!card) return json(404, { error: "not found or private" });
+  card.posts = await publicPostsForProfile(userId).catch(() => []);
   return json(200, { item: card });
 }
 

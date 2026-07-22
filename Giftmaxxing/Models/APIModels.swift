@@ -39,7 +39,7 @@ struct APIPost: Codable {
     var story: String?
 }
 
-struct UGCPost: Identifiable, Codable {
+struct UGCPost: Identifiable, Codable, Hashable {
     let postId: String
     var authorName: String?
     var authorImageUrl: String?
@@ -481,6 +481,7 @@ struct PublicPerson: Codable, Identifiable, Hashable {
     var dislikes: [String]?
     var giftNote: String?
     var giftShowcase: [GiftShowcaseItem]?
+    var posts: [UGCPost]?
 
     var id: String { userId }
 }
@@ -493,6 +494,9 @@ struct GiftShowcaseItem: Codable, Hashable, Identifiable {
     var imageUrl: String?
     var why: String?
     var forWhom: String?
+    var brand: String?
+    var price: Double?
+    var productUrl: String?
 
     var id: String { postId }
 }

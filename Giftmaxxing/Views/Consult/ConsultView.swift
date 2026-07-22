@@ -467,6 +467,7 @@ struct ConsultView: View {
     // "Skip for now" escape hatch. Tab mode: an always-available concierge.
     var isOnboarding = false
     var skipIntro = false
+    var prefillRecipientName: String? = nil
     var onDone: (() -> Void)? = nil
 
     @StateObject private var vm = ConsultViewModel()
@@ -499,6 +500,13 @@ struct ConsultView: View {
         }
         .background(Color.onboardingWash.ignoresSafeArea())
         .interactiveDismissDisabled(isOnboarding && vm.phase != .results)
+        .onAppear {
+            guard let name = prefillRecipientName?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !name.isEmpty, vm.theirName.isEmpty else { return }
+            vm.relation = "friend"
+            vm.theirName = name
+            vm.phase = .occasion
+        }
 
     }
 

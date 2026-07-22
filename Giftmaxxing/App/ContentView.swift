@@ -53,7 +53,23 @@ struct ContentView: View {
                     }
                     .tag(Tab.circles)
 
-                MoreView()
+                Group {
+                    #if DEBUG
+                    if UserDefaults.standard.bool(forKey: "publicProfilePreview") {
+                        NavigationStack {
+                            PublicProfileView(person: PublicPerson(
+                                userId: "google_102419904198993789987",
+                                name: "Saksham Adhikari",
+                                handle: "sakshamadhikari"
+                            ))
+                        }
+                    } else {
+                        MoreView()
+                    }
+                    #else
+                    MoreView()
+                    #endif
+                }
                     .tabItem {
                         Label(Tab.you.rawValue, systemImage: Tab.you.icon)
                     }
@@ -173,6 +189,11 @@ struct ContentView: View {
         .onAppear {
             drainCaptureInbox()
             PersonalizationStore.migrateLegacyFlagIfNeeded()
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "profilePreview") || UserDefaults.standard.bool(forKey: "publicProfilePreview") {
+                appState.selectedTab = .you
+            }
+            #endif
             // Restore this account's Gift Boards on launch (a restored session
             // doesn't fire onChange for the initial userId).
             SwipeListStore.shared.configure(userId: authManager.userId)
@@ -187,7 +208,11 @@ struct ContentView: View {
             SwipeListStore.shared.configure(userId: newUserId)
             // A fresh sign-in lands on Home, not wherever sign-in happened.
             if newUserId != nil {
+                #if DEBUG
+                appState.selectedTab = (UserDefaults.standard.bool(forKey: "profilePreview") || UserDefaults.standard.bool(forKey: "publicProfilePreview")) ? .you : .feed
+                #else
                 appState.selectedTab = .feed
+                #endif
             }
             guard !showSplash else { return }
             Task { await resolveAppGate(userId: newUserId) }

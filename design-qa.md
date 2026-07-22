@@ -1,62 +1,21 @@
-# Giftmaxxing launch page design QA
+# Profile design QA
 
-- Source visual truth: `design-audit/getlimits/01-hero.png`
-- Implementation: `design-audit/02-launch-desktop.png`
-- Combined comparison: `design-audit/07-reference-vs-launch.png`
-- Responsive evidence: `design-audit/03-launch-mobile.png`,
-  `design-audit/04-launch-mobile-features.png`,
-  `design-audit/06-launch-mobile-phone.png`
-- Viewports: desktop reference and implementation normalized to 720px height;
-  mobile at 390×844
-- State: launch-page hero and primary screen-story flow
+- Reference: `/Users/tarive/.codex/generated_images/019f6e12-af02-7cf2-9718-18597614afe0/exec-9c775430-f804-416e-b801-43c05f4c3302.png`
+- Implementation: `/tmp/giftmaxxing-public-profile-option1-v2.png`
+- Comparison: `/tmp/giftmaxxing-public-profile-comparison-v2.png`
+- Viewport: iPhone 16 Pro simulator, 402 x 874 points; comparison scaled to 853 x 1844 pixels.
 
-## Full-view comparison
+## Visual checks
 
-The implementation matches the reference rhythm: quiet navigation, oversized
-two-tone headline, short supporting copy, pill CTA, and overlapping authentic
-iPhone captures. Giftmaxxing intentionally keeps its cream/coral product tokens
-instead of copying Limits' blue-white palette.
-
-## Focused comparison
-
-- Hero: headline and device cluster have separate readable columns; no copy is
-  hidden by the phones after the first QA adjustment.
-- Mobile: hero, brand circles, feature pills, and screen stories fit 390px with
-  no horizontal overflow.
-- Product imagery: every phone contains a real 1320×2868 Simulator capture.
-  Brand marks use local SVG assets; there are no placeholder screens.
-
-## Required fidelity surfaces
-
-- Typography: Hanken Grotesk preserves the source's dense geometric headline
-  feel; weights, wrapping, and muted second-line hierarchy are consistent.
-- Spacing: the large quiet hero, bordered brand strip, and alternating story
-  cards keep the source's slow vertical rhythm.
-- Colors: cream, ink, warm gray, white, and coral map directly to the existing
-  Giftmaxxing design tokens.
-- Image quality: source captures are full-resolution App Store screenshots,
-  rendered through `next/image`; crops remain sharp and undistorted.
-- Copy: all claims describe shipped product surfaces. Launch language says
-  "launching soon" and "currently in App Store review."
-
-## Interaction and accessibility checks
-
-- "See the iPhone app" scrolls to `#screens`.
-- Web-app CTA resolves to `/feed`.
-- Privacy and Support remain `/privacy` and `/support`.
-- Browser console: no errors.
-- Mobile document width: 390px; no overflow.
-- Semantic headings, navigation labels, image alt text, and visible focusable
-  links are present.
-
-## Comparison history
-
-1. P1: the first desktop hero let the phone cluster overlap the last headline
-   word. Reduced the responsive display size and recaptured.
-2. Post-fix: no actionable P0/P1/P2 issues remain.
-
-## Follow-up polish
-
-- P3: replace "App Store soon" with the live product-page link after approval.
+- Identity, friendship badge, and primary actions lead the hierarchy.
+- Gift list, saved measurements, vibes, dislikes, and approved posts are visible in the first screen.
+- Coral accent, cream canvas, typography, spacing, and compact product rows remain cohesive with the selected direction.
+- Owner state uses an edit-photo affordance and moves account, privacy, support, and destructive actions behind the settings gear.
+- Accepted-friend state exposes Send gift, Message, Open list, and Invite to group gift.
+- Non-friend state exposes the friend-request flow and keeps friend-only actions locked.
+- P0 issues: none.
+- P1 issues: none.
+- P2 issues: none.
+- P3 note: product imagery depends on the recipient's saved gift-list data.
 
 final result: passed
