@@ -44,6 +44,11 @@ final class FeedViewModel: ObservableObject {
 
     // MARK: - Loading
 
+    func hide(postId: String) {
+        posts.removeAll { $0.id == postId }
+        servedIds.insert(postId)
+    }
+
     // forceFresh = pull-to-refresh: bust the CDN cache so the server deals a
     // brand-new random window instead of replaying the cached page.
     func loadFeed(context: ModelContext? = nil, forceFresh: Bool = false) async {

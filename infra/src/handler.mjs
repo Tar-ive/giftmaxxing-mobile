@@ -30,6 +30,7 @@ import { mobileRoutes } from "./mobile-routes.mjs";
 import { analyticsRoutes } from "./analytics-routes.mjs";
 import { birthdayFreebiesRoute } from "./birthday-freebies.mjs";
 import { friendsRoutes } from "./friends-routes.mjs";
+import { purgeUserUGC, ugcRoutes } from "./ugc-routes.mjs";
 import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
@@ -441,6 +442,22 @@ async function aiEnabled() {
   return (await getDegradeLevel()) === "active";
 }
 
+function feedClassification(post) {
+  if (post.source === "ugc") {
+    if (post.moderationStatus === "APPROVED" && post.processingStatus === "READY" && post.feedEligible === true) {
+      return { contentType: post.contentType ?? "ugc", qualityScore: 0.8, feedEligible: true };
+    }
+    return { contentType: post.contentType ?? "ugc", qualityScore: 0, feedEligible: false };
+  }
+  return classifyPin({
+    title: post.caption ?? post.product?.name,
+    domain: post.domain ?? post.merchant,
+    link: post.url ?? post.productUrl,
+    price: post.price ?? post.product?.price,
+    giftType: post.giftType,
+  });
+}
+
 // S3 Vectors (the vector store powering similarity-based recommendations).
 const VECTOR_BUCKET = process.env.VECTOR_BUCKET;
 const VECTOR_INDEX = process.env.VECTOR_INDEX;
@@ -466,10 +483,7 @@ async function hydratePosts(ids, limit = 60) {
     .map((id) => found.get(id))
     .filter(Boolean)
     .map((p) => {
-      const q = classifyPin({
-        title: p.caption ?? p.product?.name, domain: p.domain ?? p.merchant,
-        link: p.url ?? p.productUrl, price: p.price ?? p.product?.price, giftType: p.giftType,
-      });
+      const q = feedClassification(p);
       return { ...p, contentType: q.contentType, qualityScore: q.qualityScore, feedEligible: q.feedEligible };
     })
     .filter((p) => p.feedEligible);
@@ -630,21 +644,26 @@ async function getFeedBounds() {
 
 // Every target a user has already interacted with (seen/liked/saved/hidden) so
 // the feed and recs can exclude them. One query on the interactions table.
-async function userExcludeSet(userId) {
-  if (!userId || !INTERACTIONS) return new Set();
+async function userExclusions(userId) {
+  if (!userId || !INTERACTIONS) return { posts: new Set(), authors: new Set() };
   try {
     const inter = await ddb.send(
       new QueryCommand({
         TableName: INTERACTIONS,
         KeyConditionExpression: "userId = :u",
         ExpressionAttributeValues: { ":u": userId },
-        ProjectionExpression: "target",
+        ProjectionExpression: "target, #type",
+        ExpressionAttributeNames: { "#type": "type" },
       })
     );
-    return new Set((inter.Items ?? []).map((i) => i.target).filter(Boolean));
+    const rows = inter.Items ?? [];
+    return {
+      posts: new Set(rows.filter((item) => item.type !== "block").map((item) => item.target).filter(Boolean)),
+      authors: new Set(rows.filter((item) => item.type === "block").map((item) => item.target).filter(Boolean)),
+    };
   } catch (e) {
-    console.warn("userExcludeSet failed:", e.message);
-    return new Set();
+    console.warn("userExclusions failed:", e.message);
+    return { posts: new Set(), authors: new Set() };
   }
 }
 
@@ -2579,6 +2598,7 @@ async function purgeAccount(userId) {
     devices: 0,
     pools: 0,
     challenges: 0,
+    ugcPosts: 0,
   };
   // Clear the alias rows before the profile: the scan matches on
   // canonicalUserId, which does not depend on the profile item existing.
@@ -2600,6 +2620,7 @@ async function purgeAccount(userId) {
   summary.devices = await purgeByPartition(DEVICES, "userId", userId, ["userId", "deviceId"]);
   summary.pools = await purgePoolRows(userId);
   summary.challenges = await purgeOwnedChallenges(userId);
+  summary.ugcPosts = await purgeUserUGC(userId);
   return summary;
 }
 
@@ -2656,6 +2677,15 @@ export const handler = async (event) => {
 
   try {
     if (method === "POST" && path === "/login") return await loginRoute(event, body);
+
+    // User-generated media is always identity-bound, even while the broader
+    // AUTH_ENFORCE migration flag is off. Raw uploads remain private until the
+    // separate Rekognition workers mark the post safe.
+    if (path === "/ugc" || path.startsWith("/ugc/")) {
+      const ugcAuth = auth?.ok ? auth : await authorizeRequest(event, method, path);
+      if (!ugcAuth?.ok) return json(401, { error: "sign in required" });
+      return await ugcRoutes(method, path, body, qs, ugcAuth);
+    }
 
     // Mobile behavioral analytics (POST ingest is public; GET summary rides
     // the auth gate above like every other protected route).
@@ -2746,7 +2776,7 @@ export const handler = async (event) => {
       };
 
       // Per-user de-dup: skip anything this viewer has already seen/liked/saved.
-      const exclude = await userExcludeSet(qs.userId);
+      const exclude = await userExclusions(qs.userId);
 
       // Sharded feed path (FEED_SHARDS > 1): the byFeed partition is split across
       // "all#<n>", so scatter-gather a recency window across every shard (filters
@@ -2782,9 +2812,9 @@ export const handler = async (event) => {
           const seen = new Set();
           const ranked = [];
           for (const p of pages.flat()) {
-            if (!p.postId || seen.has(p.postId) || exclude.has(p.postId)) continue;
+            if (!p.postId || seen.has(p.postId) || exclude.posts.has(p.postId) || exclude.authors.has(p.ownerId)) continue;
             seen.add(p.postId);
-            const q = classifyPin({ title: p.caption ?? p.product?.name, domain: p.domain ?? p.merchant, link: p.url ?? p.productUrl, price: p.price ?? p.product?.price, giftType: p.giftType });
+            const q = feedClassification(p);
             if (!q.feedEligible) continue;
             ranked.push({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, feedEligible: true, _score: scorePost(p, opts) + q.qualityScore * 0.4 });
           }
@@ -2863,8 +2893,8 @@ export const handler = async (event) => {
         const picked = new Set();
         const take = (items) => {
           for (const p of items ?? []) {
-            if (picked.has(p.postId) || exclude.has(p.postId)) continue;
-            const q = classifyPin({ title: p.caption ?? p.product?.name, domain: p.domain ?? p.merchant, link: p.url ?? p.productUrl, price: p.price ?? p.product?.price, giftType: p.giftType });
+            if (picked.has(p.postId) || exclude.posts.has(p.postId) || exclude.authors.has(p.ownerId)) continue;
+            const q = feedClassification(p);
             if (!q.feedEligible) continue;
             picked.add(p.postId);
             eligible.push({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, feedEligible: true, _score: scorePost(p, opts) + q.qualityScore * 0.4 });
@@ -2923,8 +2953,8 @@ export const handler = async (event) => {
         scanKey = out.LastEvaluatedKey;
       } while (scanKey);
       const ranked = allItems
-        .map((p) => ({ p, q: classifyPin({ title: p.caption ?? p.product?.name, domain: p.domain ?? p.merchant, link: p.url ?? p.productUrl, price: p.price ?? p.product?.price, giftType: p.giftType }) }))
-        .filter((x) => x.q.feedEligible && !exclude.has(x.p.postId))
+        .map((p) => ({ p, q: feedClassification(p) }))
+        .filter((x) => x.q.feedEligible && !exclude.posts.has(x.p.postId) && !exclude.authors.has(x.p.ownerId))
         .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 }))
         .sort((a, b) => b._score - a._score);
       const rankedMixed = interleaveAuthors(ranked);
@@ -3317,7 +3347,7 @@ export const handler = async (event) => {
         (out.Items ?? [])
           .filter((p) => !likedTargets.has(p.postId) && p.author !== userId)
           .filter(giftTypeOk)
-          .map((p) => ({ p, q: classifyPin({ title: p.caption ?? p.product?.name, domain: p.domain ?? p.merchant, link: p.url ?? p.productUrl, price: p.price ?? p.product?.price, giftType: p.giftType }) }))
+          .map((p) => ({ p, q: feedClassification(p) }))
           .filter((x) => x.q.feedEligible)
           .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 }))
           .sort((a, b) => b._score - a._score)

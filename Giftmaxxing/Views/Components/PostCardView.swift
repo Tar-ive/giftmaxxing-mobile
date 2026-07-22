@@ -1,3 +1,4 @@
+import AVKit
 import SwiftUI
 
 struct PostCardView: View {
@@ -6,11 +7,16 @@ struct PostCardView: View {
     var onPledge: (() -> Void)?
     var onAddToSwipeList: (() -> Void)?
     var onProductTap: (() -> Void)?
+    var onHide: (() -> Void)?
 
     // Inline gallery position (Instagram-style paging right in the feed).
     @State private var galleryIndex = 0
     // Long-press reveals the gift's story — the alt-text of gifting.
     @State private var showStory = false
+    @State private var showActions = false
+    @State private var showReportReasons = false
+    @State private var showVideo = false
+    @State private var reportFeedback = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -35,10 +41,12 @@ struct PostCardView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Button(action: {}) {
+                Button { showActions = true } label: {
                     Image(systemName: "ellipsis")
                         .foregroundStyle(.secondary)
+                        .frame(minWidth: 44, minHeight: 44)
                 }
+                .accessibilityLabel("Post options")
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -111,17 +119,29 @@ struct PostCardView: View {
                                     .background(Color.coral)
                                     .clipShape(Capsule())
                             }
-                            Text("$\(Int(post.product.price))")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(.black.opacity(0.6))
-                                .clipShape(Capsule())
+                            if !isUGC {
+                                Text("$\(Int(post.product.price))")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(.black.opacity(0.6))
+                                    .clipShape(Capsule())
+                            }
                         }
                     }
                 }
                 .padding(12)
+
+                if isUGC, post.contentType == "ugc_video" {
+                    Image(systemName: "play.fill")
+                        .font(.title2)
+                        .foregroundStyle(.white)
+                        .padding(ThemeSpacing.md)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
+                        .accessibilityHidden(true)
+                }
 
                 // The story — alt-text for gifts. Long-press in, tap out.
                 if showStory, let story = GiftStory.story(for: post) {
@@ -152,6 +172,8 @@ struct PostCardView: View {
             .onTapGesture {
                 if showStory {
                     withAnimation(.easeOut(duration: 0.2)) { showStory = false }
+                } else if isUGC, post.contentType == "ugc_video", post.mediaUrl != nil {
+                    showVideo = true
                 } else {
                     onProductTap?()
                 }
@@ -214,6 +236,37 @@ struct PostCardView: View {
             .padding(.bottom, 14)
         }
         .background(Color.surface)
+        .confirmationDialog("Post options", isPresented: $showActions) {
+            if isUGC, post.ownerId != AuthManager.shared.userId {
+                Button("Report post", role: .destructive) { showReportReasons = true }
+                if let ownerId = post.ownerId {
+                    Button("Block this creator", role: .destructive) {
+                        Task {
+                            try? await APIClient.shared.blockUGCUser(userId: ownerId)
+                            onHide?()
+                        }
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .confirmationDialog("Why are you reporting this?", isPresented: $showReportReasons) {
+            ForEach(["Sexual content", "Violence", "Hate or harassment", "Spam", "Other"], id: \.self) { reason in
+                Button(reason, role: .destructive) {
+                    Task {
+                        try? await APIClient.shared.reportUGCPost(postId: post.id, reason: reason)
+                        reportFeedback += 1
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .sensoryFeedback(.success, trigger: reportFeedback)
+        .fullScreenCover(isPresented: $showVideo) {
+            if let value = post.mediaUrl, let url = URL(string: value) {
+                UGCVideoPlayerScreen(url: url)
+            }
+        }
     }
 
     // A reason worth a line of its own ("Similar to your taste"). Merchant
@@ -228,17 +281,21 @@ struct PostCardView: View {
     }
 
     private var displayAuthor: String {
+        if isUGC { return post.user }
         let brand = post.product.brand.trimmingCharacters(in: .whitespacesAndNewlines)
         if !brand.isEmpty, brand.lowercased() != "reddit" { return brand }
         return cleanedLabel(post.source ?? post.user)
     }
 
     private var retailerLabel: String? {
+        if isUGC { return post.contentType == "ugc_video" ? "Video" : "Photo" }
         let source = post.source.map(cleanedLabel)
         guard let source, !source.isEmpty,
               source.caseInsensitiveCompare(displayAuthor) != .orderedSame else { return nil }
         return source
     }
+
+    private var isUGC: Bool { post.source == "ugc" }
 
     private func cleanedLabel(_ value: String) -> String {
         let normalized = value
@@ -273,5 +330,34 @@ struct PostCardView: View {
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct UGCVideoPlayerScreen: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var player: AVPlayer
+
+    init(url: URL) {
+        _player = State(initialValue: AVPlayer(url: url))
+    }
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Color.black.ignoresSafeArea()
+            VideoPlayer(player: player)
+                .ignoresSafeArea()
+                .onAppear { player.play() }
+                .onDisappear { player.pause() }
+            Button { dismiss() } label: {
+                Image(systemName: "xmark")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Circle())
+            }
+            .padding(ThemeSpacing.md)
+            .accessibilityLabel("Close video")
+        }
     }
 }

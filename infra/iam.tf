@@ -37,6 +37,8 @@ data "aws_iam_policy_document" "ddb_access" {
       aws_dynamodb_table.users.arn,
       aws_dynamodb_table.posts.arn,
       "${aws_dynamodb_table.posts.arn}/index/*",
+      aws_dynamodb_table.ugc_reports.arn,
+      "${aws_dynamodb_table.ugc_reports.arn}/index/*",
       aws_dynamodb_table.interactions.arn,
       aws_dynamodb_table.knowledge.arn,
       aws_dynamodb_table.connections.arn,
@@ -159,4 +161,23 @@ resource "aws_iam_role_policy" "login_email" {
   name   = "${local.prefix}-login-email"
   role   = aws_iam_role.api_lambda.id
   policy = data.aws_iam_policy_document.login_email.json
+}
+
+# API-side upload signing + account-deletion cleanup. Raw objects are never
+# readable through CloudFront; the moderation workers alone promote them.
+data "aws_iam_policy_document" "ugc_api_media" {
+  statement {
+    actions = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
+    resources = [
+      "${aws_s3_bucket.media.arn}/ugc/raw/*",
+      "${aws_s3_bucket.media.arn}/ugc/posters-raw/*",
+      "${aws_s3_bucket.media.arn}/ugc/public/*",
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "api_ugc_media" {
+  name   = "${local.prefix}-api-ugc-media"
+  role   = aws_iam_role.api_lambda.id
+  policy = data.aws_iam_policy_document.ugc_api_media.json
 }

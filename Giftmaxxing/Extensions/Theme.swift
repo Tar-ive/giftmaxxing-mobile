@@ -16,6 +16,8 @@ extension Color {
     static let gradientEnd = Color(hex: "#FF9A76")
     static let onboardingGlow = Color(hex: "#FFC5A0")
     static let onboardingWash = Color(hex: "#FFF9F5")
+    static let success = Color(hex: "#3E8E5A")
+    static let danger = Color(hex: "#D64545")
 
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -97,6 +99,20 @@ struct PrimaryButtonStyle: ButtonStyle {
             .padding(.horizontal, ThemeSpacing.lg)
             .padding(.vertical, 14)
             .background(configuration.isPressed ? Color.coralEmphasis : Color.coral)
+            .clipShape(Capsule())
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(duration: 0.35, bounce: 0.15), value: configuration.isPressed)
+    }
+}
+
+struct SecondaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline)
+            .foregroundStyle(Color.coral)
+            .padding(.horizontal, ThemeSpacing.lg)
+            .padding(.vertical, ThemeSpacing.sm)
+            .background(configuration.isPressed ? Color.surfaceSunken : Color.coralSoft)
             .clipShape(Capsule())
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(duration: 0.35, bounce: 0.15), value: configuration.isPressed)

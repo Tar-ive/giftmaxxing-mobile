@@ -3,6 +3,8 @@ import Foundation
 struct APIPost: Codable {
     let postId: String
     var author: String?
+    var authorName: String?
+    var ownerId: String?
     var createdAt: Double?
     var likes: Int?
     var comments: Int?
@@ -34,6 +36,52 @@ struct APIPost: Codable {
     // Maker's note / anecdote / craftsmanship detail (Shopify ingests carry
     // the product description; long-press on the feed image reveals it).
     var story: String?
+}
+
+struct UGCPost: Identifiable, Codable {
+    let postId: String
+    var authorName: String?
+    var caption: String
+    var mediaType: String
+    var mimeType: String?
+    var mediaUrl: String?
+    var posterUrl: String?
+    var processingStatus: String
+    var moderationStatus: String
+    var moderationReason: [String]?
+    var recommendationLabels: [UGCLabel]?
+    var createdAt: Double
+
+    var id: String { postId }
+    var isTerminal: Bool { ["READY", "REJECTED", "FAILED"].contains(processingStatus) }
+}
+
+struct UGCLabel: Codable, Hashable {
+    var name: String
+    var confidence: Double
+}
+
+struct UGCUploadResponse: Codable {
+    var post: UGCPost
+    var uploadUrl: String
+    var uploadHeaders: [String: String]
+    var posterUploadUrl: String?
+    var posterUploadHeaders: [String: String]?
+    var expiresIn: Int
+}
+
+struct UGCPostsResponse: Codable {
+    var items: [UGCPost]
+}
+
+struct UGCPostResponse: Codable {
+    var item: UGCPost
+}
+
+struct UGCCompleteResponse: Codable {
+    var ok: Bool
+    var postId: String
+    var status: String?
 }
 
 struct APIProduct: Codable {

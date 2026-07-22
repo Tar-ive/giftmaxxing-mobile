@@ -62,6 +62,12 @@ resource "aws_iam_role_policy" "apprunner_sagemaker_invoke" {
   policy = data.aws_iam_policy_document.sagemaker_invoke.json
 }
 
+resource "aws_iam_role_policy" "apprunner_ugc_media" {
+  name   = "${local.prefix}-apprunner-ugc-media"
+  role   = aws_iam_role.apprunner_instance.id
+  policy = data.aws_iam_policy_document.ugc_api_media.json
+}
+
 # ── IAM: access role (App Runner pulls the image from private ECR) ─────────────
 data "aws_iam_policy_document" "apprunner_access_assume" {
   statement {
@@ -111,10 +117,12 @@ resource "aws_apprunner_service" "api" {
         port = "8080"
 
         # Same environment as the api Lambda (lambda.tf) so behavior is identical.
-        runtime_environment_variables = {
+        runtime_environment_variables = merge({
           PORT               = "8080"
           USERS_TABLE        = aws_dynamodb_table.users.name
           POSTS_TABLE        = aws_dynamodb_table.posts.name
+          UGC_REPORTS_TABLE  = aws_dynamodb_table.ugc_reports.name
+          MEDIA_BUCKET       = aws_s3_bucket.media.id
           INTERACTIONS_TABLE = aws_dynamodb_table.interactions.name
           KNOWLEDGE_TABLE    = aws_dynamodb_table.knowledge.name
           CONNECTIONS_TABLE  = aws_dynamodb_table.connections.name
@@ -134,8 +142,6 @@ resource "aws_apprunner_service" "api" {
           # iOS-app identities (mirrors lambda.tf — see handler.mjs verifiers).
           COGNITO_ISSUER         = "https://${aws_cognito_user_pool.mobile.endpoint}"
           COGNITO_CLIENT_ID      = aws_cognito_user_pool_client.ios.id
-          LOGIN_RESET_URL        = var.login_reset_url
-          LOGIN_EMAIL_FROM       = var.login_email_from
           GOOGLE_OAUTH_CLIENT_ID = var.google_oauth_client_id
 
           VECTOR_BUCKET          = "${local.prefix}-vectors"
@@ -163,7 +169,10 @@ resource "aws_apprunner_service" "api" {
 
           MAXI_DAILY_LIMIT = tostring(var.maxi_daily_limit)
           FEED_SHARDS      = tostring(var.feed_shards)
-        }
+          },
+          try(trimspace(var.login_reset_url), "") == "" ? {} : { LOGIN_RESET_URL = var.login_reset_url },
+          try(trimspace(var.login_email_from), "") == "" ? {} : { LOGIN_EMAIL_FROM = var.login_email_from },
+        )
       }
     }
 
@@ -202,6 +211,7 @@ resource "aws_apprunner_service" "api" {
     aws_iam_role_policy.apprunner_s3vectors,
     aws_iam_role_policy.apprunner_bedrock,
     aws_iam_role_policy.apprunner_config,
+    aws_iam_role_policy.apprunner_ugc_media,
     aws_iam_role_policy_attachment.apprunner_ecr,
   ]
 }

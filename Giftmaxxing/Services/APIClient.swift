@@ -8,6 +8,7 @@ actor APIClient {
     // (Old direct origin: https://tvyu8gqmki.execute-api.us-east-1.amazonaws.com)
     private let baseURL = "https://d21osnvwewgoao.cloudfront.net"
     private let session: URLSession
+    private let uploadSession: URLSession
     private let decoder: JSONDecoder
 
     private var authToken: String?
@@ -18,12 +19,64 @@ actor APIClient {
         config.timeoutIntervalForResource = 60
         session = URLSession(configuration: config)
 
+        let uploadConfig = URLSessionConfiguration.default
+        uploadConfig.timeoutIntervalForRequest = 120
+        uploadConfig.timeoutIntervalForResource = 15 * 60
+        uploadSession = URLSession(configuration: uploadConfig)
+
         decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .useDefaultKeys
     }
 
     func setAuthToken(_ token: String?) {
         authToken = token
+    }
+
+    // MARK: - User-generated posts
+
+    func createUGCUpload(
+        mediaType: String,
+        mimeType: String,
+        fileSize: Int,
+        caption: String
+    ) async throws -> UGCUploadResponse {
+        try await post("/ugc/uploads", body: [
+            "mediaType": mediaType,
+            "mimeType": mimeType,
+            "fileSize": fileSize,
+            "caption": caption,
+        ])
+    }
+
+    func uploadUGC(fileURL: URL, to uploadURL: String, headers: [String: String]) async throws {
+        guard let url = URL(string: uploadURL) else { throw APIError.invalidResponse }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        headers.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
+        let (_, response) = try await uploadSession.upload(for: request, fromFile: fileURL)
+        try validateResponse(response)
+    }
+
+    func completeUGCUpload(postId: String) async throws {
+        let _: UGCCompleteResponse = try await post("/ugc/posts/\(postId)/complete", body: [:])
+    }
+
+    func fetchMyUGCPosts() async throws -> [UGCPost] {
+        let response: UGCPostsResponse = try await get("/ugc/posts")
+        return response.items.map(normalizeUGCPost)
+    }
+
+    func fetchUGCPost(postId: String) async throws -> UGCPost {
+        let response: UGCPostResponse = try await get("/ugc/posts/\(postId)")
+        return normalizeUGCPost(response.item)
+    }
+
+    func reportUGCPost(postId: String, reason: String) async throws {
+        let _: EmptyResponse = try await post("/ugc/posts/\(postId)/report", body: ["reason": reason])
+    }
+
+    func blockUGCUser(userId: String) async throws {
+        let _: EmptyResponse = try await post("/ugc/users/\(userId)/block", body: [:])
     }
 
     // MARK: - Feed
@@ -722,13 +775,14 @@ actor APIClient {
             price: p?.price ?? api.price ?? 0,
             grad: GradientStyle(rawValue: p?.grad ?? "peach") ?? .peach,
             emoji: p?.emoji ?? "🎁",
-            image: p?.image,
-            images: p?.images
+            image: absoluteMediaURL(p?.image),
+            images: p?.images?.map { absoluteMediaURL($0) ?? $0 }
         )
 
         return Post(
             id: api.postId,
-            user: api.author ?? "reddit",
+            user: api.authorName ?? api.author ?? "reddit",
+            ownerId: api.ownerId,
             time: relativeTime(ms: api.createdAt),
             product: product,
             caption: api.caption ?? "",
@@ -751,10 +805,22 @@ actor APIClient {
             giftType: api.giftType,
             serviceDuration: api.serviceDuration,
             contentType: api.contentType,
-            mediaUrl: api.mediaUrl,
-            posterUrl: api.posterUrl,
+            mediaUrl: absoluteMediaURL(api.mediaUrl),
+            posterUrl: absoluteMediaURL(api.posterUrl),
             story: api.story
         )
+    }
+
+    private func absoluteMediaURL(_ value: String?) -> String? {
+        guard let value, !value.isEmpty else { return nil }
+        return value.hasPrefix("/") ? baseURL + value : value
+    }
+
+    private func normalizeUGCPost(_ post: UGCPost) -> UGCPost {
+        var post = post
+        post.mediaUrl = absoluteMediaURL(post.mediaUrl)
+        post.posterUrl = absoluteMediaURL(post.posterUrl)
+        return post
     }
 
     private func relativeTime(ms: Double?) -> String {

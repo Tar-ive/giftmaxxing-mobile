@@ -31,6 +31,8 @@ resource "aws_lambda_function" "api" {
     variables = {
       USERS_TABLE        = aws_dynamodb_table.users.name
       POSTS_TABLE        = aws_dynamodb_table.posts.name
+      UGC_REPORTS_TABLE  = aws_dynamodb_table.ugc_reports.name
+      MEDIA_BUCKET       = aws_s3_bucket.media.id
       INTERACTIONS_TABLE = aws_dynamodb_table.interactions.name
       KNOWLEDGE_TABLE    = aws_dynamodb_table.knowledge.name
       CONNECTIONS_TABLE  = aws_dynamodb_table.connections.name
@@ -43,7 +45,7 @@ resource "aws_lambda_function" "api" {
       ANALYTICS_TABLE    = aws_dynamodb_table.analytics.name
       # APNs push: device registration (mobile-routes) + sends (push.mjs). The
       # platform-app ARN stays "" until var.apns_private_key is supplied.
-      DEVICES_TABLE        = aws_dynamodb_table.devices.name
+      DEVICES_TABLE = aws_dynamodb_table.devices.name
       # join("") yields "" when the platform app is absent (count = 0); coalesce
       # can't be used here because it rejects empty strings and would error.
       SNS_PLATFORM_APP_ARN = join("", aws_sns_platform_application.ios_push[*].arn)
@@ -62,8 +64,8 @@ resource "aws_lambda_function" "api" {
       LOGIN_RESET_URL        = var.login_reset_url
       LOGIN_EMAIL_FROM       = var.login_email_from
       GOOGLE_OAUTH_CLIENT_ID = var.google_oauth_client_id
-      VECTOR_BUCKET    = "${local.prefix}-vectors"
-      VECTOR_INDEX     = "pins"
+      VECTOR_BUCKET          = "${local.prefix}-vectors"
+      VECTOR_INDEX           = "pins"
       # Visual search: Titan Multimodal embedding model + vector dimensionality.
       BEDROCK_EMBED_MODEL_ID = "amazon.titan-embed-image-v1"
       VECTOR_DIM             = "1024"

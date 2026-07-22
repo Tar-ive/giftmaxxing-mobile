@@ -135,7 +135,8 @@ struct FeedView: View {
                                         .contentTap,
                                         postId: post.id
                                     )
-                                }
+                                },
+                                onHide: { viewModel.hide(postId: post.id) }
                             )
                             .onAppear {
                                 viewModel.recordImpression(for: post)

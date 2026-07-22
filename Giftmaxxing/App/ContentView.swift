@@ -41,6 +41,12 @@ struct ContentView: View {
                     }
                     .tag(Tab.swipe)
 
+                UGCCreateView()
+                    .tabItem {
+                        Label(Tab.create.rawValue, systemImage: Tab.create.icon)
+                    }
+                    .tag(Tab.create)
+
                 CirclesView()
                     .tabItem {
                         Label(Tab.circles.rawValue, systemImage: Tab.circles.icon)
@@ -198,6 +204,10 @@ struct ContentView: View {
                 return
             }
             guard url.scheme == "giftmaxxing" else { return }
+            if url.host == "create" {
+                appState.selectedTab = .create
+                return
+            }
             drainCaptureInbox()
         }
         .sheet(item: Binding(

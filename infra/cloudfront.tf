@@ -25,6 +25,14 @@ locals {
   api_origin_host = aws_apprunner_service.api.service_url
 }
 
+resource "aws_cloudfront_origin_access_control" "media" {
+  name                              = "${local.prefix}-media"
+  description                       = "Private approved UGC media"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
 # Managed policies for the default (real-time) behavior: never cache, forward
 # everything (auth, body, query, CORS headers) except the Host header.
 data "aws_cloudfront_cache_policy" "caching_disabled" {
@@ -134,6 +142,12 @@ resource "aws_cloudfront_distribution" "api" {
     }
   }
 
+  origin {
+    domain_name              = aws_s3_bucket.media.bucket_regional_domain_name
+    origin_id                = "media"
+    origin_access_control_id = aws_cloudfront_origin_access_control.media.id
+  }
+
   # Default: real-time routes (/maxi, /interactions, /me, /pools, /visual-search,
   # /connections, /graph, /events, /seed, all POST/PUT). Never cached — straight
   # to App Runner with full auth + body forwarded (incl. the Maxi -> Bedrock path).
@@ -146,6 +160,18 @@ resource "aws_cloudfront_distribution" "api" {
 
     cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
     origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
+  }
+
+  # Only the moderation workers can create objects under this prefix. Raw
+  # uploads use /ugc/raw and are deliberately not routed to the S3 origin.
+  ordered_cache_behavior {
+    path_pattern           = "/ugc/public/*"
+    target_origin_id       = "media"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
   }
 
   # Cached long: immutable pin embeddings for the on-device ranker.

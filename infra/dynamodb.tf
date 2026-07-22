@@ -77,6 +77,37 @@ resource "aws_dynamodb_table" "posts" {
   }
 }
 
+# ── UGC reports ──────────────────────────────────────────────────────────────
+# Reports are separate from feed interactions so moderation operations can
+# query a post's open reports without scanning user partitions.
+resource "aws_dynamodb_table" "ugc_reports" {
+  name         = "${local.prefix}-ugc-reports"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "reportId"
+
+  attribute {
+    name = "reportId"
+    type = "S"
+  }
+  attribute {
+    name = "postId"
+    type = "S"
+  }
+  attribute {
+    name = "createdAt"
+    type = "N"
+  }
+
+  global_secondary_index {
+    name            = "byPost"
+    hash_key        = "postId"
+    range_key       = "createdAt"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery { enabled = true }
+}
+
 # ── Knowledge ────────────────────────────────────────────────────────────────
 # Gift-knowledge base mined from Reddit discussions. PK: recipient (mom, couple,
 # coworker, ...). Each item holds ranked gift ideas + co-occurrence bundles.

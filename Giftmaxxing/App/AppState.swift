@@ -125,6 +125,7 @@ struct AppUser: Identifiable, Codable {
 //   Home      — the personalized feed (always the landing tab: cold launch,
 //               return from background, and sign-in all reset here)
 //   Swipe     — taste training + Gift Boards (feeds personalization)
+//   Post      — photo/video gift finds, safety-screened before publication
 //   Circles   — your people + their dates: circles, events & reminders,
 //               collaborative boards, pools, swipe challenges
 //   You       — the public gifting profile + settings (Shop and Intentional
@@ -135,6 +136,7 @@ struct AppUser: Identifiable, Codable {
 enum Tab: String, CaseIterable {
     case feed = "Home"
     case swipe = "Swipe"
+    case create = "Post"
     case circles = "Circles"
     case you = "You"
 
@@ -142,6 +144,7 @@ enum Tab: String, CaseIterable {
         switch self {
         case .feed: return "house.fill"
         case .swipe: return "rectangle.portrait.on.rectangle.portrait.angled.fill"
+        case .create: return "plus.circle.fill"
         case .circles: return "person.2.fill"
         case .you: return "person.crop.circle"
         }
