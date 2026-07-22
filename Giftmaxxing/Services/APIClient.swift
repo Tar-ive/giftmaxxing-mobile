@@ -34,18 +34,19 @@ actor APIClient {
 
     // MARK: - User-generated posts
 
-    func createUGCUpload(
-        mediaType: String,
-        mimeType: String,
-        fileSize: Int,
-        caption: String
-    ) async throws -> UGCUploadResponse {
-        try await post("/ugc/uploads", body: [
-            "mediaType": mediaType,
-            "mimeType": mimeType,
-            "fileSize": fileSize,
-            "caption": caption,
-        ])
+    func createUGCUpload(media: [[String: Any]], caption: String, musicTrackId: String?) async throws -> UGCUploadResponse {
+        var body: [String: Any] = ["media": media, "caption": caption]
+        if let musicTrackId { body["musicTrackId"] = musicTrackId }
+        return try await post("/ugc/uploads", body: body)
+    }
+
+    func fetchUGCMusicTracks() async throws -> [UGCMusicTrack] {
+        let response: UGCMusicTracksResponse = try await get("/ugc/music")
+        return response.items.map { track in
+            var track = track
+            track.audioUrl = absoluteMediaURL(track.audioUrl) ?? track.audioUrl
+            return track
+        }
     }
 
     func uploadUGC(fileURL: URL, to uploadURL: String, headers: [String: String]) async throws {
@@ -414,7 +415,11 @@ actor APIClient {
         var params: [String: String] = ["userId": userId]
         if let status { params["status"] = status }
         let response: FriendsListResponse = try await get("/friends", params: params)
-        return response.items ?? []
+        return (response.items ?? []).map { value in
+            var value = value
+            value.imageUrl = absoluteMediaURL(value.imageUrl)
+            return value
+        }
     }
 
     func friendshipStatus(userId: String, otherId: String) async throws -> FriendshipStatusResponse {
@@ -820,7 +825,7 @@ actor APIClient {
             grad: GradientStyle(rawValue: p?.grad ?? "peach") ?? .peach,
             emoji: p?.emoji ?? "🎁",
             image: absoluteMediaURL(p?.image),
-            images: p?.images?.map { absoluteMediaURL($0) ?? $0 }
+            images: (p?.images ?? api.mediaUrls)?.map { absoluteMediaURL($0) ?? $0 }
         )
 
         return Post(
@@ -852,6 +857,11 @@ actor APIClient {
             contentType: api.contentType,
             mediaUrl: absoluteMediaURL(api.mediaUrl),
             posterUrl: absoluteMediaURL(api.posterUrl),
+            music: api.music.map { track in
+                var track = track
+                track.audioUrl = absoluteMediaURL(track.audioUrl) ?? track.audioUrl
+                return track
+            },
             story: api.story
         )
     }
@@ -865,7 +875,12 @@ actor APIClient {
         var post = post
         post.authorImageUrl = absoluteMediaURL(post.authorImageUrl)
         post.mediaUrl = absoluteMediaURL(post.mediaUrl)
+        post.mediaUrls = post.mediaUrls?.map { absoluteMediaURL($0) ?? $0 }
         post.posterUrl = absoluteMediaURL(post.posterUrl)
+        if var music = post.music {
+            music.audioUrl = absoluteMediaURL(music.audioUrl) ?? music.audioUrl
+            post.music = music
+        }
         return post
     }
 

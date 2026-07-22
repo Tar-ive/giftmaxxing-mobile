@@ -44,10 +44,15 @@ final class FriendsStore: ObservableObject {
             return
         }
 
-        let accepted = (try? await api.listFriends(userId: userId, status: "accepted"))
-            ?? loadLocalFriends(userId: userId, status: "accepted")
-        let pend = (try? await api.listFriends(userId: userId, status: "pending"))
-            ?? loadLocalFriends(userId: userId, status: "pending")
+        let localAccepted = loadLocalFriends(userId: userId, status: "accepted")
+        let localPending = loadLocalFriends(userId: userId, status: "pending")
+        let remoteAccepted = try? await api.listFriends(userId: userId, status: "accepted")
+        let remotePending = try? await api.listFriends(userId: userId, status: "pending")
+        let accepted = merge(remote: remoteAccepted, local: localAccepted)
+        let pend = merge(remote: remotePending, local: localPending)
+        if remoteAccepted != nil || remotePending != nil {
+            saveLocalFriends(userId: userId, edges: accepted + pend)
+        }
         let threads = (try? await api.listDms(userId: userId))
             ?? loadLocalDms(userId: userId)
 
@@ -243,6 +248,25 @@ final class FriendsStore: ObservableObject {
         return Array(edges.values)
     }
 
+    private func merge(remote: [Friendship]?, local: [Friendship]) -> [Friendship] {
+        guard let remote else { return local }
+        var merged = Dictionary(uniqueKeysWithValues: local.map { ($0.friendId, $0) })
+        remote.forEach { merged[$0.friendId] = $0 }
+        return merged.values.sorted { ($0.updatedAt ?? 0) > ($1.updatedAt ?? 0) }
+    }
+
+    private func saveLocalFriends(userId: String, edges: [Friendship]) {
+        var store = LocalEdgeStore(edges: [:])
+        if let data = UserDefaults.standard.data(forKey: Self.friendsKey),
+           let existing = try? JSONDecoder().decode(LocalEdgeStore.self, from: data) {
+            store = existing
+        }
+        store.edges[userId] = Dictionary(uniqueKeysWithValues: edges.map { ($0.friendId, $0) })
+        if let data = try? JSONEncoder().encode(store) {
+            UserDefaults.standard.set(data, forKey: Self.friendsKey)
+        }
+    }
+
     private func upsertLocalEdge(
         userId: String,
         otherId: String,
@@ -271,7 +295,8 @@ final class FriendsStore: ObservableObject {
             name: name ?? prev?.name,
             handle: handle ?? prev?.handle,
             bio: prev?.bio,
-            interests: prev?.interests
+            interests: prev?.interests,
+            imageUrl: prev?.imageUrl
         )
         store.edges[userId] = userEdges
         if let encoded = try? JSONEncoder().encode(store) {

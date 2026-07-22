@@ -34,6 +34,7 @@ struct Post: Identifiable, Codable, Hashable {
     var contentType: String?
     var mediaUrl: String?
     var posterUrl: String?
+    var music: UGCMusicTrack?
     // The story behind the gift — a maker's note, anecdote, or craftsmanship
     // detail (server-provided; GiftStory composes an honest fallback).
     var story: String?
@@ -49,7 +50,7 @@ struct Post: Identifiable, Codable, Hashable {
         case comments, commentCount, source, url, productUrl, rec, reason
         case recipient, occasion, category, domain, qualityScore, feedEligible
         case giftType, serviceDuration
-        case contentType, mediaUrl, posterUrl, story
+        case contentType, mediaUrl, posterUrl, music, story
     }
 
     init(
@@ -81,6 +82,7 @@ struct Post: Identifiable, Codable, Hashable {
         contentType: String? = nil,
         mediaUrl: String? = nil,
         posterUrl: String? = nil,
+        music: UGCMusicTrack? = nil,
         story: String? = nil
     ) {
         self.id = id
@@ -111,6 +113,7 @@ struct Post: Identifiable, Codable, Hashable {
         self.contentType = contentType
         self.mediaUrl = mediaUrl
         self.posterUrl = posterUrl
+        self.music = music
         self.story = story
     }
 }

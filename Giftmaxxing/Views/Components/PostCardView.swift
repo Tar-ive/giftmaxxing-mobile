@@ -11,6 +11,7 @@ struct PostCardView: View {
     var onPledge: (() -> Void)?
     var onAddToSwipeList: (() -> Void)?
     var onProductTap: (() -> Void)?
+    var onAuthorTap: (() -> Void)?
     var onHide: (() -> Void)?
 
     // Inline gallery position (Instagram-style paging right in the feed).
@@ -21,29 +22,34 @@ struct PostCardView: View {
     @State private var showReportReasons = false
     @State private var showVideo = false
     @State private var reportFeedback = 0
+    @State private var musicPlayer: AVPlayer?
+    @State private var isPlayingMusic = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack(spacing: 10) {
-                AvatarView(
-                    name: displayAuthor,
-                    grad: post.product.grad,
-                    size: 32,
-                    imageUrl: post.authorImageUrl,
-                    anonymousFallback: isUGC
-                )
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(displayAuthor)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.ink)
-                    if let retailer = retailerLabel {
-                        Text(retailer)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                Button { onAuthorTap?() } label: {
+                    HStack(spacing: 10) {
+                        AvatarView(
+                            name: displayAuthor,
+                            grad: post.product.grad,
+                            size: 32,
+                            imageUrl: post.authorImageUrl,
+                            anonymousFallback: isUGC
+                        )
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(displayAuthor)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Color.ink)
+                            if let retailer = retailerLabel {
+                                Text(retailer).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
                     }
                 }
+                .buttonStyle(.plain)
+                .disabled(!isUGC || post.ownerId == nil)
 
                 Spacer()
 
@@ -233,6 +239,21 @@ struct PostCardView: View {
             .padding(.horizontal, 14)
             .padding(.top, 10)
 
+            if let music = post.music {
+                Button { toggleMusic(music) } label: {
+                    Label(
+                        "\(music.title) · \(music.artist)",
+                        systemImage: isPlayingMusic ? "pause.fill" : "music.note"
+                    )
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(1)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 14)
+                .padding(.top, 8)
+            }
+
             // Product info — ONE title + ONE meta line. The old stack (caption
             // run + reason note + name·brand row) printed the same SEO title
             // three times per card; the header already names the source.
@@ -296,6 +317,7 @@ struct PostCardView: View {
                 UGCVideoPlayerScreen(url: url)
             }
         }
+        .onDisappear { musicPlayer?.pause() }
     }
 
     // A reason worth a line of its own ("Similar to your taste"). Merchant
@@ -330,6 +352,19 @@ struct PostCardView: View {
         Affiliate.productUrl(for: post)
             ?? post.mediaUrl.flatMap(URL.init(string:))
             ?? post.posterUrl.flatMap(URL.init(string:))
+    }
+
+    private func toggleMusic(_ track: UGCMusicTrack) {
+        if isPlayingMusic {
+            musicPlayer?.pause()
+            isPlayingMusic = false
+            return
+        }
+        guard let url = URL(string: track.audioUrl) else { return }
+        let player = musicPlayer ?? AVPlayer(url: url)
+        musicPlayer = player
+        player.play()
+        isPlayingMusic = true
     }
 
     private func cleanedLabel(_ value: String) -> String {

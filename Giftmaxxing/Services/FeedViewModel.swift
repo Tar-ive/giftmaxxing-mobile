@@ -103,6 +103,15 @@ final class FeedViewModel: ObservableObject {
         isLoading = false
     }
 
+    // A pull can overlap the bottom sentinel's pagination request. Wait for that
+    // request to settle instead of silently returning from loadFeed's guard.
+    func refreshFeed(context: ModelContext? = nil) async {
+        for _ in 0..<100 where isLoading || isLoadingMore {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        await loadFeed(context: context, forceFresh: true)
+    }
+
     // Top picks from GET /recommendations?userId= (server-side interaction
     // history → vector kNN). Empty on cold start / signed out — by design.
     // rank "fast" (default) = instant cosine order; "full" = MTL value-model

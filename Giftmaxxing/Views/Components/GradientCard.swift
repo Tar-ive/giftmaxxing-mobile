@@ -130,13 +130,14 @@ struct AvatarView: View {
 
     var body: some View {
         ZStack {
-            Color.gradient(for: grad)
+            if anonymousFallback && imageUrl == nil { Color.surfaceSunken }
+            else { Color.gradient(for: grad) }
             if let imageUrl {
                 CachedAsyncImage(url: imageUrl, width: Int(size * 3))
             } else if anonymousFallback {
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.system(size: size * 0.74))
-                    .foregroundStyle(.white.opacity(0.94))
+                Image(systemName: "person.fill")
+                    .font(.system(size: size * 0.52))
+                    .foregroundStyle(Color.inkTertiary)
             } else {
                 Text(initials)
                     .font(.system(size: size * 0.35, weight: .bold, design: .rounded))

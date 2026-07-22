@@ -122,7 +122,8 @@ struct FriendsView: View {
                         name: friend.name ?? friend.friendId,
                         handle: friend.handle,
                         interests: friend.interests,
-                        grad: SocialUsers.grad(for: friend.friendId)
+                        grad: SocialUsers.grad(for: friend.friendId),
+                        imageUrl: friend.imageUrl
                     ) {
                         // The friend's full gifting profile — sizes, dislikes,
                         // and the gifts they'd love (friend-gated server-side).
@@ -132,6 +133,7 @@ struct FriendsView: View {
                                 name: friend.name ?? friend.friendId,
                                 handle: friend.handle ?? "",
                                 bio: friend.bio,
+                                imageUrl: friend.imageUrl,
                                 interests: friend.interests
                             ))
                         } label: {
@@ -185,7 +187,8 @@ struct FriendsView: View {
                         name: friend.name ?? friend.friendId,
                         handle: friend.handle,
                         interests: nil,
-                        grad: SocialUsers.grad(for: friend.friendId)
+                        grad: SocialUsers.grad(for: friend.friendId),
+                        imageUrl: friend.imageUrl
                     ) {
                         HStack(spacing: 6) {
                             Button("Accept") {
@@ -207,7 +210,8 @@ struct FriendsView: View {
                         name: friend.name ?? friend.friendId,
                         handle: friend.handle,
                         interests: nil,
-                        grad: SocialUsers.grad(for: friend.friendId)
+                        grad: SocialUsers.grad(for: friend.friendId),
+                        imageUrl: friend.imageUrl
                     ) {
                         Text("Pending")
                             .font(.system(size: 12, weight: .semibold))
@@ -243,7 +247,8 @@ struct FriendsView: View {
                     name: person.name,
                     handle: person.handle,
                     interests: person.interests,
-                    grad: SocialUsers.grad(for: person.userId)
+                    grad: SocialUsers.grad(for: person.userId),
+                    imageUrl: person.imageUrl
                 ) {
                     NavigationLink {
                         PublicProfileView(person: person)
@@ -370,11 +375,12 @@ private struct PersonRow<Actions: View>: View {
     let handle: String?
     let interests: [String]?
     let grad: GradientStyle
+    var imageUrl: String? = nil
     @ViewBuilder var actions: () -> Actions
 
     var body: some View {
         HStack(spacing: 12) {
-            AvatarView(name: name, grad: grad, size: 44)
+            AvatarView(name: name, grad: grad, size: 44, imageUrl: imageUrl, anonymousFallback: true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
                     .font(.system(size: 14, weight: .bold))
@@ -444,6 +450,7 @@ struct PublicProfileView: View {
             VStack(alignment: .leading, spacing: 20) {
                 profileHeader
                 relationshipActions
+                tasteSection
                 giftListSection
                 postsSection
             }

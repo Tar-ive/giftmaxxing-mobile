@@ -139,9 +139,9 @@ private enum ConsultMeta {
     ]
 
     static let genderOptions: [ConsultChip] = [
-        .init(key: "him", label: "Gifts for him", emoji: "🤵"),
-        .init(key: "her", label: "Gifts for her", emoji: "👩"),
-        .init(key: "any", label: "Mix of everyone", emoji: "🎁"),
+        .init(key: "him", label: "Masculine style", emoji: "🧢"),
+        .init(key: "her", label: "Feminine style", emoji: "✨"),
+        .init(key: "any", label: "Any style", emoji: "🎁"),
     ]
 
     static let budgets: [Double] = [25, 50, 100, 250]
@@ -548,8 +548,8 @@ struct ConsultView: View {
                 switch vm.phase {
                 case .gender:
                     QuestionTitle(
-                        "Whose gifts should your feed lean toward?",
-                        subtitle: "This one's about YOU — it shapes your Home feed. Consults work for anyone either way."
+                        "What style should gifts for you lean toward?",
+                        subtitle: "This guides recommendations without asking you to label your gender."
                     )
                     ChipGrid(chips: ConsultMeta.genderOptions, selected: vm.genderPref.map { [$0] } ?? []) { key in
                         vm.genderPref = key

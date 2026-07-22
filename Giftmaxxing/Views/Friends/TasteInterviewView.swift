@@ -136,7 +136,7 @@ struct TasteInterviewView: View {
             VStack(spacing: 12) {
                 sizeField("Shoes", text: $shoeSize, placeholder: "e.g. 10 US")
                 sizeField("Casual shirt", text: $shirtSize, placeholder: "e.g. M")
-                sizeField("Pants", text: $pantsSize, placeholder: "e.g. 32")
+                sizeField("Waist / pants", text: $pantsSize, placeholder: "e.g. 32")
             }
         default:
             VStack(alignment: .leading, spacing: 8) {

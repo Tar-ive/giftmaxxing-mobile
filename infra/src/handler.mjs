@@ -2814,6 +2814,22 @@ export const handler = async (event) => {
       const ownUGC = !start && qs.userId
         ? await publicPostsForProfile(qs.userId, 3).catch(() => [])
         : [];
+      // Social posts must not depend on the catalog's random seek. Always seed
+      // page one with the newest public, approved UGC, then let interleaveUGC
+      // place it naturally near the top.
+      const recentUGC = !start
+        ? (await feedRecencyItems(100).catch(() => []))
+            .filter((item) => item.source === "ugc"
+              && item.processingStatus === "READY"
+              && item.moderationStatus === "APPROVED"
+              && item.visibility !== "private"
+              && !exclude.posts.has(item.postId)
+              && !exclude.authors.has(item.ownerId))
+            .slice(0, 8)
+        : [];
+      const featuredUGC = [...ownUGC, ...recentUGC].filter(
+        (item, index, all) => all.findIndex((value) => value.postId === item.postId) === index
+      );
 
       // Sharded feed path (FEED_SHARDS > 1): the byFeed partition is split across
       // "all#<n>", so scatter-gather a recency window across every shard (filters
@@ -2855,7 +2871,7 @@ export const handler = async (event) => {
             if (!q.feedEligible) continue;
             ranked.push({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, feedEligible: true, _score: scorePost(p, opts) + q.qualityScore * 0.4 });
           }
-          const withOwnPosts = includeOwnUGC(ranked, ownUGC, opts).sort((a, b) => b._score - a._score);
+          const withOwnPosts = includeOwnUGC(ranked, featuredUGC, opts).sort((a, b) => b._score - a._score);
           const mixed = interleaveUGC(interleaveAuthors(withOwnPosts));
           let offset = start?._offset ?? 0;
           const personalized = qs.recipient && qs.recipient !== "anyone";
@@ -2971,7 +2987,7 @@ export const handler = async (event) => {
           }
           if (!lastKey) break;    // reached the end of the range
         }
-        const withOwnPosts = includeOwnUGC(eligible, ownUGC, opts).sort((a, b) => b._score - a._score);
+        const withOwnPosts = includeOwnUGC(eligible, featuredUGC, opts).sort((a, b) => b._score - a._score);
         return json(200, { items: interleaveUGC(interleaveAuthors(withOwnPosts)).slice(0, limit), cursor: encodeCursor(lastKey) });
       } catch (err) {
         // byFeed GSI not deployed yet (or transient error) -> legacy fallback.
@@ -2994,7 +3010,7 @@ export const handler = async (event) => {
         .filter((x) => x.q.feedEligible && !exclude.posts.has(x.p.postId) && !exclude.authors.has(x.p.ownerId))
         .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 }))
         .sort((a, b) => b._score - a._score);
-      const rankedMixed = interleaveUGC(interleaveAuthors(includeOwnUGC(ranked, ownUGC, opts)));
+      const rankedMixed = interleaveUGC(interleaveAuthors(includeOwnUGC(ranked, featuredUGC, opts)));
       const offset = start?._offset ?? 0;
       const page = rankedMixed.slice(offset, offset + limit);
       const nextOffset = offset + limit;
@@ -3321,6 +3337,7 @@ export const handler = async (event) => {
     if (method === "GET" && path === "/recommendations") {
       const userId = qs.userId;
       let likedTargets = new Set();
+      let excludedTargets = new Set();
       if (userId) {
         const inter = await ddb.send(
           new QueryCommand({
@@ -3329,7 +3346,12 @@ export const handler = async (event) => {
             ExpressionAttributeValues: { ":u": userId },
           })
         );
-        likedTargets = new Set((inter.Items ?? []).map((i) => i.target));
+        const rows = inter.Items ?? [];
+        excludedTargets = new Set(rows.map((i) => i.target).filter(Boolean));
+        likedTargets = new Set(rows
+          .filter((i) => ["like", "save", "pledge", "board_add"].includes(i.type))
+          .map((i) => i.target)
+          .filter(Boolean));
       }
 
       const limit = Math.min(Number(qs.limit) || 12, 50);
@@ -3356,7 +3378,7 @@ export const handler = async (event) => {
           });
           if (vitems && vitems.length) {
             return json(200, {
-              items: interleaveAuthors(vitems.filter(giftTypeOk)),
+              items: interleaveAuthors(vitems.filter((item) => !excludedTargets.has(item.postId)).filter(giftTypeOk)),
               cursor: null,
               source: vitems.some((it) => it.mtl) ? "vector+mtl" : "vector",
             });
@@ -3382,7 +3404,7 @@ export const handler = async (event) => {
       const out = await ddb.send(new ScanCommand(scan));
       const items = interleaveAuthors(
         (out.Items ?? [])
-          .filter((p) => !likedTargets.has(p.postId) && p.author !== userId)
+          .filter((p) => !excludedTargets.has(p.postId) && p.author !== userId)
           .filter(giftTypeOk)
           .map((p) => ({ p, q: feedClassification(p) }))
           .filter((x) => x.q.feedEligible)

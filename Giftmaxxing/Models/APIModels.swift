@@ -29,7 +29,9 @@ struct APIPost: Codable {
     var qualityScore: Double?
     var contentType: String?
     var mediaUrl: String?
+    var mediaUrls: [String]?
     var posterUrl: String?
+    var music: UGCMusicTrack?
     var recentComments: [Comment]? = nil
     var feedEligible: Bool?
     // Products vs gift-able services (a year of Netflix, a Costco membership…).
@@ -42,6 +44,7 @@ struct APIPost: Codable {
 
 struct UGCPost: Identifiable, Codable, Hashable {
     let postId: String
+    var ownerId: String? = nil
     var authorName: String?
     var authorImageUrl: String?
     var caption: String
@@ -50,7 +53,9 @@ struct UGCPost: Identifiable, Codable, Hashable {
     var mediaType: String
     var mimeType: String?
     var mediaUrl: String?
+    var mediaUrls: [String]? = nil
     var posterUrl: String?
+    var music: UGCMusicTrack? = nil
     var processingStatus: String
     var moderationStatus: String
     var moderationReason: [String]?
@@ -59,6 +64,28 @@ struct UGCPost: Identifiable, Codable, Hashable {
 
     var id: String { postId }
     var isTerminal: Bool { ["READY", "REJECTED", "FAILED"].contains(processingStatus) }
+}
+
+struct UGCMusicTrack: Identifiable, Codable, Hashable {
+    var trackId: String
+    var title: String
+    var artist: String
+    var audioUrl: String
+    var durationSeconds: Int
+    var license: String
+    var licenseUrl: String?
+
+    var id: String { trackId }
+}
+
+struct UGCMusicTracksResponse: Codable {
+    var items: [UGCMusicTrack]
+}
+
+struct UGCUploadTarget: Codable {
+    var index: Int
+    var uploadUrl: String
+    var uploadHeaders: [String: String]
 }
 
 struct UGCLabel: Codable, Hashable {
@@ -70,6 +97,7 @@ struct UGCUploadResponse: Codable {
     var post: UGCPost
     var uploadUrl: String
     var uploadHeaders: [String: String]
+    var uploads: [UGCUploadTarget]? = nil
     var posterUploadUrl: String?
     var posterUploadHeaders: [String: String]?
     var expiresIn: Int
@@ -540,6 +568,7 @@ struct Friendship: Codable, Identifiable, Hashable {
     var handle: String?
     var bio: String?
     var interests: [String]?
+    var imageUrl: String? = nil
 
     var id: String { friendId }
 

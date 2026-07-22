@@ -44,7 +44,27 @@ const VIDEO_TYPES = new Map([
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
 const MAX_AVATAR_BYTES = 10 * 1024 * 1024;
+const MAX_CAROUSEL_ITEMS = 10;
 const AVATAR_TYPES = new Map([["image/jpeg", "jpg"], ["image/png", "png"]]);
+
+const MUSIC_TRACKS = [
+  {
+    trackId: "warm-glow",
+    title: "Warm Glow",
+    artist: "Giftmaxxing Original",
+    audioUrl: "/music/public/warm-glow.m4a",
+    durationSeconds: 60,
+    license: "Giftmaxxing original",
+  },
+  {
+    trackId: "little-celebration",
+    title: "Little Celebration",
+    artist: "Giftmaxxing Original",
+    audioUrl: "/music/public/little-celebration.m4a",
+    durationSeconds: 60,
+    license: "Giftmaxxing original",
+  },
+];
 
 const json = (statusCode, body) => ({
   statusCode,
@@ -57,7 +77,7 @@ const mediaPath = (key) => `/${key}`;
 
 function publicPost(item) {
   if (!item) return null;
-  const { rawKey, posterRawKey, ownerId, ...safe } = item;
+  const { rawKey, posterRawKey, mediaItems, mediaResults, publicKeys, ...safe } = item;
   return safe;
 }
 
@@ -70,28 +90,49 @@ async function getOwnedPost(postId, ownerId) {
 
 async function createUpload(body, ownerId) {
   if (!POSTS || !MEDIA_BUCKET) return json(503, { error: "uploads are not configured" });
-  const mediaType = body.mediaType === "video" ? "video" : body.mediaType === "image" ? "image" : null;
-  const mimeType = String(body.mimeType ?? "").toLowerCase();
-  const types = mediaType === "image" ? IMAGE_TYPES : VIDEO_TYPES;
-  const extension = types?.get(mimeType);
-  const fileSize = Number(body.fileSize);
-  const maxBytes = mediaType === "image" ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
-  const caption = String(body.caption ?? "").trim();
-  if (!mediaType || !extension) return json(400, { error: "unsupported media type" });
-  if (!Number.isFinite(fileSize) || fileSize <= 0 || fileSize > maxBytes) {
-    return json(400, { error: `${mediaType} is too large` });
+  const requested = Array.isArray(body.media) && body.media.length
+    ? body.media
+    : [{ mediaType: body.mediaType, mimeType: body.mimeType, fileSize: body.fileSize }];
+  if (requested.length > MAX_CAROUSEL_ITEMS) return json(400, { error: "a carousel can contain up to 10 photos" });
+  const media = requested.map((value, index) => {
+    const mediaType = value.mediaType === "video" ? "video" : value.mediaType === "image" ? "image" : null;
+    const mimeType = String(value.mimeType ?? "").toLowerCase();
+    const extension = (mediaType === "image" ? IMAGE_TYPES : VIDEO_TYPES)?.get(mimeType);
+    const fileSize = Number(value.fileSize);
+    const maxBytes = mediaType === "image" ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
+    return { index, mediaType, mimeType, extension, fileSize, maxBytes };
+  });
+  if (media.some((value) => !value.mediaType || !value.extension)) return json(400, { error: "unsupported media type" });
+  if (media.some((value) => !Number.isFinite(value.fileSize) || value.fileSize <= 0 || value.fileSize > value.maxBytes)) {
+    return json(400, { error: "media item is too large" });
   }
+  if (media.length > 1 && media.some((value) => value.mediaType !== "image")) {
+    return json(400, { error: "carousels currently support photos only" });
+  }
+  const caption = String(body.caption ?? "").trim();
   if (!caption || caption.length > 2200) return json(400, { error: "caption must be 1-2200 characters" });
 
   const postId = randomUUID();
   const ownerKey = safeOwner(ownerId);
-  const rawKey = `ugc/raw/${ownerKey}/${postId}.${extension}`;
-  const posterRawKey = mediaType === "video" ? `ugc/posters-raw/${ownerKey}/${postId}.jpg` : null;
+  const mediaItems = media.map((value) => ({
+    index: value.index,
+    mediaType: value.mediaType,
+    mimeType: value.mimeType,
+    extension: value.extension,
+    fileSize: value.fileSize,
+    rawKey: media.length === 1
+      ? `ugc/raw/${ownerKey}/${postId}.${value.extension}`
+      : `ugc/raw/${ownerKey}/${postId}/${value.index}.${value.extension}`,
+  }));
+  const primary = mediaItems[0];
+  const rawKey = primary.rawKey;
+  const posterRawKey = primary.mediaType === "video" ? `ugc/posters-raw/${ownerKey}/${postId}.jpg` : null;
   const user = USERS
     ? await ddb.send(new GetCommand({ TableName: USERS, Key: { userId: ownerId } })).catch(() => ({}))
     : {};
   const authorName = String(user.Item?.name ?? user.Item?.identity?.name ?? "Giftmaxxer").slice(0, 80);
   const authorImageUrl = user.Item?.identity?.imageUrl ?? user.Item?.imageUrl ?? null;
+  const music = MUSIC_TRACKS.find((track) => track.trackId === body.musicTrackId) ?? null;
   const now = Date.now();
   const item = {
     postId,
@@ -103,27 +144,35 @@ async function createUpload(body, ownerId) {
     updatedAt: now,
     caption,
     source: "ugc",
-    mediaType,
-    mimeType,
-    fileSize,
+    mediaType: media.length > 1 ? "carousel" : primary.mediaType,
+    mimeType: primary.mimeType,
+    fileSize: media.reduce((total, value) => total + value.fileSize, 0),
     rawKey,
+    mediaItems,
+    mediaResults: {},
     posterRawKey,
+    music,
+    visibility: user.Item?.visibility ?? "public",
     status: "processing",
     processingStatus: "UPLOAD_PENDING",
     moderationStatus: "PENDING",
     likes: 0,
     comments: 0,
-    contentType: mediaType === "video" ? "ugc_video" : "ugc_image",
+    contentType: primary.mediaType === "video" ? "ugc_video" : (media.length > 1 ? "ugc_carousel" : "ugc_image"),
     feedEligible: false,
   };
   await ddb.send(new PutCommand({ TableName: POSTS, Item: item, ConditionExpression: "attribute_not_exists(postId)" }));
 
-  const uploadHeaders = { "Content-Type": mimeType, "Content-Length": String(fileSize) };
-  const uploadUrl = await getSignedUrl(
-    s3,
-    new PutObjectCommand({ Bucket: MEDIA_BUCKET, Key: rawKey, ContentType: mimeType, ContentLength: fileSize }),
-    { expiresIn: 900 }
-  );
+  const uploads = await Promise.all(mediaItems.map(async (value) => {
+    const uploadHeaders = { "Content-Type": value.mimeType, "Content-Length": String(value.fileSize) };
+    const uploadUrl = await getSignedUrl(
+      s3,
+      new PutObjectCommand({ Bucket: MEDIA_BUCKET, Key: value.rawKey, ContentType: value.mimeType, ContentLength: value.fileSize }),
+      { expiresIn: 900 }
+    );
+    return { index: value.index, uploadUrl, uploadHeaders };
+  }));
+  const [{ uploadUrl, uploadHeaders }] = uploads;
   let posterUploadUrl = null;
   if (posterRawKey) {
     posterUploadUrl = await getSignedUrl(
@@ -136,6 +185,7 @@ async function createUpload(body, ownerId) {
     post: publicPost(item),
     uploadUrl,
     uploadHeaders,
+    uploads,
     posterUploadUrl,
     posterUploadHeaders: posterUploadUrl ? { "Content-Type": "image/jpeg" } : null,
     expiresIn: 900,
@@ -264,8 +314,12 @@ async function markComplete(postId, ownerId) {
     return json(202, { ok: true, postId, status: owned.item.processingStatus });
   }
   try {
-    const head = await s3.send(new HeadObjectCommand({ Bucket: MEDIA_BUCKET, Key: owned.item.rawKey }));
-    if (!head.ContentLength) return json(409, { error: "upload is empty" });
+    const items = owned.item.mediaItems?.length ? owned.item.mediaItems : [{ rawKey: owned.item.rawKey }];
+    const heads = await Promise.all(items.map((value) => s3.send(new HeadObjectCommand({
+      Bucket: MEDIA_BUCKET,
+      Key: value.rawKey,
+    }))));
+    if (heads.some((head) => !head.ContentLength)) return json(409, { error: "upload is empty" });
   } catch {
     return json(409, { error: "upload has not reached storage" });
   }
@@ -429,6 +483,7 @@ async function blockUser(blockedUserId, ownerId) {
 export async function ugcRoutes(method, path, body, qs, auth) {
   const ownerId = auth?.sub;
   if (!ownerId) return json(401, { error: "sign in required" });
+  if (method === "GET" && path === "/ugc/music") return json(200, { items: MUSIC_TRACKS });
   if (method === "POST" && path === "/ugc/avatar/uploads") return createAvatarUpload(body, ownerId);
   const avatarMatch = /^\/ugc\/avatar\/uploads\/([^/]+)\/complete$/.exec(path);
   if (method === "POST" && avatarMatch) return completeAvatarUpload(decodeURIComponent(avatarMatch[1]), ownerId);
@@ -466,7 +521,14 @@ export async function purgeUserUGC(ownerId) {
     ExpressionAttributeValues: { ":author": ownerId },
   }));
   const posts = (out.Items ?? []).filter((item) => item.source === "ugc");
-  const keys = posts.flatMap((item) => [item.rawKey, item.posterRawKey, item.publicKey, item.posterPublicKey]).filter(Boolean);
+  const keys = posts.flatMap((item) => [
+    item.rawKey,
+    item.posterRawKey,
+    item.publicKey,
+    item.posterPublicKey,
+    ...(item.mediaItems ?? []).map((value) => value.rawKey),
+    ...(item.publicKeys ?? []),
+  ]).filter(Boolean);
   if (keys.length && MEDIA_BUCKET) {
     for (let index = 0; index < keys.length; index += 1000) {
       await s3.send(new DeleteObjectsCommand({

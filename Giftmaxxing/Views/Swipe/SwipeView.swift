@@ -20,6 +20,7 @@ final class SwipeViewModel: ObservableObject {
     // When the current card appeared — decision time (shown -> committed swipe)
     // scales the taste weight: an instant no is a harder no than a hesitant one.
     private var cardShownAt = Date()
+    var userId: String?
 
     var currentCard: Post? {
         guard currentIndex < cards.count else { return nil }
@@ -39,11 +40,21 @@ final class SwipeViewModel: ObservableObject {
             // vibes) so the deck leans the right way before any swipes exist.
             let vibes = PersonalizationStore.consultVibes
             let page = try await api.fetchRecommendations(
-                limit: 30,
+                limit: 50,
                 vibes: vibes.isEmpty ? nil : vibes,
-                recipient: PersonalizationStore.feedRecipient
+                recipient: PersonalizationStore.feedRecipient,
+                userId: userId
             )
-            cards = page.posts
+            let profile = await TasteProfileStore.shared.snapshot()
+            cards = OnDeviceRanker.rank(
+                candidates: page.posts,
+                profile: profile,
+                context: RankingContext(
+                    recipient: PersonalizationStore.feedRecipient,
+                    consultVibes: vibes,
+                    mindset: GiftMindset.current()
+                )
+            ).prefix(30).map(\.post)
             currentIndex = 0
             yesCount = 0
             noCount = 0
@@ -162,8 +173,9 @@ final class SwipeViewModel: ObservableObject {
         noCount += 1
         let card = cards[currentIndex]
         // Left-swipes are the strongest explicit negative signal the app has —
-        // they feed the on-device taste profile (and de-dup) but stay local.
-        record(.hide, for: card, uploadAs: nil, decisionMs: decisionMs())
+        // they feed both the on-device anti-centroid and server de-dup so a
+        // passed gift never comes back on another session or device.
+        record(.hide, for: card, uploadAs: "hide", decisionMs: decisionMs())
 
         analytics.trackSwipeLeft(
             postId: card.id,
@@ -200,7 +212,7 @@ final class SwipeViewModel: ObservableObject {
             if let type {
                 var data: [String: String] = ["giftType": card.giftType ?? "product"]
                 if decisionMs > 0 { data["decisionMs"] = String(Int(decisionMs)) }
-                await InteractionQueue.shared.enqueue(userId: nil, targetId: card.id, type: type, data: data)
+                await InteractionQueue.shared.enqueue(userId: userId, targetId: card.id, type: type, data: data)
             }
         }
     }
@@ -242,6 +254,7 @@ final class SwipeViewModel: ObservableObject {
 
 struct SwipeView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var authManager: AuthManager
     @StateObject private var viewModel = SwipeViewModel()
     @Environment(\.modelContext) private var modelContext
 
@@ -364,6 +377,7 @@ struct SwipeView: View {
             }
         }
         .task {
+            viewModel.userId = authManager.userId
             if viewModel.cards.isEmpty {
                 AnalyticsEngine.shared.trackScreenView(screen: "swipe")
                 await viewModel.loadCards()
