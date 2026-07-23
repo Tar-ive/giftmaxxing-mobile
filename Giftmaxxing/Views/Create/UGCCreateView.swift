@@ -14,6 +14,7 @@ struct UGCCreateView: View {
     @State private var showCamera = false
     @State private var photoLibraryMode = true
     @State private var previewIndex = 0
+    @State private var editRequest: UGCEditRequest?
     @State private var showMusic = false
     @State private var hapticTrigger = 0
 
@@ -68,6 +69,14 @@ struct UGCCreateView: View {
                     showCamera = false
                 }
                 .ignoresSafeArea()
+            }
+            .sheet(item: $editRequest) { request in
+                if model.media.indices.contains(request.index),
+                   let image = model.media[request.index].previewImage {
+                    UGCPhotoEditor(image: image) { edited in
+                        try? model.replacePhoto(at: request.index, with: edited)
+                    }
+                }
             }
             .onChange(of: selection) { _, items in
                 guard !items.isEmpty else { return }
@@ -151,7 +160,7 @@ struct UGCCreateView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: model.media.count > 1 ? .always : .never))
             .frame(maxWidth: .infinity)
-            .aspectRatio(4 / 5, contentMode: .fit)
+            .aspectRatio(model.media.first?.kind == .video ? 9.0 / 16.0 : 1, contentMode: .fit)
             .background(Color.surfaceSunken)
             .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.xl, style: .continuous))
 
@@ -169,6 +178,24 @@ struct UGCCreateView: View {
             }
             .padding(ThemeSpacing.sm)
             .accessibilityLabel("Remove this item")
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if model.media.indices.contains(previewIndex),
+               model.media[previewIndex].kind == .image {
+                Button {
+                    editRequest = UGCEditRequest(index: previewIndex)
+                } label: {
+                    Label("Edit", systemImage: "slider.horizontal.3")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(Color.ink)
+                        .padding(.horizontal, ThemeSpacing.sm)
+                        .frame(minHeight: 44)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(ThemeSpacing.sm)
+            }
         }
     }
 
@@ -278,7 +305,7 @@ private struct UGCPostStatusCard: View {
     var body: some View {
         HStack(spacing: ThemeSpacing.sm) {
             ZStack {
-                if let image = post.posterUrl ?? (post.mediaType == "image" ? post.mediaUrl : nil) {
+                if let image = post.posterUrl ?? post.mediaUrls?.first ?? (post.mediaType == "image" ? post.mediaUrl : nil) {
                     CachedAsyncImage(url: image, width: 180)
                 } else {
                     Color.surfaceSunken
@@ -327,6 +354,107 @@ private struct UGCPostStatusCard: View {
         case "READY": Color.success
         case "REJECTED", "FAILED": Color.danger
         default: Color.inkSecondary
+        }
+    }
+}
+
+private struct UGCEditRequest: Identifiable {
+    let index: Int
+    var id: Int { index }
+}
+
+private struct UGCPhotoEditor: View {
+    let original: UIImage
+    let onSave: (UIImage) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var image: UIImage
+
+    init(image: UIImage, onSave: @escaping (UIImage) -> Void) {
+        original = image
+        self.onSave = onSave
+        _image = State(initialValue: image)
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: ThemeSpacing.md) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.surfaceSunken)
+                    .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
+
+                HStack(spacing: ThemeSpacing.sm) {
+                    editButton("Rotate", icon: "rotate.right") { image = image.rotatedClockwise() }
+                    editButton("Square", icon: "square") { image = image.centerCropped(to: 1) }
+                    editButton("Portrait", icon: "rectangle.portrait") { image = image.centerCropped(to: 4.0 / 5.0) }
+                    editButton("Reset", icon: "arrow.counterclockwise") { image = original }
+                }
+            }
+            .padding(ThemeSpacing.md)
+            .background(Color.cream)
+            .navigationTitle("Edit photo")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        onSave(image)
+                        dismiss()
+                    }
+                    .fontWeight(.bold)
+                }
+            }
+        }
+    }
+
+    private func editButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: ThemeSpacing.xs) {
+                Image(systemName: icon).font(.headline)
+                Text(title).font(.caption.weight(.semibold))
+            }
+            .foregroundStyle(Color.ink)
+            .frame(maxWidth: .infinity, minHeight: 60)
+            .background(Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.md, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private extension UIImage {
+    func rotatedClockwise() -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = scale
+        let target = CGSize(width: size.height, height: size.width)
+        return UIGraphicsImageRenderer(size: target, format: format).image { context in
+            context.cgContext.translateBy(x: target.width, y: 0)
+            context.cgContext.rotate(by: .pi / 2)
+            draw(in: CGRect(origin: .zero, size: size))
+        }
+    }
+
+    func centerCropped(to targetAspect: CGFloat) -> UIImage {
+        guard size.width > 0, size.height > 0 else { return self }
+        let sourceAspect = size.width / size.height
+        let cropSize = sourceAspect > targetAspect
+            ? CGSize(width: size.height * targetAspect, height: size.height)
+            : CGSize(width: size.width, height: size.width / targetAspect)
+        let cropRect = CGRect(
+            x: (size.width - cropSize.width) / 2,
+            y: (size.height - cropSize.height) / 2,
+            width: cropSize.width,
+            height: cropSize.height
+        )
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = scale
+        return UIGraphicsImageRenderer(size: cropSize, format: format).image { _ in
+            draw(at: CGPoint(x: -cropRect.minX, y: -cropRect.minY))
         }
     }
 }
@@ -381,6 +509,14 @@ final class UGCCreateViewModel: ObservableObject {
     func removeMedia(at index: Int) {
         guard media.indices.contains(index) else { return }
         media.remove(at: index).removeTemporaryFiles()
+    }
+
+    func replacePhoto(at index: Int, with image: UIImage) throws {
+        guard media.indices.contains(index), media[index].kind == .image else { return }
+        let replacement = try SelectedUGCMedia.image(image: image)
+        let old = media[index]
+        media[index] = replacement
+        old.removeTemporaryFiles()
     }
 
     func clearDraft() {
@@ -466,6 +602,10 @@ struct SelectedUGCMedia {
 
     static func image(data: Data) throws -> SelectedUGCMedia {
         guard let source = UIImage(data: data) else { throw UGCSelectionError.unreadable }
+        return try image(image: source)
+    }
+
+    static func image(image source: UIImage) throws -> SelectedUGCMedia {
         let image = source.preparingThumbnail(of: CGSize(width: 2048, height: 2048)) ?? source
         guard let jpeg = image.jpegData(compressionQuality: 0.86) else { throw UGCSelectionError.unreadable }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("ugc-\(UUID().uuidString).jpg")

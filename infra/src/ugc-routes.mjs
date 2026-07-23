@@ -1,12 +1,14 @@
 import { createHash, randomUUID } from "node:crypto";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
+  BatchGetCommand,
   BatchWriteCommand,
   DeleteCommand,
   DynamoDBDocumentClient,
   GetCommand,
   PutCommand,
   QueryCommand,
+  TransactWriteCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import {
@@ -408,27 +410,88 @@ async function setLike(postId, ownerId, body) {
   const target = await engagementTarget(postId);
   if (target.error) return target.error;
   const key = { userId: ownerId, targetId: `like#${postId}` };
-  const existing = await ddb.send(new GetCommand({ TableName: INTERACTIONS, Key: key }));
-  const liked = body.liked !== false;
-  if (liked && !existing.Item) {
-    await ddb.send(new PutCommand({
-      TableName: INTERACTIONS,
-      Item: { ...key, target: postId, type: "like", createdAt: Date.now() },
+  const requested = body.liked !== false;
+  const now = Date.now();
+  try {
+    await ddb.send(new TransactWriteCommand({
+      TransactItems: requested
+        ? [
+            {
+              Put: {
+                TableName: INTERACTIONS,
+                Item: { ...key, target: postId, type: "like", createdAt: now },
+                ConditionExpression: "attribute_not_exists(userId)",
+              },
+            },
+            {
+              Update: {
+                TableName: POSTS,
+                Key: { postId },
+                UpdateExpression: "ADD likes :one SET updatedAt = :now",
+                ExpressionAttributeValues: { ":one": 1, ":now": now },
+              },
+            },
+          ]
+        : [
+            {
+              Delete: {
+                TableName: INTERACTIONS,
+                Key: key,
+                ConditionExpression: "attribute_exists(userId)",
+              },
+            },
+            {
+              Update: {
+                TableName: POSTS,
+                Key: { postId },
+                UpdateExpression: "ADD likes :minusOne SET updatedAt = :now",
+                ExpressionAttributeValues: { ":minusOne": -1, ":now": now },
+              },
+            },
+          ],
     }));
-  } else if (!liked && existing.Item) {
-    await ddb.send(new DeleteCommand({ TableName: INTERACTIONS, Key: key }));
+  } catch (error) {
+    // A conditional cancellation means this account was already in the
+    // requested state. That is a successful idempotent retry, not an error.
+    if (error?.name !== "TransactionCanceledException") throw error;
   }
-  const changed = liked !== Boolean(existing.Item);
-  const likes = Math.max(0, Number(target.item.likes ?? 0) + (changed ? (liked ? 1 : -1) : 0));
-  if (changed) {
+  const [interaction, post] = await Promise.all([
+    ddb.send(new GetCommand({ TableName: INTERACTIONS, Key: key })),
+    ddb.send(new GetCommand({ TableName: POSTS, Key: { postId } })),
+  ]);
+  const likes = Math.max(0, Number(post.Item?.likes ?? 0));
+  if (Number(post.Item?.likes ?? 0) < 0) {
     await ddb.send(new UpdateCommand({
       TableName: POSTS,
       Key: { postId },
-      UpdateExpression: "SET likes = :likes, updatedAt = :now",
-      ExpressionAttributeValues: { ":likes": likes, ":now": Date.now() },
+      UpdateExpression: "SET likes = :zero, updatedAt = :now",
+      ExpressionAttributeValues: { ":zero": 0, ":now": Date.now() },
     }));
   }
-  return json(200, { liked, likes });
+  return json(200, { liked: Boolean(interaction.Item), likes });
+}
+
+async function likeStates(ownerId, body) {
+  if (!INTERACTIONS) return json(503, { error: "likes are not configured" });
+  const postIds = [...new Set(
+    (Array.isArray(body.postIds) ? body.postIds : [])
+      .map((value) => String(value).trim())
+      .filter(Boolean)
+  )].slice(0, 100);
+  if (!postIds.length) return json(200, { likedPostIds: [] });
+  const out = await ddb.send(new BatchGetCommand({
+    RequestItems: {
+      [INTERACTIONS]: {
+        Keys: postIds.map((postId) => ({ userId: ownerId, targetId: `like#${postId}` })),
+        ProjectionExpression: "targetId",
+      },
+    },
+  }));
+  return json(200, {
+    likedPostIds: (out.Responses?.[INTERACTIONS] ?? [])
+      .map((item) => String(item.targetId ?? "").replace(/^like#/, ""))
+      .filter(Boolean),
+  });
 }
 
 async function listComments(postId) {
@@ -484,6 +547,7 @@ export async function ugcRoutes(method, path, body, qs, auth) {
   const ownerId = auth?.sub;
   if (!ownerId) return json(401, { error: "sign in required" });
   if (method === "GET" && path === "/ugc/music") return json(200, { items: MUSIC_TRACKS });
+  if (method === "POST" && path === "/ugc/likes/status") return likeStates(ownerId, body);
   if (method === "POST" && path === "/ugc/avatar/uploads") return createAvatarUpload(body, ownerId);
   const avatarMatch = /^\/ugc\/avatar\/uploads\/([^/]+)\/complete$/.exec(path);
   if (method === "POST" && avatarMatch) return completeAvatarUpload(decodeURIComponent(avatarMatch[1]), ownerId);

@@ -84,6 +84,14 @@ actor APIClient {
         try await post("/ugc/posts/\(postId)/like", body: ["liked": liked])
     }
 
+    func fetchPostLikeStates(postIds: [String]) async throws -> Set<String> {
+        let response: PostLikeStatesResponse = try await post(
+            "/ugc/likes/status",
+            body: ["postIds": Array(Set(postIds)).prefix(100).map(\.self)]
+        )
+        return Set(response.likedPostIds)
+    }
+
     func fetchPostComments(postId: String) async throws -> PostCommentsResponse {
         try await get("/ugc/posts/\(postId)/comments")
     }

@@ -1,5 +1,55 @@
+import AVFoundation
 import AVKit
 import SwiftUI
+
+@MainActor
+final class UGCFeedMusicPlayback: ObservableObject {
+    static let shared = UGCFeedMusicPlayback()
+
+    @Published private(set) var activePostId: String?
+    @Published private(set) var isPlaying = false
+
+    private var player: AVQueuePlayer?
+    private var looper: AVPlayerLooper?
+
+    func play(postId: String, track: UGCMusicTrack) {
+        if activePostId == postId, let player {
+            player.play()
+            isPlaying = true
+            return
+        }
+        stop()
+        guard let url = URL(string: track.audioUrl) else { return }
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+        try? AVAudioSession.sharedInstance().setActive(true)
+        let player = AVQueuePlayer()
+        player.volume = 1
+        looper = AVPlayerLooper(player: player, templateItem: AVPlayerItem(url: url))
+        self.player = player
+        activePostId = postId
+        isPlaying = true
+        player.play()
+    }
+
+    func toggle(postId: String, track: UGCMusicTrack) {
+        if activePostId == postId, isPlaying {
+            player?.pause()
+            isPlaying = false
+        } else {
+            play(postId: postId, track: track)
+        }
+    }
+
+    func stop(postId: String? = nil) {
+        guard postId == nil || activePostId == postId else { return }
+        player?.pause()
+        player?.removeAllItems()
+        player = nil
+        looper = nil
+        activePostId = nil
+        isPlaying = false
+    }
+}
 
 struct PostCardView: View {
     let post: Post
@@ -22,8 +72,7 @@ struct PostCardView: View {
     @State private var showReportReasons = false
     @State private var showVideo = false
     @State private var reportFeedback = 0
-    @State private var musicPlayer: AVPlayer?
-    @State private var isPlayingMusic = false
+    @ObservedObject private var musicPlayback = UGCFeedMusicPlayback.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -181,13 +230,14 @@ struct PostCardView: View {
                     .transition(.opacity)
                 }
             }
-            // Instagram's 4:5 portrait — taller media, same edge-to-edge card.
-            .aspectRatio(4.0 / 5.0, contentMode: .fit)
+            .aspectRatio(mediaAspectRatio, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 2))
             .contentShape(Rectangle())
             .onTapGesture {
                 if showStory {
                     withAnimation(.easeOut(duration: 0.2)) { showStory = false }
+                } else if let music = post.music, isUGC, post.contentType != "ugc_video" {
+                    musicPlayback.toggle(postId: post.id, track: music)
                 } else if isUGC, post.contentType == "ugc_video", post.mediaUrl != nil {
                     showVideo = true
                 } else {
@@ -240,7 +290,7 @@ struct PostCardView: View {
             .padding(.top, 10)
 
             if let music = post.music {
-                Button { toggleMusic(music) } label: {
+                Button { musicPlayback.toggle(postId: post.id, track: music) } label: {
                     Label(
                         "\(music.title) · \(music.artist)",
                         systemImage: isPlayingMusic ? "pause.fill" : "music.note"
@@ -317,7 +367,13 @@ struct PostCardView: View {
                 UGCVideoPlayerScreen(url: url)
             }
         }
-        .onDisappear { musicPlayer?.pause() }
+        .task(id: post.music?.trackId) {
+            guard let music = post.music else { return }
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            musicPlayback.play(postId: post.id, track: music)
+        }
+        .onDisappear { musicPlayback.stop(postId: post.id) }
     }
 
     // A reason worth a line of its own ("Similar to your taste"). Merchant
@@ -347,24 +403,18 @@ struct PostCardView: View {
     }
 
     private var isUGC: Bool { post.source == "ugc" }
+    private var isPlayingMusic: Bool {
+        musicPlayback.activePostId == post.id && musicPlayback.isPlaying
+    }
+    private var mediaAspectRatio: CGFloat {
+        guard isUGC else { return 4.0 / 5.0 }
+        return post.contentType == "ugc_video" ? 9.0 / 16.0 : 1
+    }
 
     private var shareURL: URL? {
         Affiliate.productUrl(for: post)
             ?? post.mediaUrl.flatMap(URL.init(string:))
             ?? post.posterUrl.flatMap(URL.init(string:))
-    }
-
-    private func toggleMusic(_ track: UGCMusicTrack) {
-        if isPlayingMusic {
-            musicPlayer?.pause()
-            isPlayingMusic = false
-            return
-        }
-        guard let url = URL(string: track.audioUrl) else { return }
-        let player = musicPlayer ?? AVPlayer(url: url)
-        musicPlayer = player
-        player.play()
-        isPlayingMusic = true
     }
 
     private func cleanedLabel(_ value: String) -> String {

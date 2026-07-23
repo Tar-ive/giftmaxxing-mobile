@@ -452,6 +452,7 @@ struct PublicProfileView: View {
                 relationshipActions
                 tasteSection
                 giftListSection
+                circlesSection
                 postsSection
             }
             .padding(16)
@@ -685,10 +686,22 @@ struct PublicProfileView: View {
                         Button { selectedPost = post } label: {
                             ZStack {
                                 Color.surfaceSunken
-                                CachedAsyncImage(url: post.posterUrl ?? post.mediaUrl, width: 280)
+                                CachedAsyncImage(
+                                    url: post.posterUrl ?? post.mediaUrls?.first ?? post.mediaUrl,
+                                    width: 280
+                                )
                                 if post.mediaType == "video" {
                                     Image(systemName: "play.fill").font(.caption.bold()).foregroundStyle(.white)
                                         .padding(7).background(.black.opacity(0.55)).clipShape(Circle())
+                                } else if (post.mediaUrls?.count ?? 0) > 1 {
+                                    Image(systemName: "rectangle.stack.fill")
+                                        .font(.caption.bold())
+                                        .foregroundStyle(.white)
+                                        .padding(7)
+                                        .background(.black.opacity(0.55))
+                                        .clipShape(Circle())
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                                        .padding(ThemeSpacing.xs)
                                 }
                             }
                             .aspectRatio(1, contentMode: .fill).clipped()
@@ -697,6 +710,42 @@ struct PublicProfileView: View {
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.md, style: .continuous))
+            }
+        }
+    }
+
+    @ViewBuilder private var circlesSection: some View {
+        if isFriend, let circles = displayed.circles, !circles.isEmpty {
+            VStack(alignment: .leading, spacing: ThemeSpacing.sm) {
+                sectionTitle("Their circles")
+                ForEach(circles) { circle in
+                    NavigationLink {
+                        CircleDetailView(circleId: circle.circleId)
+                    } label: {
+                        HStack(spacing: ThemeSpacing.sm) {
+                            Text(circle.emoji ?? "🎁")
+                                .font(.title2)
+                                .frame(width: 48, height: 48)
+                                .background(Color.coralSoft)
+                                .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.md, style: .continuous))
+                            VStack(alignment: .leading, spacing: ThemeSpacing.xs) {
+                                Text(circle.name)
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(Color.ink)
+                                Text("Open or join this gift circle")
+                                    .font(.caption)
+                                    .foregroundStyle(Color.inkSecondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(Color.inkTertiary)
+                        }
+                        .padding(ThemeSpacing.sm)
+                        .background(Color.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
     }

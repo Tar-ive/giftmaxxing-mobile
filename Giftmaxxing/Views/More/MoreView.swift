@@ -96,6 +96,7 @@ struct MoreView: View {
                 VStack(spacing: 20) {
                     personaHeader
                     ownerGiftListSection
+                    ownerSizesSection
                     ugcPostsSection
 
                     Spacer(minLength: 40)
@@ -364,6 +365,15 @@ struct MoreView: View {
                         ))
                     }
                 }
+            }
+        }
+    }
+
+    @ViewBuilder private var ownerSizesSection: some View {
+        if !profileSizes.isEmpty {
+            VStack(alignment: .leading, spacing: ThemeSpacing.sm) {
+                MoreSectionHeader(title: "My sizes")
+                measurementsRow(profileSizes)
             }
         }
     }
@@ -916,6 +926,14 @@ struct UGCProfilePostSheet: View {
     @State private var comments: [Comment] = []
     @State private var draft = ""
     @State private var sending = false
+    @State private var galleryIndex = 0
+    @ObservedObject private var musicPlayback = UGCFeedMusicPlayback.shared
+
+    private var gallery: [String] {
+        let values = post.mediaUrls ?? []
+        if !values.isEmpty { return values }
+        return [post.mediaUrl].compactMap { $0 }
+    }
 
     private var giftPost: Post {
         Post(
@@ -930,7 +948,8 @@ struct UGCProfilePostSheet: View {
                 price: 0,
                 grad: .coral,
                 emoji: "🎁",
-                image: post.posterUrl ?? post.mediaUrl
+                image: post.posterUrl ?? gallery.first,
+                images: gallery
             ),
             caption: post.caption,
             likes: likeCount,
@@ -938,9 +957,12 @@ struct UGCProfilePostSheet: View {
             comments: comments,
             commentCount: post.comments,
             source: "ugc",
-            contentType: post.mediaType == "video" ? "ugc_video" : "ugc_image",
+            contentType: post.mediaType == "video"
+                ? "ugc_video"
+                : (gallery.count > 1 ? "ugc_carousel" : "ugc_image"),
             mediaUrl: post.mediaUrl,
-            posterUrl: post.posterUrl
+            posterUrl: post.posterUrl,
+            music: post.music
         )
     }
 
@@ -950,12 +972,31 @@ struct UGCProfilePostSheet: View {
                 VStack(alignment: .leading, spacing: 14) {
                     media
                         .frame(maxWidth: .infinity)
-                        .aspectRatio(4 / 5, contentMode: .fit)
+                        .aspectRatio(post.mediaType == "video" ? 9.0 / 16.0 : 1, contentMode: .fit)
                         .background(Color.surfaceSunken)
                         .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if let music = post.music, post.mediaType != "video" {
+                                musicPlayback.toggle(postId: post.id, track: music)
+                            }
+                        }
                     Text(post.caption)
                         .font(.body)
                         .foregroundStyle(Color.ink)
+                    if let music = post.music {
+                        Button {
+                            musicPlayback.toggle(postId: post.id, track: music)
+                        } label: {
+                            Label(
+                                "\(music.title) · \(music.artist)",
+                                systemImage: isPlayingMusic ? "pause.fill" : "music.note"
+                            )
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color.ink)
+                        }
+                        .buttonStyle(.plain)
+                    }
                     HStack(spacing: 20) {
                         Button { Task { await toggleLike() } } label: {
                             Label("\(likeCount)", systemImage: liked ? "heart.fill" : "heart")
@@ -1019,8 +1060,15 @@ struct UGCProfilePostSheet: View {
             }
             .task {
                 likeCount = post.likes ?? 0
+                if let states = try? await APIClient.shared.fetchPostLikeStates(postIds: [post.id]) {
+                    liked = states.contains(post.id)
+                }
                 comments = (try? await APIClient.shared.fetchPostComments(postId: post.id).items) ?? []
+                if let music = post.music {
+                    musicPlayback.play(postId: post.id, track: music)
+                }
             }
+            .onDisappear { musicPlayback.stop(postId: post.id) }
         }
     }
 
@@ -1028,6 +1076,7 @@ struct UGCProfilePostSheet: View {
         liked.toggle()
         likeCount = max(0, likeCount + (liked ? 1 : -1))
         if let response = try? await APIClient.shared.setPostLike(postId: post.id, liked: liked) {
+            liked = response.liked
             likeCount = response.likes
         }
     }
@@ -1046,13 +1095,35 @@ struct UGCProfilePostSheet: View {
     @ViewBuilder private var media: some View {
         if post.mediaType == "video", let value = post.mediaUrl, let url = URL(string: value) {
             VideoPlayer(player: AVPlayer(url: url))
-        } else if let image = post.posterUrl ?? post.mediaUrl {
+        } else if gallery.count > 1 {
+            ZStack(alignment: .topTrailing) {
+                TabView(selection: $galleryIndex) {
+                    ForEach(Array(gallery.enumerated()), id: \.offset) { index, image in
+                        CachedAsyncImage(url: image, width: 900)
+                            .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .always))
+                Text("\(galleryIndex + 1)/\(gallery.count)")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, ThemeSpacing.sm)
+                    .padding(.vertical, ThemeSpacing.xs)
+                    .background(.black.opacity(0.55))
+                    .clipShape(Capsule())
+                    .padding(ThemeSpacing.sm)
+            }
+        } else if let image = gallery.first ?? post.posterUrl {
             CachedAsyncImage(url: image, width: 900)
         } else {
             Image(systemName: post.mediaType == "video" ? "video.fill" : "photo.fill")
                 .font(.largeTitle)
                 .foregroundStyle(Color.inkTertiary)
         }
+    }
+
+    private var isPlayingMusic: Bool {
+        musicPlayback.activePostId == post.id && musicPlayback.isPlaying
     }
 }
 

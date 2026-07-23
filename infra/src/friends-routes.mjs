@@ -16,6 +16,7 @@
 // People discovery reads the USERS table (public profiles only).
 
 import {
+  BatchGetCommand,
   DynamoDBDocumentClient,
   GetCommand,
   PutCommand,
@@ -73,7 +74,7 @@ function publicCard(item, allowPrivate = false) {
   // The "gift me right" facts: sizes, dislikes, the standing note, and a
   // photo showcase of gifts the owner would love. Everything is opt-in via
   // the same visibility gate above and length-capped here.
-  const clothingSizes =
+  const clothingSizes = allowPrivate &&
     item.clothingSizes && typeof item.clothingSizes === "object" && !Array.isArray(item.clothingSizes)
       ? Object.fromEntries(
           Object.entries(item.clothingSizes)
@@ -82,7 +83,7 @@ function publicCard(item, allowPrivate = false) {
             .map(([k, v]) => [String(k).slice(0, 20), String(v).trim().slice(0, 24)])
         )
       : null;
-  const selfBoard = Array.isArray(item.giftBoards)
+  const selfBoard = allowPrivate && Array.isArray(item.giftBoards)
     ? item.giftBoards.find((b) => b?.relationship === "self" || b?.name === "Gift ideas for me")
     : null;
   const boardIdeas = Array.isArray(selfBoard?.posts)
@@ -95,7 +96,7 @@ function publicCard(item, allowPrivate = false) {
         productUrl: p?.productUrl ?? p?.url,
       }))
     : [];
-  const showcaseSource = boardIdeas.length ? boardIdeas : item.giftShowcase;
+  const showcaseSource = allowPrivate ? (boardIdeas.length ? boardIdeas : item.giftShowcase) : [];
   const giftShowcase = Array.isArray(showcaseSource)
     ? showcaseSource
         .slice(0, 6)
@@ -116,8 +117,8 @@ function publicCard(item, allowPrivate = false) {
     handle,
     bio: typeof item.bio === "string" ? item.bio.slice(0, 160) : null,
     imageUrl: item.identity?.imageUrl ?? item.imageUrl ?? null,
-    interests: Array.isArray(item.interests) ? item.interests.slice(0, 12) : [],
-    materialisticCategories: Array.isArray(item.materialisticCategories)
+    interests: allowPrivate && Array.isArray(item.interests) ? item.interests.slice(0, 12) : [],
+    materialisticCategories: allowPrivate && Array.isArray(item.materialisticCategories)
       ? item.materialisticCategories.slice(0, 8)
       : [],
     style: item.style ?? null,
@@ -126,10 +127,10 @@ function publicCard(item, allowPrivate = false) {
     tagline: typeof item.tagline === "string" ? item.tagline.slice(0, 120) : null,
     philosophy: typeof item.philosophy === "string" ? item.philosophy.slice(0, 500) : null,
     clothingSizes: clothingSizes && Object.keys(clothingSizes).length ? clothingSizes : null,
-    dislikes: Array.isArray(item.dislikes)
+    dislikes: allowPrivate && Array.isArray(item.dislikes)
       ? item.dislikes.filter((d) => typeof d === "string").slice(0, 12)
       : [],
-    giftNote: typeof item.giftNote === "string" ? item.giftNote.slice(0, 240) : null,
+    giftNote: allowPrivate && typeof item.giftNote === "string" ? item.giftNote.slice(0, 240) : null,
     giftShowcase,
   };
 }
@@ -149,10 +150,10 @@ function friendFromItem(item, viewerId) {
   };
 }
 
-async function loadUserCard(userId) {
+async function loadUserCard(userId, allowPrivate = false) {
   if (!USERS || !userId) return null;
   const out = await ddb.send(new GetCommand({ TableName: USERS, Key: { userId } }));
-  return publicCard(out.Item);
+  return publicCard(out.Item, allowPrivate);
 }
 
 async function getFriendship(userId, otherUserId) {
@@ -174,6 +175,41 @@ async function acceptedFriendCount(userId) {
     ExpressionAttributeValues: { ":pk": userId, ":friend": "FRIEND#" },
   }));
   return (out.Items ?? []).filter((item) => item.status === "accepted").length;
+}
+
+async function circlesForUser(userId) {
+  if (!EVENTS || !userId) return [];
+  const seats = [];
+  let cursor;
+  do {
+    const out = await ddb.send(new ScanCommand({
+      TableName: EVENTS,
+      FilterExpression: "linkedUserId = :user",
+      ExpressionAttributeValues: { ":user": userId },
+      ProjectionExpression: "userId",
+      ExclusiveStartKey: cursor,
+    }));
+    seats.push(...(out.Items ?? []));
+    cursor = out.LastEvaluatedKey;
+  } while (cursor);
+  const circleKeys = [...new Set(
+    seats.map((item) => String(item.userId ?? "")).filter((value) => value.startsWith("CIRCLE#"))
+  )].slice(0, 50);
+  if (!circleKeys.length) return [];
+  const out = await ddb.send(new BatchGetCommand({
+    RequestItems: {
+      [EVENTS]: {
+        Keys: circleKeys.map((userId) => ({ userId, eventId: "META" })),
+        ProjectionExpression: "userId, circleId, #name, emoji",
+        ExpressionAttributeNames: { "#name": "name" },
+      },
+    },
+  }));
+  return (out.Responses?.[EVENTS] ?? []).map((item) => ({
+    circleId: item.circleId ?? String(item.userId).replace(/^CIRCLE#/, ""),
+    name: item.name ?? "Gift circle",
+    emoji: item.emoji ?? null,
+  }));
 }
 
 // ── Public people discovery ──────────────────────────────────────────────────
@@ -211,17 +247,16 @@ async function getPerson(userId, viewerId) {
   if (!USERS || !userId) return json(404, { error: "not found" });
   const out = await ddb.send(new GetCommand({ TableName: USERS, Key: { userId } }));
   const profile = out.Item;
-  let card = publicCard(profile);
-  if (!card && profile?.visibility === "private" && viewerId) {
-    const friendship = await getFriendship(viewerId, userId);
-    if (friendship?.status === "accepted") {
-      card = publicCard(profile, true);
-    }
-  }
+  const friendship = viewerId && viewerId !== userId
+    ? await getFriendship(viewerId, userId)
+    : null;
+  const allowPrivate = viewerId === userId || friendship?.status === "accepted";
+  const card = publicCard(profile, allowPrivate);
   if (!card) return json(404, { error: "not found or private" });
-  [card.posts, card.friendCount] = await Promise.all([
+  [card.posts, card.friendCount, card.circles] = await Promise.all([
     publicPostsForProfile(userId).catch(() => []),
     acceptedFriendCount(userId).catch(() => 0),
+    allowPrivate ? circlesForUser(userId).catch(() => []) : [],
   ]);
   return json(200, { item: card });
 }
@@ -364,7 +399,7 @@ async function listFriends(qs) {
   // Enrich with public profile cards when available.
   const enriched = await Promise.all(
     items.map(async (f) => {
-      const card = await loadUserCard(f.friendId);
+      const card = await loadUserCard(f.friendId, f.status === "accepted");
       return card ? { ...f, ...card, friendId: f.friendId } : f;
     })
   );

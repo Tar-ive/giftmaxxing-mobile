@@ -32,6 +32,7 @@ data "aws_iam_policy_document" "ddb_access" {
       "dynamodb:Query",
       "dynamodb:Scan",
       "dynamodb:BatchWriteItem",
+      "dynamodb:TransactWriteItems",
     ]
     resources = [
       aws_dynamodb_table.users.arn,

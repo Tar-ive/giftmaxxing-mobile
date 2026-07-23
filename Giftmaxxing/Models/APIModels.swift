@@ -122,6 +122,10 @@ struct PostLikeResponse: Codable {
     var likes: Int
 }
 
+struct PostLikeStatesResponse: Codable {
+    var likedPostIds: [String]
+}
+
 struct PostCommentsResponse: Codable {
     var items: [Comment]
     var count: Int
@@ -529,8 +533,17 @@ struct PublicPerson: Codable, Identifiable, Hashable {
     var giftShowcase: [GiftShowcaseItem]?
     var posts: [UGCPost]?
     var friendCount: Int? = nil
+    var circles: [PersonCircle]? = nil
 
     var id: String { userId }
+}
+
+struct PersonCircle: Codable, Identifiable, Hashable {
+    var circleId: String
+    var name: String
+    var emoji: String?
+
+    var id: String { circleId }
 }
 
 // One photo in a profile's "gifts I'd love" showcase — a board item the

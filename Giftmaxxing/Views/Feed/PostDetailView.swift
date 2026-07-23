@@ -71,7 +71,12 @@ struct PostDetailView: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
-                    .aspectRatio(4.0 / 5.0, contentMode: .fit)
+                    .aspectRatio(
+                        activePost.source == "ugc"
+                            ? (activePost.contentType == "ugc_video" ? 9.0 / 16.0 : 1)
+                            : 4.0 / 5.0,
+                        contentMode: .fit
+                    )
                     .clipped()
 
                     VStack(alignment: .leading, spacing: 12) {
