@@ -14,6 +14,11 @@ enum CoachMarks {
     }
 }
 
+extension Notification.Name {
+    // Settings → "Replay app tour" — ContentView re-presents CoachMarksView.
+    static let replayCoachMarks = Notification.Name("giftmaxxing.replayCoachMarks")
+}
+
 struct CoachMarksView: View {
     var onFinish: () -> Void
 
@@ -31,7 +36,7 @@ struct CoachMarksView: View {
             icon: "rectangle.stack.badge.plus",
             title: "Your Gift Boards",
             line: "One board per person. Share it and they swipe yes/no.",
-            hint: "Swipe tab → For someone"
+            hint: "Swipe tab → Gift Boards"
         ),
         Step(
             icon: "calendar",

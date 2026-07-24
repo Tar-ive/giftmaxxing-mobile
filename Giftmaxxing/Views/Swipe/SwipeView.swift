@@ -260,82 +260,30 @@ struct SwipeView: View {
 
     // One swiping mechanic, three gifting contexts:
     //   • For me      — self-gifting: train your taste, find your own things.
-    //   • For someone — your named swipe lists (one per person/occasion):
-    //                   curate, send as a swipe deck, read the answers back —
-    //                   plus the taste-learning challenge.
+    //   • Gift Boards — your named boards (one per person/occasion): curate,
+    //                   send as a swipe deck, read the answers back — plus the
+    //                   taste-learning challenge. The segment is named after
+    //                   the feature so save-toasts/rails can point at it.
     //   • Group gift  — lives in the Circles tab; picking the segment jumps
     //                   there (embedding it here left a dead-end segment).
     private enum GiftContext: String, CaseIterable {
         case me = "For me"
-        case someone = "For someone"
+        case someone = "Gift Boards"
         case group = "Group gift"
     }
     @State private var context: GiftContext = .me
 
+    // Deep link from the post-save toast / Home boards rail (AppState.openBoard).
+    private struct BoardRef: Identifiable, Hashable { let id: String }
+    @State private var presentedBoard: BoardRef?
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Context picker — who is this swiping session for?
-                HStack(spacing: 0) {
-                    ForEach(GiftContext.allCases, id: \.self) { ctx in
-                        Button {
-                            context = ctx
-                        } label: {
-                            Text(ctx.rawValue)
-                                .font(.system(size: 16, weight: context == ctx ? .semibold : .regular))
-                                .foregroundStyle(Color.ink)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .background(
-                                    context == ctx ? Color.surface : Color.clear,
-                                    in: Capsule()
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .contentShape(Rectangle())
-                        .accessibilityAddTraits(context == ctx ? .isSelected : [])
-                    }
-                }
-                .padding(4)
-                .background(Color.ink.opacity(0.08), in: Capsule())
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel("Swipe context")
-                .padding(.horizontal, 20)
-                .padding(.top, 6)
+                contextPicker
 
                 if context == .someone {
-                    ScrollView {
-                        // Don't know their taste yet? The challenge learns it.
-                        NavigationLink(destination: ChallengeView()) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "gift.fill")
-                                    .font(.system(size: 24))
-                                    .foregroundStyle(Color.coral)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Share a gift challenge")
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundStyle(Color.ink)
-                                    Text("They swipe in their browser; their taste lands here.")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(.tertiary)
-                            }
-                            .padding(12)
-                            .background(Color.coralSoft.opacity(0.5))
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 20)
-                        .padding(.top, 10)
-
-                        // Already collecting ideas? The lists live here.
-                        SwipeListsHomeView()
-                            .padding(.bottom, 24)
-                    }
+                    boardsBody
                 } else {
                     deckBody
                 }
@@ -362,6 +310,9 @@ struct SwipeView: View {
                     }
                 }
             }
+            .navigationDestination(item: $presentedBoard) { ref in
+                SwipeListDetailView(listId: ref.id)
+            }
         }
         .onChange(of: context) { _, newContext in
             switch newContext {
@@ -376,6 +327,8 @@ struct SwipeView: View {
                 context = .me
             }
         }
+        .onChange(of: appState.pendingBoardId) { _, _ in consumePendingBoardRoute() }
+        .onChange(of: appState.pendingBoardsHome) { _, _ in consumePendingBoardRoute() }
         .task {
             viewModel.userId = authManager.userId
             if viewModel.cards.isEmpty {
@@ -383,8 +336,91 @@ struct SwipeView: View {
                 await viewModel.loadCards()
             }
         }
-        .onAppear { appState.suppressMaxiFAB() }
+        .onAppear {
+            appState.suppressMaxiFAB()
+            consumePendingBoardRoute()
+        }
         .onDisappear { appState.unsuppressMaxiFAB() }
+    }
+
+    // Context picker — who is this swiping session for?
+    private var contextPicker: some View {
+        HStack(spacing: 0) {
+            ForEach(GiftContext.allCases, id: \.self) { ctx in
+                Button {
+                    context = ctx
+                } label: {
+                    Text(ctx.rawValue)
+                        .font(.system(size: 16, weight: context == ctx ? .semibold : .regular))
+                        .foregroundStyle(Color.ink)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            context == ctx ? Color.surface : Color.clear,
+                            in: Capsule()
+                        )
+                }
+                .buttonStyle(.plain)
+                .contentShape(Rectangle())
+                .accessibilityAddTraits(context == ctx ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(Color.ink.opacity(0.08), in: Capsule())
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Swipe context")
+        .padding(.horizontal, 20)
+        .padding(.top, 6)
+    }
+
+    // The Gift Boards segment: the taste-learning challenge + every board.
+    private var boardsBody: some View {
+        ScrollView {
+            // Don't know their taste yet? The challenge learns it.
+            NavigationLink(destination: ChallengeView()) {
+                HStack(spacing: 12) {
+                    Image(systemName: "gift.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(Color.coral)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Share a gift challenge")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(Color.ink)
+                        Text("They swipe in their browser; their taste lands here.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(12)
+                .background(Color.coralSoft.opacity(0.5))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 20)
+            .padding(.top, 10)
+
+            // Already collecting ideas? The boards live here.
+            SwipeListsHomeView()
+                .padding(.bottom, 24)
+        }
+    }
+
+    // Toast "View" / Home boards rail landed us here — jump to the Gift Boards
+    // segment and (for a specific board) push its detail.
+    private func consumePendingBoardRoute() {
+        if let boardId = appState.pendingBoardId {
+            context = .someone
+            presentedBoard = BoardRef(id: boardId)
+            appState.pendingBoardId = nil
+            appState.pendingBoardsHome = false
+        } else if appState.pendingBoardsHome {
+            context = .someone
+            appState.pendingBoardsHome = false
+        }
     }
 
     @ViewBuilder

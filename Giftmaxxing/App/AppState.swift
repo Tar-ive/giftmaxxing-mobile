@@ -35,6 +35,12 @@ final class AppState: ObservableObject {
     // sheet at root (works from any tab).
     @Published var showBirthdayPerks = false
 
+    // Gift Board deep link (post-save toast "View", the Home boards rail) —
+    // SwipeView consumes these: switches to the Gift Boards segment and, for
+    // pendingBoardId, pushes the board detail.
+    @Published var pendingBoardId: String?
+    @Published var pendingBoardsHome = false
+
     // A challenge invite opened IN the app (deep link or tapped DM invite) —
     // ContentView presents the native swipe deck instead of bouncing to web.
     @Published var pendingChallengeId: String?
@@ -64,6 +70,16 @@ final class AppState: ObservableObject {
     func openCircle(_ circleId: String) {
         selectedTab = .circles
         pendingCircleId = circleId
+    }
+
+    func openBoard(_ boardId: String) {
+        selectedTab = .swipe
+        pendingBoardId = boardId
+    }
+
+    func openBoardsHome() {
+        selectedTab = .swipe
+        pendingBoardsHome = true
     }
 
     func openSearch(_ tab: SearchTab) {

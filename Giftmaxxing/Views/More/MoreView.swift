@@ -790,6 +790,17 @@ struct MoreView: View {
                     }
                     VStack(spacing: 2) {
                         MoreSectionHeader(title: "Support & Legal")
+                        settingsButton(
+                            icon: "map.fill",
+                            title: "Replay app tour",
+                            subtitle: "Where boards, dates, and search live"
+                        ) {
+                            showSettings = false
+                            // Let the sheet dismiss before the overlay appears.
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                                NotificationCenter.default.post(name: .replayCoachMarks, object: nil)
+                            }
+                        }
                         MoreRow(icon: "questionmark.circle.fill", title: "Help & Support", subtitle: "Contact us, FAQs") { SupportView() }
                         MoreRow(icon: "hand.raised.fill", title: "Privacy Policy", subtitle: "Your data rights") { PrivacyView() }
                     }

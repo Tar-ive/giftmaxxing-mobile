@@ -10,7 +10,11 @@ struct ContentView: View {
     @State private var gateResolved = false
     // First-run navigation tour (TikTok-style coach marks) — queued the moment
     // a NEW user finishes onboarding; never for grandfathered accounts.
+    // Re-presentable via Settings → "Replay app tour" (.replayCoachMarks).
     @State private var showCoachMarks = false
+    // Board-save feedback: the toast + the one-time Swipe-tab callout.
+    @StateObject private var boardToasts = BoardToastCenter.shared
+    @State private var showBoardsHint = false
 
     // Accounts are required: the cover dismisses only via real auth. E2E builds
     // sign in headlessly via launch arguments (see E2ESupport.swift).
@@ -115,6 +119,53 @@ struct ContentView: View {
                 .zIndex(8)
             }
 
+            // "Saved to <board> · View" — global confirmation for every board
+            // save, with the deep link that teaches where boards live.
+            VStack {
+                Spacer()
+                if let event = boardToasts.event {
+                    BoardSavedToast(event: event) {
+                        BoardsHint.seen = true // View tap = location learned
+                        boardToasts.hide()
+                        appState.openBoard(event.boardId)
+                    }
+                }
+            }
+            .padding(.bottom, 62)
+            .zIndex(7)
+            .sensoryFeedback(.success, trigger: boardToasts.event?.id)
+            .onChange(of: boardToasts.event) { old, new in
+                // Toast came and went untapped after the FIRST save → point at
+                // the Swipe tab once so the location still lands.
+                if old != nil, new == nil, !BoardsHint.seen {
+                    BoardsHint.seen = true
+                    withAnimation(.snappy) { showBoardsHint = true }
+                    Task {
+                        try? await Task.sleep(for: .seconds(5))
+                        withAnimation(.snappy) { showBoardsHint = false }
+                    }
+                }
+            }
+
+            if showBoardsHint {
+                GeometryReader { geo in
+                    BoardsHintCallout {
+                        withAnimation(.snappy) { showBoardsHint = false }
+                        appState.openBoardsHome()
+                    }
+                    // Anchored over the Swipe tab — 2nd of 5 slots (30% width),
+                    // just above the ~49pt tab bar.
+                    .position(x: geo.size.width * 0.3, y: geo.size.height - 70)
+                }
+                .zIndex(7)
+                .onChange(of: appState.selectedTab) { _, tab in
+                    // They found it themselves — retire the pointer.
+                    if tab == .swipe {
+                        withAnimation(.snappy) { showBoardsHint = false }
+                    }
+                }
+            }
+
             if showSplash {
                 SplashView {
                     Task { await finishSplashAndResolveGate() }
@@ -128,6 +179,9 @@ struct ContentView: View {
                     .ignoresSafeArea()
                     .zIndex(9)
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .replayCoachMarks)) { _ in
+            withAnimation(.easeOut(duration: 0.25)) { showCoachMarks = true }
         }
         .sheet(isPresented: $appState.showBirthdayPerks) {
             BirthdayPerksSheet()
