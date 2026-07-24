@@ -76,10 +76,6 @@ struct FeedView: View {
                     .padding(.top, 6)
                     .padding(.bottom, 8)
 
-                    // The user's own Gift Boards — the discoverability bridge
-                    // to Swipe → Gift Boards. Hidden until the first board.
-                    GiftBoardsRail()
-
                     // Curated gift galleries — the immersive "world of
                     // intentional gifts" front door (browse without setup).
                     CuratedGalleriesRail { collection in

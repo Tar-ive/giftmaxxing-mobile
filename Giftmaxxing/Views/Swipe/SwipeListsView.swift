@@ -4,6 +4,10 @@ import SwiftUI
 // (Instagram-collections model). Tap into a board to manage its items, send it
 // as a swipe deck, and read the yes/no results back.
 struct SwipeListsHomeView: View {
+    // Embedders (the You-page Gift Boards tab) already pad their content —
+    // they pass 0; the Swipe-tab home keeps the default gutter.
+    var horizontalPadding: CGFloat = 20
+
     @ObservedObject private var store = SwipeListStore.shared
     @State private var showNewList = false
     @State private var newListName = ""
@@ -79,7 +83,7 @@ struct SwipeListsHomeView: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, horizontalPadding)
         .padding(.top, 12)
         .sheet(isPresented: $showAddByLink) {
             AddByLinkView()

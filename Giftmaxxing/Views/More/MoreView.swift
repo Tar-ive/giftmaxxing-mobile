@@ -28,6 +28,10 @@ struct MoreView: View {
     @State private var ugcPosts: [UGCPost] = []
     @State private var selectedUGCPost: UGCPost?
     @State private var showSettings = false
+    // In-page tabbed navigation (Instagram-profile pattern): 0 = posts grid,
+    // 1 = gift ideas for {first name} + sizes, 2 = Gift Boards.
+    @State private var activeTab = 0
+    @Namespace private var tabUnderline
     @State private var profileShowcase: [GiftShowcaseItem] = []
     @State private var profileSizes: [String: String] = [:]
     @State private var profileVibes: [String] = []
@@ -95,9 +99,19 @@ struct MoreView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     personaHeader
-                    ownerGiftListSection
-                    ownerSizesSection
-                    ugcPostsSection
+
+                    // Instagram-profile-style contextual sub-navigation: one
+                    // icon strip, three content panels swapped in place.
+                    profileTabStrip
+                    switch activeTab {
+                    case 0:
+                        ugcPostsSection
+                    case 1:
+                        ownerGiftListSection
+                        ownerSizesSection
+                    default:
+                        boardsPanel
+                    }
 
                     Spacer(minLength: 40)
                 }
@@ -330,10 +344,64 @@ struct MoreView: View {
         .padding(.top, 12)
     }
 
+    // First name for the personalized wishlist title — "Gift ideas for Saksham".
+    private var firstName: String {
+        guard let name = authManager.displayName?
+            .split(separator: " ").first.map(String.init),
+            !name.isEmpty
+        else { return "me" }
+        return name
+    }
+
+    // The Instagram-style icon strip: three sub-views of the same profile,
+    // switched in place (activeTab) instead of stacked down the page.
+    private var profileTabStrip: some View {
+        HStack(spacing: 0) {
+            profileTab(index: 0, icon: "square.grid.3x3", label: "Your posts")
+            profileTab(index: 1, icon: "gift", label: "Gift ideas for \(firstName)")
+            profileTab(index: 2, icon: "rectangle.stack", label: "Gift Boards")
+        }
+        .sensoryFeedback(.selection, trigger: activeTab)
+    }
+
+    private func profileTab(index: Int, icon: String, label: String) -> some View {
+        let isActive = activeTab == index
+        return Button {
+            withAnimation(.snappy) { activeTab = index }
+        } label: {
+            VStack(spacing: 8) {
+                Image(systemName: isActive ? "\(icon).fill" : icon)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(isActive ? Color.ink : Color.inkTertiary)
+                    .contentTransition(.symbolEffect(.replace))
+                ZStack {
+                    Color.clear.frame(height: 2)
+                    if isActive {
+                        RoundedRectangle(cornerRadius: 1, style: .continuous)
+                            .fill(Color.ink)
+                            .frame(width: 56, height: 2)
+                            .matchedGeometryEffect(id: "profileTabUnderline", in: tabUnderline)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
+    }
+
+    // Gift Boards live HERE now (removed from the Home rail) — reuse the full
+    // boards home (create, add by link, rows into detail).
+    private var boardsPanel: some View {
+        SwipeListsHomeView(horizontalPadding: 0)
+    }
+
     private var ownerGiftListSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                MoreSectionHeader(title: "Gift ideas for me")
+                MoreSectionHeader(title: "Gift ideas for \(firstName)")
                 Spacer()
                 if let list = boards.myGiftIdeas {
                     NavigationLink("See all") { SwipeListDetailView(listId: list.id) }
