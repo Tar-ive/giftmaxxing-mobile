@@ -277,6 +277,9 @@ struct SwipeView: View {
     private struct BoardRef: Identifiable, Hashable { let id: String }
     @State private var presentedBoard: BoardRef?
 
+    // First-deck gesture rehearsal — cleared by the first real swipe commit.
+    @State private var showRehearsal = !SwipeRehearsal.seen
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -312,6 +315,19 @@ struct SwipeView: View {
             }
             .navigationDestination(item: $presentedBoard) { ref in
                 SwipeListDetailView(listId: ref.id)
+            }
+            .overlay {
+                if showRehearsal, context == .me,
+                   viewModel.currentCard != nil, !viewModel.isLoading {
+                    SwipeRehearsalCue()
+                }
+            }
+        }
+        .onChange(of: viewModel.yesCount + viewModel.noCount) { _, total in
+            // First real commit = rehearsal complete, forever.
+            if total > 0, showRehearsal {
+                SwipeRehearsal.seen = true
+                withAnimation(.easeOut(duration: 0.3)) { showRehearsal = false }
             }
         }
         .onChange(of: context) { _, newContext in

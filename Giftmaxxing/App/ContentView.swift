@@ -186,6 +186,23 @@ struct ContentView: View {
         .sheet(isPresented: $appState.showBirthdayPerks) {
             BirthdayPerksSheet()
         }
+        // Birthday-journey notification taps: a challenge for the birthday
+        // person, auto-created and ready to send…
+        .sheet(item: $appState.pendingChallengePrefill) { prefill in
+            NavigationStack {
+                ChallengeView(
+                    showsClose: true,
+                    prefillTheirName: prefill.recipientName,
+                    autoCreate: true
+                )
+            }
+        }
+        // …and "they completed it" → straight to the responses.
+        .sheet(isPresented: $appState.showChallengeResults) {
+            NavigationStack {
+                ChallengeView(showsClose: true)
+            }
+        }
         .sheet(isPresented: $appState.showMaxi) {
             MaxiView()
         }

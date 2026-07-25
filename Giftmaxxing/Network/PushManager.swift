@@ -123,6 +123,19 @@ final class PushManager: NSObject, ObservableObject {
                 name: .navigateToShop,
                 object: nil
             )
+        case "birthday_challenge":
+            // Birthday journey: tap → auto-created swipe challenge for them.
+            NotificationCenter.default.post(
+                name: .navigateToBirthdayChallenge,
+                object: nil,
+                userInfo: ["recipientName": userInfo["recipientName"] as? String ?? ""]
+            )
+        case "birthday_results":
+            // Their challenge is done — open the results.
+            NotificationCenter.default.post(
+                name: .navigateToConnection,
+                object: nil
+            )
         default:
             break
         }
@@ -158,6 +171,7 @@ extension PushManager: UNUserNotificationCenterDelegate {
 extension Notification.Name {
     static let navigateToPool = Notification.Name("navigateToPool")
     static let navigateToConnection = Notification.Name("navigateToConnection")
+    static let navigateToBirthdayChallenge = Notification.Name("navigateToBirthdayChallenge")
     static let navigateToEvent = Notification.Name("navigateToEvent")
     static let navigateToMaxi = Notification.Name("navigateToMaxi")
     // Birthday-freebies notification tap — ContentView opens the perks sheet.

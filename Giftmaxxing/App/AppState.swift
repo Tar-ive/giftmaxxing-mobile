@@ -41,6 +41,16 @@ final class AppState: ObservableObject {
     @Published var pendingBoardId: String?
     @Published var pendingBoardsHome = false
 
+    // Birthday-journey notification taps: prefill presents ChallengeView with
+    // the recipient set and the challenge auto-created; results opens the
+    // responses (challenge_completed pushes route here too).
+    struct ChallengePrefill: Identifiable {
+        let id = UUID()
+        let recipientName: String
+    }
+    @Published var pendingChallengePrefill: ChallengePrefill?
+    @Published var showChallengeResults = false
+
     // A challenge invite opened IN the app (deep link or tapped DM invite) —
     // ContentView presents the native swipe deck instead of bouncing to web.
     @Published var pendingChallengeId: String?

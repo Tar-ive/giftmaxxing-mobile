@@ -26,6 +26,9 @@ struct ChallengeView: View {
     var prefillTheirName: String = ""
     /// When launched from a DM, the created challenge is also posted there.
     var dmThreadId: String? = nil
+    /// Birthday-journey notification taps: create the server challenge
+    /// immediately so the sheet opens ready to share.
+    var autoCreate = false
 
     @State private var yourName = ""
     @State private var theirName = ""
@@ -125,6 +128,8 @@ struct ChallengeView: View {
             )
             challengeId = response.challengeId
             serverUnavailable = false
+            // Feed the birthday journey's "sent, awaiting swipes" state.
+            BirthdayChallengeJourney.recordSentChallenge(recipientName: theirName)
             await postChallengeToDmIfNeeded()
             AnalyticsEngine.shared.trackScreenView(screen: "challenge_created_server")
         } catch {
@@ -376,6 +381,9 @@ struct ChallengeView: View {
                 yourName = authManager.displayName ?? ""
             }
             appState.suppressMaxiFAB()
+            if autoCreate, challengeId == nil {
+                Task { await createServerChallenge() }
+            }
         }
         .onChange(of: authManager.displayName) { _, name in
             if yourName.isEmpty { yourName = name ?? "" }

@@ -85,6 +85,13 @@ struct GiftmaxxingApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: .navigateToShop)) { _ in
                     appState.showBirthdayPerks = true
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .navigateToBirthdayChallenge)) { note in
+                    let name = note.userInfo?["recipientName"] as? String ?? ""
+                    appState.pendingChallengePrefill = .init(recipientName: name)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .navigateToConnection)) { _ in
+                    appState.showChallengeResults = true
+                }
         }
     }
 }

@@ -17,6 +17,7 @@ import SwiftData
 // than pushes — no nested-stack double toolbars.
 struct CirclesView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var authManager: AuthManager
     @ObservedObject private var groupGifts = GroupGiftStore.shared
     @ObservedObject private var circleStore = CircleStore.shared
     @StateObject private var eventsModel = EventsViewModel()
@@ -29,6 +30,8 @@ struct CirclesView: View {
     @State private var showJoinByLink = false
     @State private var openCircleId: String?
     @State private var circleMoments: [TimelineMoment] = []
+    // Circle members with birthdays — feeds the birthday-challenge journey.
+    @State private var circleBirthdayPeople: [BirthdayChallengeJourney.Person] = []
 
     var body: some View {
         NavigationStack {
@@ -126,6 +129,7 @@ struct CirclesView: View {
                 }
                 await loadCircleMoments()
                 await ReminderScheduler.requestPermissionIfNeeded()
+                await resyncBirthdayJourney()
             }
             .onChange(of: circleStore.circles.count) { _, _ in
                 Task { await loadCircleMoments() }
@@ -133,6 +137,7 @@ struct CirclesView: View {
             .refreshable {
                 await eventsModel.loadEvents(context: modelContext)
                 await loadCircleMoments()
+                await resyncBirthdayJourney()
             }
         }
     }
@@ -205,13 +210,16 @@ struct CirclesView: View {
             return
         }
         var collected: [TimelineMoment] = []
-        await withTaskGroup(of: [TimelineMoment].self) { group in
+        var birthdayPeople: [BirthdayChallengeJourney.Person] = []
+        await withTaskGroup(
+            of: ([TimelineMoment], [BirthdayChallengeJourney.Person]).self
+        ) { group in
             for circle in saved {
                 group.addTask {
                     guard let data = try? await APIClient.shared.fetchCircle(circleId: circle.circleId) else {
-                        return []
+                        return ([], [])
                     }
-                    return CircleMoment.build(from: data).map { moment in
+                    let moments = CircleMoment.build(from: data).map { moment in
                         TimelineMoment(
                             id: "\(circle.circleId)-\(moment.id)",
                             emoji: moment.emoji,
@@ -223,13 +231,64 @@ struct CirclesView: View {
                             kind: .circle(circleId: circle.circleId)
                         )
                     }
+                    // Members with birthdays feed the swipe-challenge journey.
+                    let people = (data.members ?? []).compactMap { member -> BirthdayChallengeJourney.Person? in
+                        guard let ymd = member.birthday,
+                              let next = BirthdayChallengeJourney.nextOccurrence(ofYMD: ymd)
+                        else { return nil }
+                        return BirthdayChallengeJourney.Person(
+                            key: "cm-\(member.memberId)",
+                            name: member.name,
+                            birthday: next
+                        )
+                    }
+                    return (moments, people)
                 }
             }
-            for await items in group {
+            for await (items, people) in group {
                 collected += items
+                birthdayPeople += people
             }
         }
         circleMoments = collected
+        circleBirthdayPeople = birthdayPeople
+    }
+
+    // Re-derive the birthday → swipe-challenge notification journey from
+    // everything this screen knows: personal birthday events, circle member
+    // birthdays, sent-challenge memory, and completed-but-unseen responses.
+    private func resyncBirthdayJourney() async {
+        var people: [BirthdayChallengeJourney.Person] = []
+        var seenNames = Set<String>()
+
+        for event in eventsModel.upcomingEvents where event.type == "birthday" {
+            let name = event.recipientName.isEmpty ? event.title : event.recipientName
+            guard !name.isEmpty, seenNames.insert(name.lowercased()).inserted else { continue }
+            people.append(BirthdayChallengeJourney.Person(
+                key: "evt-\(event.id)",
+                name: name,
+                birthday: Self.nextOccurrence(for: event)
+            ))
+        }
+        for person in circleBirthdayPeople where seenNames.insert(person.name.lowercased()).inserted {
+            people.append(person)
+        }
+
+        let sent = BirthdayChallengeJourney.sentChallengeNames()
+        var connections: [SoftConnectionItem] = []
+        if let userId = authManager.userId {
+            connections = (try? await APIClient.shared.fetchConnections(userId: userId)) ?? []
+        }
+        for index in people.indices {
+            let nameKey = people[index].name.lowercased()
+            let matches = connections.filter { $0.guestName.lowercased() == nameKey }
+            people[index].challengeSent = sent.contains(nameKey) || !matches.isEmpty
+            people[index].completedUnseen = matches.contains {
+                ($0.totalSwipes ?? 0) > 0 && $0.seen != true
+            }
+        }
+
+        await BirthdayChallengeJourney.resync(people: people)
     }
 
     @ViewBuilder
