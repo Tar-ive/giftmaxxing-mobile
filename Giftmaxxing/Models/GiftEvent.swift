@@ -1,6 +1,6 @@
 import Foundation
 
-struct GiftEvent: Identifiable, Codable {
+struct GiftEvent: Identifiable, Codable, Hashable {
     let id: String
     var userId: String?
     var recipientId: String?

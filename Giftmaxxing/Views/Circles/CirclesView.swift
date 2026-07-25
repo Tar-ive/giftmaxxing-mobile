@@ -29,6 +29,7 @@ struct CirclesView: View {
     @State private var showAddEvent = false
     @State private var showJoinByLink = false
     @State private var openCircleId: String?
+    @State private var openEvent: GiftEvent?
     @State private var circleMoments: [TimelineMoment] = []
     // Circle members with birthdays — feeds the birthday-challenge journey.
     @State private var circleBirthdayPeople: [BirthdayChallengeJourney.Person] = []
@@ -37,13 +38,23 @@ struct CirclesView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Text("Your people, their moments")
-                        .font(.system(size: 24, weight: .heavy, design: .rounded))
-                        .foregroundStyle(Color.ink)
+                    // The calendar IS the screen: sources on top (Me + each
+                    // circle), month grid, then the picked day's moments.
+                    CircleCalendarView(
+                        moments: timelineMoments,
+                        sources: calendarSources,
+                        onSelectMoment: { moment in
+                            switch moment.kind {
+                            case .personal(let event): openEvent = event
+                            case .circle(let circleId): openCircleId = circleId
+                            }
+                        },
+                        onAddDate: { showAddEvent = true }
+                    )
+                    .padding(.horizontal, -16) // the calendar owns its gutters
 
                     GiftStreakCard()
 
-                    timelineSection
                     circlesSection
                     groupGiftsSection
 
@@ -113,6 +124,9 @@ struct CirclesView: View {
             .navigationDestination(item: $openCircleId) { circleId in
                 CircleDetailView(circleId: circleId)
             }
+            .navigationDestination(item: $openEvent) { event in
+                EventDetailView(event: event)
+            }
             .onChange(of: appState.pendingCircleId) { _, pending in
                 if let pending {
                     openCircleId = pending
@@ -165,19 +179,16 @@ struct CirclesView: View {
         return items.sorted { ($0.days, $0.title) < ($1.days, $1.title) }
     }
 
-    private var timelineMonths: [(id: String, title: String, items: [TimelineMoment])] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
-        var out: [(id: String, title: String, items: [TimelineMoment])] = []
-        for item in timelineMoments {
-            let title = formatter.string(from: item.date)
-            if out.last?.id == title {
-                out[out.count - 1].items.append(item)
-            } else {
-                out.append((id: title, title: title, items: [item]))
+    // Calendar sources: your own milestones plus every circle you're in.
+    private var calendarSources: [CircleCalendarView.CalendarSource] {
+        [CircleCalendarView.CalendarSource(id: "me", name: "Me", emoji: nil)]
+            + circleStore.circles.map {
+                CircleCalendarView.CalendarSource(
+                    id: $0.circleId,
+                    name: $0.name,
+                    emoji: $0.emoji
+                )
             }
-        }
-        return out
     }
 
     // Birthdays and anniversaries roll forward to their next occurrence, so
@@ -291,93 +302,6 @@ struct CirclesView: View {
         await BirthdayChallengeJourney.resync(people: people)
     }
 
-    @ViewBuilder
-    private var timelineSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("COMING UP")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button {
-                    showAddEvent = true
-                } label: {
-                    Label("Add a date", systemImage: "plus")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Color.coral)
-                }
-            }
-            .padding(.top, 4)
-
-            if timelineMoments.isEmpty {
-                Button {
-                    showAddEvent = true
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "calendar.badge.plus")
-                            .font(.system(size: 22))
-                            .foregroundStyle(Color.coral)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Never miss a birthday again")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(Color.ink)
-                            Text("Add a date or join a circle.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.leading)
-                        }
-                        Spacer()
-                    }
-                    .padding(14)
-                    .background(Color.cream)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                }
-                .buttonStyle(.plain)
-            } else {
-                ForEach(timelineMonths, id: \.id) { month in
-                    Text(month.title.uppercased())
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.coral)
-                        .padding(.top, 2)
-
-                    ForEach(month.items) { item in
-                        timelineRow(item)
-                    }
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func timelineRow(_ item: TimelineMoment) -> some View {
-        switch item.kind {
-        case .personal(let event):
-            NavigationLink {
-                EventDetailView(event: event)
-            } label: {
-                TimelineMomentRow(item: item)
-            }
-            .buttonStyle(.plain)
-            .contextMenu {
-                Button(role: .destructive) {
-                    eventsModel.deleteEvent(event, context: modelContext)
-                } label: {
-                    Label("Delete event", systemImage: "trash")
-                }
-            }
-        case .circle(let circleId):
-            NavigationLink {
-                CircleDetailView(circleId: circleId)
-            } label: {
-                TimelineMomentRow(item: item)
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    // ── Your circles: the shared groups ──────────────────────────────────────
-
-    @ViewBuilder
     private var circlesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -608,86 +532,6 @@ struct TimelineMoment: Identifiable {
     let date: Date
     let days: Int
     let kind: Kind
-}
-
-// Luma-style event row: date tile on the left, moment + where it comes from
-// in the middle, countdown pill on the right.
-private struct TimelineMomentRow: View {
-    let item: TimelineMoment
-
-    private var urgencyColor: Color {
-        if item.days <= 3 { return .red }
-        if item.days <= 7 { return .orange }
-        if item.days <= 14 { return Color.coral }
-        return .secondary
-    }
-
-    private var dayNumber: String {
-        "\(Calendar.current.component(.day, from: item.date))"
-    }
-
-    private var weekday: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE"
-        return formatter.string(from: item.date).uppercased()
-    }
-
-    private var countdown: String {
-        if item.days == 0 { return "today 🎉" }
-        if item.days == 1 { return "tomorrow" }
-        return "in \(item.days)d"
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            VStack(spacing: 1) {
-                Text(dayNumber)
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundStyle(item.days == 0 ? Color.coral : Color.ink)
-                Text(weekday)
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.secondary)
-            }
-            .frame(width: 44, height: 44)
-            .background(Color.cream)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 5) {
-                    Text(item.emoji)
-                        .font(.system(size: 13))
-                    Text(item.title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.ink)
-                        .lineLimit(1)
-                }
-                HStack(spacing: 4) {
-                    Text(item.sourceLabel)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    if item.hasReminder {
-                        Image(systemName: "bell.fill")
-                            .font(.system(size: 9))
-                            .foregroundStyle(Color.coral)
-                    }
-                }
-            }
-
-            Spacer()
-
-            Text(countdown)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(item.days == 0 ? Color.coral : urgencyColor)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background((item.days == 0 ? Color.coral : urgencyColor).opacity(0.12))
-                .clipShape(Capsule())
-        }
-        .padding(12)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-    }
 }
 
 // Compact row for an active group gift (mirrors GroupGiftViews' private row).

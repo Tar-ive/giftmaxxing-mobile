@@ -66,6 +66,8 @@ struct PostCardView: View {
 
     // Inline gallery position (Instagram-style paging right in the feed).
     @State private var galleryIndex = 0
+    // Real shape of a user upload, measured once the image decodes.
+    @State private var measuredAspect: CGFloat?
     // Long-press reveals the gift's story — the alt-text of gifting.
     @State private var showStory = false
     @State private var showActions = false
@@ -136,7 +138,9 @@ struct PostCardView: View {
                     .indexViewStyle(.page(backgroundDisplayMode: .interactive))
                 } else if let image = post.product.image {
                     Color.gradient(for: post.product.grad)
-                    CachedAsyncImage(url: image, width: 600)
+                    CachedAsyncImage(url: image, width: 600) { ratio in
+                        if isUGC, measuredAspect == nil { measuredAspect = ratio }
+                    }
                 } else {
                     // The designed brand lockup (catalog items pre-enrichment,
                     // services).
@@ -406,9 +410,13 @@ struct PostCardView: View {
     private var isPlayingMusic: Bool {
         musicPlayback.activePostId == post.id && musicPlayback.isPlaying
     }
+    // Products keep the editorial 4:5 crop. User uploads adapt to what they
+    // actually are: vertical short-form, or square (measured from the decoded
+    // image; square until it resolves).
     private var mediaAspectRatio: CGFloat {
-        guard isUGC else { return 4.0 / 5.0 }
-        return post.contentType == "ugc_video" ? 9.0 / 16.0 : 1
+        guard isUGC else { return MediaAspect.product }
+        if post.contentType == "ugc_video" { return MediaAspect.vertical }
+        return measuredAspect.map(MediaAspect.snap) ?? MediaAspect.square
     }
 
     private var shareURL: URL? {

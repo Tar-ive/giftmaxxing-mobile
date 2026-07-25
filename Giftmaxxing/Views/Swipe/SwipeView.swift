@@ -258,24 +258,17 @@ struct SwipeView: View {
     @StateObject private var viewModel = SwipeViewModel()
     @Environment(\.modelContext) private var modelContext
 
-    // One swiping mechanic, three gifting contexts:
-    //   • For me      — self-gifting: train your taste, find your own things.
-    //   • Gift Boards — your named boards (one per person/occasion): curate,
-    //                   send as a swipe deck, read the answers back — plus the
-    //                   taste-learning challenge. The segment is named after
-    //                   the feature so save-toasts/rails can point at it.
-    //   • Group gift  — lives in the Circles tab; picking the segment jumps
-    //                   there (embedding it here left a dead-end segment).
+    // One swiping mechanic, two directions:
+    //   • You     — self-gifting. Your own swipes train the taste model that
+    //               powers every recommendation in the app.
+    //   • People  — the challenge hub: everyone you gift for, their swipe
+    //               results when they've answered, a share/nudge when they
+    //               haven't (PeopleHubView). Gift Boards live on the You tab.
     private enum GiftContext: String, CaseIterable {
-        case me = "For me"
-        case someone = "Gift Boards"
-        case group = "Group gift"
+        case me = "You"
+        case people = "People"
     }
     @State private var context: GiftContext = .me
-
-    // Deep link from the post-save toast / Home boards rail (AppState.openBoard).
-    private struct BoardRef: Identifiable, Hashable { let id: String }
-    @State private var presentedBoard: BoardRef?
 
     // First-deck gesture rehearsal — cleared by the first real swipe commit.
     @State private var showRehearsal = !SwipeRehearsal.seen
@@ -285,8 +278,8 @@ struct SwipeView: View {
             VStack(spacing: 0) {
                 contextPicker
 
-                if context == .someone {
-                    boardsBody
+                if context == .people {
+                    PeopleHubView()
                 } else {
                     deckBody
                 }
@@ -313,9 +306,6 @@ struct SwipeView: View {
                     }
                 }
             }
-            .navigationDestination(item: $presentedBoard) { ref in
-                SwipeListDetailView(listId: ref.id)
-            }
             .overlay {
                 if showRehearsal, context == .me,
                    viewModel.currentCard != nil, !viewModel.isLoading {
@@ -334,17 +324,10 @@ struct SwipeView: View {
             switch newContext {
             case .me:
                 Task { await viewModel.loadCards() }
-            case .someone:
-                AnalyticsEngine.shared.trackScreenView(screen: "swipe_lists")
-            case .group:
-                // Group gifting lives in Circles — hand off and reset the
-                // segment so Swipe isn't stuck on a blank context.
-                appState.selectedTab = .circles
-                context = .me
+            case .people:
+                AnalyticsEngine.shared.trackScreenView(screen: "swipe_people")
             }
         }
-        .onChange(of: appState.pendingBoardId) { _, _ in consumePendingBoardRoute() }
-        .onChange(of: appState.pendingBoardsHome) { _, _ in consumePendingBoardRoute() }
         .task {
             viewModel.userId = authManager.userId
             if viewModel.cards.isEmpty {
@@ -352,10 +335,7 @@ struct SwipeView: View {
                 await viewModel.loadCards()
             }
         }
-        .onAppear {
-            appState.suppressMaxiFAB()
-            consumePendingBoardRoute()
-        }
+        .onAppear { appState.suppressMaxiFAB() }
         .onDisappear { appState.unsuppressMaxiFAB() }
     }
 
@@ -387,56 +367,6 @@ struct SwipeView: View {
         .accessibilityLabel("Swipe context")
         .padding(.horizontal, 20)
         .padding(.top, 6)
-    }
-
-    // The Gift Boards segment: the taste-learning challenge + every board.
-    private var boardsBody: some View {
-        ScrollView {
-            // Don't know their taste yet? The challenge learns it.
-            NavigationLink(destination: ChallengeView()) {
-                HStack(spacing: 12) {
-                    Image(systemName: "gift.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(Color.coral)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Share a gift challenge")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(Color.ink)
-                        Text("They swipe in their browser; their taste lands here.")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                }
-                .padding(12)
-                .background(Color.coralSoft.opacity(0.5))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 20)
-            .padding(.top, 10)
-
-            // Already collecting ideas? The boards live here.
-            SwipeListsHomeView()
-                .padding(.bottom, 24)
-        }
-    }
-
-    // Toast "View" / Home boards rail landed us here — jump to the Gift Boards
-    // segment and (for a specific board) push its detail.
-    private func consumePendingBoardRoute() {
-        if let boardId = appState.pendingBoardId {
-            context = .someone
-            presentedBoard = BoardRef(id: boardId)
-            appState.pendingBoardId = nil
-            appState.pendingBoardsHome = false
-        } else if appState.pendingBoardsHome {
-            context = .someone
-            appState.pendingBoardsHome = false
-        }
     }
 
     @ViewBuilder

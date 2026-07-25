@@ -68,6 +68,7 @@ struct PurposeOnboardingView: View {
     // Step 5
     @State private var samplePicks: [Post] = []
     @State private var savedPick: Post?
+    @State private var picksFailed = false
     @State private var note = ""
 
     struct ImportableContact: Identifiable {
@@ -317,9 +318,73 @@ struct PurposeOnboardingView: View {
                 .background(Color.coralSoft.opacity(0.6))
                 .clipShape(RoundedRectangle(cornerRadius: 18))
             } else {
-                stepTitle("Let's find your first great gift", subtitle: "Pick one idea that feels right and say why.")
+                // No imported birthday to anchor on — this step used to render
+                // a bare heading (a blank screen). Show what the app actually
+                // does for them instead: dates, friends' profiles, taste.
+                stepTitle("Here's how gifting gets easy", subtitle: nil)
+                VStack(spacing: 10) {
+                    ForEach(Self.valueProps, id: \.title) { prop in
+                        valuePropRow(prop)
+                    }
+                }
             }
         }
+    }
+
+    private struct ValueProp {
+        let icon: String
+        let title: String
+        let line: String
+    }
+
+    // The real product story — log the dates, connect the people, let their
+    // profile answer the awkward questions, and the taste model does the rest.
+    private static let valueProps: [ValueProp] = [
+        ValueProp(
+            icon: "calendar",
+            title: "Log the dates that matter",
+            line: "Birthdays, graduations, anniversaries — we remind you in time to actually shop."
+        ),
+        ValueProp(
+            icon: "person.2.fill",
+            title: "Connect your people",
+            line: "Friends on Giftmaxxing keep a profile you can gift from."
+        ),
+        ValueProp(
+            icon: "ruler.fill",
+            title: "No more awkward questions",
+            line: "Their sizes and what to avoid live on their profile — the surprise stays a surprise."
+        ),
+        ValueProp(
+            icon: "sparkles",
+            title: "Ideas that fit them",
+            line: "A few swipes from them and we rank what they'd actually love."
+        ),
+    ]
+
+    private func valuePropRow(_ prop: ValueProp) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: prop.icon)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Color.coral)
+                .frame(width: 44, height: 44)
+                .background(Color.coralSoft)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(prop.title)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Color.ink)
+                Text(prop.line)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     // ── Step 5: sample curation ───────────────────────────────────────────
@@ -334,11 +399,34 @@ struct PurposeOnboardingView: View {
             )
 
             if samplePicks.isEmpty {
-                ProgressView("Finding ideas…")
-                    .font(.bodyMedium)
+                if picksFailed {
+                    // Offline / empty feed used to leave a spinner forever with
+                    // no way forward (no Skip on this step) — give them both a
+                    // retry and an exit.
+                    VStack(spacing: 12) {
+                        Image(systemName: "wifi.exclamationmark")
+                            .font(.system(size: 32))
+                            .foregroundStyle(.secondary)
+                        Text("Couldn't load ideas right now")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(Color.ink)
+                        Text("You can do this any time from Home.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                        Button("Try again") {
+                            Task { await loadSamplePicks() }
+                        }
+                        .buttonStyle(SecondaryButtonStyle())
+                    }
                     .frame(maxWidth: .infinity)
-                    .padding(30)
-                    .task { await loadSamplePicks() }
+                    .padding(24)
+                } else {
+                    ProgressView("Finding ideas…")
+                        .font(.bodyMedium)
+                        .frame(maxWidth: .infinity)
+                        .padding(30)
+                        .task { await loadSamplePicks() }
+                }
             } else if let saved = savedPick {
                 // The saved idea + the why-note (the habit lock-in).
                 HStack(spacing: 12) {
@@ -443,7 +531,9 @@ struct PurposeOnboardingView: View {
         switch step {
         case 1: return selectedContacts.isEmpty ? "Continue" : "Import \(selectedContacts.count) & continue"
         case 3: return nextOccasion == nil ? "Let's go" : "Show me ideas"
-        case 4: return savedPick == nil ? "Pick one to continue" : "Finish — show me around"
+        case 4:
+            if savedPick != nil { return "Finish — show me around" }
+            return picksFailed ? "Show me around" : "Pick one to continue"
         default: return "Continue"
         }
     }
@@ -451,7 +541,8 @@ struct PurposeOnboardingView: View {
     private var footerEnabled: Bool {
         switch step {
         case 0: return persona != nil
-        case 4: return savedPick != nil
+        // Ideas that never loaded must not trap them on the last step.
+        case 4: return savedPick != nil || picksFailed
         default: return true
         }
     }
@@ -568,15 +659,22 @@ struct PurposeOnboardingView: View {
 
     private func loadSamplePicks() async {
         guard samplePicks.isEmpty else { return }
-        let page = try? await APIClient.shared.fetchFeed(
+        picksFailed = false
+        var page = try? await APIClient.shared.fetchFeed(
             limit: 24,
             vibes: PersonalizationStore.consultVibes.isEmpty ? nil : PersonalizationStore.consultVibes,
             cacheBuster: String(Int(Date().timeIntervalSince1970 * 1000))
         )
+        // The vibe filter can legitimately return nothing — fall back to the
+        // unfiltered feed before declaring failure.
+        if (page?.posts ?? []).isEmpty, !PersonalizationStore.consultVibes.isEmpty {
+            page = try? await APIClient.shared.fetchFeed(limit: 24)
+        }
         samplePicks = (page?.posts ?? [])
             .filter { $0.product.image != nil && $0.feedEligible != false }
             .prefix(6)
             .map { $0 }
+        picksFailed = samplePicks.isEmpty
     }
 
     private func savePick(_ post: Post) {

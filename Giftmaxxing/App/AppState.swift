@@ -35,9 +35,9 @@ final class AppState: ObservableObject {
     // sheet at root (works from any tab).
     @Published var showBirthdayPerks = false
 
-    // Gift Board deep link (post-save toast "View", the Home boards rail) —
-    // SwipeView consumes these: switches to the Gift Boards segment and, for
-    // pendingBoardId, pushes the board detail.
+    // Gift Board deep link (post-save toast "View") — MoreView consumes these:
+    // selects the You page's Gift Boards tab and, for pendingBoardId, pushes
+    // the board detail.
     @Published var pendingBoardId: String?
     @Published var pendingBoardsHome = false
 
@@ -83,12 +83,12 @@ final class AppState: ObservableObject {
     }
 
     func openBoard(_ boardId: String) {
-        selectedTab = .swipe
+        selectedTab = .you
         pendingBoardId = boardId
     }
 
     func openBoardsHome() {
-        selectedTab = .swipe
+        selectedTab = .you
         pendingBoardsHome = true
     }
 

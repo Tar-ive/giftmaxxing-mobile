@@ -105,7 +105,7 @@ struct BoardsHintCallout: View {
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Your Gift Boards live in the Swipe tab")
+        .accessibilityLabel("Your Gift Boards live in the You tab")
         .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
 }

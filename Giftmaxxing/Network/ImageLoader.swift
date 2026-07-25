@@ -111,6 +111,9 @@ struct CachedAsyncImage: View {
     let url: String?
     var width: Int? = nil
     var contentMode: ContentMode = .fill
+    /// Reports the decoded image's width/height so callers can size
+    /// user-uploaded media to its real shape (see MediaAspect).
+    var onAspect: ((CGFloat) -> Void)? = nil
 
     @State private var image: UIImage?
     @State private var isLoading = true
@@ -155,6 +158,9 @@ struct CachedAsyncImage: View {
             }
             image = await ImageLoader.shared.load(url: url, width: width)
             isLoading = false
+            if let size = image?.size, size.height > 0 {
+                onAspect?(size.width / size.height)
+            }
         }
     }
 }

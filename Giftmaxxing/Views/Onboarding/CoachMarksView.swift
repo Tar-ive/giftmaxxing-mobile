@@ -39,8 +39,8 @@ struct CoachMarksView: View {
 
     private static let steps: [Step] = [
         Step(
-            title: "Your Gift Boards",
-            line: "One board per person. Share it and they swipe yes/no.",
+            title: "Learn what they love",
+            line: "Swipe for yourself, or send anyone a challenge and read their answers.",
             hint: "Tap Swipe",
             target: .tab(.swipe)
         ),
@@ -51,8 +51,8 @@ struct CoachMarksView: View {
             target: .tab(.circles)
         ),
         Step(
-            title: "Your Gifting Mind",
-            line: "Points, badges, and how recipients really reacted.",
+            title: "Your profile and boards",
+            line: "Your Gift Boards, your sizes, and how recipients really reacted.",
             hint: "Tap You",
             target: .tab(.you)
         ),

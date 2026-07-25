@@ -32,6 +32,9 @@ struct MoreView: View {
     // 1 = gift ideas for {first name} + sizes, 2 = Gift Boards.
     @State private var activeTab = 0
     @Namespace private var tabUnderline
+    // Board deep link from the post-save toast ("View").
+    private struct BoardRef: Identifiable, Hashable { let id: String }
+    @State private var presentedBoard: BoardRef?
     @State private var profileShowcase: [GiftShowcaseItem] = []
     @State private var profileSizes: [String: String] = [:]
     @State private var profileVibes: [String] = []
@@ -118,6 +121,9 @@ struct MoreView: View {
                 .padding(.horizontal, 14)
             }
             .background(Color.cream)
+            .navigationDestination(item: $presentedBoard) { ref in
+                SwipeListDetailView(listId: ref.id)
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
@@ -183,6 +189,9 @@ struct MoreView: View {
             guard let item else { return }
             Task { await uploadAvatar(item) }
         }
+        .onAppear { consumePendingBoardRoute() }
+        .onChange(of: appState.pendingBoardId) { _, _ in consumePendingBoardRoute() }
+        .onChange(of: appState.pendingBoardsHome) { _, _ in consumePendingBoardRoute() }
         .task(id: authManager.userId) {
             if let userId = authManager.userId {
                 #if DEBUG
@@ -396,6 +405,20 @@ struct MoreView: View {
     // boards home (create, add by link, rows into detail).
     private var boardsPanel: some View {
         SwipeListsHomeView(horizontalPadding: 0)
+    }
+
+    // Post-save toast "View" landed us here — show the Boards tab and, for a
+    // specific board, push its detail.
+    private func consumePendingBoardRoute() {
+        if let boardId = appState.pendingBoardId {
+            activeTab = 2
+            presentedBoard = BoardRef(id: boardId)
+            appState.pendingBoardId = nil
+            appState.pendingBoardsHome = false
+        } else if appState.pendingBoardsHome {
+            activeTab = 2
+            appState.pendingBoardsHome = false
+        }
     }
 
     private var ownerGiftListSection: some View {

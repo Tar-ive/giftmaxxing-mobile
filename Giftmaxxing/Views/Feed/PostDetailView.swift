@@ -19,6 +19,15 @@ struct PostDetailView: View {
     // Carousel position for the "n/N" counter; resets when the sheet swaps to
     // a similar product in place.
     @State private var galleryIndex = 0
+    // User uploads render at their real shape (vertical or square); products
+    // keep the editorial 4:5 crop.
+    @State private var measuredAspect: CGFloat?
+
+    private var detailAspectRatio: CGFloat {
+        guard activePost.source == "ugc" else { return MediaAspect.product }
+        if activePost.contentType == "ugc_video" { return MediaAspect.vertical }
+        return measuredAspect.map(MediaAspect.snap) ?? MediaAspect.square
+    }
     @State private var comments: [Comment] = []
     @State private var commentDraft = ""
     @State private var sendingComment = false
@@ -65,18 +74,17 @@ struct PostDetailView: View {
                                 Text(activePost.product.emoji)
                                     .font(.system(size: 80))
                                 if let image = gallery.first {
-                                    CachedAsyncImage(url: image, width: 900)
+                                    CachedAsyncImage(url: image, width: 900) { ratio in
+                                        if activePost.source == "ugc", measuredAspect == nil {
+                                            measuredAspect = ratio
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                     .frame(maxWidth: .infinity)
-                    .aspectRatio(
-                        activePost.source == "ugc"
-                            ? (activePost.contentType == "ugc_video" ? 9.0 / 16.0 : 1)
-                            : 4.0 / 5.0,
-                        contentMode: .fit
-                    )
+                    .aspectRatio(detailAspectRatio, contentMode: .fit)
                     .clipped()
 
                     VStack(alignment: .leading, spacing: 12) {

@@ -64,7 +64,10 @@ struct PendingUGCFeedCard: View {
                     .resizable()
                     .scaledToFill()
                     .frame(maxWidth: .infinity)
-                    .aspectRatio(4 / 5, contentMode: .fit)
+                    .aspectRatio(
+                        MediaAspect.snap(width: preview.size.width, height: preview.size.height),
+                        contentMode: .fit
+                    )
                     .clipped()
             }
             Text(item.caption).font(.subheadline).lineLimit(2)

@@ -14,6 +14,15 @@ struct UGCCreateView: View {
     @State private var showCamera = false
     @State private var photoLibraryMode = true
     @State private var previewIndex = 0
+
+    // Vertical for video and tall photos, square otherwise — the two shapes
+    // the feed renders (MediaAspect).
+    private var composerAspectRatio: CGFloat {
+        guard let first = model.media.first else { return MediaAspect.square }
+        if first.kind == .video { return MediaAspect.vertical }
+        guard let size = first.previewImage?.size else { return MediaAspect.square }
+        return MediaAspect.snap(width: size.width, height: size.height)
+    }
     @State private var editRequest: UGCEditRequest?
     @State private var showMusic = false
     @State private var hapticTrigger = 0
@@ -160,7 +169,8 @@ struct UGCCreateView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: model.media.count > 1 ? .always : .never))
             .frame(maxWidth: .infinity)
-            .aspectRatio(model.media.first?.kind == .video ? 9.0 / 16.0 : 1, contentMode: .fit)
+            // Preview at the shape it will actually publish as.
+            .aspectRatio(composerAspectRatio, contentMode: .fit)
             .background(Color.surfaceSunken)
             .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.xl, style: .continuous))
 

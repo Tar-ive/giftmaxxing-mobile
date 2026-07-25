@@ -153,14 +153,14 @@ struct ContentView: View {
                         withAnimation(.snappy) { showBoardsHint = false }
                         appState.openBoardsHome()
                     }
-                    // Anchored over the Swipe tab — 2nd of 5 slots (30% width),
+                    // Anchored over the You tab — 5th of 5 slots (90% width),
                     // just above the ~49pt tab bar.
-                    .position(x: geo.size.width * 0.3, y: geo.size.height - 70)
+                    .position(x: geo.size.width * 0.9, y: geo.size.height - 70)
                 }
                 .zIndex(7)
                 .onChange(of: appState.selectedTab) { _, tab in
                     // They found it themselves — retire the pointer.
-                    if tab == .swipe {
+                    if tab == .you {
                         withAnimation(.snappy) { showBoardsHint = false }
                     }
                 }
