@@ -11,8 +11,10 @@ description: >
 colors:
   # Light values below are the reference; each token also has a dark
   # variant resolved by Color.dynamic(light:dark:) in Theme.swift.
-  primary: "#FB6F52"        # coral — the ONLY accent. Interactivity signal. (dark #FF7F63)
-  primary-emphasis: "#E85A3D" # pressed/darkened coral (dark #FF9A80)
+  primary: "#C63F24"        # coral — the ONLY accent. Interactivity signal. (dark #FF7F63)
+                            # Deepened from #FB6F52: the original failed WCAG AA
+                            # (white-on-coral 2.80:1, coral-on-cream 2.51:1).
+  primary-emphasis: "#A8321B" # pressed/darkened coral (dark #FF9A80)
   primary-soft: "#FFF0ED"    # coral tint fill (selected chips, soft badges) (dark #3A2620)
   gradient-start: "#FB6F52"  # brand gradient = primary → gradient-end, topLeading→bottomTrailing
   gradient-end: "#FF9A76"
@@ -21,7 +23,7 @@ colors:
   surface-sunken: "#F1EAE0"  # inset wells, skeleton base (dark #2A2620)
   text-primary: "#1A1A1A"    # ink (dark #F5F1EA)
   text-secondary: "#6B6560"  # warm gray — metadata, subtitles (dark #B3ABA1)
-  text-tertiary: "#9B948C"   # timestamps, placeholders (dark #867E75)
+  text-tertiary: "#7D7670"   # timestamps, placeholders (dark #867E75) — 4.01:1
   border: "#E5E0D8"          # hairlines only (0.5–1pt). Never decorative heavy borders. (dark #332E28)
   success: "#3E8E5A"         # (dark #5FB77F)
   danger: "#D64545"          # (dark #F06B6B)

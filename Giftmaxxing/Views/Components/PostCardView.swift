@@ -75,6 +75,7 @@ struct PostCardView: View {
     @State private var showVideo = false
     @State private var reportFeedback = 0
     @ObservedObject private var musicPlayback = UGCFeedMusicPlayback.shared
+    @EnvironmentObject private var appState: AppState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -249,8 +250,15 @@ struct PostCardView: View {
                 }
             }
             .onLongPressGesture(minimumDuration: 0.35) {
-                guard GiftStory.story(for: post) != nil else { return }
-                withAnimation(.easeIn(duration: 0.2)) { showStory = true }
+                // A gift with a story tells it; anything else (UGC photos and
+                // videos especially) runs reverse-image search — "where do I
+                // buy that?" without leaving the feed.
+                if GiftStory.story(for: post) != nil {
+                    withAnimation(.easeIn(duration: 0.2)) { showStory = true }
+                } else {
+                    let image = post.product.gallery.first ?? post.product.image
+                    Task { await VisualSearchLauncher.open(imageUrl: image, in: appState) }
+                }
             }
 
             HStack(spacing: 15) {

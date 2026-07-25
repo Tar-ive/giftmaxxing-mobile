@@ -87,6 +87,15 @@ struct PostDetailView: View {
                     .aspectRatio(detailAspectRatio, contentMode: .fit)
                     .clipped()
 
+                    // UGC has no product attached — reverse-image search turns
+                    // "love that" into something you can actually buy.
+                    if activePost.source == "ugc" {
+                        ShopThisPostRail(
+                            imageUrl: activePost.product.gallery.first ?? activePost.product.image,
+                            caption: activePost.caption
+                        )
+                    }
+
                     VStack(alignment: .leading, spacing: 12) {
                         // Poster row
                         HStack(spacing: 10) {

@@ -6,12 +6,19 @@ extension Color {
     // Every token resolves per trait collection, so the whole app themes from
     // this one place. Dark is a WARM dark (brown-black, not blue-black) —
     // the boutique feel has to survive the switch.
-    static let coral = dynamic(light: "#FB6F52", dark: "#FF7F63")
-    static let coralEmphasis = dynamic(light: "#E85A3D", dark: "#FF9A80")
+    // Light-mode coral is DEEPER than the original #FB6F52 for one reason:
+    // white-on-coral measured 2.80:1 and coral-as-text on cream 2.51:1, both
+    // far below the 4.5:1 AA floor. #C63F24 clears it everywhere it's used
+    // (fill 5.08, on cream 4.56, on surface 5.08, on coralSoft 4.58) while
+    // staying unmistakably the same coral. Dark mode already passed, so it is
+    // unchanged.
+    static let coral = dynamic(light: "#C63F24", dark: "#FF7F63")
+    static let coralEmphasis = dynamic(light: "#A8321B", dark: "#FF9A80")
     static let cream = dynamic(light: "#F7F2EB", dark: "#141210")
     static let ink = dynamic(light: "#1A1A1A", dark: "#F5F1EA")
     static let inkSecondary = dynamic(light: "#6B6560", dark: "#B3ABA1")
-    static let inkTertiary = dynamic(light: "#9B948C", dark: "#867E75")
+    // #9B948C was 2.69:1 on cream — placeholder text nobody could read.
+    static let inkTertiary = dynamic(light: "#7D7670", dark: "#867E75")
     static let line = dynamic(light: "#E5E0D8", dark: "#332E28")
     static let surface = dynamic(light: "#FFFFFF", dark: "#1E1B18")
     static let surfaceSunken = dynamic(light: "#F1EAE0", dark: "#2A2620")
