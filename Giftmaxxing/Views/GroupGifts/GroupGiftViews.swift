@@ -312,6 +312,15 @@ struct GroupGiftCreateView: View {
         }
     }
 
+    // Words to build a group deck from before anyone has swiped anything.
+    private func fallbackSeedText(for recipient: String) -> String {
+        var parts = ["\(occasion == "other" ? "gift" : occasion) gift ideas"]
+        if !recipient.isEmpty { parts.append("for \(recipient)") }
+        let vibes = PersonalizationStore.consultVibes.prefix(4)
+        if !vibes.isEmpty { parts.append(vibes.joined(separator: ", ")) }
+        return parts.joined(separator: " — ")
+    }
+
     private func create() async {
         guard !isCreating else { return }
         isCreating = true
@@ -327,18 +336,21 @@ struct GroupGiftCreateView: View {
         if imageBase64 == nil {
             seedKeys = await TasteProfileStore.shared.snapshot().seedKeys
         }
-        guard imageBase64 != nil || !seedKeys.isEmpty else {
-            errorMessage = "Swipe a few gifts first (or seed with a photo) so we know the group's starting vibe."
-            return
-        }
+        // No photo and no swipe history is the NORMAL first-run state — it
+        // used to hard-stop here. The server now builds a deck from words, so
+        // send the occasion + declared taste instead of refusing.
+        let trimmedRecipient = recipient.trimmingCharacters(in: .whitespaces)
+        let seedText: String? = (imageBase64 == nil && seedKeys.isEmpty)
+            ? fallbackSeedText(for: trimmedRecipient)
+            : nil
 
         do {
-            let trimmedRecipient = recipient.trimmingCharacters(in: .whitespaces)
             let response = try await APIClient.shared.createChallenge(
                 senderId: senderId,
                 mode: "group",
                 seedImageBase64: imageBase64,
                 seedKeys: seedKeys.isEmpty ? nil : seedKeys,
+                seedText: seedText,
                 inviterName: inviterName,
                 to: trimmedRecipient,
                 occasion: occasion == "other" ? nil : occasion

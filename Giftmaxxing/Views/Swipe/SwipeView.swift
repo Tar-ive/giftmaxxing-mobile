@@ -483,9 +483,19 @@ struct SwipeCardView: View {
     let post: Post
     var cardWidth: CGFloat = UIScreen.main.bounds.width - 40
 
-    // Adapt to small devices (SE = 667pt tall) so the card + buttons always fit.
+    // The card takes the SHAPE OF THE PHOTO (Tinder-style) instead of a fixed
+    // box that letterboxed tall images and cropped wide ones. Measured from
+    // the decoded image; clamped so the info row + buttons always fit.
+    @State private var measuredAspect: CGFloat?
+
     private var imageHeight: CGFloat {
-        UIScreen.main.bounds.height < 700 ? 260 : 340
+        let short = UIScreen.main.bounds.height < 700
+        let minHeight: CGFloat = short ? 220 : 260
+        let maxHeight: CGFloat = UIScreen.main.bounds.height * (short ? 0.46 : 0.54)
+        guard let aspect = measuredAspect, aspect > 0 else {
+            return short ? 260 : 340
+        }
+        return min(max(cardWidth / aspect, minHeight), maxHeight)
     }
 
     var body: some View {
@@ -499,9 +509,13 @@ struct SwipeCardView: View {
                 // don't (catalog items pre-enrichment, services).
                 if let image = post.product.image {
                     Color.gradient(for: post.product.grad)
-                    CachedAsyncImage(url: image, width: 600)
-                        .frame(width: cardWidth, height: imageHeight)
-                        .clipped()
+                    CachedAsyncImage(url: image, width: 600) { ratio in
+                        if measuredAspect == nil {
+                            withAnimation(.snappy) { measuredAspect = ratio }
+                        }
+                    }
+                    .frame(width: cardWidth, height: imageHeight)
+                    .clipped()
                 } else {
                     ProductArtworkView(post: post)
                 }

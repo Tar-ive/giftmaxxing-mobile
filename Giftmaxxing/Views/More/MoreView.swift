@@ -1049,6 +1049,7 @@ struct UGCProfilePostSheet: View {
     @State private var draft = ""
     @State private var sending = false
     @State private var galleryIndex = 0
+    @State private var measuredAspect: CGFloat?
     @ObservedObject private var musicPlayback = UGCFeedMusicPlayback.shared
 
     private var gallery: [String] {
@@ -1094,7 +1095,7 @@ struct UGCProfilePostSheet: View {
                 VStack(alignment: .leading, spacing: 14) {
                     media
                         .frame(maxWidth: .infinity)
-                        .aspectRatio(post.mediaType == "video" ? 9.0 / 16.0 : 1, contentMode: .fit)
+                        .aspectRatio(sheetAspectRatio, contentMode: .fit)
                         .background(Color.surfaceSunken)
                         .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
                         .contentShape(Rectangle())
@@ -1214,6 +1215,13 @@ struct UGCProfilePostSheet: View {
         }
     }
 
+    // Posts open at their real shape here too — this sheet forced 1:1, so a
+    // tall photo was cropped to a square while the feed showed it full.
+    private var sheetAspectRatio: CGFloat {
+        if post.mediaType == "video" { return MediaAspect.vertical }
+        return measuredAspect.map(MediaAspect.snap) ?? MediaAspect.square
+    }
+
     @ViewBuilder private var media: some View {
         if post.mediaType == "video", let value = post.mediaUrl, let url = URL(string: value) {
             VideoPlayer(player: AVPlayer(url: url))
@@ -1221,8 +1229,10 @@ struct UGCProfilePostSheet: View {
             ZStack(alignment: .topTrailing) {
                 TabView(selection: $galleryIndex) {
                     ForEach(Array(gallery.enumerated()), id: \.offset) { index, image in
-                        CachedAsyncImage(url: image, width: 900)
-                            .tag(index)
+                        CachedAsyncImage(url: image, width: 900) { ratio in
+                            if index == 0, measuredAspect == nil { measuredAspect = ratio }
+                        }
+                        .tag(index)
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .always))
@@ -1236,7 +1246,9 @@ struct UGCProfilePostSheet: View {
                     .padding(ThemeSpacing.sm)
             }
         } else if let image = gallery.first ?? post.posterUrl {
-            CachedAsyncImage(url: image, width: 900)
+            CachedAsyncImage(url: image, width: 900) { ratio in
+                if measuredAspect == nil { measuredAspect = ratio }
+            }
         } else {
             Image(systemName: post.mediaType == "video" ? "video.fill" : "photo.fill")
                 .font(.largeTitle)

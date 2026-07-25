@@ -20,6 +20,8 @@ struct ChallengeSwipeView: View {
     @State private var index = 0
     @State private var offset: CGSize = .zero
     @State private var swipes: [(id: String, dir: String)] = []
+    // Measured photo shape per card (adaptive card height).
+    @State private var cardAspect: [String: CGFloat] = [:]
     @State private var submitted = false
     @State private var submitting = false
 
@@ -126,6 +128,14 @@ struct ChallengeSwipeView: View {
         .padding(.top, 10)
     }
 
+    // Cards take the shape of their photo instead of a fixed 1.1 box, so a
+    // tall product isn't cropped and a square one isn't padded out.
+    private func imageHeight(for card: ChallengeCreateResponse.ChallengeDeckItem, width: CGFloat) -> CGFloat {
+        let maxHeight = UIScreen.main.bounds.height * 0.58
+        guard let aspect = cardAspect[card.postId], aspect > 0 else { return width * 1.1 }
+        return min(max(width / aspect, width * 0.75), maxHeight)
+    }
+
     private func deckCard(_ card: ChallengeCreateResponse.ChallengeDeckItem) -> some View {
         GeometryReader { geo in
             let width = min(geo.size.width - 40, 500)
@@ -133,7 +143,11 @@ struct ChallengeSwipeView: View {
                 ZStack {
                     Color.gradient(for: .coral)
                     if let image = card.image {
-                        CachedAsyncImage(url: image, width: 600)
+                        CachedAsyncImage(url: image, width: 600) { ratio in
+                            if cardAspect[card.postId] == nil {
+                                withAnimation(.snappy) { cardAspect[card.postId] = ratio }
+                            }
+                        }
                     }
                     if card.giftType == "service" {
                         VStack {
@@ -146,7 +160,7 @@ struct ChallengeSwipeView: View {
                         .padding(12)
                     }
                 }
-                .frame(width: width, height: width * 1.1)
+                .frame(width: width, height: imageHeight(for: card, width: width))
                 .clipped()
                 .clipShape(UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24))
 

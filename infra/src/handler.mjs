@@ -545,6 +545,27 @@ async function embedImage(imageB64, text) {
   return JSON.parse(Buffer.from(out.body).toString("utf8")).embedding;
 }
 
+// Text-only embedding — same shared Titan space as embedImage, so a deck can
+// be seeded from words alone. This is the cold-start path: a brand-new sender
+// has no swipe history and no photo, and without it /challenges 400s with
+// "seed required", which the app surfaced as "deck builder unreachable".
+async function embedText(text) {
+  const inputText = String(text).slice(0, 200);
+  if (!inputText.trim()) return null;
+  const out = await bedrock.send(
+    new InvokeModelCommand({
+      modelId: EMBED_MODEL,
+      contentType: "application/json",
+      accept: "application/json",
+      body: JSON.stringify({
+        inputText,
+        embeddingConfig: { outputEmbeddingLength: VECTOR_DIM },
+      }),
+    })
+  );
+  return JSON.parse(Buffer.from(out.body).toString("utf8")).embedding;
+}
+
 const json = (statusCode, body, headers = {}) => ({
   statusCode,
   headers: { "content-type": "application/json", ...headers },
@@ -3744,6 +3765,15 @@ export const handler = async (event) => {
             if (first && !exactDeck) seedCard = deckSnapshot(vecToItem(first), "seed");
           }
         }
+        // Words-only seed (cold start: no photo, no taste history, or keys
+        // that resolved to nothing). Titan embeds text into the SAME space as
+        // images, so a described vibe builds a real deck.
+        if (!seedVector && seed.text) {
+          seedVector = await embedText(seed.text);
+          if (seedVector) {
+            seedInfo = { kind: "text", text: String(seed.text).slice(0, 200) };
+          }
+        }
       } catch (e) {
         console.warn("challenge seed resolve failed:", e.message);
       }
@@ -3807,7 +3837,7 @@ export const handler = async (event) => {
         if (!seedInfo) seedInfo = { kind: "list", keys: deck.map((d) => d.postId) };
       } else {
         if (!seedVector) {
-          return json(400, { error: "seed required: imageBase64, postId, or seedKeys" });
+          return json(400, { error: "seed required: imageBase64, postId, seedKeys, or text" });
         }
         deck = await buildChallengeDeck(seedVector, {
           size: seedCard ? deckSize - 1 : deckSize,
