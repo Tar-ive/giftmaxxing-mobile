@@ -466,6 +466,27 @@ struct CircleJoinResponse: Codable {
     var linkedUserId: String?
 }
 
+struct ChallengeInviteAck: Codable {
+    var ok: Bool?
+    var challengeId: String?
+}
+
+struct ChallengeInvite: Codable, Identifiable {
+    var challengeId: String
+    var fromName: String?
+    var fromUserId: String?
+    var title: String?
+    var occasion: String?
+    var deckSize: Int?
+    var createdAt: Double?
+
+    var id: String { challengeId }
+}
+
+struct ChallengeInvitesResponse: Codable {
+    var items: [ChallengeInvite]?
+}
+
 struct CircleMemberAddResponse: Codable {
     var ok: Bool?
     var memberId: String?

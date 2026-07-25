@@ -648,19 +648,52 @@ actor APIClient {
     // creator swiping their own group deck uses the same guest door friends do).
     // Passing anonId makes the server persist the swiper's OWN taste under that
     // id (claimed into their account at signup) — the recipient-entry warm start.
+    /// `dwellMs` per card is how long the recipient actually looked at it — a
+    /// fast yes and a 20-second deliberation are different signals, and the
+    /// server already stores the field.
     func submitChallengeResponse(
         challengeId: String,
         guestName: String,
-        swipes: [(id: String, dir: String)],
-        anonId: String? = nil
+        swipes: [(id: String, dir: String, dwellMs: Double)],
+        anonId: String? = nil,
+        viewerUserId: String? = nil
     ) async throws {
         var guest: [String: Any] = ["name": guestName]
         if let anonId, !anonId.isEmpty { guest["anonId"] = anonId }
+        if let viewerUserId, !viewerUserId.isEmpty { guest["userId"] = viewerUserId }
         let body: [String: Any] = [
             "guest": guest,
-            "swipes": swipes.map { ["id": $0.id, "dir": $0.dir] },
+            "swipes": swipes.map {
+                ["id": $0.id, "dir": $0.dir, "dwellMs": Int($0.dwellMs.rounded())]
+            },
         ]
         let _: ChallengeResponseAck = try await post("/challenges/\(challengeId)/response", body: body)
+    }
+
+    /// Deliver a swipe list to a friend who already has the app: it lands in
+    /// their in-app inbox with a push, instead of a link they have to open.
+    @discardableResult
+    func inviteToChallenge(
+        challengeId: String,
+        toUserId: String,
+        byUserId: String? = nil,
+        byName: String? = nil,
+        title: String? = nil
+    ) async throws -> ChallengeInviteAck {
+        var body: [String: Any] = ["toUserId": toUserId]
+        if let byUserId, !byUserId.isEmpty { body["byUserId"] = byUserId }
+        if let byName, !byName.isEmpty { body["byName"] = byName }
+        if let title, !title.isEmpty { body["title"] = title }
+        return try await post("/challenges/\(challengeId)/invite", body: body)
+    }
+
+    /// Swipe lists waiting for this account to answer.
+    func fetchChallengeInvites(userId: String) async throws -> [ChallengeInvite] {
+        let response: ChallengeInvitesResponse = try await get(
+            "/challenge-invites",
+            params: ["userId": userId]
+        )
+        return response.items ?? []
     }
 
     // MARK: - On-device ranking support

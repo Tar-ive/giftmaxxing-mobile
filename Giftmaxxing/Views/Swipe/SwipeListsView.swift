@@ -434,7 +434,20 @@ struct SwipeListDetailView: View {
             .sheet(isPresented: $showFriendPicker) {
                 FriendPickerSheet(
                     messageText: "\(store.shareMessage(for: list))\n\(url.absoluteString)"
-                )
+                ) { friendId in
+                    // They have the app: the list also lands in their in-app
+                    // inbox with a push, not just as a link in the thread.
+                    guard let challengeId = list.challengeId else { return }
+                    Task {
+                        try? await APIClient.shared.inviteToChallenge(
+                            challengeId: challengeId,
+                            toUserId: friendId,
+                            byUserId: authManager.userId,
+                            byName: authManager.displayName,
+                            title: list.name
+                        )
+                    }
+                }
                 .environmentObject(authManager)
             }
         } else {

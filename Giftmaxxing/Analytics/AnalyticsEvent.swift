@@ -60,6 +60,7 @@ struct AnalyticsEvent: Codable, Identifiable {
         case swipeVelocity = "swipe_velocity"
         case swipeHesitation = "swipe_hesitation"
         case swipeDeckComplete = "swipe_deck_complete"
+        case challengeAbandoned = "challenge_abandoned"
         case swipeUndo = "swipe_undo"
 
         // Maxi AI

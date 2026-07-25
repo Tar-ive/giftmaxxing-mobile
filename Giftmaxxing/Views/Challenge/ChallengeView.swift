@@ -406,7 +406,18 @@ struct ChallengeView: View {
             if let url = inviteURL {
                 FriendPickerSheet(
                     messageText: "I made you a gift challenge — swipe a few finds so I can get your gift right 🎁\n\(url.absoluteString)"
-                )
+                ) { friendId in
+                    guard let challengeId else { return }
+                    Task {
+                        try? await APIClient.shared.inviteToChallenge(
+                            challengeId: challengeId,
+                            toUserId: friendId,
+                            byUserId: authManager.userId,
+                            byName: authManager.displayName,
+                            title: theirName.isEmpty ? nil : "For \(theirName)"
+                        )
+                    }
+                }
                 .environmentObject(authManager)
             }
         }

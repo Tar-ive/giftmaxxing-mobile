@@ -278,6 +278,9 @@ struct SwipeView: View {
             VStack(spacing: 0) {
                 contextPicker
 
+                // Swipe lists friends sent you, waiting to be answered.
+                ChallengeInviteRail()
+
                 if context == .people {
                     PeopleHubView()
                 } else {

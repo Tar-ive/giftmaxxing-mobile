@@ -804,7 +804,8 @@ struct GroupSwipeSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var deck: [ChallengeCreateResponse.ChallengeDeckItem] = []
     @State private var index = 0
-    @State private var swipes: [(id: String, dir: String)] = []
+    @State private var swipes: [(id: String, dir: String, dwellMs: Double)] = []
+    @State private var cardShownAt = Date()
     @State private var isLoading = true
     @State private var isSubmitting = false
     @State private var submitted = false
@@ -933,7 +934,12 @@ struct GroupSwipeSheet: View {
 
     private func record(_ dir: String) {
         guard index < deck.count else { return }
-        swipes.append((id: deck[index].postId, dir: dir))
+        swipes.append((
+            id: deck[index].postId,
+            dir: dir,
+            dwellMs: Date().timeIntervalSince(cardShownAt) * 1000
+        ))
+        cardShownAt = Date()
         index += 1
         if index >= deck.count {
             Task { await submit() }
@@ -963,7 +969,8 @@ struct GroupSwipeSheet: View {
                 swipes: swipes,
                 // The swiper's yes/no list is THEIR taste too — persist it
                 // under this device's anon id for a warm start at signup.
-                anonId: InteractionQueue.anonymousUserId
+                anonId: InteractionQueue.anonymousUserId,
+                viewerUserId: AuthManager.shared.userId
             )
             GroupGiftStore.shared.markSwiped(gift.id)
             submitted = true

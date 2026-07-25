@@ -19,7 +19,12 @@ struct ChallengeSwipeView: View {
     @State private var loadFailed = false
     @State private var index = 0
     @State private var offset: CGSize = .zero
-    @State private var swipes: [(id: String, dir: String)] = []
+    @State private var swipes: [(id: String, dir: String, dwellMs: Double)] = []
+    // Telemetry: how long each card was actually looked at, and whether they
+    // walked away mid-deck. A fast yes and a long deliberation are different
+    // signals, and an abandoned deck is its own answer.
+    @State private var cardShownAt = Date()
+    @State private var maxIndexSeen = 0
     // Measured photo shape per card (adaptive card height).
     @State private var cardAspect: [String: CGFloat] = [:]
     @State private var submitted = false
@@ -107,6 +112,7 @@ struct ChallengeSwipeView: View {
                 }
             }
             .task { await load() }
+            .onDisappear { trackExitIfIncomplete() }
         }
     }
 
@@ -250,20 +256,41 @@ struct ChallengeSwipeView: View {
 
     private func swipe(_ dir: String) {
         guard let card = currentCard else { return }
-        swipes.append((id: card.postId, dir: dir))
+        let dwellMs = Date().timeIntervalSince(cardShownAt) * 1000
+        swipes.append((id: card.postId, dir: dir, dwellMs: dwellMs))
+        if dir == "yes" {
+            AnalyticsEngine.shared.trackSwipeRight(postId: card.postId, velocity: 0, position: index)
+        } else {
+            AnalyticsEngine.shared.trackSwipeLeft(postId: card.postId, velocity: 0, position: index)
+        }
         withAnimation(.spring(response: 0.35)) {
             offset = CGSize(width: dir == "yes" ? 500 : -500, height: 0)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             index += 1
+            maxIndexSeen = max(maxIndexSeen, index)
+            cardShownAt = Date()
             offset = .zero
         }
+    }
+
+    // Left mid-deck: record what they got through so an abandoned list still
+    // tells the sender something (and never looks like a finished response).
+    private func trackExitIfIncomplete() {
+        guard !submitted, !deck.isEmpty, swipes.count < deck.count else { return }
+        AnalyticsEngine.shared.trackChallengeAbandoned(
+            challengeId: challengeId,
+            swiped: swipes.count,
+            deckSize: deck.count,
+            yesCount: yesCount
+        )
     }
 
     private func load() async {
         do {
             status = try await APIClient.shared.fetchChallengeStatus(challengeId: challengeId)
             loadFailed = (status?.deck ?? []).isEmpty
+            cardShownAt = Date()
         } catch {
             loadFailed = true
         }
@@ -279,9 +306,15 @@ struct ChallengeSwipeView: View {
                 challengeId: challengeId,
                 guestName: guestName,
                 swipes: swipes,
-                anonId: InteractionQueue.anonymousUserId
+                anonId: InteractionQueue.anonymousUserId,
+                viewerUserId: authManager.userId
             )
             submitted = true
+            AnalyticsEngine.shared.trackDeckComplete(
+                yesCount: yesCount,
+                noCount: swipes.count - yesCount,
+                totalCards: deck.count
+            )
         } catch {
             // Leave the send button up — the guest can retry.
         }

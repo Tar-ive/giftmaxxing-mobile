@@ -4074,6 +4074,26 @@ export const handler = async (event) => {
         })
       );
 
+      // Signed-in responder: clear the inbox row so a finished list stops
+      // showing up as waiting for them.
+      const viewerUserId =
+        typeof guest.userId === "string" ? guest.userId.trim().slice(0, 128) : "";
+      if (viewerUserId && EVENTS) {
+        try {
+          await ddb.send(
+            new UpdateCommand({
+              TableName: EVENTS,
+              Key: { userId: viewerUserId, eventId: `CHALINVITE#${challengeId}` },
+              UpdateExpression: "SET respondedAt = :t",
+              ConditionExpression: "attribute_exists(eventId)",
+              ExpressionAttributeValues: { ":t": createdAt },
+            })
+          );
+        } catch (e) {
+          // No invite row (web guest / link opener) — nothing to clear.
+        }
+      }
+
       // Mirror a soft profile so the sender's existing surfaces (Activity,
       // ChallengeView responses, Maxi's list_connections) pick this up as-is.
       if (meta.senderId) {
@@ -4175,6 +4195,84 @@ export const handler = async (event) => {
           seeds: guestSeeds,
         },
       });
+    }
+
+    // POST /challenges/{id}/invite  { toUserId, byUserId?, byName?, title? }
+    // Deliver a swipe list to a friend who ALREADY has the app: an inbox row on
+    // their own partition plus a push, instead of making them open a web link.
+    // The share link stays for everyone else.
+    if (method === "POST" && /^\/challenges\/[^/]+\/invite$/.test(path)) {
+      if (!CHALLENGES || !EVENTS) return json(503, { error: "not configured" });
+      const challengeId = decodeURIComponent(path.split("/")[2]);
+      const toUserId = String(body.toUserId ?? "").trim().slice(0, 128);
+      if (!toUserId) return json(400, { error: "toUserId required" });
+
+      const metaOut = await ddb.send(
+        new GetCommand({ TableName: CHALLENGES, Key: { challengeId, itemId: "META" } })
+      );
+      const meta = metaOut.Item;
+      if (!meta) return json(404, { error: "challenge not found" });
+
+      const byName = String(body.byName ?? meta.inviterName ?? "").trim().slice(0, 40);
+      const now = Date.now();
+      await ddb.send(
+        new PutCommand({
+          TableName: EVENTS,
+          Item: {
+            userId: toUserId,
+            eventId: `CHALINVITE#${challengeId}`,
+            scope: "challengeInvite",
+            challengeId,
+            fromUserId: String(body.byUserId ?? "").slice(0, 128) || null,
+            fromName: byName || null,
+            title: String(body.title ?? "").slice(0, 80) || null,
+            occasion: meta.occasion ?? null,
+            deckSize: Array.isArray(meta.deck) ? meta.deck.length : null,
+            createdAt: now,
+            respondedAt: null,
+          },
+        })
+      );
+
+      try {
+        await sendPushToUser(toUserId, {
+          title: byName ? `🎁 ${byName} needs your help` : "🎁 A gift challenge for you",
+          body: "Swipe a few ideas so they can get your gift right.",
+          data: { type: "challenge_invite", challengeId },
+        });
+      } catch (e) {
+        console.warn("challenge invite push failed:", e.message);
+      }
+
+      return json(200, { ok: true, challengeId });
+    }
+
+    // GET /challenge-invites?userId= — swipe lists waiting for this account.
+    if (method === "GET" && path === "/challenge-invites") {
+      if (!EVENTS) return json(503, { error: "events table not configured" });
+      const uid = String(qs.userId ?? "").trim();
+      if (!uid) return json(400, { error: "userId required" });
+      const out = await ddb.send(
+        new QueryCommand({
+          TableName: EVENTS,
+          KeyConditionExpression: "userId = :u AND begins_with(eventId, :p)",
+          ExpressionAttributeValues: { ":u": uid, ":p": "CHALINVITE#" },
+        })
+      );
+      const items = (out.Items ?? [])
+        .filter((r) => !r.respondedAt)
+        .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+        .slice(0, 20)
+        .map((r) => ({
+          challengeId: r.challengeId,
+          fromName: r.fromName ?? null,
+          fromUserId: r.fromUserId ?? null,
+          title: r.title ?? null,
+          occasion: r.occasion ?? null,
+          deckSize: r.deckSize ?? null,
+          createdAt: r.createdAt ?? null,
+        }));
+      return json(200, { items });
     }
 
     // GET /challenges?senderId= — the sender's challenges, newest first, with
