@@ -367,7 +367,7 @@ struct CirclesView: View {
                                 .foregroundStyle(.tertiary)
                         }
                         .padding(12)
-                        .background(Color.white)
+                        .background(Color.surface)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
                     .buttonStyle(.plain)
@@ -557,7 +557,7 @@ private struct CircleRow: View {
                 .foregroundStyle(.tertiary)
         }
         .padding(12)
-        .background(Color.white)
+        .background(Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
@@ -592,7 +592,7 @@ private struct FeatureCard: View {
                     .foregroundStyle(.tertiary)
             }
             .padding(12)
-            .background(Color.white)
+            .background(Color.surface)
             .clipShape(RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)

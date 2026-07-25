@@ -31,6 +31,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 struct GiftmaxxingApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var appState = AppState()
+    @StateObject private var appearance = AppearanceStore.shared
     @StateObject private var authManager = AuthManager.shared
     @StateObject private var syncEngine = SyncEngine.shared
     @StateObject private var offlineQueue = OfflineQueue.shared
@@ -47,7 +48,9 @@ struct GiftmaxxingApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .preferredColorScheme(.light)
+                // Was hard-locked to .light; the palette is trait-aware now.
+                .preferredColorScheme(appearance.mode.colorScheme)
+                .environmentObject(appearance)
                 .environmentObject(appState)
                 .environmentObject(authManager)
                 .environmentObject(syncEngine)

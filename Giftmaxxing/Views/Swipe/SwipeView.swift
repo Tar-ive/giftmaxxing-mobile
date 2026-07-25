@@ -281,7 +281,15 @@ struct SwipeView: View {
                 if context == .people {
                     PeopleHubView()
                 } else {
+                    // The rehearsal cue overlays the DECK only. Sitting on the
+                    // whole VStack, its repeating keyframe animation swallowed
+                    // taps on the segment picker above it.
                     deckBody
+                        .overlay {
+                            if showRehearsal, viewModel.currentCard != nil, !viewModel.isLoading {
+                                SwipeRehearsalCue()
+                            }
+                        }
                 }
             }
             .background(Color.cream)
@@ -304,12 +312,6 @@ struct SwipeView: View {
                         }
                         .accessibilityLabel("Surprise me — ideas outside your usual taste")
                     }
-                }
-            }
-            .overlay {
-                if showRehearsal, context == .me,
-                   viewModel.currentCard != nil, !viewModel.isLoading {
-                    SwipeRehearsalCue()
                 }
             }
         }

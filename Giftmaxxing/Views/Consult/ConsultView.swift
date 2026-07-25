@@ -752,7 +752,7 @@ private struct TopPickCard: View {
             }
             .padding(14)
         }
-        .background(RoundedRectangle(cornerRadius: 24).fill(.white))
+        .background(RoundedRectangle(cornerRadius: 24).fill(Color.surface))
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.black.opacity(0.06)))
     }
 }
@@ -776,7 +776,7 @@ private struct SmallGiftCard: View {
                 }
                 .padding(10)
             }
-            .background(RoundedRectangle(cornerRadius: 18).fill(.white))
+            .background(RoundedRectangle(cornerRadius: 18).fill(Color.surface))
             .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.black.opacity(0.06)))
         }
     }
@@ -863,7 +863,7 @@ private struct VerifyPanel: View {
             }
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 18).fill(.white))
+        .background(RoundedRectangle(cornerRadius: 18).fill(Color.surface))
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.black.opacity(0.06)))
         .task(id: vm.verifyChallengeId) {
             // Poll the aggregate match summary while the results screen lives.
@@ -965,7 +965,7 @@ private struct ChipGrid: View {
                     .padding(.vertical, 13)
                     .background(
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(isOn ? Color(hex: "#FFE3DA") : .white)
+                            .fill(isOn ? Color.coralSoft : Color.surface)
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
@@ -985,7 +985,7 @@ private struct NameInput: View {
             TextField("Their name", text: $vm.theirName)
                 .font(.system(size: 16, design: .rounded))
                 .padding(14)
-                .background(RoundedRectangle(cornerRadius: 16).fill(.white))
+                .background(RoundedRectangle(cornerRadius: 16).fill(Color.surface))
                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.08)))
                 .submitLabel(.next)
                 .onSubmit { vm.phase = .occasion }
@@ -1019,7 +1019,7 @@ private struct BudgetInput: View {
                             .foregroundStyle(Color.ink)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 13)
-                            .background(RoundedRectangle(cornerRadius: 16).fill(.white))
+                            .background(RoundedRectangle(cornerRadius: 16).fill(Color.surface))
                             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.08), lineWidth: 1.5))
                     }
                 }
@@ -1030,7 +1030,7 @@ private struct BudgetInput: View {
                     .focused($focused)
                     .font(.system(size: 15, design: .rounded))
                     .padding(12)
-                    .background(RoundedRectangle(cornerRadius: 14).fill(.white))
+                    .background(RoundedRectangle(cornerRadius: 14).fill(Color.surface))
                     .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.black.opacity(0.08)))
                 if let n = Double(vm.budgetText.trimmingCharacters(in: .whitespaces)), n > 0 {
                     PrimaryButton("Set", compact: true) {

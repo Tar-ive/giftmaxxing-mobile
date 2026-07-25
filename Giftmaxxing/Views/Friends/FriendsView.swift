@@ -52,7 +52,7 @@ struct FriendsView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(Color.white)
+                .background(Color.surface)
                 .clipShape(Capsule())
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
@@ -960,7 +960,7 @@ struct FriendDmThreadView: View {
                 TextField("Type a message…", text: $draft)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(Color.white)
+                    .background(Color.surface)
                     .clipShape(Capsule())
                     .focused($focused)
                 if !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

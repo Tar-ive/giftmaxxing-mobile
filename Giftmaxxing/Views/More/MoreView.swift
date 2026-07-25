@@ -28,6 +28,7 @@ struct MoreView: View {
     @State private var ugcPosts: [UGCPost] = []
     @State private var selectedUGCPost: UGCPost?
     @State private var showSettings = false
+    @ObservedObject private var appearance = AppearanceStore.shared
     // In-page tabbed navigation (Instagram-profile pattern): 0 = posts grid,
     // 1 = gift ideas for {first name} + sizes, 2 = Gift Boards.
     @State private var activeTab = 0
@@ -827,6 +828,25 @@ struct MoreView: View {
                     }
                     VStack(spacing: 2) {
                         MoreSectionHeader(title: "Settings")
+                        HStack(spacing: 12) {
+                            Image(systemName: appearance.mode.icon)
+                                .foregroundStyle(Color.coral).frame(width: 28)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Appearance").font(.system(size: 15, weight: .medium))
+                                Text(appearance.mode.label)
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Picker("Appearance", selection: $appearance.mode) {
+                                ForEach(AppearanceMode.allCases) { mode in
+                                    Text(mode.label).tag(mode)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(width: 190)
+                        }
+                        .padding(14)
+                        .background(Color.surface)
                         if authManager.isAuthenticated {
                             HStack(spacing: 12) {
                                 Image(systemName: visibility == "private" ? "lock.fill" : "globe")

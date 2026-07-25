@@ -146,7 +146,7 @@ struct TasteInterviewView: View {
                 TextField("e.g. I love experiences more than stuff", text: $note, axis: .vertical)
                     .lineLimit(3...6)
                     .padding(12)
-                    .background(Color.white)
+                    .background(Color.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
         }
@@ -200,7 +200,7 @@ struct TasteInterviewView: View {
                 .font(.system(size: 15))
                 .foregroundStyle(Color.ink)
                 .padding(12)
-                .background(Color.white)
+                .background(Color.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
             Spacer(minLength: 24)
         }
@@ -244,7 +244,7 @@ struct TasteInterviewView: View {
                 .foregroundStyle(.secondary)
             TextField(placeholder, text: text)
                 .padding(12)
-                .background(Color.white)
+                .background(Color.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }

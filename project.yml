@@ -48,7 +48,6 @@ targets:
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: true
         INFOPLIST_KEY_UILaunchScreen_Generation: true
-        INFOPLIST_KEY_UIUserInterfaceStyle: Light
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait"
         # iPhone-only (no iPad target): the layout is designed for one column,
         # and shipping the scaled-up iPad rendering invites review rejections

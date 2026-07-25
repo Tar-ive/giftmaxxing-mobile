@@ -15,7 +15,13 @@ struct PeopleHubView: View {
 
     @StateObject private var eventsModel = EventsViewModel()
     @State private var connections: [SoftConnectionItem] = []
+    @State private var circleBirthdays: [CircleBirthday] = []
     @State private var isLoading = false
+
+    struct CircleBirthday {
+        let name: String
+        let daysUntil: Int
+    }
     @State private var sharingWith: SharePrefill?
     @State private var viewingResults: SoftConnectionItem?
 
@@ -39,6 +45,19 @@ struct PeopleHubView: View {
     // already swiped a challenge (even without a logged date).
     private var people: [Person] {
         var byName: [String: Person] = [:]
+
+        // Circle members with birthdays count as people you gift for — the
+        // hub was personal-events-only, so a user whose dates all live in a
+        // circle saw an empty screen. You don't gift yourself here.
+        let myName = (authManager.displayName ?? "").lowercased()
+        for member in circleBirthdays where member.name.lowercased() != myName {
+            byName[member.name.lowercased()] = Person(
+                name: member.name,
+                daysUntil: member.daysUntil,
+                occasionIcon: "🎂",
+                connection: match(name: member.name)
+            )
+        }
 
         for event in eventsModel.upcomingEvents {
             let name = event.recipientName.isEmpty ? event.title : event.recipientName
@@ -221,6 +240,37 @@ struct PeopleHubView: View {
         if let userId = authManager.userId {
             connections = (try? await APIClient.shared.fetchConnections(userId: userId)) ?? []
         }
+        await loadCircleBirthdays()
+    }
+
+    private func loadCircleBirthdays() async {
+        let circles = CircleStore.shared.circles
+        guard !circles.isEmpty else {
+            circleBirthdays = []
+            return
+        }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        var collected: [CircleBirthday] = []
+
+        await withTaskGroup(of: [CircleBirthday].self) { group in
+            for circle in circles {
+                group.addTask {
+                    guard let data = try? await APIClient.shared.fetchCircle(circleId: circle.circleId) else {
+                        return []
+                    }
+                    return (data.members ?? []).compactMap { member in
+                        guard let ymd = member.birthday,
+                              let next = BirthdayChallengeJourney.nextOccurrence(ofYMD: ymd)
+                        else { return nil }
+                        let days = calendar.dateComponents([.day], from: today, to: next).day ?? 0
+                        return CircleBirthday(name: member.name, daysUntil: max(0, days))
+                    }
+                }
+            }
+            for await items in group { collected += items }
+        }
+        circleBirthdays = collected
     }
 }
 

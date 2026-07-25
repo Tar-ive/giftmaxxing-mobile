@@ -9,20 +9,22 @@ description: >
   MUST resolve every color, font, radius, spacing, and shadow through the
   tokens below (exposed in Swift via Giftmaxxing/Extensions/Theme.swift).
 colors:
-  primary: "#FB6F52"        # coral — the ONLY accent. Interactivity signal.
-  primary-emphasis: "#E85A3D" # pressed/darkened coral
-  primary-soft: "#FFF0ED"    # coral tint fill (selected chips, soft badges)
+  # Light values below are the reference; each token also has a dark
+  # variant resolved by Color.dynamic(light:dark:) in Theme.swift.
+  primary: "#FB6F52"        # coral — the ONLY accent. Interactivity signal. (dark #FF7F63)
+  primary-emphasis: "#E85A3D" # pressed/darkened coral (dark #FF9A80)
+  primary-soft: "#FFF0ED"    # coral tint fill (selected chips, soft badges) (dark #3A2620)
   gradient-start: "#FB6F52"  # brand gradient = primary → gradient-end, topLeading→bottomTrailing
   gradient-end: "#FF9A76"
-  background: "#F7F2EB"      # cream — app/screen background
-  surface: "#FFFFFF"         # cards, sheets, rows
-  surface-sunken: "#F1EAE0"  # inset wells, skeleton base
-  text-primary: "#1A1A1A"    # ink
-  text-secondary: "#6B6560"  # warm gray — metadata, subtitles
-  text-tertiary: "#9B948C"   # timestamps, placeholders
-  border: "#E5E0D8"          # hairlines only (0.5–1pt). Never decorative heavy borders.
-  success: "#3E8E5A"
-  danger: "#D64545"
+  background: "#F7F2EB"      # cream — app/screen background (dark #141210)
+  surface: "#FFFFFF"         # cards, sheets, rows (dark #1E1B18)
+  surface-sunken: "#F1EAE0"  # inset wells, skeleton base (dark #2A2620)
+  text-primary: "#1A1A1A"    # ink (dark #F5F1EA)
+  text-secondary: "#6B6560"  # warm gray — metadata, subtitles (dark #B3ABA1)
+  text-tertiary: "#9B948C"   # timestamps, placeholders (dark #867E75)
+  border: "#E5E0D8"          # hairlines only (0.5–1pt). Never decorative heavy borders. (dark #332E28)
+  success: "#3E8E5A"         # (dark #5FB77F)
+  danger: "#D64545"          # (dark #F06B6B)
   on-primary: "#FFFFFF"      # text/icons on coral
   scrim: "#1A1A1ACC"         # image overlays (80% ink), price badges
 typography:
@@ -207,9 +209,16 @@ The visual identity is built from restraint:
   UI. Onboarding/splash may additionally use the ambient mesh treatment
   (see Components → Onboarding).
 - Text on photos always sits on `scrim`, never raw.
-- Dark mode is deferred (app is light-locked in `GiftmaxxingApp.swift`),
-  but new colors must be added as **asset-catalog color sets** so dark
-  variants can land later without a rewrite.
+- **Dark mode is live.** Every token in `Theme.swift` resolves per trait
+  collection via `Color.dynamic(light:dark:)`, and the user picks
+  System / Light / Dark in Settings (`AppearanceStore`). Dark is a
+  **warm** dark (brown-black `#141210`, never blue-black) so the
+  boutique feel survives the switch; coral lightens slightly
+  (`#FF7F63`) to hold contrast on dark surfaces.
+- **Never hardcode `.white` / `.black` as a surface or text color** —
+  they don't invert, and a white card on a dark screen is the classic
+  tell. `Color.surface`, `Color.cream`, and `Color.ink` already flip.
+  White is only correct for content sitting ON coral or on `scrim`.
 
 ## Typography
 

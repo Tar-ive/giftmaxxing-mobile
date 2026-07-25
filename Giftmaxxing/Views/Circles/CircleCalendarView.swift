@@ -61,6 +61,29 @@ struct CircleCalendarView: View {
             dayDetail
         }
         .padding(.vertical, 4)
+        // Moments load async and are often months out (a birthday 121 days
+        // away isn't in this month's grid) — open on the first month that
+        // actually has something so the calendar never looks empty.
+        .onChange(of: moments.count) { _, _ in jumpToFirstMonthWithMoments() }
+        .onAppear { jumpToFirstMonthWithMoments() }
+    }
+
+    @State private var didAutoJump = false
+
+    private func jumpToFirstMonthWithMoments() {
+        guard !didAutoJump, !moments.isEmpty else { return }
+        let today = calendar.startOfDay(for: Date())
+        let upcoming = moments.filter { $0.date >= today }.sorted { $0.date < $1.date }
+        guard let first = upcoming.first else { return }
+        didAutoJump = true
+        // Already something this month? Stay put.
+        guard !calendar.isDate(first.date, equalTo: visibleMonth, toGranularity: .month) else { return }
+        let hasThisMonth = upcoming.contains {
+            calendar.isDate($0.date, equalTo: visibleMonth, toGranularity: .month)
+        }
+        if !hasThisMonth {
+            withAnimation(.snappy) { visibleMonth = first.date }
+        }
     }
 
     // ── Calendar sources (the Google-Calendar left rail, as chips) ─────────

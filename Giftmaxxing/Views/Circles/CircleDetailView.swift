@@ -298,7 +298,7 @@ struct CircleDetailView: View {
                     memberRow(member)
                 }
             }
-            .background(Color.white)
+            .background(Color.surface)
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .task { await refreshMemberStatuses(data.members ?? []) }
         }
@@ -501,7 +501,7 @@ struct CircleDetailView: View {
                         }
                     }
                 }
-                .background(Color.white)
+                .background(Color.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
             }
 
@@ -705,7 +705,7 @@ private struct MomentRow: View {
                 .clipShape(Capsule())
         }
         .padding(12)
-        .background(Color.white)
+        .background(Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
@@ -772,7 +772,7 @@ private struct JoinCard: View {
             .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isJoining)
         }
         .padding(16)
-        .background(Color.white)
+        .background(Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
     }
