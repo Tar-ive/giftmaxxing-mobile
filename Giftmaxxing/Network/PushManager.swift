@@ -123,6 +123,14 @@ final class PushManager: NSObject, ObservableObject {
                 name: .navigateToShop,
                 object: nil
             )
+        case "circle_added":
+            if let circleId = userInfo["circleId"] as? String {
+                NotificationCenter.default.post(
+                    name: .navigateToCircle,
+                    object: nil,
+                    userInfo: ["circleId": circleId]
+                )
+            }
         case "birthday_challenge":
             // Birthday journey: tap → auto-created swipe challenge for them.
             NotificationCenter.default.post(
@@ -171,6 +179,7 @@ extension PushManager: UNUserNotificationCenterDelegate {
 extension Notification.Name {
     static let navigateToPool = Notification.Name("navigateToPool")
     static let navigateToConnection = Notification.Name("navigateToConnection")
+    static let navigateToCircle = Notification.Name("navigateToCircle")
     static let navigateToBirthdayChallenge = Notification.Name("navigateToBirthdayChallenge")
     static let navigateToEvent = Notification.Name("navigateToEvent")
     static let navigateToMaxi = Notification.Name("navigateToMaxi")

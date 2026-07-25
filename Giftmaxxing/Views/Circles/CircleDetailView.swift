@@ -16,6 +16,7 @@ struct CircleDetailView: View {
     @State private var loadFailed = false
     @State private var showAddOccasion = false
     @State private var showAddBirthday = false
+    @State private var showAddFriends = false
     @State private var claimBusy = false
     @State private var claimed = false
     @State private var openDmThreadId: String?
@@ -73,6 +74,15 @@ struct CircleDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { await refresh() }
         .refreshable { await refresh() }
+        .sheet(isPresented: $showAddFriends, onDismiss: { Task { await refresh() } }) {
+            AddFriendsToCircleSheet(
+                circleId: circleId,
+                circleName: data?.circle.name ?? "this circle",
+                existingMemberNames: Set((data?.members ?? []).map { $0.name.lowercased() }),
+                existingLinkedUserIds: Set((data?.members ?? []).compactMap { $0.linkedUserId }),
+                onAdded: { Task { await refresh() } }
+            )
+        }
         .sheet(isPresented: $showAddOccasion, onDismiss: { Task { await refresh() } }) {
             AddCircleOccasionSheet(circleId: circleId, addedBy: myCircle?.joinedAs)
         }
@@ -118,6 +128,24 @@ struct CircleDetailView: View {
 
             // The share link IS the invite: family adds birthdays in the
             // browser, no account, no install.
+            // Friends already on Giftmaxxing skip the link entirely — one tap
+            // adds them, WhatsApp-community style.
+            Button {
+                showAddFriends = true
+            } label: {
+                HStack {
+                    Spacer()
+                    Image(systemName: "person.badge.plus")
+                    Text("Add friends").font(.labelBold)
+                    Spacer()
+                }
+                .padding(.vertical, 13)
+                .background(Color.coral)
+                .foregroundStyle(.white)
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+
             HStack(spacing: 8) {
                 if let url = CircleStore.shareURL(circleId: circleId) {
                     ShareLink(
@@ -131,8 +159,8 @@ struct CircleDetailView: View {
                             Spacer()
                         }
                         .padding(.vertical, 13)
-                        .background(Color.coral)
-                        .foregroundStyle(.white)
+                        .background(Color.coralSoft)
+                        .foregroundStyle(Color.coral)
                         .clipShape(Capsule())
                     }
                 }

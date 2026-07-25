@@ -395,6 +395,31 @@ actor APIClient {
         return try await post("/circles/\(circleId)/join", body: body)
     }
 
+    /// Add a friend who's already on Giftmaxxing straight into a circle —
+    /// no share link, no re-entering their birthday (WhatsApp-community model).
+    @discardableResult
+    func addCircleMember(
+        circleId: String,
+        userId: String,
+        name: String,
+        birthday: String? = nil,
+        byUserId: String? = nil,
+        byName: String? = nil
+    ) async throws -> CircleMemberAddResponse {
+        var body: [String: Any] = ["userId": userId, "name": name]
+        if let birthday, !birthday.isEmpty { body["birthday"] = birthday }
+        if let byUserId, !byUserId.isEmpty { body["byUserId"] = byUserId }
+        if let byName, !byName.isEmpty { body["byName"] = byName }
+        return try await post("/circles/\(circleId)/members", body: body)
+    }
+
+    /// Every circle this account belongs to (server truth), so a circle someone
+    /// added you to shows up on your device.
+    func listMyCircles(userId: String) async throws -> [MyCircleRef] {
+        let response: MyCirclesResponse = try await get("/circles", params: ["userId": userId])
+        return response.items ?? []
+    }
+
     /// Link a signed-in account to a circle seat so other members can friend / message / gift you.
     @discardableResult
     func claimCircleSeat(circleId: String, userId: String, memberName: String) async throws -> CircleClaimResponse {

@@ -4667,6 +4667,112 @@ export const handler = async (event) => {
       });
     }
 
+    // POST /circles/{id}/members  { userId, name, birthday?, byUserId?, byName? }
+    // Add someone who is ALREADY on Giftmaxxing straight into the circle —
+    // the WhatsApp-community / Discord model. The share link still exists for
+    // people without the app; this is the path for friends you're connected
+    // to. Writes two rows: the member on the circle's partition, and a
+    // back-reference on the member's OWN partition so their app can list the
+    // circles they belong to (membership used to be device-local only, so a
+    // server-side add would have been invisible to them).
+    if (method === "POST" && /^\/circles\/[^/]+\/members$/.test(path)) {
+      if (!EVENTS) return json(503, { error: "events table not configured" });
+      const circleId = decodeURIComponent(path.split("/")[2]);
+      const pk = `CIRCLE#${circleId}`;
+      const targetUserId = String(body.userId ?? "").trim().slice(0, 128);
+      const name = String(body.name ?? "").trim().slice(0, 40);
+      if (!targetUserId || !name) return json(400, { error: "userId and name required" });
+
+      const out = await ddb.send(
+        new QueryCommand({
+          TableName: EVENTS,
+          KeyConditionExpression: "userId = :u",
+          ExpressionAttributeValues: { ":u": pk },
+        })
+      );
+      const rows = out.Items ?? [];
+      const meta = rows.find((r) => r.eventId === "META");
+      if (!meta) return json(404, { error: "circle not found" });
+      const members = rows.filter((r) => r.eventId.startsWith("MEMBER#"));
+      if (members.length >= 100) return json(400, { error: "circle is full" });
+
+      // Idempotent: adding the same account twice just refreshes the link.
+      const existing =
+        members.find((r) => r.linkedUserId === targetUserId) ||
+        members.find((r) => String(r.name ?? "").toLowerCase() === name.toLowerCase());
+      const birthday =
+        typeof body.birthday === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.birthday)
+          ? body.birthday
+          : existing?.birthday ?? null;
+      const now = Date.now();
+      const item = {
+        userId: pk,
+        eventId: existing?.eventId ?? `MEMBER#${gid()}`,
+        scope: "circle",
+        name,
+        birthday,
+        role: existing?.role ?? "member",
+        joinedAt: existing?.joinedAt ?? now,
+        linkedUserId: targetUserId,
+        linkedAt: now,
+        addedBy: String(body.byUserId ?? "").slice(0, 128) || null,
+      };
+      await ddb.send(new PutCommand({ TableName: EVENTS, Item: item }));
+
+      // The member's own index row — cheap lookup for GET /circles?userId=.
+      await ddb.send(
+        new PutCommand({
+          TableName: EVENTS,
+          Item: {
+            userId: targetUserId,
+            eventId: `CIRCLEREF#${circleId}`,
+            scope: "circleRef",
+            circleId,
+            name: meta.name,
+            emoji: meta.emoji ?? null,
+            joinedAt: now,
+          },
+        })
+      );
+
+      const byName = String(body.byName ?? "").trim().slice(0, 40);
+      try {
+        await sendPushToUser(targetUserId, {
+          title: `👥 You're in ${meta.name}`,
+          body: byName
+            ? `${byName} added you to the ${meta.name} circle — see whose day is coming up.`
+            : `You were added to the ${meta.name} circle — see whose day is coming up.`,
+          data: { type: "circle_added", circleId },
+        });
+      } catch (e) {
+        console.warn("circle add push failed:", e.message);
+      }
+
+      return json(200, { ok: true, memberId: item.eventId.slice(7), circleId });
+    }
+
+    // GET /circles?userId=  — every circle this account belongs to, from the
+    // per-user index rows written on add/join.
+    if (method === "GET" && path === "/circles") {
+      if (!EVENTS) return json(503, { error: "events table not configured" });
+      const uid = String(qs.userId ?? "").trim();
+      if (!uid) return json(400, { error: "userId required" });
+      const out = await ddb.send(
+        new QueryCommand({
+          TableName: EVENTS,
+          KeyConditionExpression: "userId = :u AND begins_with(eventId, :p)",
+          ExpressionAttributeValues: { ":u": uid, ":p": "CIRCLEREF#" },
+        })
+      );
+      const items = (out.Items ?? []).map((r) => ({
+        circleId: r.circleId,
+        name: r.name,
+        emoji: r.emoji ?? null,
+        joinedAt: r.joinedAt ?? null,
+      }));
+      return json(200, { items });
+    }
+
     // POST /circles/{id}/events  { title, date, type?, forName?, addedBy? }
     if (method === "POST" && /^\/circles\/[^/]+\/events$/.test(path)) {
       if (!EVENTS) return json(503, { error: "events table not configured" });

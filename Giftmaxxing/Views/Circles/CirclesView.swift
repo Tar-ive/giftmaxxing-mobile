@@ -141,6 +141,9 @@ struct CirclesView: View {
                 if eventsModel.events.isEmpty {
                     await eventsModel.loadEvents(context: modelContext)
                 }
+                // Circles a friend added you to live on the server — pull them
+                // in before building the calendar.
+                await circleStore.syncFromServer(userId: authManager.userId)
                 await loadCircleMoments()
                 await ReminderScheduler.requestPermissionIfNeeded()
                 await resyncBirthdayJourney()
@@ -150,6 +153,7 @@ struct CirclesView: View {
             }
             .refreshable {
                 await eventsModel.loadEvents(context: modelContext)
+                await circleStore.syncFromServer(userId: authManager.userId)
                 await loadCircleMoments()
                 await resyncBirthdayJourney()
             }

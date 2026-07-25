@@ -466,6 +466,25 @@ struct CircleJoinResponse: Codable {
     var linkedUserId: String?
 }
 
+struct CircleMemberAddResponse: Codable {
+    var ok: Bool?
+    var memberId: String?
+    var circleId: String?
+}
+
+struct MyCircleRef: Codable, Identifiable {
+    var circleId: String
+    var name: String
+    var emoji: String?
+    var joinedAt: Double?
+
+    var id: String { circleId }
+}
+
+struct MyCirclesResponse: Codable {
+    var items: [MyCircleRef]?
+}
+
 struct CircleAck: Codable {
     var ok: Bool?
     var eventId: String?

@@ -67,6 +67,27 @@ final class CircleStore: ObservableObject {
         persist()
     }
 
+    /// Pull server-side membership (circles someone ADDED you to) and merge it
+    /// into the device list. Without this, being added by a friend would be
+    /// invisible here — membership used to be device-local only.
+    func syncFromServer(userId: String?) async {
+        guard let userId, !userId.isEmpty,
+              let remote = try? await APIClient.shared.listMyCircles(userId: userId)
+        else { return }
+        var changed = false
+        for ref in remote where !circles.contains(where: { $0.circleId == ref.circleId }) {
+            circles.append(MyCircle(
+                circleId: ref.circleId,
+                name: ref.name,
+                emoji: ref.emoji,
+                joinedAs: nil,
+                savedAt: ref.joinedAt.map { Date(timeIntervalSince1970: $0 / 1000) } ?? Date()
+            ))
+            changed = true
+        }
+        if changed { persist() }
+    }
+
     func forget(_ circleId: String) {
         circles.removeAll { $0.circleId == circleId }
         persist()
