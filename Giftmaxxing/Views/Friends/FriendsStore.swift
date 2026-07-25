@@ -250,7 +250,10 @@ final class FriendsStore: ObservableObject {
 
     private func merge(remote: [Friendship]?, local: [Friendship]) -> [Friendship] {
         guard let remote else { return local }
-        var merged = Dictionary(uniqueKeysWithValues: local.map { ($0.friendId, $0) })
+        var merged = Dictionary(
+            local.map { ($0.friendId, $0) },
+            uniquingKeysWith: { _, latest in latest }
+        )
         remote.forEach { merged[$0.friendId] = $0 }
         return merged.values.sorted { ($0.updatedAt ?? 0) > ($1.updatedAt ?? 0) }
     }
@@ -261,7 +264,14 @@ final class FriendsStore: ObservableObject {
            let existing = try? JSONDecoder().decode(LocalEdgeStore.self, from: data) {
             store = existing
         }
-        store.edges[userId] = Dictionary(uniqueKeysWithValues: edges.map { ($0.friendId, $0) })
+        // `edges` is accepted + pending: the SAME friendId can legitimately
+        // appear in both (a stale pending row, or an edge mid-transition).
+        // uniqueKeysWithValues TRAPS on that — it crashed the Friends tab on
+        // open. Last write wins instead.
+        store.edges[userId] = Dictionary(
+            edges.map { ($0.friendId, $0) },
+            uniquingKeysWith: { _, latest in latest }
+        )
         if let data = try? JSONEncoder().encode(store) {
             UserDefaults.standard.set(data, forKey: Self.friendsKey)
         }

@@ -64,10 +64,15 @@ struct GroupGiftCardModel: Identifiable {
     let headline: String
 
     static func build(pools: [Pool], gifts: [GroupGift]) -> [GroupGiftCardModel] {
-        let byPoolId = Dictionary(uniqueKeysWithValues: gifts.compactMap { gift -> (String, GroupGift)? in
-            guard let poolId = gift.poolId else { return nil }
-            return (poolId, gift)
-        })
+        // Two gifts can point at the same pool — uniqueKeysWithValues would
+        // trap on that, on the HOME feed.
+        let byPoolId = Dictionary(
+            gifts.compactMap { gift -> (String, GroupGift)? in
+                guard let poolId = gift.poolId else { return nil }
+                return (poolId, gift)
+            },
+            uniquingKeysWith: { _, latest in latest }
+        )
 
         // Only the user's real pools — no demo fallback (it used to show the
         // same fake pools to everyone).

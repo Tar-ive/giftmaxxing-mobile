@@ -220,7 +220,10 @@ private enum ConsultRanker {
             }
         }
         if categories.isEmpty { categories = ConsultMeta.keeperBoost[keeper ?? ""] ?? [] }
-        let catRank = Dictionary(uniqueKeysWithValues: categories.enumerated().map { ($1, $0) })
+        let catRank = Dictionary(
+            categories.enumerated().map { ($1, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
         let minimalist = keeper == "light"
 
         var seen = Set<String>()

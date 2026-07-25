@@ -29,7 +29,10 @@ final class SyncEngine: ObservableObject {
             )
             let existing = try context.fetch(descriptor)
 
-            let existingById = Dictionary(uniqueKeysWithValues: existing.map { ($0.postId, $0) })
+            let existingById = Dictionary(
+                existing.map { ($0.postId, $0) },
+                uniquingKeysWith: { _, latest in latest }
+            )
 
             for (index, post) in page.posts.enumerated() {
                 if let cached = existingById[post.id] {
@@ -76,7 +79,10 @@ final class SyncEngine: ObservableObject {
             let events = try await api.fetchUpcomingEvents(userId: userId)
             let descriptor = FetchDescriptor<CachedEvent>()
             let existing = try context.fetch(descriptor)
-            let existingById = Dictionary(uniqueKeysWithValues: existing.map { ($0.eventId, $0) })
+            let existingById = Dictionary(
+                existing.map { ($0.eventId, $0) },
+                uniquingKeysWith: { _, latest in latest }
+            )
 
             for event in events {
                 if existingById[event.id] == nil, let date = event.date?.dateValue {

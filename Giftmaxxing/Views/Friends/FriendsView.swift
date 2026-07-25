@@ -1083,7 +1083,10 @@ struct FriendDmThreadView: View {
         let fresh = await store.messages(for: threadId)
         if silent {
             // Merge by id so we don't flicker / lose optimistic local sends.
-            var byId = Dictionary(uniqueKeysWithValues: messages.map { ($0.id, $0) })
+            var byId = Dictionary(
+                messages.map { ($0.id, $0) },
+                uniquingKeysWith: { _, latest in latest }
+            )
             for m in fresh { byId[m.id] = m }
             messages = byId.values.sorted { $0.at < $1.at }
         } else {
