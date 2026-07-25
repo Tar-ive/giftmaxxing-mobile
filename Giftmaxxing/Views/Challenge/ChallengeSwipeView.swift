@@ -68,19 +68,20 @@ struct ChallengeSwipeView: View {
                     deckCard(card)
                     actionButtons
                 } else {
-                    // Deck finished — send the answers.
+                    // Deck finished — sending is automatic; this is just the
+                    // beat before the confirmation (or a retry if it failed).
                     Spacer()
                     VStack(spacing: 14) {
                         Image(systemName: "paperplane.circle.fill")
                             .font(.system(size: 44))
                             .foregroundStyle(Color.coral)
-                        Text("That's all \(deck.count) — send your answers?")
+                        Text(submitting ? "Sending your answers…" : "That's all \(deck.count)")
                             .font(.displaySmall)
                             .foregroundStyle(Color.ink)
                         Button {
                             Task { await submit() }
                         } label: {
-                            Text(submitting ? "Sending…" : "Send to \(status?.inviterName ?? "them")")
+                            Text(submitting ? "Sending…" : "Try sending again")
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
@@ -112,6 +113,13 @@ struct ChallengeSwipeView: View {
                 }
             }
             .task { await load() }
+            .onChange(of: index) { _, newIndex in
+                // Last card swiped: send straight away instead of asking them
+                // to press "Send to <name>" — the swiping WAS the answer.
+                if newIndex >= deck.count, !deck.isEmpty, !submitted, !submitting {
+                    Task { await submit() }
+                }
+            }
             .onDisappear { trackExitIfIncomplete() }
         }
     }

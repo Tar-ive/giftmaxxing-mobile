@@ -85,21 +85,12 @@ struct CoachMarksView: View {
                     .compositingGroup()
                     .allowsHitTesting(false)
 
-                // Touch absorbers around the cutout: everything outside the
-                // hole is inert, so the ONLY tappable thing is the real
-                // control shining through.
-                absorberPanels(around: cutout, in: geo)
-
-                // Already sitting on the target tab (e.g. replaying from You)?
-                // Tapping the tab again is a no-op, so a tap on the cutout
-                // itself advances.
-                if case .tab(let tab) = step.target, appState.selectedTab == tab {
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .frame(width: cutout.width, height: cutout.height)
-                        .position(x: cutout.midX, y: cutout.midY)
-                        .onTapGesture { advance() }
-                }
+                // Tapping anywhere advances. The cutout still highlights the
+                // real control, but the tour must never depend on one specific
+                // hit-test landing — that's what stranded people mid-tour.
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { advance() }
 
                 // Spotlight ring — barely-breathing coral stroke (first-run
                 // affordance exception; static under Reduce Motion).
@@ -179,6 +170,14 @@ struct CoachMarksView: View {
             .clipShape(Capsule())
             .padding(.top, 8)
 
+            Button(index == Self.steps.count - 1 ? "Done" : "Next") { advance() }
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 30)
+                .padding(.vertical, 12)
+                .background(Color.coral, in: Capsule())
+                .padding(.top, 18)
+
             HStack(spacing: 6) {
                 ForEach(0..<Self.steps.count, id: \.self) { i in
                     Capsule()
@@ -189,7 +188,6 @@ struct CoachMarksView: View {
             .animation(.snappy, value: index)
             .padding(.top, 14)
         }
-        .allowsHitTesting(false)
     }
 
     // ── Geometry ──────────────────────────────────────────────────────────
@@ -226,30 +224,6 @@ struct CoachMarksView: View {
         RoundedRectangle(cornerRadius: min(rect.height, rect.width) / 2, style: .continuous)
             .path(in: rect)
             .asShape()
-    }
-
-    @ViewBuilder
-    private func absorberPanels(around cutout: CGRect, in geo: GeometryProxy) -> some View {
-        let w = geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing
-        let h = geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom
-
-        Group {
-            absorber(CGRect(x: 0, y: 0, width: w, height: cutout.minY))
-            absorber(CGRect(x: 0, y: cutout.maxY, width: w, height: max(0, h - cutout.maxY)))
-            absorber(CGRect(x: 0, y: cutout.minY, width: cutout.minX, height: cutout.height))
-            absorber(CGRect(
-                x: cutout.maxX, y: cutout.minY,
-                width: max(0, w - cutout.maxX), height: cutout.height
-            ))
-        }
-    }
-
-    private func absorber(_ rect: CGRect) -> some View {
-        Color.clear
-            .contentShape(Rectangle())
-            .frame(width: max(0, rect.width), height: max(0, rect.height))
-            .position(x: rect.midX, y: rect.midY)
-            .onTapGesture {} // absorb — only the real control is interactive
     }
 
     // ── Flow ──────────────────────────────────────────────────────────────

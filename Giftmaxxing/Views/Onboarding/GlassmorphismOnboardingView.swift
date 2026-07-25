@@ -93,7 +93,7 @@ struct GlassmorphismOnboardingView: View {
                 .frame(width: 180, height: 180)
                 .shadow(color: Color.coral.opacity(0.35), radius: 30, y: 10)
 
-            Text("🎁")
+            BrandGlyph(size: 56, tile: false)
                 .font(.displayLarge)
         }
         .scaleEffect(orbScale)

@@ -100,3 +100,12 @@ resource "aws_iam_role_policy" "mobile_push" {
   role   = aws_iam_role.api_lambda.id
   policy = data.aws_iam_policy_document.mobile_push.json
 }
+
+# The SAME policy on the App Runner instance role. The app reaches the API
+# through CloudFront -> App Runner, so this is the role that actually publishes
+# pushes; without it every send was denied even once the ARN was in the env.
+resource "aws_iam_role_policy" "mobile_push_apprunner" {
+  name   = "${var.prefix}-mobile-push-apprunner"
+  role   = aws_iam_role.apprunner_instance.id
+  policy = data.aws_iam_policy_document.mobile_push.json
+}

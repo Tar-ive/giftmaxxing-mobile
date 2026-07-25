@@ -889,7 +889,7 @@ private struct VerifyPanel: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: 12).fill(Color(hex: "#FFF3C4").opacity(0.5)))
         } else if summary?.matched == true {
-            Text("🎯 Confirmed match — \(summary?.by ?? vm.who) swiped right on your pick without knowing it was the ask. Buy it.")
+            Label("Confirmed match — \(summary?.by ?? vm.who) swiped right on your pick without knowing it was the ask. Buy it.", systemImage: "target")
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(Color.ink)
                 .padding(10)

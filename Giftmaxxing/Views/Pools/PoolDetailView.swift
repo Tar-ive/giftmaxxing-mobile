@@ -143,7 +143,7 @@ struct PoolDetailView: View {
                     .foregroundStyle(Color.coral)
                 Spacer()
                 if pool.progressPercent >= 1 {
-                    Text("Funded ✓")
+                    Label("Funded", systemImage: "checkmark.circle.fill")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(.secondary)
                 } else {
