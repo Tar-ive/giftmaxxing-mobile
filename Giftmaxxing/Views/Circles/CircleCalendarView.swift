@@ -318,8 +318,10 @@ struct CircleCalendarView: View {
                         RoundedRectangle(cornerRadius: 2, style: .continuous)
                             .fill(tint(for: item))
                             .frame(width: 3, height: 34)
-                        Text(item.emoji)
-                            .font(.system(size: 20))
+                        Image(systemName: item.emoji)
+                            .font(.system(size: 17))
+                            .foregroundStyle(tint(for: item))
+                            .frame(width: 22)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.title)
                                 .font(.system(size: 14, weight: .bold))

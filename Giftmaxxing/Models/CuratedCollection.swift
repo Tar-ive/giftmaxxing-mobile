@@ -10,6 +10,8 @@ struct CuratedCollection: Identifiable, Hashable {
     let title: String
     let subtitle: String
     let emoji: String
+    /// Real vector art for the card (AppIcons) — emoji stays for copy only.
+    var symbol: String { AppIcons.collection(id) }
     let grad: GradientStyle
     // Theme → feed query. vibes/category seed candidate generation; occasion +
     // recipient bias it; maxPrice is applied client-side so the "Under $X"

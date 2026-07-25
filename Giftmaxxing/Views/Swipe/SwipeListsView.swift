@@ -16,6 +16,9 @@ struct SwipeListsHomeView: View {
 
     var body: some View {
         LazyVStack(spacing: 10) {
+            // Boards a co-giver shared with you, waiting to be merged in.
+            SharedBoardsRail()
+
             if store.lists.isEmpty && !showNewList {
                 VStack(spacing: 14) {
                     Image(systemName: "rectangle.stack.badge.plus")
@@ -209,6 +212,7 @@ struct SwipeListDetailView: View {
     @State private var editingLetter = false
     // In-app delivery — pick a friend, the board lands in their DMs.
     @State private var showFriendPicker = false
+    @State private var showCoGiverPicker = false
     // Paste product links straight into THIS board.
     @State private var showAddByLink = false
     // Gift-graph traversal output: "Ideas for {name}" seeded by the board's
@@ -393,6 +397,27 @@ struct SwipeListDetailView: View {
     @ViewBuilder
     private func shareCard(_ list: SwipeList) -> some View {
         let who = list.recipientName ?? "them"
+        // Two people shopping for the same person: hand them the board so they
+        // can add their picks before either of you sends the deck.
+        Button {
+            showCoGiverPicker = true
+        } label: {
+            shareLabel(
+                title: "Build it with someone",
+                subtitle: "Share this board with a partner or co-giver so they can add ideas too.",
+                icon: "person.2.badge.plus"
+            )
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showCoGiverPicker) {
+            FriendPickerSheet(
+                messageText: "I started a gift board — \"\(list.name)\". Add your ideas and we'll send it together."
+            ) { friendId in
+                Task { await shareBoardWithCoGiver(list, friendId: friendId) }
+            }
+            .environmentObject(authManager)
+        }
+
         if list.posts.isEmpty {
             Label("Add finds from the feed or search — the “Gift board” button on any product drops it here.", systemImage: "rectangle.stack.badge.plus")
                 .font(.system(size: 13))
@@ -714,6 +739,29 @@ struct SwipeListDetailView: View {
 
     // POST /challenges with deckMode "exact": the deck is EXACTLY this list —
     // client card snapshots ride along for items outside the vector index.
+    // Snapshot the board to a co-giver: they get a push, it lands in their
+    // "Shared with you" rail, and accepting merges the items into their boards.
+    private func shareBoardWithCoGiver(_ list: SwipeList, friendId: String) async {
+        var payload: [String: Any] = ["name": list.name]
+        if let recipient = list.recipientName { payload["recipientName"] = recipient }
+        if let occasion = list.occasion { payload["occasion"] = occasion }
+        if let relationship = list.relationship { payload["relationship"] = relationship }
+        payload["posts"] = list.posts.prefix(100).map { post -> [String: Any] in
+            var item: [String: Any] = ["postId": post.id, "name": post.product.name]
+            if let image = post.product.image { item["image"] = image }
+            if post.product.price > 0 { item["price"] = post.product.price }
+            if !post.product.brand.isEmpty { item["brand"] = post.product.brand }
+            if let url = post.productUrl ?? post.url { item["productUrl"] = url }
+            return item
+        }
+        try? await APIClient.shared.shareBoard(
+            toUserId: friendId,
+            board: payload,
+            byUserId: authManager.userId,
+            byName: authManager.displayName
+        )
+    }
+
     private func buildShareLink(_ list: SwipeList) async {
         guard !list.posts.isEmpty, !buildingLink else { return }
         buildingLink = true

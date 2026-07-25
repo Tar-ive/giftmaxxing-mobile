@@ -168,7 +168,7 @@ struct CirclesView: View {
             let date = Self.nextOccurrence(for: event)
             return TimelineMoment(
                 id: "personal-\(event.id)",
-                emoji: event.eventTypeIcon,
+                emoji: event.eventTypeSymbol,
                 title: event.title,
                 sourceLabel: event.recipientName.isEmpty || event.title.localizedCaseInsensitiveContains(event.recipientName)
                     ? "your list"
@@ -328,7 +328,7 @@ struct CirclesView: View {
                     showCreateCircle = true
                 } label: {
                     HStack(spacing: 12) {
-                        Text("👨‍👩‍👧‍👦")
+                        Image(systemName: "person.3.fill").foregroundStyle(Color.coral)
                             .font(.system(size: 26))
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Start a circle")

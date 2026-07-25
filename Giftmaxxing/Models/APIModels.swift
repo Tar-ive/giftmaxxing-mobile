@@ -466,6 +466,29 @@ struct CircleJoinResponse: Codable {
     var linkedUserId: String?
 }
 
+struct BoardShareAck: Codable {
+    var ok: Bool?
+    var shareId: String?
+}
+
+struct SharedBoard: Codable, Identifiable {
+    var shareId: String
+    var name: String
+    var recipientName: String?
+    var occasion: String?
+    var relationship: String?
+    var posts: [APIPost]?
+    var fromName: String?
+    var fromUserId: String?
+    var createdAt: Double?
+
+    var id: String { shareId }
+}
+
+struct SharedBoardsResponse: Codable {
+    var items: [SharedBoard]?
+}
+
 struct ChallengeInviteAck: Codable {
     var ok: Bool?
     var challengeId: String?

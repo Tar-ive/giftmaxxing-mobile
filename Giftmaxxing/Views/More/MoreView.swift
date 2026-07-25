@@ -800,7 +800,7 @@ struct MoreView: View {
                         Spacer()
                         if let yes = conn.yesCount, let total = conn.totalSwipes,
                            total > 0, Double(yes) / Double(total) >= 0.5 {
-                            Text("💛")
+                            Image(systemName: "heart.fill").foregroundStyle(Color.coral)
                         }
                     }
                     .padding(.horizontal, 14)

@@ -130,7 +130,7 @@ struct CreatePoolFromCaptureView: View {
     // Pool exists — the next move is social: pull friends in.
     private func successState(_ pool: Pool) -> some View {
         VStack(spacing: 14) {
-            Text("Pool created 🎉")
+            Text("Pool created")
                 .font(.system(size: 20, weight: .heavy, design: .rounded))
                 .foregroundStyle(Color.ink)
 

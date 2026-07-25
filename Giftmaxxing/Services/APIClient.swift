@@ -696,6 +696,29 @@ actor APIClient {
         return response.items ?? []
     }
 
+    /// Hand a Gift Board to a co-giver so you can build the deck together.
+    @discardableResult
+    func shareBoard(
+        toUserId: String,
+        board: [String: Any],
+        byUserId: String? = nil,
+        byName: String? = nil
+    ) async throws -> BoardShareAck {
+        var body: [String: Any] = ["toUserId": toUserId, "board": board]
+        if let byUserId, !byUserId.isEmpty { body["byUserId"] = byUserId }
+        if let byName, !byName.isEmpty { body["byName"] = byName }
+        return try await post("/boards/share", body: body)
+    }
+
+    func fetchSharedBoards(userId: String) async throws -> [SharedBoard] {
+        let response: SharedBoardsResponse = try await get("/board-shares", params: ["userId": userId])
+        return response.items ?? []
+    }
+
+    func acceptSharedBoard(shareId: String, userId: String) async {
+        let _: BoardShareAck? = try? await post("/board-shares/\(shareId)/accept", body: ["userId": userId])
+    }
+
     // MARK: - On-device ranking support
 
     // Quantized Titan embeddings for a set of pin keys — feeds the on-device
@@ -880,6 +903,9 @@ actor APIClient {
     }
 
     // MARK: - Post Mapping
+
+    /// Shared-board payloads arrive as APIPosts — reuse the feed mapping.
+    func post(from api: APIPost) -> Post { mapAPIPost(api) }
 
     private func mapAPIPost(_ api: APIPost) -> Post {
         let p = api.product

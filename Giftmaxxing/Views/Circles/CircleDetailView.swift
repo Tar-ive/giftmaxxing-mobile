@@ -239,7 +239,8 @@ struct CircleDetailView: View {
                 Text("UP NEXT")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(Color.coral)
-                Text(next.emoji)
+                Image(systemName: next.emoji)
+                    .foregroundStyle(Color.coral)
                     .font(.system(size: 40))
                 Text(next.title)
                     .font(.system(size: 22, weight: .heavy, design: .rounded))
@@ -589,7 +590,7 @@ struct CircleMoment: Identifiable {
     let occasionId: String // GroupGiftCreateView occasion id
 
     var countdownPhrase: String {
-        if days == 0 { return "It's today! 🎉" }
+        if days == 0 { return "It's today!" }
         if days == 1 { return "Tomorrow!" }
         return "In \(days) days"
     }
@@ -603,7 +604,7 @@ struct CircleMoment: Identifiable {
                 id: "bday-\(member.memberId)",
                 title: "\(member.name)'s birthday",
                 who: member.name,
-                emoji: "🎂",
+                emoji: AppIcons.event("birthday"),
                 date: next,
                 days: daysUntil(next, from: now),
                 turning: turningAge(birthday: birthday, from: now),
@@ -616,7 +617,7 @@ struct CircleMoment: Identifiable {
                 id: event.eventId,
                 title: event.title,
                 who: event.forName,
-                emoji: emoji(forType: event.type ?? "occasion"),
+                emoji: AppIcons.event(event.type ?? "occasion"),
                 date: next,
                 days: daysUntil(next, from: now),
                 turning: nil,
@@ -788,7 +789,7 @@ private struct JoinCard: View {
                     if isJoining {
                         ProgressView().tint(.white)
                     } else {
-                        Text("I'm in 🎁").font(.labelBold)
+                        Text("I'm in").font(.labelBold)
                     }
                     Spacer()
                 }

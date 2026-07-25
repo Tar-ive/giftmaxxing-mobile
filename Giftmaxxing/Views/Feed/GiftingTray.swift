@@ -39,7 +39,7 @@ struct GiftingTray: View {
                                     .trim(from: 0, to: max(0.03, min(1, pool.progressPercent)))
                                     .stroke(Color.coral, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                                     .rotationEffect(.degrees(-90))
-                                Text("💰")
+                                Image(systemName: "banknote.fill").foregroundStyle(Color.coral)
                                     .font(.system(size: 22))
                             }
                             .frame(width: 52, height: 52)

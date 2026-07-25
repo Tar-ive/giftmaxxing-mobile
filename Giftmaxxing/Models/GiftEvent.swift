@@ -27,6 +27,10 @@ struct GiftEvent: Identifiable, Codable, Hashable {
         return formatter.string(from: date)
     }
 
+    /// SF Symbol for this occasion — what the UI draws (AppIcons).
+    var eventTypeSymbol: String { AppIcons.event(type) }
+
+    /// Emoji kept ONLY for outbound text (share sheets, DM copy), never as UI.
     var eventTypeIcon: String {
         switch type {
         case "birthday": return "🎂"

@@ -622,7 +622,7 @@ private struct GroupPickRow: View {
                 RoundedRectangle(cornerRadius: 10)
                     .fill(Color.coralSoft)
                     .frame(width: 52, height: 52)
-                    .overlay(Text("🎁"))
+                    .overlay(BrandGlyph(size: 30, tile: false))
             }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -864,7 +864,7 @@ struct GroupSwipeSheet: View {
                                 .frame(height: 300)
                                 .clipped()
                         } else {
-                            Text("🎁").font(.system(size: 64))
+                            BrandGlyph(size: 30, tile: false).font(.system(size: 64))
                         }
                     }
                     .frame(height: 300)

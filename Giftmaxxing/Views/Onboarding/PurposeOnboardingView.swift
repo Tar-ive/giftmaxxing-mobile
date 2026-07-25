@@ -304,7 +304,7 @@ struct PurposeOnboardingView: View {
             if let occasion = nextOccasion {
                 stepTitle("Great — let's put this to work", subtitle: nil)
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("🎂")
+                    Image(systemName: "birthday.cake.fill").foregroundStyle(Color.coral)
                         .font(.system(size: 40))
                     Text("\(occasion.name) has a birthday in \(occasion.daysUntil) days.")
                         .font(.system(size: 20, weight: .heavy, design: .rounded))

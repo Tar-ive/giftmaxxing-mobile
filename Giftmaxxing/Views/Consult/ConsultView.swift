@@ -520,7 +520,7 @@ struct ConsultView: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            Text("🎁").font(.system(size: 26))
+            BrandGlyph(size: 30, tile: false).font(.system(size: 26))
             VStack(alignment: .leading, spacing: 1) {
                 Text("Maxi").font(.system(size: 17, weight: .heavy, design: .rounded)).foregroundStyle(Color.ink)
                 Text("your gift concierge").font(.system(size: 11)).foregroundStyle(.secondary)
@@ -608,7 +608,7 @@ private struct IntroStep: View {
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
-            Text("🎁").font(.system(size: 72))
+            BrandGlyph(size: 30, tile: false).font(.system(size: 72))
             VStack(spacing: 10) {
                 Text("Hey — I'm Maxi.\nI find gifts people actually keep.")
                     .font(.system(size: 26, weight: .heavy, design: .rounded))
@@ -638,7 +638,7 @@ private struct ThinkingStep: View {
     var body: some View {
         VStack(spacing: 16) {
             Spacer()
-            Text("🎁").font(.system(size: 56))
+            BrandGlyph(size: 30, tile: false).font(.system(size: 56))
             Text("Okay — \(vm.who), \(vm.budget.map { "$\(Int($0)) to spend" } ?? "budget open").")
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundStyle(Color.ink)
@@ -662,7 +662,7 @@ private struct ResultsStep: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 10) {
-                    Text("📦").font(.system(size: 22))
+                    Image(systemName: "shippingbox.fill").foregroundStyle(Color.coral).font(.system(size: 22))
                     Text("**The move test:** everything below is something \(vm.who) would pack, not purge, when they next move.")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
@@ -844,7 +844,7 @@ private struct VerifyPanel: View {
             } else {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Swipe game is live 🎳")
+                        Text("Swipe game is live")
                             .font(.system(size: 14, weight: .bold, design: .rounded))
                             .foregroundStyle(Color.ink)
                         Text("Send it to \(vm.who). Your pick is hidden among 14 cards.")

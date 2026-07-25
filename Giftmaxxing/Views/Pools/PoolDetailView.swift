@@ -90,7 +90,7 @@ struct PoolDetailView: View {
                 } else {
                     ZStack {
                         Color.coralSoft
-                        Text("🎁").font(.system(size: 56))
+                        BrandGlyph(size: 34, tile: false).font(.system(size: 56))
                     }
                 }
             }

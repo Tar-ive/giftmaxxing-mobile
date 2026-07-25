@@ -4247,6 +4247,107 @@ export const handler = async (event) => {
       return json(200, { ok: true, challengeId });
     }
 
+    // POST /boards/share  { toUserId, board:{name,recipientName?,occasion?,posts[]},
+    //                       byUserId?, byName? }
+    // Hand a Gift Board to a co-giver (a partner shopping for the same person)
+    // so they can add their own ideas before either of you sends the deck.
+    if (method === "POST" && path === "/boards/share") {
+      if (!EVENTS) return json(503, { error: "events table not configured" });
+      const toUserId = String(body.toUserId ?? "").trim().slice(0, 128);
+      const board = body.board ?? {};
+      const name = String(board.name ?? "").trim().slice(0, 60);
+      const posts = Array.isArray(board.posts) ? board.posts.slice(0, 100) : [];
+      if (!toUserId || !name) return json(400, { error: "toUserId and board.name required" });
+
+      const shareId = gid();
+      const now = Date.now();
+      await ddb.send(
+        new PutCommand({
+          TableName: EVENTS,
+          Item: {
+            userId: toUserId,
+            eventId: `BOARDSHARE#${shareId}`,
+            scope: "boardShare",
+            shareId,
+            name,
+            recipientName: board.recipientName ? String(board.recipientName).slice(0, 40) : null,
+            occasion: board.occasion ? String(board.occasion).slice(0, 40) : null,
+            relationship: board.relationship ? String(board.relationship).slice(0, 40) : null,
+            posts,
+            fromUserId: String(body.byUserId ?? "").slice(0, 128) || null,
+            fromName: String(body.byName ?? "").trim().slice(0, 40) || null,
+            createdAt: now,
+            acceptedAt: null,
+          },
+        })
+      );
+
+      try {
+        const who = String(body.byName ?? "").trim().slice(0, 40);
+        await sendPushToUser(toUserId, {
+          title: who ? `🎁 ${who} shared a gift board` : "🎁 A gift board was shared with you",
+          body: `"${name}" — add your ideas, then send it together.`,
+          data: { type: "board_shared", shareId },
+        });
+      } catch (e) {
+        console.warn("board share push failed:", e.message);
+      }
+
+      return json(200, { ok: true, shareId });
+    }
+
+    // GET /board-shares?userId= — boards a co-giver handed to this account.
+    if (method === "GET" && path === "/board-shares") {
+      if (!EVENTS) return json(503, { error: "events table not configured" });
+      const uid = String(qs.userId ?? "").trim();
+      if (!uid) return json(400, { error: "userId required" });
+      const out = await ddb.send(
+        new QueryCommand({
+          TableName: EVENTS,
+          KeyConditionExpression: "userId = :u AND begins_with(eventId, :p)",
+          ExpressionAttributeValues: { ":u": uid, ":p": "BOARDSHARE#" },
+        })
+      );
+      const items = (out.Items ?? [])
+        .filter((r) => !r.acceptedAt)
+        .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+        .slice(0, 20)
+        .map((r) => ({
+          shareId: r.shareId,
+          name: r.name,
+          recipientName: r.recipientName ?? null,
+          occasion: r.occasion ?? null,
+          relationship: r.relationship ?? null,
+          posts: r.posts ?? [],
+          fromName: r.fromName ?? null,
+          fromUserId: r.fromUserId ?? null,
+          createdAt: r.createdAt ?? null,
+        }));
+      return json(200, { items });
+    }
+
+    // POST /board-shares/{id}/accept — the co-giver took it into their boards.
+    if (method === "POST" && /^\/board-shares\/[^/]+\/accept$/.test(path)) {
+      if (!EVENTS) return json(503, { error: "events table not configured" });
+      const shareId = decodeURIComponent(path.split("/")[2]);
+      const uid = String(body.userId ?? "").trim().slice(0, 128);
+      if (!uid) return json(400, { error: "userId required" });
+      try {
+        await ddb.send(
+          new UpdateCommand({
+            TableName: EVENTS,
+            Key: { userId: uid, eventId: `BOARDSHARE#${shareId}` },
+            UpdateExpression: "SET acceptedAt = :t",
+            ConditionExpression: "attribute_exists(eventId)",
+            ExpressionAttributeValues: { ":t": Date.now() },
+          })
+        );
+      } catch (e) {
+        return json(404, { error: "share not found" });
+      }
+      return json(200, { ok: true });
+    }
+
     // GET /challenge-invites?userId= — swipe lists waiting for this account.
     if (method === "GET" && path === "/challenge-invites") {
       if (!EVENTS) return json(503, { error: "events table not configured" });
