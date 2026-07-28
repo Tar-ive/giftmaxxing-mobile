@@ -129,6 +129,27 @@ struct PeopleHubView: View {
         .sheet(item: $viewingResults) { connection in
             ChallengeResultsSheet(connection: connection)
         }
+        #if DEBUG
+        // Screenshot capture only: present the results sheet with a sample
+        // response whose yes-items are REAL catalog products, so marketing
+        // shots don't require seeding data onto a live account.
+        .task {
+            guard UserDefaults.standard.bool(forKey: "screenshotResults"),
+                  viewingResults == nil else { return }
+            let page = try? await APIClient.shared.fetchFeed(limit: 6)
+            let seeds = (page?.posts ?? []).prefix(4).map(\.id)
+            viewingResults = SoftConnectionItem(
+                connectionId: "sample",
+                guestName: "Trinity Garcia",
+                vibes: ["apparel", "jewelry", "cozy home"],
+                seeds: Array(seeds),
+                giftTypeSplit: nil,
+                yesCount: 6,
+                totalSwipes: 14,
+                seen: true
+            )
+        }
+        #endif
     }
 
     private var emptyState: some View {

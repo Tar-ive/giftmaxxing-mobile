@@ -264,6 +264,16 @@ struct ContentView: View {
             if UserDefaults.standard.bool(forKey: "profilePreview") || UserDefaults.standard.bool(forKey: "publicProfilePreview") {
                 appState.selectedTab = .you
             }
+            // Screenshot capture (Debug only): land directly on a screen so
+            // marketing/App Store shots can be taken without hand-navigating.
+            if let tab = UserDefaults.standard.string(forKey: "screenshotTab") {
+                switch tab {
+                case "swipe": appState.selectedTab = .swipe
+                case "circles": appState.selectedTab = .circles
+                case "you": appState.selectedTab = .you
+                default: break
+                }
+            }
             #endif
             // Restore this account's Gift Boards on launch (a restored session
             // doesn't fire onChange for the initial userId).

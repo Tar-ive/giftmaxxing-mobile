@@ -288,9 +288,13 @@ struct SwipeView: View {
                     // whole VStack, its repeating keyframe animation swallowed
                     // taps on the segment picker above it.
                     deckBody
-                        .overlay {
+                        .overlay(alignment: .center) {
                             if showRehearsal, viewModel.currentCard != nil, !viewModel.isLoading {
+                                // Keep the cue over the CARD: unbounded, it
+                                // drifted onto the progress row and smeared
+                                // across the yes/no buttons.
                                 SwipeRehearsalCue()
+                                    .padding(.bottom, 150)
                             }
                         }
                 }
@@ -340,7 +344,15 @@ struct SwipeView: View {
                 await viewModel.loadCards()
             }
         }
-        .onAppear { appState.suppressMaxiFAB() }
+        .onAppear {
+            appState.suppressMaxiFAB()
+            #if DEBUG
+            if UserDefaults.standard.string(forKey: "screenshotTab") == "swipe",
+               UserDefaults.standard.bool(forKey: "screenshotPeople") {
+                context = .people
+            }
+            #endif
+        }
         .onDisappear { appState.unsuppressMaxiFAB() }
     }
 
