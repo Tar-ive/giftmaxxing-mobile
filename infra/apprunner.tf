@@ -134,6 +134,11 @@ resource "aws_apprunner_service" "api" {
           CONFIG_TABLE       = aws_dynamodb_table.config.name
           ANALYTICS_TABLE    = aws_dynamodb_table.analytics.name
           DEVICES_TABLE      = aws_dynamodb_table.devices.name
+          # Without this, pushConfigured() is false and EVERY push silently
+          # no-ops. lambda.tf always had it; App Runner didn't — and App Runner
+          # is what the app actually reaches through CloudFront, so no push has
+          # ever been delivered (0 SNS endpoints against 9 registered tokens).
+          SNS_PLATFORM_APP_ARN = join("", aws_sns_platform_application.ios_push[*].arn)
 
           AUTH_ENFORCE       = var.auth_enforce ? "1" : "0"
           ADMIN_API_SECRET   = var.admin_api_secret

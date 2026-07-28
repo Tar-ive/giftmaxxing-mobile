@@ -10,6 +10,7 @@ struct FeedView: View {
     @StateObject private var viewModel = FeedViewModel()
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedPost: Post?
+    @State private var selectedAuthor: PublicPerson?
     @State private var pledgingPost: Post?
     // "Add to swipe list" opens the Instagram-collections-style picker: choose
     // WHOSE list this find belongs to (or make one) instead of a blind toggle.
@@ -22,6 +23,8 @@ struct FeedView: View {
     // Bell badge = incoming friend requests + unseen swipe activity.
     @State private var notificationCount = 0
     @ObservedObject private var swipeList = SwipeListStore.shared
+    @ObservedObject private var postingStore = UGCPostingStore.shared
+    @State private var refreshed = false
 
     var body: some View {
         NavigationStack {
@@ -89,6 +92,11 @@ struct FeedView: View {
                     // to buyable products. Hidden until bundle data exists.
                     GiftBundlesRail()
 
+                    ForEach(postingStore.items) { item in
+                        PendingUGCFeedCard(item: item)
+                        Divider().padding(.horizontal, 14)
+                    }
+
                     if viewModel.isLoading && viewModel.posts.isEmpty {
                         ForEach(0..<3, id: \.self) { _ in
                             PostCardSkeleton()
@@ -114,6 +122,13 @@ struct FeedView: View {
                             PostCardView(
                                 post: post,
                                 inSwipeList: swipeList.contains(post),
+                                inMyGiftIdeas: swipeList.containsInMyGiftIdeas(post),
+                                onLike: { viewModel.toggleLike(for: post, context: modelContext) },
+                                onComment: { selectedPost = post },
+                                onBookmark: {
+                                    swipeList.toggleMyGiftIdea(post)
+                                    viewModel.toggleSave(for: post, context: modelContext)
+                                },
                                 onPledge: {
                                     pledgingPost = post
                                     // Pledge = the strongest positive signal the feed has.
@@ -134,6 +149,15 @@ struct FeedView: View {
                                     AnalyticsEngine.shared.trackContentAction(
                                         .contentTap,
                                         postId: post.id
+                                    )
+                                },
+                                onAuthorTap: {
+                                    guard let ownerId = post.ownerId else { return }
+                                    selectedAuthor = PublicPerson(
+                                        userId: ownerId,
+                                        name: post.user,
+                                        handle: "",
+                                        imageUrl: post.authorImageUrl
                                     )
                                 },
                                 onHide: { viewModel.hide(postId: post.id) }
@@ -199,11 +223,15 @@ struct FeedView: View {
                 .navigationDestination(item: $selectedCollection) { collection in
                     CollectionDetailView(collection: collection)
                 }
+                .navigationDestination(item: $selectedAuthor) { person in
+                    PublicProfileView(person: person)
+                }
             }
             .refreshable {
                 // Pull-to-refresh = a genuinely fresh page (CDN bust +
                 // new server random-seek), not a replay of the cache.
-                await viewModel.loadFeed(context: modelContext, forceFresh: true)
+                await viewModel.refreshFeed(context: modelContext)
+                refreshed.toggle()
             }
         }
         .sheet(item: $selectedPost) { post in
@@ -212,9 +240,16 @@ struct FeedView: View {
             PostDetailView(
                 post: live,
                 onLike: { viewModel.toggleLike(for: live, context: modelContext) },
-                onSave: { viewModel.toggleSave(for: live, context: modelContext) }
+                onSave: {
+                    swipeList.toggleMyGiftIdea(live)
+                    viewModel.toggleSave(for: live, context: modelContext)
+                }
             )
         }
+        .onReceive(NotificationCenter.default.publisher(for: .ugcPostReady)) { _ in
+            Task { await viewModel.refreshFeed(context: modelContext) }
+        }
+        .sensoryFeedback(.success, trigger: refreshed)
         .sheet(item: $listPickerPost) { post in
             SwipeListPickerSheet(post: post)
         }

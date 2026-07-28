@@ -288,6 +288,19 @@ final class AnalyticsEngine: ObservableObject {
         ])
     }
 
+    // A swipe list the recipient opened but didn't finish — how far they got
+    // is itself signal (and distinguishes "not interested" from "never saw it").
+    func trackChallengeAbandoned(challengeId: String, swiped: Int, deckSize: Int, yesCount: Int) {
+        track(.challengeAbandoned, properties: [
+            "challengeId": .string(challengeId),
+            "swiped": .int(swiped),
+            "deckSize": .int(deckSize),
+            "yesCount": .int(yesCount),
+            "completionRate": .double(Double(swiped) / Double(max(1, deckSize))),
+            "sessionId": .string(sessionId),
+        ])
+    }
+
     // MARK: - Content interactions
 
     func trackContentAction(_ action: AnalyticsEvent.EventType, postId: String, source: String = "feed") {

@@ -123,13 +123,22 @@ struct SwipeListPickerSheet: View {
         store.toggle(post, in: list.id)
         newListName = ""
         newRecipientName = ""
-        withAnimation(.spring(response: 0.3)) { showNewList = false }
+        // The save is done — close the moment and confirm with a toast whose
+        // "View" link teaches where boards live (Instagram-collections model).
+        dismiss()
+        BoardToastCenter.shared.show(boardId: list.id, boardName: list.name)
     }
 
     private func listRow(_ list: SwipeList) -> some View {
         let isIn = list.posts.contains(where: { $0.id == post.id })
         return Button {
             store.toggle(post, in: list.id)
+            // Adding closes the sheet with a toast; removing stays put so the
+            // user can keep managing membership.
+            if !isIn {
+                dismiss()
+                BoardToastCenter.shared.show(boardId: list.id, boardName: list.name)
+            }
         } label: {
             HStack(spacing: 12) {
                 if let cover = list.posts.first {

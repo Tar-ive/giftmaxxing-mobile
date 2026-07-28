@@ -15,7 +15,7 @@ struct MaxiIcon: View {
                 )
                 .frame(width: size, height: size)
 
-            Text("🎁")
+            BrandGlyph(size: 26, tile: false)
                 .font(.system(size: size * 0.5))
         }
     }

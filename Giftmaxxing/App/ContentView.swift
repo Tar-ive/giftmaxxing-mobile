@@ -10,7 +10,11 @@ struct ContentView: View {
     @State private var gateResolved = false
     // First-run navigation tour (TikTok-style coach marks) — queued the moment
     // a NEW user finishes onboarding; never for grandfathered accounts.
+    // Re-presentable via Settings → "Replay app tour" (.replayCoachMarks).
     @State private var showCoachMarks = false
+    // Board-save feedback: the toast + the one-time Swipe-tab callout.
+    @StateObject private var boardToasts = BoardToastCenter.shared
+    @State private var showBoardsHint = false
 
     // Accounts are required: the cover dismisses only via real auth. E2E builds
     // sign in headlessly via launch arguments (see E2ESupport.swift).
@@ -53,7 +57,23 @@ struct ContentView: View {
                     }
                     .tag(Tab.circles)
 
-                MoreView()
+                Group {
+                    #if DEBUG
+                    if UserDefaults.standard.bool(forKey: "publicProfilePreview") {
+                        NavigationStack {
+                            PublicProfileView(person: PublicPerson(
+                                userId: "google_102419904198993789987",
+                                name: "Saksham Adhikari",
+                                handle: "sakshamadhikari"
+                            ))
+                        }
+                    } else {
+                        MoreView()
+                    }
+                    #else
+                    MoreView()
+                    #endif
+                }
                     .tabItem {
                         Label(Tab.you.rawValue, systemImage: Tab.you.icon)
                     }
@@ -99,6 +119,53 @@ struct ContentView: View {
                 .zIndex(8)
             }
 
+            // "Saved to <board> · View" — global confirmation for every board
+            // save, with the deep link that teaches where boards live.
+            VStack {
+                Spacer()
+                if let event = boardToasts.event {
+                    BoardSavedToast(event: event) {
+                        BoardsHint.seen = true // View tap = location learned
+                        boardToasts.hide()
+                        appState.openBoard(event.boardId)
+                    }
+                }
+            }
+            .padding(.bottom, 62)
+            .zIndex(7)
+            .sensoryFeedback(.success, trigger: boardToasts.event?.id)
+            .onChange(of: boardToasts.event) { old, new in
+                // Toast came and went untapped after the FIRST save → point at
+                // the Swipe tab once so the location still lands.
+                if old != nil, new == nil, !BoardsHint.seen {
+                    BoardsHint.seen = true
+                    withAnimation(.snappy) { showBoardsHint = true }
+                    Task {
+                        try? await Task.sleep(for: .seconds(5))
+                        withAnimation(.snappy) { showBoardsHint = false }
+                    }
+                }
+            }
+
+            if showBoardsHint {
+                GeometryReader { geo in
+                    BoardsHintCallout {
+                        withAnimation(.snappy) { showBoardsHint = false }
+                        appState.openBoardsHome()
+                    }
+                    // Anchored over the You tab — 5th of 5 slots (90% width),
+                    // just above the ~49pt tab bar.
+                    .position(x: geo.size.width * 0.9, y: geo.size.height - 70)
+                }
+                .zIndex(7)
+                .onChange(of: appState.selectedTab) { _, tab in
+                    // They found it themselves — retire the pointer.
+                    if tab == .you {
+                        withAnimation(.snappy) { showBoardsHint = false }
+                    }
+                }
+            }
+
             if showSplash {
                 SplashView {
                     Task { await finishSplashAndResolveGate() }
@@ -113,8 +180,28 @@ struct ContentView: View {
                     .zIndex(9)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .replayCoachMarks)) { _ in
+            withAnimation(.easeOut(duration: 0.25)) { showCoachMarks = true }
+        }
         .sheet(isPresented: $appState.showBirthdayPerks) {
             BirthdayPerksSheet()
+        }
+        // Birthday-journey notification taps: a challenge for the birthday
+        // person, auto-created and ready to send…
+        .sheet(item: $appState.pendingChallengePrefill) { prefill in
+            NavigationStack {
+                ChallengeView(
+                    showsClose: true,
+                    prefillTheirName: prefill.recipientName,
+                    autoCreate: true
+                )
+            }
+        }
+        // …and "they completed it" → straight to the responses.
+        .sheet(isPresented: $appState.showChallengeResults) {
+            NavigationStack {
+                ChallengeView(showsClose: true)
+            }
         }
         .sheet(isPresented: $appState.showMaxi) {
             MaxiView()
@@ -173,6 +260,11 @@ struct ContentView: View {
         .onAppear {
             drainCaptureInbox()
             PersonalizationStore.migrateLegacyFlagIfNeeded()
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "profilePreview") || UserDefaults.standard.bool(forKey: "publicProfilePreview") {
+                appState.selectedTab = .you
+            }
+            #endif
             // Restore this account's Gift Boards on launch (a restored session
             // doesn't fire onChange for the initial userId).
             SwipeListStore.shared.configure(userId: authManager.userId)
@@ -187,7 +279,11 @@ struct ContentView: View {
             SwipeListStore.shared.configure(userId: newUserId)
             // A fresh sign-in lands on Home, not wherever sign-in happened.
             if newUserId != nil {
+                #if DEBUG
+                appState.selectedTab = (UserDefaults.standard.bool(forKey: "profilePreview") || UserDefaults.standard.bool(forKey: "publicProfilePreview")) ? .you : .feed
+                #else
                 appState.selectedTab = .feed
+                #endif
             }
             guard !showSplash else { return }
             Task { await resolveAppGate(userId: newUserId) }

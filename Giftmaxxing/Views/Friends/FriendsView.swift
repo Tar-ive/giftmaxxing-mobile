@@ -52,7 +52,7 @@ struct FriendsView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(Color.white)
+                .background(Color.surface)
                 .clipShape(Capsule())
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
@@ -122,8 +122,26 @@ struct FriendsView: View {
                         name: friend.name ?? friend.friendId,
                         handle: friend.handle,
                         interests: friend.interests,
-                        grad: SocialUsers.grad(for: friend.friendId)
-                    ) { EmptyView() }
+                        grad: SocialUsers.grad(for: friend.friendId),
+                        imageUrl: friend.imageUrl
+                    ) {
+                        // The friend's full gifting profile — sizes, dislikes,
+                        // and the gifts they'd love (friend-gated server-side).
+                        NavigationLink {
+                            PublicProfileView(person: PublicPerson(
+                                userId: friend.friendId,
+                                name: friend.name ?? friend.friendId,
+                                handle: friend.handle ?? "",
+                                bio: friend.bio,
+                                imageUrl: friend.imageUrl,
+                                interests: friend.interests
+                            ))
+                        } label: {
+                            Image(systemName: "person.crop.circle")
+                                .font(.system(size: 20))
+                                .foregroundStyle(Color.coral)
+                        }
+                    }
 
                     HStack(spacing: 8) {
                         Button {
@@ -169,7 +187,8 @@ struct FriendsView: View {
                         name: friend.name ?? friend.friendId,
                         handle: friend.handle,
                         interests: nil,
-                        grad: SocialUsers.grad(for: friend.friendId)
+                        grad: SocialUsers.grad(for: friend.friendId),
+                        imageUrl: friend.imageUrl
                     ) {
                         HStack(spacing: 6) {
                             Button("Accept") {
@@ -191,7 +210,8 @@ struct FriendsView: View {
                         name: friend.name ?? friend.friendId,
                         handle: friend.handle,
                         interests: nil,
-                        grad: SocialUsers.grad(for: friend.friendId)
+                        grad: SocialUsers.grad(for: friend.friendId),
+                        imageUrl: friend.imageUrl
                     ) {
                         Text("Pending")
                             .font(.system(size: 12, weight: .semibold))
@@ -227,7 +247,8 @@ struct FriendsView: View {
                     name: person.name,
                     handle: person.handle,
                     interests: person.interests,
-                    grad: SocialUsers.grad(for: person.userId)
+                    grad: SocialUsers.grad(for: person.userId),
+                    imageUrl: person.imageUrl
                 ) {
                     NavigationLink {
                         PublicProfileView(person: person)
@@ -336,6 +357,17 @@ struct FriendsView: View {
     }
 }
 
+private extension View {
+    func profileStatusChip() -> some View {
+        font(.system(size: 11, weight: .bold))
+            .foregroundStyle(Color.coral)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.coralSoft)
+            .clipShape(Capsule())
+    }
+}
+
 // MARK: - Shared row / styles
 
 private struct PersonRow<Actions: View>: View {
@@ -343,11 +375,12 @@ private struct PersonRow<Actions: View>: View {
     let handle: String?
     let interests: [String]?
     let grad: GradientStyle
+    var imageUrl: String? = nil
     @ViewBuilder var actions: () -> Actions
 
     var body: some View {
         HStack(spacing: 12) {
-            AvatarView(name: name, grad: grad, size: 44)
+            AvatarView(name: name, grad: grad, size: 44, imageUrl: imageUrl, anonymousFallback: true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
                     .font(.system(size: 14, weight: .bold))
@@ -392,52 +425,464 @@ private struct FriendPillStyle: ButtonStyle {
 
 /// Public search results lead to this compact, share-safe profile. The API
 /// returns a private profile here only when the viewer is an accepted friend.
-private struct PublicProfileView: View {
+/// Beyond the persona, this is the "gift them right" page: their sizes,
+/// dislikes, standing note, and photos of gifts they'd love.
+struct PublicProfileView: View {
     let person: PublicPerson
+    @EnvironmentObject private var authManager: AuthManager
+    @EnvironmentObject private var appState: AppState
+    @ObservedObject private var store = FriendsStore.shared
     @State private var profile: PublicPerson?
+    @State private var relationship = "none"
+    @State private var busy = false
+    @State private var threadId: String?
+    @State private var showDm = false
+    @State private var showGiftConsult = false
+    @State private var showGiftList = false
+    @State private var showGroupGift = false
+    @State private var selectedPost: UGCPost?
 
     private var displayed: PublicPerson { profile ?? person }
+    private var isFriend: Bool { relationship == "accepted" }
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
-                AvatarView(
-                    name: displayed.name,
-                    grad: SocialUsers.grad(for: displayed.userId),
-                    size: 84
-                )
-                Text(displayed.name)
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                Text("@\(displayed.handle)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                if let bio = displayed.bio, !bio.isEmpty {
-                    Text(bio)
-                        .font(.body)
-                        .multilineTextAlignment(.center)
-                }
-                if let interests = displayed.interests, !interests.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Gift vibes")
-                            .font(.system(size: 14, weight: .bold))
-                        Text(interests.joined(separator: " · "))
-                            .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
-                    .background(Color.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                }
+            VStack(alignment: .leading, spacing: 20) {
+                profileHeader
+                relationshipActions
+                tasteSection
+                giftListSection
+                circlesSection
+                postsSection
             }
-            .padding(24)
+            .padding(16)
         }
         .background(Color.cream)
-        .navigationTitle("Profile")
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "publicProfilePreview") {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {} label: { Image(systemName: "chevron.left") }
+                }
+            }
+            #endif
+            if isFriend {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("Invite to group gift", systemImage: "person.3.fill") { showGroupGift = true }
+                        Button("Remove friend", systemImage: "person.badge.minus", role: .destructive) {
+                            Task { await removeFriend() }
+                        }
+                    } label: { Image(systemName: "ellipsis") }
+                }
+            }
+        }
+        .navigationDestination(isPresented: $showDm) {
+            if let threadId { FriendDmThreadView(threadId: threadId) }
+        }
+        .sheet(isPresented: $showGiftConsult) {
+            NavigationStack { ConsultView(skipIntro: true, prefillRecipientName: displayed.name) }
+        }
+        .sheet(isPresented: $showGiftList) {
+            FriendGiftListView(name: displayed.name, items: displayed.giftShowcase ?? [])
+        }
+        .sheet(isPresented: $showGroupGift) {
+            NavigationStack { GroupGiftCreateView(prefillRecipient: displayed.name) }
+                .environmentObject(appState)
+                .environmentObject(authManager)
+        }
+        .sheet(item: $selectedPost) { UGCProfilePostSheet(post: $0) }
         .task {
             profile = try? await APIClient.shared.fetchPerson(userId: person.userId)
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "publicProfilePreview") {
+                var preview = profile ?? person
+                preview.tagline = preview.tagline ?? "Thoughtful gifts. Meaning that lasts."
+                preview.clothingSizes = preview.clothingSizes ?? ["shirt": "M", "shoes": "8.5", "pants": "28"]
+                preview.interests = preview.interests ?? ["foodie", "luxury", "thoughtful"]
+                preview.dislikes = preview.dislikes ?? ["candles"]
+                if preview.giftShowcase?.isEmpty != false {
+                    preview.giftShowcase = [
+                        GiftShowcaseItem(
+                            postId: "preview-jacket",
+                            name: "Hourglass Work Jacket",
+                            imageUrl: "https://cdn.shopify.com/s/files/1/0293/9277/files/V225JK0709_Black_JR_V1.jpg?width=1200",
+                            brand: "Fashion Nova",
+                            price: 36,
+                            productUrl: "https://www.fashionnova.com/products/own-the-room-hourglass-twill-work-jacket-fncolorname-black"
+                        ),
+                        GiftShowcaseItem(
+                            postId: "preview-top",
+                            name: "Poise Crew Neck Top",
+                            imageUrl: "https://cdn.shopify.com/s/files/1/0156/6146/files/BalletTightCrewNeckTopGSCoolBrownB4C4P_NBZG_0441.jpg?width=1200",
+                            brand: "Gymshark",
+                            price: 38,
+                            productUrl: "https://www.gymshark.com/products/gymshark-poise-crew-neck-short-sleeve-top-ss-tops-brown-ss26"
+                        ),
+                    ]
+                }
+                profile = preview
+                relationship = "accepted"
+                return
+            }
+            #endif
+            if let userId = authManager.userId {
+                relationship = await store.status(userId: userId, otherId: person.userId)
+            }
         }
+    }
+
+    private var profileHeader: some View {
+        HStack(alignment: .top, spacing: 16) {
+            AvatarView(
+                name: displayed.name,
+                grad: SocialUsers.grad(for: displayed.userId),
+                size: 92,
+                imageUrl: displayed.imageUrl,
+                anonymousFallback: true
+            )
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 7) {
+                    Label("\(displayed.friendCount ?? 0) friends", systemImage: "person.2.fill")
+                        .profileStatusChip()
+                    if isFriend {
+                        Label("Gift friends", systemImage: "heart.fill")
+                            .profileStatusChip()
+                    }
+                }
+                Text(displayed.name).font(.system(size: 24, weight: .bold, design: .rounded)).foregroundStyle(Color.ink)
+                Text("@\(displayed.handle)").font(.subheadline).foregroundStyle(Color.inkSecondary)
+                if let tagline = displayed.tagline, !tagline.isEmpty {
+                    Text(tagline).font(.system(size: 13)).foregroundStyle(Color.ink)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 8)
+    }
+
+    @ViewBuilder private var relationshipActions: some View {
+        if isFriend {
+            HStack(spacing: 10) {
+                Button { showGiftConsult = true } label: { Label("Send a gift", systemImage: "gift.fill") }
+                    .buttonStyle(ProfilePrimaryButtonStyle())
+                Button { Task { await message() } } label: { Label("Message", systemImage: "bubble.left.fill") }
+                    .buttonStyle(ProfileSecondaryButtonStyle())
+                    .disabled(busy)
+            }
+        } else {
+            Button {
+                Task { await updateFriendship() }
+            } label: {
+                Label(friendshipLabel, systemImage: relationship == "incoming" ? "person.badge.checkmark" : "person.badge.plus")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(ProfilePrimaryButtonStyle())
+            .disabled(busy || relationship == "pending")
+            Text("Gift lists, messaging, and group gift invites unlock after you’re friends.")
+                .font(.caption).foregroundStyle(Color.inkSecondary)
+        }
+    }
+
+    private var friendshipLabel: String {
+        switch relationship {
+        case "incoming": "Accept friend"
+        case "pending": "Requested"
+        default: "Add friend"
+        }
+    }
+
+    @ViewBuilder private var giftListSection: some View {
+        if let showcase = displayed.giftShowcase, !showcase.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("GIFT IDEAS FOR ME").font(.system(size: 12, weight: .bold)).tracking(1.2).foregroundStyle(Color.inkSecondary)
+                    Spacer()
+                    if isFriend {
+                        Button("See all") { showGiftList = true }
+                            .font(.system(size: 13, weight: .bold)).foregroundStyle(Color.coral)
+                    }
+                }
+                HStack(spacing: 10) {
+                    ForEach(showcase.prefix(2)) { giftCard($0) }
+                }
+            }
+        }
+    }
+
+    private func giftCard(_ item: GiftShowcaseItem) -> some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Color.surfaceSunken
+                if let image = item.imageUrl { CachedAsyncImage(url: image, width: 360) }
+                else { Image(systemName: "gift.fill").foregroundStyle(Color.coral) }
+            }
+            .frame(width: 82, height: 82).clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            VStack(alignment: .leading, spacing: 5) {
+                Text(item.name ?? "Gift idea").font(.system(size: 13, weight: .bold)).lineLimit(2)
+                Text(item.brand ?? "Saved find").font(.caption).foregroundStyle(Color.inkSecondary).lineLimit(1)
+                if let price = item.price, price > 0 {
+                    Text(price, format: .currency(code: "USD")).font(.caption).foregroundStyle(Color.inkSecondary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder private var tasteSection: some View {
+        let sizes = displayed.clothingSizes ?? [:]
+        let vibes = displayed.interests ?? []
+        if !sizes.isEmpty || !vibes.isEmpty || !(displayed.dislikes ?? []).isEmpty || !(displayed.giftNote ?? "").isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                if !sizes.isEmpty {
+                    sectionTitle("Measurements")
+                    HStack(spacing: 0) {
+                        ForEach(orderedSizes(sizes), id: \.0) { key, value in
+                            HStack(spacing: 7) {
+                                Image(systemName: sizeIcon(key)).font(.title3).foregroundStyle(Color.coral)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(key.capitalized).font(.caption).foregroundStyle(Color.inkSecondary)
+                                    Text(value).font(.system(size: 17, weight: .bold, design: .rounded))
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(.vertical, 6)
+                    Divider()
+                }
+                if !vibes.isEmpty {
+                    Text("Gift vibes").font(.system(size: 14, weight: .bold))
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 7) {
+                            ForEach(vibes.prefix(6), id: \.self) { vibe in
+                                Text(vibe).font(.system(size: 12, weight: .semibold))
+                                    .padding(.horizontal, 10).padding(.vertical, 7)
+                                    .background(Color.coralSoft).clipShape(Capsule())
+                            }
+                        }
+                    }
+                }
+                if let note = displayed.giftNote, !note.isEmpty { Label(note, systemImage: "info.circle").font(.system(size: 13)) }
+                if let dislikes = displayed.dislikes, !dislikes.isEmpty {
+                    Label("Please avoid   \(dislikes.joined(separator: " · "))", systemImage: "minus.circle")
+                        .font(.system(size: 13)).foregroundStyle(Color.inkSecondary)
+                }
+                Divider()
+            }
+        }
+    }
+
+    @ViewBuilder private var postsSection: some View {
+        if let posts = displayed.posts, !posts.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                sectionTitle("Posts", action: "\(posts.count) live")
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 3), count: 3), spacing: 3) {
+                    ForEach(posts) { post in
+                        Button { selectedPost = post } label: {
+                            ZStack {
+                                Color.surfaceSunken
+                                CachedAsyncImage(
+                                    url: post.posterUrl ?? post.mediaUrls?.first ?? post.mediaUrl,
+                                    width: 280
+                                )
+                                if post.mediaType == "video" {
+                                    Image(systemName: "play.fill").font(.caption.bold()).foregroundStyle(.white)
+                                        .padding(7).background(.black.opacity(0.55)).clipShape(Circle())
+                                } else if (post.mediaUrls?.count ?? 0) > 1 {
+                                    Image(systemName: "rectangle.stack.fill")
+                                        .font(.caption.bold())
+                                        .foregroundStyle(.white)
+                                        .padding(7)
+                                        .background(.black.opacity(0.55))
+                                        .clipShape(Circle())
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                                        .padding(ThemeSpacing.xs)
+                                }
+                            }
+                            .aspectRatio(1, contentMode: .fill).clipped()
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.md, style: .continuous))
+            }
+        }
+    }
+
+    @ViewBuilder private var circlesSection: some View {
+        if isFriend, let circles = displayed.circles, !circles.isEmpty {
+            VStack(alignment: .leading, spacing: ThemeSpacing.sm) {
+                sectionTitle("Their circles")
+                ForEach(circles) { circle in
+                    NavigationLink {
+                        CircleDetailView(circleId: circle.circleId)
+                    } label: {
+                        HStack(spacing: ThemeSpacing.sm) {
+                            Text(circle.emoji ?? "🎁")
+                                .font(.title2)
+                                .frame(width: 48, height: 48)
+                                .background(Color.coralSoft)
+                                .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.md, style: .continuous))
+                            VStack(alignment: .leading, spacing: ThemeSpacing.xs) {
+                                Text(circle.name)
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(Color.ink)
+                                Text("Open or join this gift circle")
+                                    .font(.caption)
+                                    .foregroundStyle(Color.inkSecondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(Color.inkTertiary)
+                        }
+                        .padding(ThemeSpacing.sm)
+                        .background(Color.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func sectionTitle(_ title: String, action: String? = nil) -> some View {
+        HStack {
+            Text(title.uppercased()).font(.system(size: 12, weight: .bold)).tracking(1.2).foregroundStyle(Color.inkSecondary)
+            Spacer()
+            if let action { Text(action).font(.system(size: 13, weight: .semibold)).foregroundStyle(Color.coral) }
+        }
+    }
+
+    private func profileCard(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 14, weight: .bold))
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func orderedSizes(_ sizes: [String: String]) -> [(String, String)] {
+        let order = ["shirt", "shoes", "pants", "dress", "ring"]
+        return sizes.sorted {
+            (order.firstIndex(of: $0.key.lowercased()) ?? 99) < (order.firstIndex(of: $1.key.lowercased()) ?? 99)
+        }.prefix(3).map { ($0.key, $0.value) }
+    }
+
+    private func sizeIcon(_ key: String) -> String {
+        switch key.lowercased() {
+        case "shirt": "tshirt.fill"
+        case "shoes", "shoe": "shoe.2.fill"
+        default: "ruler.fill"
+        }
+    }
+
+    private func updateFriendship() async {
+        guard let userId = authManager.userId else { return }
+        busy = true
+        if relationship == "incoming" {
+            await store.acceptFriend(userId: userId, fromUserId: displayed.userId)
+        } else {
+            await store.requestFriend(fromUserId: userId, toUserId: displayed.userId, toName: displayed.name, toHandle: displayed.handle)
+        }
+        relationship = await store.status(userId: userId, otherId: displayed.userId)
+        profile = try? await APIClient.shared.fetchPerson(userId: displayed.userId)
+        busy = false
+    }
+
+    private func message() async {
+        guard isFriend, let userId = authManager.userId else { return }
+        busy = true
+        threadId = await store.openDm(userId: userId, otherUserId: displayed.userId)
+        showDm = threadId != nil
+        busy = false
+    }
+
+    private func removeFriend() async {
+        guard let userId = authManager.userId else { return }
+        await store.removeFriend(userId: userId, friendId: displayed.userId)
+        relationship = "none"
+    }
+}
+
+private struct ProfilePrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 14, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity).padding(.vertical, 13)
+            .background(Color.coral).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .opacity(configuration.isPressed ? 0.82 : 1)
+    }
+}
+
+private struct ProfileSecondaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 14, weight: .bold))
+            .foregroundStyle(Color.ink)
+            .frame(maxWidth: .infinity).padding(.vertical, 13)
+            .background(Color.surface).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.line))
+            .opacity(configuration.isPressed ? 0.82 : 1)
+    }
+}
+
+private struct FriendGiftListView: View {
+    let name: String
+    let items: [GiftShowcaseItem]
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 12) {
+                    ForEach(items) { item in
+                        Group {
+                            if let value = item.productUrl, let url = URL(string: value) {
+                                Link(destination: url) { card(item) }
+                            } else {
+                                card(item)
+                            }
+                        }
+                    }
+                }
+                .padding(16)
+            }
+            .background(Color.cream)
+            .navigationTitle("\(name)’s gift list")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+    }
+
+    private func card(_ item: GiftShowcaseItem) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            ZStack {
+                Color.surfaceSunken
+                if let image = item.imageUrl { CachedAsyncImage(url: image, width: 420) }
+                else { Image(systemName: "gift.fill").foregroundStyle(Color.coral) }
+            }
+            .aspectRatio(1, contentMode: .fill).clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            Text(item.name ?? "Gift idea").font(.system(size: 13, weight: .bold)).foregroundStyle(Color.ink).lineLimit(2)
+            HStack {
+                Text(item.brand ?? "Saved find").lineLimit(1)
+                Spacer()
+                if let price = item.price, price > 0 { Text(price, format: .currency(code: "USD")) }
+            }
+            .font(.caption).foregroundStyle(Color.inkSecondary)
+        }
+        .padding(10).background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
     }
 }
 
@@ -515,7 +960,7 @@ struct FriendDmThreadView: View {
                 TextField("Type a message…", text: $draft)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(Color.white)
+                    .background(Color.surface)
                     .clipShape(Capsule())
                     .focused($focused)
                 if !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -638,7 +1083,10 @@ struct FriendDmThreadView: View {
         let fresh = await store.messages(for: threadId)
         if silent {
             // Merge by id so we don't flicker / lose optimistic local sends.
-            var byId = Dictionary(uniqueKeysWithValues: messages.map { ($0.id, $0) })
+            var byId = Dictionary(
+                messages.map { ($0.id, $0) },
+                uniquingKeysWith: { _, latest in latest }
+            )
             for m in fresh { byId[m.id] = m }
             messages = byId.values.sorted { $0.at < $1.at }
         } else {

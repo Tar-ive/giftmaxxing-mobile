@@ -1,39 +1,107 @@
+import AVFoundation
 import AVKit
 import SwiftUI
+
+@MainActor
+final class UGCFeedMusicPlayback: ObservableObject {
+    static let shared = UGCFeedMusicPlayback()
+
+    @Published private(set) var activePostId: String?
+    @Published private(set) var isPlaying = false
+
+    private var player: AVQueuePlayer?
+    private var looper: AVPlayerLooper?
+
+    func play(postId: String, track: UGCMusicTrack) {
+        if activePostId == postId, let player {
+            player.play()
+            isPlaying = true
+            return
+        }
+        stop()
+        guard let url = URL(string: track.audioUrl) else { return }
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+        try? AVAudioSession.sharedInstance().setActive(true)
+        let player = AVQueuePlayer()
+        player.volume = 1
+        looper = AVPlayerLooper(player: player, templateItem: AVPlayerItem(url: url))
+        self.player = player
+        activePostId = postId
+        isPlaying = true
+        player.play()
+    }
+
+    func toggle(postId: String, track: UGCMusicTrack) {
+        if activePostId == postId, isPlaying {
+            player?.pause()
+            isPlaying = false
+        } else {
+            play(postId: postId, track: track)
+        }
+    }
+
+    func stop(postId: String? = nil) {
+        guard postId == nil || activePostId == postId else { return }
+        player?.pause()
+        player?.removeAllItems()
+        player = nil
+        looper = nil
+        activePostId = nil
+        isPlaying = false
+    }
+}
 
 struct PostCardView: View {
     let post: Post
     var inSwipeList: Bool = false
+    var inMyGiftIdeas: Bool = false
+    var onLike: (() -> Void)?
+    var onComment: (() -> Void)?
+    var onBookmark: (() -> Void)?
     var onPledge: (() -> Void)?
     var onAddToSwipeList: (() -> Void)?
     var onProductTap: (() -> Void)?
+    var onAuthorTap: (() -> Void)?
     var onHide: (() -> Void)?
 
     // Inline gallery position (Instagram-style paging right in the feed).
     @State private var galleryIndex = 0
+    // Real shape of a user upload, measured once the image decodes.
+    @State private var measuredAspect: CGFloat?
     // Long-press reveals the gift's story — the alt-text of gifting.
     @State private var showStory = false
     @State private var showActions = false
     @State private var showReportReasons = false
     @State private var showVideo = false
     @State private var reportFeedback = 0
+    @ObservedObject private var musicPlayback = UGCFeedMusicPlayback.shared
+    @EnvironmentObject private var appState: AppState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack(spacing: 10) {
-                AvatarView(name: displayAuthor, grad: post.product.grad, size: 32)
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(displayAuthor)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.ink)
-                    if let retailer = retailerLabel {
-                        Text(retailer)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                Button { onAuthorTap?() } label: {
+                    HStack(spacing: 10) {
+                        AvatarView(
+                            name: displayAuthor,
+                            grad: post.product.grad,
+                            size: 32,
+                            imageUrl: post.authorImageUrl,
+                            anonymousFallback: isUGC
+                        )
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(displayAuthor)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Color.ink)
+                            if let retailer = retailerLabel {
+                                Text(retailer).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
                     }
                 }
+                .buttonStyle(.plain)
+                .disabled(!isUGC || post.ownerId == nil)
 
                 Spacer()
 
@@ -71,7 +139,9 @@ struct PostCardView: View {
                     .indexViewStyle(.page(backgroundDisplayMode: .interactive))
                 } else if let image = post.product.image {
                     Color.gradient(for: post.product.grad)
-                    CachedAsyncImage(url: image, width: 600)
+                    CachedAsyncImage(url: image, width: 600) { ratio in
+                        if isUGC, measuredAspect == nil { measuredAspect = ratio }
+                    }
                 } else {
                     // The designed brand lockup (catalog items pre-enrichment,
                     // services).
@@ -97,6 +167,35 @@ struct PostCardView: View {
                         }
                     }
                     Spacer()
+                    // TikTok-style "Find similar": on a real photo of a person's
+                    // stuff, the question is always "where do I get that?" — so
+                    // the affordance is visible instead of a hidden long-press.
+                    if isUGC {
+                        HStack {
+                            Spacer()
+                            Button {
+                                let image = post.product.gallery.first ?? post.product.image
+                                Task { await VisualSearchLauncher.open(imageUrl: image, in: appState) }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "sparkle.magnifyingglass")
+                                        .font(.system(size: 13, weight: .semibold))
+                                    Text("Find similar")
+                                        .font(.system(size: 13, weight: .semibold))
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 10, weight: .bold))
+                                }
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 9)
+                                .background(.black.opacity(0.55), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Find similar products in this photo")
+                            Spacer()
+                        }
+                        .padding(.bottom, 10)
+                    }
                     HStack(alignment: .bottom) {
                         // The story hint — hold to read (only when there IS one).
                         if GiftStory.story(for: post) != nil {
@@ -165,13 +264,14 @@ struct PostCardView: View {
                     .transition(.opacity)
                 }
             }
-            // Instagram's 4:5 portrait — taller media, same edge-to-edge card.
-            .aspectRatio(4.0 / 5.0, contentMode: .fit)
+            .aspectRatio(mediaAspectRatio, contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 2))
             .contentShape(Rectangle())
             .onTapGesture {
                 if showStory {
                     withAnimation(.easeOut(duration: 0.2)) { showStory = false }
+                } else if let music = post.music, isUGC, post.contentType != "ugc_video" {
+                    musicPlayback.toggle(postId: post.id, track: music)
                 } else if isUGC, post.contentType == "ugc_video", post.mediaUrl != nil {
                     showVideo = true
                 } else {
@@ -179,30 +279,71 @@ struct PostCardView: View {
                 }
             }
             .onLongPressGesture(minimumDuration: 0.35) {
-                guard GiftStory.story(for: post) != nil else { return }
-                withAnimation(.easeIn(duration: 0.2)) { showStory = true }
+                // A gift with a story tells it; anything else (UGC photos and
+                // videos especially) runs reverse-image search — "where do I
+                // buy that?" without leaving the feed.
+                if GiftStory.story(for: post) != nil {
+                    withAnimation(.easeIn(duration: 0.2)) { showStory = true }
+                } else {
+                    let image = post.product.gallery.first ?? post.product.image
+                    Task { await VisualSearchLauncher.open(imageUrl: image, in: appState) }
+                }
             }
 
-            // Gifting actions — no likes/comments/shares (this isn't
-            // Instagram): start a gift pool with friends, or file it into a
-            // person's swipe list. Two matched half-width buttons — same
-            // height, same type — so the row reads as one control.
-            HStack(spacing: 8) {
-                actionButton(
-                    icon: "person.2.fill",
-                    label: "Gift pool",
-                    prominent: true,
-                    action: { onPledge?() }
+            HStack(spacing: 15) {
+                socialButton(
+                    icon: post.liked ? "heart.fill" : "heart",
+                    label: post.likes > 0 ? "\(post.likes)" : nil,
+                    active: post.liked,
+                    action: { onLike?() }
                 )
-                actionButton(
-                    icon: inSwipeList ? "checkmark" : "rectangle.stack.badge.plus",
-                    label: inSwipeList ? "On board" : "Gift board",
-                    prominent: false,
-                    action: { onAddToSwipeList?() }
+                socialButton(
+                    icon: "bubble.left",
+                    label: post.displayCommentCount > 0 ? "\(post.displayCommentCount)" : nil,
+                    action: { onComment?() }
                 )
+                if let shareURL {
+                    ShareLink(
+                        item: shareURL,
+                        subject: Text("Gift find: \(post.product.name)"),
+                        message: Text("Found this on Giftmaxxing — \(post.product.name)")
+                    ) {
+                        Image(systemName: "paperplane")
+                            .font(.system(size: 19, weight: .medium))
+                            .foregroundStyle(Color.ink)
+                    }
+                    .accessibilityLabel("Share post")
+                }
+                socialButton(
+                    icon: inMyGiftIdeas ? "bookmark.fill" : "bookmark",
+                    active: inMyGiftIdeas,
+                    action: { onBookmark?() }
+                )
+                Spacer(minLength: 4)
+                giftAction(icon: "person.2.fill", label: "Pool", active: false) { onPledge?() }
+                giftAction(
+                    icon: inSwipeList ? "rectangle.stack.fill.badge.plus" : "rectangle.stack.badge.plus",
+                    label: "Board",
+                    active: inSwipeList
+                ) { onAddToSwipeList?() }
             }
             .padding(.horizontal, 14)
             .padding(.top, 10)
+
+            if let music = post.music {
+                Button { musicPlayback.toggle(postId: post.id, track: music) } label: {
+                    Label(
+                        "\(music.title) · \(music.artist)",
+                        systemImage: isPlayingMusic ? "pause.fill" : "music.note"
+                    )
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(1)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 14)
+                .padding(.top, 8)
+            }
 
             // Product info — ONE title + ONE meta line. The old stack (caption
             // run + reason note + name·brand row) printed the same SEO title
@@ -267,6 +408,13 @@ struct PostCardView: View {
                 UGCVideoPlayerScreen(url: url)
             }
         }
+        .task(id: post.music?.trackId) {
+            guard let music = post.music else { return }
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            musicPlayback.play(postId: post.id, track: music)
+        }
+        .onDisappear { musicPlayback.stop(postId: post.id) }
     }
 
     // A reason worth a line of its own ("Similar to your taste"). Merchant
@@ -296,6 +444,23 @@ struct PostCardView: View {
     }
 
     private var isUGC: Bool { post.source == "ugc" }
+    private var isPlayingMusic: Bool {
+        musicPlayback.activePostId == post.id && musicPlayback.isPlaying
+    }
+    // Products keep the editorial 4:5 crop. User uploads adapt to what they
+    // actually are: vertical short-form, or square (measured from the decoded
+    // image; square until it resolves).
+    private var mediaAspectRatio: CGFloat {
+        guard isUGC else { return MediaAspect.product }
+        if post.contentType == "ugc_video" { return MediaAspect.vertical }
+        return measuredAspect.map(MediaAspect.snap) ?? MediaAspect.square
+    }
+
+    private var shareURL: URL? {
+        Affiliate.productUrl(for: post)
+            ?? post.mediaUrl.flatMap(URL.init(string:))
+            ?? post.posterUrl.flatMap(URL.init(string:))
+    }
 
     private func cleanedLabel(_ value: String) -> String {
         let normalized = value
@@ -309,25 +474,33 @@ struct PostCardView: View {
         return normalized
     }
 
-    private func actionButton(
+    private func socialButton(
         icon: String,
-        label: String,
-        prominent: Bool,
+        label: String? = nil,
+        active: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack(spacing: 5) {
+            HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
-                Text(label)
-                    .font(.system(size: 13, weight: .bold))
-                    .lineLimit(1)
+                    .font(.system(size: 19, weight: .medium))
+                if let label { Text(label).font(.caption.weight(.semibold)) }
             }
-            .foregroundStyle(prominent ? .white : Color.coral)
-            .frame(maxWidth: .infinity)
-            .frame(height: 38)
-            .background(prominent ? Color.coral : Color.coralSoft)
-            .clipShape(Capsule())
+            .foregroundStyle(active ? Color.coral : Color.ink)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func giftAction(icon: String, label: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 2) {
+                Image(systemName: icon).font(.system(size: 14, weight: .semibold))
+                Text(label).font(.system(size: 9, weight: .bold))
+            }
+            .foregroundStyle(active ? Color.coral : Color.ink)
+            .frame(minWidth: 38, minHeight: 38)
+            .background(active ? Color.coralSoft : Color.surfaceSunken)
+            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
         }
         .buttonStyle(.plain)
     }

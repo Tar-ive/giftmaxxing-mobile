@@ -17,6 +17,7 @@ import SwiftData
 // than pushes — no nested-stack double toolbars.
 struct CirclesView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var authManager: AuthManager
     @ObservedObject private var groupGifts = GroupGiftStore.shared
     @ObservedObject private var circleStore = CircleStore.shared
     @StateObject private var eventsModel = EventsViewModel()
@@ -28,25 +29,32 @@ struct CirclesView: View {
     @State private var showAddEvent = false
     @State private var showJoinByLink = false
     @State private var openCircleId: String?
+    @State private var openEvent: GiftEvent?
     @State private var circleMoments: [TimelineMoment] = []
+    // Circle members with birthdays — feeds the birthday-challenge journey.
+    @State private var circleBirthdayPeople: [BirthdayChallengeJourney.Person] = []
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    // Why this tab exists, in one line.
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Your people, their moments")
-                            .font(.system(size: 24, weight: .heavy, design: .rounded))
-                            .foregroundStyle(Color.ink)
-                        Text("Family, friends, work crews — invite yours once, and every birthday, graduation, and anniversary lands here. Then gift together when the day comes.")
-                            .font(.bodyMedium)
-                            .foregroundStyle(.secondary)
-                    }
+                    // The calendar IS the screen: sources on top (Me + each
+                    // circle), month grid, then the picked day's moments.
+                    CircleCalendarView(
+                        moments: timelineMoments,
+                        sources: calendarSources,
+                        onSelectMoment: { moment in
+                            switch moment.kind {
+                            case .personal(let event): openEvent = event
+                            case .circle(let circleId): openCircleId = circleId
+                            }
+                        },
+                        onAddDate: { showAddEvent = true }
+                    )
+                    .padding(.horizontal, -16) // the calendar owns its gutters
 
                     GiftStreakCard()
 
-                    timelineSection
                     circlesSection
                     groupGiftsSection
 
@@ -59,19 +67,19 @@ struct CirclesView: View {
                     FeatureCard(
                         icon: "person.2.fill",
                         title: "Friends",
-                        subtitle: "Discover people on Giftmaxxing, connect in circles, message & gift."
+                        subtitle: "Connect & message"
                     ) { showFriends = true }
 
                     FeatureCard(
                         icon: "banknote.fill",
                         title: "Gift pools",
-                        subtitle: "Chip in on something big — everyone contributes what they can."
+                        subtitle: "Chip in together"
                     ) { showPools = true }
 
                     FeatureCard(
                         icon: "paperplane.fill",
                         title: "Gift challenge",
-                        subtitle: "Send a swipe deck to learn a friend's taste — no account needed on their end."
+                        subtitle: "Learn a friend's taste"
                     ) { showChallenge = true }
                 }
                 .padding(16)
@@ -116,6 +124,9 @@ struct CirclesView: View {
             .navigationDestination(item: $openCircleId) { circleId in
                 CircleDetailView(circleId: circleId)
             }
+            .navigationDestination(item: $openEvent) { event in
+                EventDetailView(event: event)
+            }
             .onChange(of: appState.pendingCircleId) { _, pending in
                 if let pending {
                     openCircleId = pending
@@ -130,15 +141,21 @@ struct CirclesView: View {
                 if eventsModel.events.isEmpty {
                     await eventsModel.loadEvents(context: modelContext)
                 }
+                // Circles a friend added you to live on the server — pull them
+                // in before building the calendar.
+                await circleStore.syncFromServer(userId: authManager.userId)
                 await loadCircleMoments()
                 await ReminderScheduler.requestPermissionIfNeeded()
+                await resyncBirthdayJourney()
             }
             .onChange(of: circleStore.circles.count) { _, _ in
                 Task { await loadCircleMoments() }
             }
             .refreshable {
                 await eventsModel.loadEvents(context: modelContext)
+                await circleStore.syncFromServer(userId: authManager.userId)
                 await loadCircleMoments()
+                await resyncBirthdayJourney()
             }
         }
     }
@@ -151,7 +168,7 @@ struct CirclesView: View {
             let date = Self.nextOccurrence(for: event)
             return TimelineMoment(
                 id: "personal-\(event.id)",
-                emoji: event.eventTypeIcon,
+                emoji: event.eventTypeSymbol,
                 title: event.title,
                 sourceLabel: event.recipientName.isEmpty || event.title.localizedCaseInsensitiveContains(event.recipientName)
                     ? "your list"
@@ -166,19 +183,16 @@ struct CirclesView: View {
         return items.sorted { ($0.days, $0.title) < ($1.days, $1.title) }
     }
 
-    private var timelineMonths: [(id: String, title: String, items: [TimelineMoment])] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
-        var out: [(id: String, title: String, items: [TimelineMoment])] = []
-        for item in timelineMoments {
-            let title = formatter.string(from: item.date)
-            if out.last?.id == title {
-                out[out.count - 1].items.append(item)
-            } else {
-                out.append((id: title, title: title, items: [item]))
+    // Calendar sources: your own milestones plus every circle you're in.
+    private var calendarSources: [CircleCalendarView.CalendarSource] {
+        [CircleCalendarView.CalendarSource(id: "me", name: "Me", emoji: nil)]
+            + circleStore.circles.map {
+                CircleCalendarView.CalendarSource(
+                    id: $0.circleId,
+                    name: $0.name,
+                    emoji: $0.emoji
+                )
             }
-        }
-        return out
     }
 
     // Birthdays and anniversaries roll forward to their next occurrence, so
@@ -211,13 +225,16 @@ struct CirclesView: View {
             return
         }
         var collected: [TimelineMoment] = []
-        await withTaskGroup(of: [TimelineMoment].self) { group in
+        var birthdayPeople: [BirthdayChallengeJourney.Person] = []
+        await withTaskGroup(
+            of: ([TimelineMoment], [BirthdayChallengeJourney.Person]).self
+        ) { group in
             for circle in saved {
                 group.addTask {
                     guard let data = try? await APIClient.shared.fetchCircle(circleId: circle.circleId) else {
-                        return []
+                        return ([], [])
                     }
-                    return CircleMoment.build(from: data).map { moment in
+                    let moments = CircleMoment.build(from: data).map { moment in
                         TimelineMoment(
                             id: "\(circle.circleId)-\(moment.id)",
                             emoji: moment.emoji,
@@ -229,102 +246,66 @@ struct CirclesView: View {
                             kind: .circle(circleId: circle.circleId)
                         )
                     }
+                    // Members with birthdays feed the swipe-challenge journey.
+                    let people = (data.members ?? []).compactMap { member -> BirthdayChallengeJourney.Person? in
+                        guard let ymd = member.birthday,
+                              let next = BirthdayChallengeJourney.nextOccurrence(ofYMD: ymd)
+                        else { return nil }
+                        return BirthdayChallengeJourney.Person(
+                            key: "cm-\(member.memberId)",
+                            name: member.name,
+                            birthday: next
+                        )
+                    }
+                    return (moments, people)
                 }
             }
-            for await items in group {
+            for await (items, people) in group {
                 collected += items
+                birthdayPeople += people
             }
         }
         circleMoments = collected
+        circleBirthdayPeople = birthdayPeople
     }
 
-    @ViewBuilder
-    private var timelineSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("COMING UP")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button {
-                    showAddEvent = true
-                } label: {
-                    Label("Add a date", systemImage: "plus")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Color.coral)
-                }
-            }
-            .padding(.top, 4)
+    // Re-derive the birthday → swipe-challenge notification journey from
+    // everything this screen knows: personal birthday events, circle member
+    // birthdays, sent-challenge memory, and completed-but-unseen responses.
+    private func resyncBirthdayJourney() async {
+        var people: [BirthdayChallengeJourney.Person] = []
+        var seenNames = Set<String>()
 
-            if timelineMoments.isEmpty {
-                Button {
-                    showAddEvent = true
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "calendar.badge.plus")
-                            .font(.system(size: 22))
-                            .foregroundStyle(Color.coral)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Never miss a birthday again")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(Color.ink)
-                            Text("Add a date — or join a circle below — and every moment shows up here.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.leading)
-                        }
-                        Spacer()
-                    }
-                    .padding(14)
-                    .background(Color.cream)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                }
-                .buttonStyle(.plain)
-            } else {
-                ForEach(timelineMonths, id: \.id) { month in
-                    Text(month.title.uppercased())
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.coral)
-                        .padding(.top, 2)
+        for event in eventsModel.upcomingEvents where event.type == "birthday" {
+            let name = event.recipientName.isEmpty ? event.title : event.recipientName
+            guard !name.isEmpty, seenNames.insert(name.lowercased()).inserted else { continue }
+            people.append(BirthdayChallengeJourney.Person(
+                key: "evt-\(event.id)",
+                name: name,
+                birthday: Self.nextOccurrence(for: event)
+            ))
+        }
+        for person in circleBirthdayPeople where seenNames.insert(person.name.lowercased()).inserted {
+            people.append(person)
+        }
 
-                    ForEach(month.items) { item in
-                        timelineRow(item)
-                    }
-                }
+        let sent = BirthdayChallengeJourney.sentChallengeNames()
+        var connections: [SoftConnectionItem] = []
+        if let userId = authManager.userId {
+            connections = (try? await APIClient.shared.fetchConnections(userId: userId)) ?? []
+        }
+        for index in people.indices {
+            let nameKey = people[index].name.lowercased()
+            let matches = connections.filter { $0.guestName.lowercased() == nameKey }
+            people[index].challengeSent = sent.contains(nameKey) || !matches.isEmpty
+            people[index].completedUnseen = matches.contains {
+                ($0.totalSwipes ?? 0) > 0 && $0.seen != true
             }
         }
+
+        await BirthdayChallengeJourney.resync(people: people)
     }
 
-    @ViewBuilder
-    private func timelineRow(_ item: TimelineMoment) -> some View {
-        switch item.kind {
-        case .personal(let event):
-            NavigationLink {
-                EventDetailView(event: event)
-            } label: {
-                TimelineMomentRow(item: item)
-            }
-            .buttonStyle(.plain)
-            .contextMenu {
-                Button(role: .destructive) {
-                    eventsModel.deleteEvent(event, context: modelContext)
-                } label: {
-                    Label("Delete event", systemImage: "trash")
-                }
-            }
-        case .circle(let circleId):
-            NavigationLink {
-                CircleDetailView(circleId: circleId)
-            } label: {
-                TimelineMomentRow(item: item)
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    // ── Your circles: the shared groups ──────────────────────────────────────
-
-    @ViewBuilder
     private var circlesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -347,13 +328,13 @@ struct CirclesView: View {
                     showCreateCircle = true
                 } label: {
                     HStack(spacing: 12) {
-                        Text("👨‍👩‍👧‍👦")
+                        Image(systemName: "person.3.fill").foregroundStyle(Color.coral)
                             .font(.system(size: 26))
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Start a circle")
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundStyle(Color.ink)
-                            Text("One link for the family group chat — everyone drops their birthday, the circle becomes your gift calendar.")
+                            Text("One link, everyone's birthdays.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.leading)
@@ -390,7 +371,7 @@ struct CirclesView: View {
                                 .foregroundStyle(.tertiary)
                         }
                         .padding(12)
-                        .background(Color.white)
+                        .background(Color.surface)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
                     .buttonStyle(.plain)
@@ -422,7 +403,7 @@ struct CirclesView: View {
             Text("COLLABORATIVE BOARDS")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(.secondary)
-            Text("Co-curate a deck with friends, vote by swiping, split the cost. Every yes is a vote — the tally picks the gift.")
+            Text("Curate together, vote by swiping, split the cost.")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
             NavigationLink(destination: GroupGiftCreateView()) {
@@ -463,8 +444,8 @@ struct GiftStreakCard: View {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(Color.ink)
                 Text(streak > 0
-                     ? "\(thoughtfulness.points) Thoughtfulness Points and counting — one thoughtful act a month keeps it alive."
-                     : "Write a note, share a board, or start a pool this month.")
+                     ? "\(thoughtfulness.points) Thoughtfulness Points"
+                     : "One thoughtful act a month keeps it alive.")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             }
@@ -557,86 +538,6 @@ struct TimelineMoment: Identifiable {
     let kind: Kind
 }
 
-// Luma-style event row: date tile on the left, moment + where it comes from
-// in the middle, countdown pill on the right.
-private struct TimelineMomentRow: View {
-    let item: TimelineMoment
-
-    private var urgencyColor: Color {
-        if item.days <= 3 { return .red }
-        if item.days <= 7 { return .orange }
-        if item.days <= 14 { return Color.coral }
-        return .secondary
-    }
-
-    private var dayNumber: String {
-        "\(Calendar.current.component(.day, from: item.date))"
-    }
-
-    private var weekday: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE"
-        return formatter.string(from: item.date).uppercased()
-    }
-
-    private var countdown: String {
-        if item.days == 0 { return "today 🎉" }
-        if item.days == 1 { return "tomorrow" }
-        return "in \(item.days)d"
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            VStack(spacing: 1) {
-                Text(dayNumber)
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundStyle(item.days == 0 ? Color.coral : Color.ink)
-                Text(weekday)
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.secondary)
-            }
-            .frame(width: 44, height: 44)
-            .background(Color.cream)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 5) {
-                    Text(item.emoji)
-                        .font(.system(size: 13))
-                    Text(item.title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.ink)
-                        .lineLimit(1)
-                }
-                HStack(spacing: 4) {
-                    Text(item.sourceLabel)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    if item.hasReminder {
-                        Image(systemName: "bell.fill")
-                            .font(.system(size: 9))
-                            .foregroundStyle(Color.coral)
-                    }
-                }
-            }
-
-            Spacer()
-
-            Text(countdown)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(item.days == 0 ? Color.coral : urgencyColor)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background((item.days == 0 ? Color.coral : urgencyColor).opacity(0.12))
-                .clipShape(Capsule())
-        }
-        .padding(12)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-    }
-}
-
 // Compact row for an active group gift (mirrors GroupGiftViews' private row).
 private struct CircleRow: View {
     let gift: GroupGift
@@ -660,7 +561,7 @@ private struct CircleRow: View {
                 .foregroundStyle(.tertiary)
         }
         .padding(12)
-        .background(Color.white)
+        .background(Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
@@ -695,7 +596,7 @@ private struct FeatureCard: View {
                     .foregroundStyle(.tertiary)
             }
             .padding(12)
-            .background(Color.white)
+            .background(Color.surface)
             .clipShape(RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)

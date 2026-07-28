@@ -117,6 +117,8 @@ struct AvatarView: View {
     let name: String
     let grad: GradientStyle
     var size: CGFloat = 40
+    var imageUrl: String? = nil
+    var anonymousFallback = false
 
     private var initials: String {
         let parts = name.split(separator: " ")
@@ -128,10 +130,26 @@ struct AvatarView: View {
 
     var body: some View {
         ZStack {
-            Color.gradient(for: grad)
-            Text(initials)
-                .font(.system(size: size * 0.35, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+            // The fallback is ALWAYS drawn; the photo sits on top. A broken
+            // avatar URL then reveals initials instead of a broken-photo icon.
+            if anonymousFallback && imageUrl == nil { Color.surfaceSunken }
+            else { Color.gradient(for: grad) }
+            if anonymousFallback && imageUrl == nil {
+                Image(systemName: "person.fill")
+                    .font(.system(size: size * 0.52))
+                    .foregroundStyle(Color.inkTertiary)
+            } else {
+                Text(initials)
+                    .font(.system(size: size * 0.35, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
+            if let imageUrl {
+                CachedAsyncImage(
+                    url: imageUrl,
+                    width: Int(size * 3),
+                    showsFailurePlaceholder: false
+                )
+            }
         }
         .frame(width: size, height: size)
         .clipShape(Circle())

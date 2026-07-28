@@ -371,7 +371,7 @@ struct MaxiProductCard: View {
                         }
                     }
                 } else {
-                    Text("🎁")
+                    BrandGlyph(size: 30, tile: false)
                         .font(.system(size: 28))
                 }
             }

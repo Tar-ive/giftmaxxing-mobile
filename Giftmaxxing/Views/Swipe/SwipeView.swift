@@ -20,6 +20,7 @@ final class SwipeViewModel: ObservableObject {
     // When the current card appeared — decision time (shown -> committed swipe)
     // scales the taste weight: an instant no is a harder no than a hesitant one.
     private var cardShownAt = Date()
+    var userId: String?
 
     var currentCard: Post? {
         guard currentIndex < cards.count else { return nil }
@@ -39,11 +40,21 @@ final class SwipeViewModel: ObservableObject {
             // vibes) so the deck leans the right way before any swipes exist.
             let vibes = PersonalizationStore.consultVibes
             let page = try await api.fetchRecommendations(
-                limit: 30,
+                limit: 50,
                 vibes: vibes.isEmpty ? nil : vibes,
-                recipient: PersonalizationStore.feedRecipient
+                recipient: PersonalizationStore.feedRecipient,
+                userId: userId
             )
-            cards = page.posts
+            let profile = await TasteProfileStore.shared.snapshot()
+            cards = OnDeviceRanker.rank(
+                candidates: page.posts,
+                profile: profile,
+                context: RankingContext(
+                    recipient: PersonalizationStore.feedRecipient,
+                    consultVibes: vibes,
+                    mindset: GiftMindset.current()
+                )
+            ).prefix(30).map(\.post)
             currentIndex = 0
             yesCount = 0
             noCount = 0
@@ -140,6 +151,7 @@ final class SwipeViewModel: ObservableObject {
         isSwiping = true
         yesCount += 1
         let card = cards[currentIndex]
+        SwipeListStore.shared.addToMyGiftIdeas(card)
         // Taste profile + batched upload (one Lambda invocation per ~10 swipes).
         record(.like, for: card, uploadAs: "like", decisionMs: decisionMs())
 
@@ -161,8 +173,9 @@ final class SwipeViewModel: ObservableObject {
         noCount += 1
         let card = cards[currentIndex]
         // Left-swipes are the strongest explicit negative signal the app has —
-        // they feed the on-device taste profile (and de-dup) but stay local.
-        record(.hide, for: card, uploadAs: nil, decisionMs: decisionMs())
+        // they feed both the on-device anti-centroid and server de-dup so a
+        // passed gift never comes back on another session or device.
+        record(.hide, for: card, uploadAs: "hide", decisionMs: decisionMs())
 
         analytics.trackSwipeLeft(
             postId: card.id,
@@ -199,7 +212,7 @@ final class SwipeViewModel: ObservableObject {
             if let type {
                 var data: [String: String] = ["giftType": card.giftType ?? "product"]
                 if decisionMs > 0 { data["decisionMs"] = String(Int(decisionMs)) }
-                await InteractionQueue.shared.enqueue(userId: nil, targetId: card.id, type: type, data: data)
+                await InteractionQueue.shared.enqueue(userId: userId, targetId: card.id, type: type, data: data)
             }
         }
     }
@@ -241,89 +254,45 @@ final class SwipeViewModel: ObservableObject {
 
 struct SwipeView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var authManager: AuthManager
     @StateObject private var viewModel = SwipeViewModel()
     @Environment(\.modelContext) private var modelContext
 
-    // One swiping mechanic, three gifting contexts:
-    //   • For me      — self-gifting: train your taste, find your own things.
-    //   • For someone — your named swipe lists (one per person/occasion):
-    //                   curate, send as a swipe deck, read the answers back —
-    //                   plus the taste-learning challenge.
-    //   • Group gift  — lives in the Circles tab; picking the segment jumps
-    //                   there (embedding it here left a dead-end segment).
+    // One swiping mechanic, two directions:
+    //   • You     — self-gifting. Your own swipes train the taste model that
+    //               powers every recommendation in the app.
+    //   • People  — the challenge hub: everyone you gift for, their swipe
+    //               results when they've answered, a share/nudge when they
+    //               haven't (PeopleHubView). Gift Boards live on the You tab.
     private enum GiftContext: String, CaseIterable {
-        case me = "For me"
-        case someone = "For someone"
-        case group = "Group gift"
+        case me = "You"
+        case people = "People"
     }
     @State private var context: GiftContext = .me
+
+    // First-deck gesture rehearsal — cleared by the first real swipe commit.
+    @State private var showRehearsal = !SwipeRehearsal.seen
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Context picker — who is this swiping session for?
-                HStack(spacing: 0) {
-                    ForEach(GiftContext.allCases, id: \.self) { ctx in
-                        Button {
-                            context = ctx
-                        } label: {
-                            Text(ctx.rawValue)
-                                .font(.system(size: 16, weight: context == ctx ? .semibold : .regular))
-                                .foregroundStyle(Color.ink)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .background(
-                                    context == ctx ? Color.surface : Color.clear,
-                                    in: Capsule()
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .contentShape(Rectangle())
-                        .accessibilityAddTraits(context == ctx ? .isSelected : [])
-                    }
-                }
-                .padding(4)
-                .background(Color.ink.opacity(0.08), in: Capsule())
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel("Swipe context")
-                .padding(.horizontal, 20)
-                .padding(.top, 6)
+                contextPicker
 
-                if context == .someone {
-                    ScrollView {
-                        // Don't know their taste yet? The challenge learns it.
-                        NavigationLink(destination: ChallengeView()) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "gift.fill")
-                                    .font(.system(size: 24))
-                                    .foregroundStyle(Color.coral)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Share a gift challenge")
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundStyle(Color.ink)
-                                    Text("They swipe in their browser; their taste lands here.")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(.tertiary)
-                            }
-                            .padding(12)
-                            .background(Color.coralSoft.opacity(0.5))
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 20)
-                        .padding(.top, 10)
+                // Swipe lists friends sent you, waiting to be answered.
+                ChallengeInviteRail()
 
-                        // Already collecting ideas? The lists live here.
-                        SwipeListsHomeView()
-                            .padding(.bottom, 24)
-                    }
+                if context == .people {
+                    PeopleHubView()
                 } else {
+                    // The rehearsal cue overlays the DECK only. Sitting on the
+                    // whole VStack, its repeating keyframe animation swallowed
+                    // taps on the segment picker above it.
                     deckBody
+                        .overlay {
+                            if showRehearsal, viewModel.currentCard != nil, !viewModel.isLoading {
+                                SwipeRehearsalCue()
+                            }
+                        }
                 }
             }
             .background(Color.cream)
@@ -349,20 +318,23 @@ struct SwipeView: View {
                 }
             }
         }
+        .onChange(of: viewModel.yesCount + viewModel.noCount) { _, total in
+            // First real commit = rehearsal complete, forever.
+            if total > 0, showRehearsal {
+                SwipeRehearsal.seen = true
+                withAnimation(.easeOut(duration: 0.3)) { showRehearsal = false }
+            }
+        }
         .onChange(of: context) { _, newContext in
             switch newContext {
             case .me:
                 Task { await viewModel.loadCards() }
-            case .someone:
-                AnalyticsEngine.shared.trackScreenView(screen: "swipe_lists")
-            case .group:
-                // Group gifting lives in Circles — hand off and reset the
-                // segment so Swipe isn't stuck on a blank context.
-                appState.selectedTab = .circles
-                context = .me
+            case .people:
+                AnalyticsEngine.shared.trackScreenView(screen: "swipe_people")
             }
         }
         .task {
+            viewModel.userId = authManager.userId
             if viewModel.cards.isEmpty {
                 AnalyticsEngine.shared.trackScreenView(screen: "swipe")
                 await viewModel.loadCards()
@@ -370,6 +342,36 @@ struct SwipeView: View {
         }
         .onAppear { appState.suppressMaxiFAB() }
         .onDisappear { appState.unsuppressMaxiFAB() }
+    }
+
+    // Context picker — who is this swiping session for?
+    private var contextPicker: some View {
+        HStack(spacing: 0) {
+            ForEach(GiftContext.allCases, id: \.self) { ctx in
+                Button {
+                    context = ctx
+                } label: {
+                    Text(ctx.rawValue)
+                        .font(.system(size: 16, weight: context == ctx ? .semibold : .regular))
+                        .foregroundStyle(Color.ink)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            context == ctx ? Color.surface : Color.clear,
+                            in: Capsule()
+                        )
+                }
+                .buttonStyle(.plain)
+                .contentShape(Rectangle())
+                .accessibilityAddTraits(context == ctx ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(Color.ink.opacity(0.08), in: Capsule())
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Swipe context")
+        .padding(.horizontal, 20)
+        .padding(.top, 6)
     }
 
     @ViewBuilder
@@ -484,9 +486,19 @@ struct SwipeCardView: View {
     let post: Post
     var cardWidth: CGFloat = UIScreen.main.bounds.width - 40
 
-    // Adapt to small devices (SE = 667pt tall) so the card + buttons always fit.
+    // The card takes the SHAPE OF THE PHOTO (Tinder-style) instead of a fixed
+    // box that letterboxed tall images and cropped wide ones. Measured from
+    // the decoded image; clamped so the info row + buttons always fit.
+    @State private var measuredAspect: CGFloat?
+
     private var imageHeight: CGFloat {
-        UIScreen.main.bounds.height < 700 ? 260 : 340
+        let short = UIScreen.main.bounds.height < 700
+        let minHeight: CGFloat = short ? 220 : 260
+        let maxHeight: CGFloat = UIScreen.main.bounds.height * (short ? 0.46 : 0.54)
+        guard let aspect = measuredAspect, aspect > 0 else {
+            return short ? 260 : 340
+        }
+        return min(max(cardWidth / aspect, minHeight), maxHeight)
     }
 
     var body: some View {
@@ -500,9 +512,13 @@ struct SwipeCardView: View {
                 // don't (catalog items pre-enrichment, services).
                 if let image = post.product.image {
                     Color.gradient(for: post.product.grad)
-                    CachedAsyncImage(url: image, width: 600)
-                        .frame(width: cardWidth, height: imageHeight)
-                        .clipped()
+                    CachedAsyncImage(url: image, width: 600) { ratio in
+                        if measuredAspect == nil {
+                            withAnimation(.snappy) { measuredAspect = ratio }
+                        }
+                    }
+                    .frame(width: cardWidth, height: imageHeight)
+                    .clipped()
                 } else {
                     ProductArtworkView(post: post)
                 }

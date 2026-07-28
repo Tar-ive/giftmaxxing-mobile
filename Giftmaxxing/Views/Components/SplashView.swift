@@ -27,7 +27,7 @@ struct SplashView: View {
                 .scaleEffect(glowScale)
 
             VStack(spacing: 14) {
-                Text("🎁")
+                BrandGlyph(size: 64, tile: false)
                     .font(.system(size: 72))
                     .scaleEffect(logoScale)
 

@@ -34,18 +34,19 @@ actor APIClient {
 
     // MARK: - User-generated posts
 
-    func createUGCUpload(
-        mediaType: String,
-        mimeType: String,
-        fileSize: Int,
-        caption: String
-    ) async throws -> UGCUploadResponse {
-        try await post("/ugc/uploads", body: [
-            "mediaType": mediaType,
-            "mimeType": mimeType,
-            "fileSize": fileSize,
-            "caption": caption,
-        ])
+    func createUGCUpload(media: [[String: Any]], caption: String, musicTrackId: String?) async throws -> UGCUploadResponse {
+        var body: [String: Any] = ["media": media, "caption": caption]
+        if let musicTrackId { body["musicTrackId"] = musicTrackId }
+        return try await post("/ugc/uploads", body: body)
+    }
+
+    func fetchUGCMusicTracks() async throws -> [UGCMusicTrack] {
+        let response: UGCMusicTracksResponse = try await get("/ugc/music")
+        return response.items.map { track in
+            var track = track
+            track.audioUrl = absoluteMediaURL(track.audioUrl) ?? track.audioUrl
+            return track
+        }
     }
 
     func uploadUGC(fileURL: URL, to uploadURL: String, headers: [String: String]) async throws {
@@ -77,6 +78,48 @@ actor APIClient {
 
     func blockUGCUser(userId: String) async throws {
         let _: EmptyResponse = try await post("/ugc/users/\(userId)/block", body: [:])
+    }
+
+    func setPostLike(postId: String, liked: Bool) async throws -> PostLikeResponse {
+        try await post("/ugc/posts/\(postId)/like", body: ["liked": liked])
+    }
+
+    func fetchPostLikeStates(postIds: [String]) async throws -> Set<String> {
+        let response: PostLikeStatesResponse = try await post(
+            "/ugc/likes/status",
+            body: ["postIds": Array(Set(postIds)).prefix(100).map(\.self)]
+        )
+        return Set(response.likedPostIds)
+    }
+
+    func fetchPostComments(postId: String) async throws -> PostCommentsResponse {
+        try await get("/ugc/posts/\(postId)/comments")
+    }
+
+    func addPostComment(postId: String, text: String) async throws -> PostCommentResponse {
+        try await post("/ugc/posts/\(postId)/comments", body: ["text": text])
+    }
+
+    func createAvatarUpload(mimeType: String, fileSize: Int) async throws -> AvatarUploadResponse {
+        try await post("/ugc/avatar/uploads", body: ["mimeType": mimeType, "fileSize": fileSize])
+    }
+
+    func uploadAvatar(data: Data, to uploadURL: String, headers: [String: String]) async throws {
+        guard let url = URL(string: uploadURL) else { throw APIError.invalidResponse }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        headers.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
+        let (_, response) = try await uploadSession.upload(for: request, from: data)
+        try validateResponse(response)
+    }
+
+    func completeAvatarUpload(avatarId: String) async throws -> String {
+        let response: AvatarCompleteResponse = try await post("/ugc/avatar/uploads/\(avatarId)/complete", body: [:])
+        return absoluteMediaURL(response.imageUrl) ?? response.imageUrl
+    }
+
+    func removeAvatar() async throws {
+        let _: EmptyResponse = try await delete("/ugc/avatar")
     }
 
     // MARK: - Feed
@@ -264,7 +307,17 @@ actor APIClient {
 
     func fetchMe(userId: String) async throws -> UserProfile? {
         let response: UserProfileResponse = try await get("/me", params: ["userId": userId])
-        return response.item
+        var profile = response.item
+        let imageUrl = profile?.imageUrl
+        profile?.imageUrl = absoluteMediaURL(imageUrl)
+        if let showcase = profile?.giftShowcase {
+            profile?.giftShowcase = showcase.map { item in
+                var item = item
+                item.imageUrl = absoluteMediaURL(item.imageUrl)
+                return item
+            }
+        }
+        return profile
     }
 
     // DELETE /account — App Store 5.1.1(v). Permanently deletes the signed-in
@@ -342,6 +395,31 @@ actor APIClient {
         return try await post("/circles/\(circleId)/join", body: body)
     }
 
+    /// Add a friend who's already on Giftmaxxing straight into a circle —
+    /// no share link, no re-entering their birthday (WhatsApp-community model).
+    @discardableResult
+    func addCircleMember(
+        circleId: String,
+        userId: String,
+        name: String,
+        birthday: String? = nil,
+        byUserId: String? = nil,
+        byName: String? = nil
+    ) async throws -> CircleMemberAddResponse {
+        var body: [String: Any] = ["userId": userId, "name": name]
+        if let birthday, !birthday.isEmpty { body["birthday"] = birthday }
+        if let byUserId, !byUserId.isEmpty { body["byUserId"] = byUserId }
+        if let byName, !byName.isEmpty { body["byName"] = byName }
+        return try await post("/circles/\(circleId)/members", body: body)
+    }
+
+    /// Every circle this account belongs to (server truth), so a circle someone
+    /// added you to shows up on your device.
+    func listMyCircles(userId: String) async throws -> [MyCircleRef] {
+        let response: MyCirclesResponse = try await get("/circles", params: ["userId": userId])
+        return response.items ?? []
+    }
+
     /// Link a signed-in account to a circle seat so other members can friend / message / gift you.
     @discardableResult
     func claimCircleSeat(circleId: String, userId: String, memberName: String) async throws -> CircleClaimResponse {
@@ -358,19 +436,23 @@ actor APIClient {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty { params["q"] = trimmed }
         let response: PeopleSearchResponse = try await get("/people", params: params)
-        return response.items ?? []
+        return (response.items ?? []).map(normalizePerson)
     }
 
     func fetchPerson(userId: String) async throws -> PublicPerson? {
         let response: PersonResponse = try await get("/people/\(userId)")
-        return response.item
+        return response.item.map(normalizePerson)
     }
 
     func listFriends(userId: String, status: String? = nil) async throws -> [Friendship] {
         var params: [String: String] = ["userId": userId]
         if let status { params["status"] = status }
         let response: FriendsListResponse = try await get("/friends", params: params)
-        return response.items ?? []
+        return (response.items ?? []).map { value in
+            var value = value
+            value.imageUrl = absoluteMediaURL(value.imageUrl)
+            return value
+        }
     }
 
     func friendshipStatus(userId: String, otherId: String) async throws -> FriendshipStatusResponse {
@@ -566,19 +648,98 @@ actor APIClient {
     // creator swiping their own group deck uses the same guest door friends do).
     // Passing anonId makes the server persist the swiper's OWN taste under that
     // id (claimed into their account at signup) — the recipient-entry warm start.
+    /// `dwellMs` per card is how long the recipient actually looked at it — a
+    /// fast yes and a 20-second deliberation are different signals, and the
+    /// server already stores the field.
     func submitChallengeResponse(
         challengeId: String,
         guestName: String,
-        swipes: [(id: String, dir: String)],
-        anonId: String? = nil
+        swipes: [(id: String, dir: String, dwellMs: Double)],
+        anonId: String? = nil,
+        viewerUserId: String? = nil
     ) async throws {
         var guest: [String: Any] = ["name": guestName]
         if let anonId, !anonId.isEmpty { guest["anonId"] = anonId }
+        if let viewerUserId, !viewerUserId.isEmpty { guest["userId"] = viewerUserId }
         let body: [String: Any] = [
             "guest": guest,
-            "swipes": swipes.map { ["id": $0.id, "dir": $0.dir] },
+            "swipes": swipes.map {
+                ["id": $0.id, "dir": $0.dir, "dwellMs": Int($0.dwellMs.rounded())]
+            },
         ]
         let _: ChallengeResponseAck = try await post("/challenges/\(challengeId)/response", body: body)
+    }
+
+    /// Deliver a swipe list to a friend who already has the app: it lands in
+    /// their in-app inbox with a push, instead of a link they have to open.
+    @discardableResult
+    func inviteToChallenge(
+        challengeId: String,
+        toUserId: String,
+        byUserId: String? = nil,
+        byName: String? = nil,
+        title: String? = nil
+    ) async throws -> ChallengeInviteAck {
+        var body: [String: Any] = ["toUserId": toUserId]
+        if let byUserId, !byUserId.isEmpty { body["byUserId"] = byUserId }
+        if let byName, !byName.isEmpty { body["byName"] = byName }
+        if let title, !title.isEmpty { body["title"] = title }
+        return try await post("/challenges/\(challengeId)/invite", body: body)
+    }
+
+    /// Swipe lists waiting for this account to answer.
+    func fetchChallengeInvites(userId: String) async throws -> [ChallengeInvite] {
+        let response: ChallengeInvitesResponse = try await get(
+            "/challenge-invites",
+            params: ["userId": userId]
+        )
+        return response.items ?? []
+    }
+
+    /// Hand a Gift Board to a co-giver so you can build the deck together.
+    @discardableResult
+    func shareBoard(
+        toUserId: String,
+        board: [String: Any],
+        byUserId: String? = nil,
+        byName: String? = nil
+    ) async throws -> BoardShareAck {
+        var body: [String: Any] = ["toUserId": toUserId, "board": board]
+        if let byUserId, !byUserId.isEmpty { body["byUserId"] = byUserId }
+        if let byName, !byName.isEmpty { body["byName"] = byName }
+        return try await post("/boards/share", body: body)
+    }
+
+    func fetchSharedBoards(userId: String) async throws -> [SharedBoard] {
+        let response: SharedBoardsResponse = try await get("/board-shares", params: ["userId": userId])
+        return response.items ?? []
+    }
+
+    func acceptSharedBoard(shareId: String, userId: String) async {
+        let _: BoardShareAck? = try? await post("/board-shares/\(shareId)/accept", body: ["userId": userId])
+    }
+
+    /// Resolve postIds (e.g. a challenge responder's yes-swipes) to display
+    /// items. GET /posts/{id} is public and returns the raw post row.
+    func fetchPostsByIds(_ ids: [String]) async throws -> [VectorItem] {
+        await withTaskGroup(of: VectorItem?.self) { group in
+            for id in ids.prefix(12) {
+                group.addTask {
+                    guard let api: APIPost = try? await self.get("/posts/\(id)") else { return nil }
+                    return VectorItem(
+                        postId: api.postId ?? id,
+                        image: api.product?.image,
+                        name: api.product?.name ?? api.caption,
+                        productUrl: api.productUrl,
+                        price: api.product?.price,
+                        merchant: api.merchant
+                    )
+                }
+            }
+            var out: [VectorItem] = []
+            for await item in group { if let item { out.append(item) } }
+            return out
+        }
     }
 
     // MARK: - On-device ranking support
@@ -766,6 +927,9 @@ actor APIClient {
 
     // MARK: - Post Mapping
 
+    /// Shared-board payloads arrive as APIPosts — reuse the feed mapping.
+    func post(from api: APIPost) -> Post { mapAPIPost(api) }
+
     private func mapAPIPost(_ api: APIPost) -> Post {
         let p = api.product
         let product = Product(
@@ -776,20 +940,21 @@ actor APIClient {
             grad: GradientStyle(rawValue: p?.grad ?? "peach") ?? .peach,
             emoji: p?.emoji ?? "🎁",
             image: absoluteMediaURL(p?.image),
-            images: p?.images?.map { absoluteMediaURL($0) ?? $0 }
+            images: (p?.images ?? api.mediaUrls)?.map { absoluteMediaURL($0) ?? $0 }
         )
 
         return Post(
             id: api.postId,
             user: api.authorName ?? api.author ?? "reddit",
             ownerId: api.ownerId,
+            authorImageUrl: absoluteMediaURL(api.authorImageUrl),
             time: relativeTime(ms: api.createdAt),
             product: product,
             caption: api.caption ?? "",
             likes: api.likes ?? 0,
             liked: false,
             saved: false,
-            comments: [],
+            comments: api.recentComments ?? [],
             commentCount: api.comments,
             source: api.source,
             url: api.url,
@@ -807,6 +972,11 @@ actor APIClient {
             contentType: api.contentType,
             mediaUrl: absoluteMediaURL(api.mediaUrl),
             posterUrl: absoluteMediaURL(api.posterUrl),
+            music: api.music.map { track in
+                var track = track
+                track.audioUrl = absoluteMediaURL(track.audioUrl) ?? track.audioUrl
+                return track
+            },
             story: api.story
         )
     }
@@ -818,9 +988,27 @@ actor APIClient {
 
     private func normalizeUGCPost(_ post: UGCPost) -> UGCPost {
         var post = post
+        post.authorImageUrl = absoluteMediaURL(post.authorImageUrl)
         post.mediaUrl = absoluteMediaURL(post.mediaUrl)
+        post.mediaUrls = post.mediaUrls?.map { absoluteMediaURL($0) ?? $0 }
         post.posterUrl = absoluteMediaURL(post.posterUrl)
+        if var music = post.music {
+            music.audioUrl = absoluteMediaURL(music.audioUrl) ?? music.audioUrl
+            post.music = music
+        }
         return post
+    }
+
+    private func normalizePerson(_ value: PublicPerson) -> PublicPerson {
+        var person = value
+        person.imageUrl = absoluteMediaURL(person.imageUrl)
+        person.giftShowcase = person.giftShowcase?.map { item in
+            var item = item
+            item.imageUrl = absoluteMediaURL(item.imageUrl)
+            return item
+        }
+        person.posts = person.posts?.map(normalizeUGCPost)
+        return person
     }
 
     private func relativeTime(ms: Double?) -> String {

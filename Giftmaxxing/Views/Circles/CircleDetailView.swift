@@ -16,6 +16,7 @@ struct CircleDetailView: View {
     @State private var loadFailed = false
     @State private var showAddOccasion = false
     @State private var showAddBirthday = false
+    @State private var showAddFriends = false
     @State private var claimBusy = false
     @State private var claimed = false
     @State private var openDmThreadId: String?
@@ -73,6 +74,15 @@ struct CircleDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { await refresh() }
         .refreshable { await refresh() }
+        .sheet(isPresented: $showAddFriends, onDismiss: { Task { await refresh() } }) {
+            AddFriendsToCircleSheet(
+                circleId: circleId,
+                circleName: data?.circle.name ?? "this circle",
+                existingMemberNames: Set((data?.members ?? []).map { $0.name.lowercased() }),
+                existingLinkedUserIds: Set((data?.members ?? []).compactMap { $0.linkedUserId }),
+                onAdded: { Task { await refresh() } }
+            )
+        }
         .sheet(isPresented: $showAddOccasion, onDismiss: { Task { await refresh() } }) {
             AddCircleOccasionSheet(circleId: circleId, addedBy: myCircle?.joinedAs)
         }
@@ -118,6 +128,24 @@ struct CircleDetailView: View {
 
             // The share link IS the invite: family adds birthdays in the
             // browser, no account, no install.
+            // Friends already on Giftmaxxing skip the link entirely — one tap
+            // adds them, WhatsApp-community style.
+            Button {
+                showAddFriends = true
+            } label: {
+                HStack {
+                    Spacer()
+                    Image(systemName: "person.badge.plus")
+                    Text("Add friends").font(.labelBold)
+                    Spacer()
+                }
+                .padding(.vertical, 13)
+                .background(Color.coral)
+                .foregroundStyle(.white)
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+
             HStack(spacing: 8) {
                 if let url = CircleStore.shareURL(circleId: circleId) {
                     ShareLink(
@@ -131,8 +159,8 @@ struct CircleDetailView: View {
                             Spacer()
                         }
                         .padding(.vertical, 13)
-                        .background(Color.coral)
-                        .foregroundStyle(.white)
+                        .background(Color.coralSoft)
+                        .foregroundStyle(Color.coral)
                         .clipShape(Capsule())
                     }
                 }
@@ -211,7 +239,8 @@ struct CircleDetailView: View {
                 Text("UP NEXT")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(Color.coral)
-                Text(next.emoji)
+                Image(systemName: next.emoji)
+                    .foregroundStyle(Color.coral)
                     .font(.system(size: 40))
                 Text(next.title)
                     .font(.system(size: 22, weight: .heavy, design: .rounded))
@@ -298,7 +327,7 @@ struct CircleDetailView: View {
                     memberRow(member)
                 }
             }
-            .background(Color.white)
+            .background(Color.surface)
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .task { await refreshMemberStatuses(data.members ?? []) }
         }
@@ -501,7 +530,7 @@ struct CircleDetailView: View {
                         }
                     }
                 }
-                .background(Color.white)
+                .background(Color.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
             }
 
@@ -561,7 +590,7 @@ struct CircleMoment: Identifiable {
     let occasionId: String // GroupGiftCreateView occasion id
 
     var countdownPhrase: String {
-        if days == 0 { return "It's today! 🎉" }
+        if days == 0 { return "It's today!" }
         if days == 1 { return "Tomorrow!" }
         return "In \(days) days"
     }
@@ -575,7 +604,7 @@ struct CircleMoment: Identifiable {
                 id: "bday-\(member.memberId)",
                 title: "\(member.name)'s birthday",
                 who: member.name,
-                emoji: "🎂",
+                emoji: AppIcons.event("birthday"),
                 date: next,
                 days: daysUntil(next, from: now),
                 turning: turningAge(birthday: birthday, from: now),
@@ -588,7 +617,7 @@ struct CircleMoment: Identifiable {
                 id: event.eventId,
                 title: event.title,
                 who: event.forName,
-                emoji: emoji(forType: event.type ?? "occasion"),
+                emoji: AppIcons.event(event.type ?? "occasion"),
                 date: next,
                 days: daysUntil(next, from: now),
                 turning: nil,
@@ -705,7 +734,7 @@ private struct MomentRow: View {
                 .clipShape(Capsule())
         }
         .padding(12)
-        .background(Color.white)
+        .background(Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
@@ -760,7 +789,7 @@ private struct JoinCard: View {
                     if isJoining {
                         ProgressView().tint(.white)
                     } else {
-                        Text("I'm in 🎁").font(.labelBold)
+                        Text("I'm in").font(.labelBold)
                     }
                     Spacer()
                 }
@@ -772,7 +801,7 @@ private struct JoinCard: View {
             .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isJoining)
         }
         .padding(16)
-        .background(Color.white)
+        .background(Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
     }

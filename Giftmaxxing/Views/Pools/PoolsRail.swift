@@ -91,7 +91,7 @@ private struct PoolRailCard: View {
                 } else {
                     ZStack {
                         Color.coralSoft
-                        Text("🎁").font(.system(size: 26))
+                        BrandGlyph(size: 28, tile: false).font(.system(size: 26))
                     }
                 }
             }

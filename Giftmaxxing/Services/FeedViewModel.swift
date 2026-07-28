@@ -38,6 +38,9 @@ final class FeedViewModel: ObservableObject {
     // Anti-centroid over explicitly hidden items — hides never leave the
     // device, but candidates similar to them still sink in ranking.
     private var negCentroid: [Float]?
+    private var isRefreshing = false
+    private var desiredLikeStates: [String: Bool] = [:]
+    private var likeTasks: [String: Task<Void, Never>] = [:]
 
     private let networkPageSize = 40
     private let uiPageSize = 12
@@ -59,7 +62,7 @@ final class FeedViewModel: ObservableObject {
         exhausted = false
         rankedBuffer = []
         servedIds = []
-        cacheBuster = forceFresh ? String(Int(Date().timeIntervalSince1970 * 1000)) : nil
+        cacheBuster = forceFresh ? UUID().uuidString : nil
 
         // Instant paint from the SwiftData cache while network + ranking run.
         if let context, posts.isEmpty {
@@ -83,6 +86,7 @@ final class FeedViewModel: ObservableObject {
             // swipeable carousel (a real multi-image product), not a static
             // single Pinterest photo — and a different one each time.
             ensureCarouselFirst()
+            await hydrateLikeStates()
             if let context {
                 cacheResults(posts, context: context)
             }
@@ -101,6 +105,18 @@ final class FeedViewModel: ObservableObject {
         }
 
         isLoading = false
+    }
+
+    // A pull can overlap the bottom sentinel's pagination request. Wait for that
+    // request to settle instead of silently returning from loadFeed's guard.
+    func refreshFeed(context: ModelContext? = nil) async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+        while isLoading || isLoadingMore {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        await loadFeed(context: context, forceFresh: true)
     }
 
     // Top picks from GET /recommendations?userId= (server-side interaction
@@ -227,13 +243,15 @@ final class FeedViewModel: ObservableObject {
     }
 
     func loadMore(context: ModelContext? = nil) async {
-        guard !isLoadingMore, !isLoading, !(exhausted && rankedBuffer.isEmpty) else { return }
+        guard !isRefreshing, !isLoadingMore, !isLoading, !(exhausted && rankedBuffer.isEmpty) else { return }
         isLoadingMore = true
 
         if rankedBuffer.count < uiPageSize, !exhausted {
             try? await fetchAndRankNextPage()
         }
-        posts.append(contentsOf: drain(uiPageSize))
+        let next = drain(uiPageSize)
+        posts.append(contentsOf: next)
+        await hydrateLikeStates(postIds: next.map(\.id))
         if let context {
             cacheResults(posts, context: context)
         }
@@ -285,8 +303,18 @@ final class FeedViewModel: ObservableObject {
     }
 
     private func drain(_ n: Int) -> [Post] {
-        let batch = rankedBuffer.prefix(n)
-        rankedBuffer.removeFirst(batch.count)
+        let count = min(n, rankedBuffer.count)
+        var batch = Array(rankedBuffer.prefix(count))
+        rankedBuffer.removeFirst(count)
+        let slot = min(2, max(0, batch.count - 1))
+        if let index = batch.firstIndex(where: { $0.post.source == "ugc" }), index > slot {
+            batch.insert(batch.remove(at: index), at: slot)
+        } else if !batch.contains(where: { $0.post.source == "ugc" }),
+                  let index = rankedBuffer.firstIndex(where: { $0.post.source == "ugc" }) {
+            let ugc = rankedBuffer.remove(at: index)
+            if let displaced = batch.popLast() { rankedBuffer.insert(displaced, at: 0) }
+            batch.insert(ugc, at: min(slot, batch.count))
+        }
         return batch.map { candidate in
             servedIds.insert(candidate.post.id)
             var post = candidate.post
@@ -374,19 +402,56 @@ final class FeedViewModel: ObservableObject {
     func toggleLike(for post: Post, context: ModelContext? = nil) {
         guard let index = posts.firstIndex(where: { $0.id == post.id }) else { return }
         posts[index].liked.toggle()
-        posts[index].likes += posts[index].liked ? 1 : -1
+        posts[index].likes = max(0, posts[index].likes + (posts[index].liked ? 1 : -1))
         let liked = posts[index].liked
+        desiredLikeStates[post.id] = liked
 
-        // SwiftData cache keeps the UI state consistent across launches; the
-        // server write goes through the batched InteractionQueue (one Lambda
-        // invocation per ~10 taps instead of one per tap).
         if let context {
             updateCache(postId: post.id, liked: liked, likes: posts[index].likes, context: context)
         }
-        Task {
-            await TasteProfileStore.shared.record(tasteEvent(liked ? .like : .unlike, post))
-            await InteractionQueue.shared.enqueue(userId: userId, targetId: post.id, type: liked ? "like" : "unlike")
-            if liked { await seedVector(for: post) }
+        guard likeTasks[post.id] == nil else { return }
+        likeTasks[post.id] = Task { [weak self] in
+            await self?.reconcileLike(post: post, context: context)
+        }
+    }
+
+    private func reconcileLike(post: Post, context: ModelContext?) async {
+        defer { likeTasks[post.id] = nil }
+        while let requested = desiredLikeStates[post.id] {
+            do {
+                let result = try await api.setPostLike(postId: post.id, liked: requested)
+                if let index = posts.firstIndex(where: { $0.id == post.id }) {
+                    posts[index].liked = result.liked
+                    posts[index].likes = result.likes
+                    if let context {
+                        updateCache(postId: post.id, liked: result.liked, likes: result.likes, context: context)
+                    }
+                }
+                if desiredLikeStates[post.id] == requested {
+                    desiredLikeStates[post.id] = nil
+                }
+                await TasteProfileStore.shared.record(tasteEvent(requested ? .like : .unlike, post))
+                await InteractionQueue.shared.enqueue(
+                    userId: userId,
+                    targetId: post.id,
+                    type: requested ? "like" : "unlike"
+                )
+                if requested { await seedVector(for: post) }
+            } catch {
+                desiredLikeStates[post.id] = nil
+                await hydrateLikeStates(postIds: [post.id])
+            }
+        }
+    }
+
+    private func hydrateLikeStates(postIds: [String]? = nil) async {
+        guard userId != nil else { return }
+        let ids = postIds ?? posts.map(\.id)
+        guard !ids.isEmpty,
+              let likedIds = try? await api.fetchPostLikeStates(postIds: ids) else { return }
+        let idSet = Set(ids)
+        for index in posts.indices where idSet.contains(posts[index].id) {
+            posts[index].liked = likedIds.contains(posts[index].id)
         }
     }
 

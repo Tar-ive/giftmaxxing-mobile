@@ -50,8 +50,9 @@ struct CuratedGalleriesRail: View {
                 if let image = coverImages[c.id] {
                     CachedAsyncImage(url: image, width: 500)
                 } else {
-                    Text(c.emoji)
-                        .font(.system(size: 40))
+                    Image(systemName: c.symbol)
+                        .font(.system(size: 30, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.9))
                         .padding(12)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 }

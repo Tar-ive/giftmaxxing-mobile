@@ -139,9 +139,9 @@ private enum ConsultMeta {
     ]
 
     static let genderOptions: [ConsultChip] = [
-        .init(key: "him", label: "Gifts for him", emoji: "🤵"),
-        .init(key: "her", label: "Gifts for her", emoji: "👩"),
-        .init(key: "any", label: "Mix of everyone", emoji: "🎁"),
+        .init(key: "him", label: "Masculine style", emoji: "🧢"),
+        .init(key: "her", label: "Feminine style", emoji: "✨"),
+        .init(key: "any", label: "Any style", emoji: "🎁"),
     ]
 
     static let budgets: [Double] = [25, 50, 100, 250]
@@ -220,7 +220,10 @@ private enum ConsultRanker {
             }
         }
         if categories.isEmpty { categories = ConsultMeta.keeperBoost[keeper ?? ""] ?? [] }
-        let catRank = Dictionary(uniqueKeysWithValues: categories.enumerated().map { ($1, $0) })
+        let catRank = Dictionary(
+            categories.enumerated().map { ($1, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
         let minimalist = keeper == "light"
 
         var seen = Set<String>()
@@ -467,6 +470,7 @@ struct ConsultView: View {
     // "Skip for now" escape hatch. Tab mode: an always-available concierge.
     var isOnboarding = false
     var skipIntro = false
+    var prefillRecipientName: String? = nil
     var onDone: (() -> Void)? = nil
 
     @StateObject private var vm = ConsultViewModel()
@@ -499,6 +503,13 @@ struct ConsultView: View {
         }
         .background(Color.onboardingWash.ignoresSafeArea())
         .interactiveDismissDisabled(isOnboarding && vm.phase != .results)
+        .onAppear {
+            guard let name = prefillRecipientName?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !name.isEmpty, vm.theirName.isEmpty else { return }
+            vm.relation = "friend"
+            vm.theirName = name
+            vm.phase = .occasion
+        }
 
     }
 
@@ -509,7 +520,7 @@ struct ConsultView: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            Text("🎁").font(.system(size: 26))
+            BrandGlyph(size: 30, tile: false).font(.system(size: 26))
             VStack(alignment: .leading, spacing: 1) {
                 Text("Maxi").font(.system(size: 17, weight: .heavy, design: .rounded)).foregroundStyle(Color.ink)
                 Text("your gift concierge").font(.system(size: 11)).foregroundStyle(.secondary)
@@ -540,8 +551,8 @@ struct ConsultView: View {
                 switch vm.phase {
                 case .gender:
                     QuestionTitle(
-                        "Whose gifts should your feed lean toward?",
-                        subtitle: "This one's about YOU — it shapes your Home feed. Consults work for anyone either way."
+                        "What style should gifts for you lean toward?",
+                        subtitle: "This guides recommendations without asking you to label your gender."
                     )
                     ChipGrid(chips: ConsultMeta.genderOptions, selected: vm.genderPref.map { [$0] } ?? []) { key in
                         vm.genderPref = key
@@ -597,7 +608,7 @@ private struct IntroStep: View {
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
-            Text("🎁").font(.system(size: 72))
+            BrandGlyph(size: 30, tile: false).font(.system(size: 72))
             VStack(spacing: 10) {
                 Text("Hey — I'm Maxi.\nI find gifts people actually keep.")
                     .font(.system(size: 26, weight: .heavy, design: .rounded))
@@ -627,7 +638,7 @@ private struct ThinkingStep: View {
     var body: some View {
         VStack(spacing: 16) {
             Spacer()
-            Text("🎁").font(.system(size: 56))
+            BrandGlyph(size: 30, tile: false).font(.system(size: 56))
             Text("Okay — \(vm.who), \(vm.budget.map { "$\(Int($0)) to spend" } ?? "budget open").")
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundStyle(Color.ink)
@@ -651,7 +662,7 @@ private struct ResultsStep: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 10) {
-                    Text("📦").font(.system(size: 22))
+                    Image(systemName: "shippingbox.fill").foregroundStyle(Color.coral).font(.system(size: 22))
                     Text("**The move test:** everything below is something \(vm.who) would pack, not purge, when they next move.")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
@@ -744,7 +755,7 @@ private struct TopPickCard: View {
             }
             .padding(14)
         }
-        .background(RoundedRectangle(cornerRadius: 24).fill(.white))
+        .background(RoundedRectangle(cornerRadius: 24).fill(Color.surface))
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(Color.black.opacity(0.06)))
     }
 }
@@ -768,7 +779,7 @@ private struct SmallGiftCard: View {
                 }
                 .padding(10)
             }
-            .background(RoundedRectangle(cornerRadius: 18).fill(.white))
+            .background(RoundedRectangle(cornerRadius: 18).fill(Color.surface))
             .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.black.opacity(0.06)))
         }
     }
@@ -833,7 +844,7 @@ private struct VerifyPanel: View {
             } else {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Swipe game is live 🎳")
+                        Text("Swipe game is live")
                             .font(.system(size: 14, weight: .bold, design: .rounded))
                             .foregroundStyle(Color.ink)
                         Text("Send it to \(vm.who). Your pick is hidden among 14 cards.")
@@ -855,7 +866,7 @@ private struct VerifyPanel: View {
             }
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 18).fill(.white))
+        .background(RoundedRectangle(cornerRadius: 18).fill(Color.surface))
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.black.opacity(0.06)))
         .task(id: vm.verifyChallengeId) {
             // Poll the aggregate match summary while the results screen lives.
@@ -878,7 +889,7 @@ private struct VerifyPanel: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: 12).fill(Color(hex: "#FFF3C4").opacity(0.5)))
         } else if summary?.matched == true {
-            Text("🎯 Confirmed match — \(summary?.by ?? vm.who) swiped right on your pick without knowing it was the ask. Buy it.")
+            Label("Confirmed match — \(summary?.by ?? vm.who) swiped right on your pick without knowing it was the ask. Buy it.", systemImage: "target")
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(Color.ink)
                 .padding(10)
@@ -957,7 +968,7 @@ private struct ChipGrid: View {
                     .padding(.vertical, 13)
                     .background(
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(isOn ? Color(hex: "#FFE3DA") : .white)
+                            .fill(isOn ? Color.coralSoft : Color.surface)
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
@@ -977,7 +988,7 @@ private struct NameInput: View {
             TextField("Their name", text: $vm.theirName)
                 .font(.system(size: 16, design: .rounded))
                 .padding(14)
-                .background(RoundedRectangle(cornerRadius: 16).fill(.white))
+                .background(RoundedRectangle(cornerRadius: 16).fill(Color.surface))
                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.08)))
                 .submitLabel(.next)
                 .onSubmit { vm.phase = .occasion }
@@ -1011,7 +1022,7 @@ private struct BudgetInput: View {
                             .foregroundStyle(Color.ink)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 13)
-                            .background(RoundedRectangle(cornerRadius: 16).fill(.white))
+                            .background(RoundedRectangle(cornerRadius: 16).fill(Color.surface))
                             .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.08), lineWidth: 1.5))
                     }
                 }
@@ -1022,7 +1033,7 @@ private struct BudgetInput: View {
                     .focused($focused)
                     .font(.system(size: 15, design: .rounded))
                     .padding(12)
-                    .background(RoundedRectangle(cornerRadius: 14).fill(.white))
+                    .background(RoundedRectangle(cornerRadius: 14).fill(Color.surface))
                     .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.black.opacity(0.08)))
                 if let n = Double(vm.budgetText.trimmingCharacters(in: .whitespaces)), n > 0 {
                     PrimaryButton("Set", compact: true) {

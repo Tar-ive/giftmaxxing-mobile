@@ -31,6 +31,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 struct GiftmaxxingApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var appState = AppState()
+    @StateObject private var appearance = AppearanceStore.shared
     @StateObject private var authManager = AuthManager.shared
     @StateObject private var syncEngine = SyncEngine.shared
     @StateObject private var offlineQueue = OfflineQueue.shared
@@ -47,7 +48,9 @@ struct GiftmaxxingApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .preferredColorScheme(.light)
+                // Was hard-locked to .light; the palette is trait-aware now.
+                .preferredColorScheme(appearance.mode.colorScheme)
+                .environmentObject(appearance)
                 .environmentObject(appState)
                 .environmentObject(authManager)
                 .environmentObject(syncEngine)
@@ -84,6 +87,23 @@ struct GiftmaxxingApp: App {
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .navigateToShop)) { _ in
                     appState.showBirthdayPerks = true
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .navigateToChallengeInvite)) { note in
+                    if let challengeId = note.userInfo?["challengeId"] as? String {
+                        appState.pendingChallengeId = challengeId
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .navigateToCircle)) { note in
+                    if let circleId = note.userInfo?["circleId"] as? String {
+                        appState.openCircle(circleId)
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .navigateToBirthdayChallenge)) { note in
+                    let name = note.userInfo?["recipientName"] as? String ?? ""
+                    appState.pendingChallengePrefill = .init(recipientName: name)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .navigateToConnection)) { _ in
+                    appState.showChallengeResults = true
                 }
         }
     }

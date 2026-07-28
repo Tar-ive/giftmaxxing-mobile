@@ -82,6 +82,10 @@ enum OnDeviceRanker {
             // classifier — that's how a filter fix reaches users app-side
             // before the backend redeploys.
             if post.feedEligible == false { return false }
+            // UGC has already passed the server's safety/integrity gate. It is
+            // not a merchant listing, so price/domain heuristics would wrongly
+            // remove every approved social post from the on-device feed.
+            if post.source == "ugc" { return true }
             // Curated services are hand-picked (their domains — youtube.com
             // for a Premium year — misfire every text heuristic); trust ingest.
             if post.isService { return post.feedEligible ?? true }

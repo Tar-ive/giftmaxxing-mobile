@@ -5,12 +5,26 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct UGCCreateView: View {
+    @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var authManager: AuthManager
     @StateObject private var model = UGCCreateViewModel()
-    @State private var selection: PhotosPickerItem?
+    @State private var selection: [PhotosPickerItem] = []
     @State private var showSourcePicker = false
     @State private var showLibrary = false
     @State private var showCamera = false
+    @State private var photoLibraryMode = true
+    @State private var previewIndex = 0
+
+    // Vertical for video and tall photos, square otherwise — the two shapes
+    // the feed renders (MediaAspect).
+    private var composerAspectRatio: CGFloat {
+        guard let first = model.media.first else { return MediaAspect.square }
+        if first.kind == .video { return MediaAspect.vertical }
+        guard let size = first.previewImage?.size else { return MediaAspect.square }
+        return MediaAspect.snap(width: size.width, height: size.height)
+    }
+    @State private var editRequest: UGCEditRequest?
+    @State private var showMusic = false
     @State private var hapticTrigger = 0
 
     var body: some View {
@@ -18,10 +32,13 @@ struct UGCCreateView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: ThemeSpacing.xl) {
                     intro
-                    if let media = model.media {
-                        preview(media)
+                    if !model.media.isEmpty {
+                        preview
+                        musicPicker
                         caption
                         publishButton
+                    } else if model.isPreparing {
+                        preparingCard
                     } else {
                         mediaPicker
                     }
@@ -32,8 +49,17 @@ struct UGCCreateView: View {
             .background(Color.cream)
             .navigationTitle("Create")
             .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
-            .confirmationDialog("Add a photo or video", isPresented: $showSourcePicker) {
-                Button("Photo Library") { showLibrary = true }
+            .confirmationDialog("Add to your post", isPresented: $showSourcePicker) {
+                Button("Photos (up to 10)") {
+                    photoLibraryMode = true
+                    selection = []
+                    showLibrary = true
+                }
+                Button("One video (up to 1 minute)") {
+                    photoLibraryMode = false
+                    selection = []
+                    showLibrary = true
+                }
                 if UGCCameraPicker.isAvailable {
                     Button("Camera") { showCamera = true }
                 }
@@ -42,19 +68,31 @@ struct UGCCreateView: View {
             .photosPicker(
                 isPresented: $showLibrary,
                 selection: $selection,
-                matching: .any(of: [.images, .videos]),
+                maxSelectionCount: photoLibraryMode ? 10 : 1,
+                matching: photoLibraryMode ? .images : .videos,
                 preferredItemEncoding: .current
             )
             .fullScreenCover(isPresented: $showCamera) {
                 UGCCameraPicker { media in
-                    model.media = media
+                    model.replaceDraft(with: media)
                     showCamera = false
                 }
                 .ignoresSafeArea()
             }
-            .onChange(of: selection) { _, item in
-                guard let item else { return }
-                Task { await model.load(item) }
+            .sheet(item: $editRequest) { request in
+                if model.media.indices.contains(request.index),
+                   let image = model.media[request.index].previewImage {
+                    UGCPhotoEditor(image: image) { edited in
+                        try? model.replacePhoto(at: request.index, with: edited)
+                    }
+                }
+            }
+            .onChange(of: selection) { _, items in
+                guard !items.isEmpty else { return }
+                Task {
+                    await model.load(items)
+                    previewIndex = 0
+                }
             }
             .task { await model.refreshPosts() }
             .sensoryFeedback(.success, trigger: hapticTrigger)
@@ -70,18 +108,26 @@ struct UGCCreateView: View {
     }
 
     private var intro: some View {
-        VStack(alignment: .leading, spacing: ThemeSpacing.xs) {
-            Text("Share a gift find")
-                .font(.title2.weight(.bold))
-                .fontDesign(.rounded)
+        Text("Share a gift find")
+            .font(.title2.weight(.bold))
+            .fontDesign(.rounded)
+            .foregroundStyle(Color.ink)
+    }
+
+    // Videos are re-encoded to H.264 on-device before upload (safety review
+    // can't decode HEVC) — that can take a moment for long clips.
+    private var preparingCard: some View {
+        VStack(spacing: ThemeSpacing.md) {
+            ProgressView()
+            Text("Preparing your video…")
+                .font(.headline)
                 .foregroundStyle(Color.ink)
-            Text("Post an unboxing, a thoughtful idea, or something worth gifting.")
-                .font(.body)
-                .foregroundStyle(Color.inkSecondary)
-            Label("Every upload is screened before it can appear in the feed.", systemImage: "checkmark.shield.fill")
-                .font(.footnote)
-                .foregroundStyle(Color.inkSecondary)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, ThemeSpacing.xl)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.xl, style: .continuous))
+        .cardElevation()
     }
 
     private var mediaPicker: some View {
@@ -90,11 +136,8 @@ struct UGCCreateView: View {
                 Image(systemName: "photo.on.rectangle.angled")
                     .font(.largeTitle)
                     .foregroundStyle(Color.coral)
-                Text("Choose a photo or video")
+                Text("Choose photos or a video")
                     .font(.headline)
-                Text("Photos up to 20 MB · videos up to 200 MB")
-                    .font(.footnote)
-                    .foregroundStyle(Color.inkSecondary)
             }
             .foregroundStyle(Color.ink)
             .frame(maxWidth: .infinity)
@@ -104,31 +147,37 @@ struct UGCCreateView: View {
             .cardElevation()
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Choose a photo or video to post")
+        .accessibilityLabel("Choose up to ten photos or one video to post")
     }
 
-    private func preview(_ media: SelectedUGCMedia) -> some View {
+    private var preview: some View {
         ZStack(alignment: .topTrailing) {
-            Group {
-                switch media.kind {
-                case .image:
-                    if let image = media.previewImage {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
+            TabView(selection: $previewIndex) {
+                ForEach(Array(model.media.enumerated()), id: \.offset) { index, media in
+                    Group {
+                        switch media.kind {
+                        case .image:
+                            if let image = media.previewImage {
+                                Image(uiImage: image).resizable().scaledToFill()
+                            }
+                        case .video:
+                            VideoPlayer(player: AVPlayer(url: media.fileURL))
+                        }
                     }
-                case .video:
-                    VideoPlayer(player: AVPlayer(url: media.fileURL))
+                    .tag(index)
                 }
             }
+            .tabViewStyle(.page(indexDisplayMode: model.media.count > 1 ? .always : .never))
             .frame(maxWidth: .infinity)
-            .aspectRatio(4 / 5, contentMode: .fit)
+            // Preview at the shape it will actually publish as.
+            .aspectRatio(composerAspectRatio, contentMode: .fit)
             .background(Color.surfaceSunken)
             .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.xl, style: .continuous))
 
             Button {
-                model.clearDraft()
-                selection = nil
+                model.removeMedia(at: previewIndex)
+                previewIndex = min(previewIndex, max(0, model.media.count - 1))
+                if model.media.isEmpty { selection = [] }
             } label: {
                 Image(systemName: "xmark")
                     .font(.headline)
@@ -138,7 +187,50 @@ struct UGCCreateView: View {
                     .clipShape(Circle())
             }
             .padding(ThemeSpacing.sm)
-            .accessibilityLabel("Remove selected media")
+            .accessibilityLabel("Remove this item")
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if model.media.indices.contains(previewIndex),
+               model.media[previewIndex].kind == .image {
+                Button {
+                    editRequest = UGCEditRequest(index: previewIndex)
+                } label: {
+                    Label("Edit", systemImage: "slider.horizontal.3")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(Color.ink)
+                        .padding(.horizontal, ThemeSpacing.sm)
+                        .frame(minHeight: 44)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(ThemeSpacing.sm)
+            }
+        }
+    }
+
+    private var musicPicker: some View {
+        Button { showMusic = true } label: {
+            HStack(spacing: ThemeSpacing.sm) {
+                Image(systemName: model.music == nil ? "music.note" : "waveform")
+                    .foregroundStyle(Color.coral)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(model.music?.title ?? "Add music")
+                        .font(.subheadline.weight(.semibold))
+                    Text(model.music.map { "\($0.artist) · up to 60 sec" } ?? "Rights-cleared original tracks")
+                        .font(.caption).foregroundStyle(Color.inkSecondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").foregroundStyle(Color.inkTertiary)
+            }
+            .foregroundStyle(Color.ink)
+            .padding(ThemeSpacing.md)
+            .background(Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showMusic) {
+            UGCMusicPicker(selection: $model.music)
         }
     }
 
@@ -180,7 +272,10 @@ struct UGCCreateView: View {
             }
             Button {
                 Task {
-                    if await model.publish() { hapticTrigger += 1 }
+                    if await model.publish() {
+                        hapticTrigger += 1
+                        appState.selectedTab = .feed
+                    }
                 }
             } label: {
                 Label(model.isPublishing ? "Posting…" : "Post", systemImage: "arrow.up.circle.fill")
@@ -220,7 +315,7 @@ private struct UGCPostStatusCard: View {
     var body: some View {
         HStack(spacing: ThemeSpacing.sm) {
             ZStack {
-                if let image = post.posterUrl ?? (post.mediaType == "image" ? post.mediaUrl : nil) {
+                if let image = post.posterUrl ?? post.mediaUrls?.first ?? (post.mediaType == "image" ? post.mediaUrl : nil) {
                     CachedAsyncImage(url: image, width: 180)
                 } else {
                     Color.surfaceSunken
@@ -273,36 +368,171 @@ private struct UGCPostStatusCard: View {
     }
 }
 
+private struct UGCEditRequest: Identifiable {
+    let index: Int
+    var id: Int { index }
+}
+
+private struct UGCPhotoEditor: View {
+    let original: UIImage
+    let onSave: (UIImage) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var image: UIImage
+
+    init(image: UIImage, onSave: @escaping (UIImage) -> Void) {
+        original = image
+        self.onSave = onSave
+        _image = State(initialValue: image)
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: ThemeSpacing.md) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.surfaceSunken)
+                    .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
+
+                HStack(spacing: ThemeSpacing.sm) {
+                    editButton("Rotate", icon: "rotate.right") { image = image.rotatedClockwise() }
+                    editButton("Square", icon: "square") { image = image.centerCropped(to: 1) }
+                    editButton("Portrait", icon: "rectangle.portrait") { image = image.centerCropped(to: 4.0 / 5.0) }
+                    editButton("Reset", icon: "arrow.counterclockwise") { image = original }
+                }
+            }
+            .padding(ThemeSpacing.md)
+            .background(Color.cream)
+            .navigationTitle("Edit photo")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        onSave(image)
+                        dismiss()
+                    }
+                    .fontWeight(.bold)
+                }
+            }
+        }
+    }
+
+    private func editButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: ThemeSpacing.xs) {
+                Image(systemName: icon).font(.headline)
+                Text(title).font(.caption.weight(.semibold))
+            }
+            .foregroundStyle(Color.ink)
+            .frame(maxWidth: .infinity, minHeight: 60)
+            .background(Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.md, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private extension UIImage {
+    func rotatedClockwise() -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = scale
+        let target = CGSize(width: size.height, height: size.width)
+        return UIGraphicsImageRenderer(size: target, format: format).image { context in
+            context.cgContext.translateBy(x: target.width, y: 0)
+            context.cgContext.rotate(by: .pi / 2)
+            draw(in: CGRect(origin: .zero, size: size))
+        }
+    }
+
+    func centerCropped(to targetAspect: CGFloat) -> UIImage {
+        guard size.width > 0, size.height > 0 else { return self }
+        let sourceAspect = size.width / size.height
+        let cropSize = sourceAspect > targetAspect
+            ? CGSize(width: size.height * targetAspect, height: size.height)
+            : CGSize(width: size.width, height: size.width / targetAspect)
+        let cropRect = CGRect(
+            x: (size.width - cropSize.width) / 2,
+            y: (size.height - cropSize.height) / 2,
+            width: cropSize.width,
+            height: cropSize.height
+        )
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = scale
+        return UIGraphicsImageRenderer(size: cropSize, format: format).image { _ in
+            draw(at: CGPoint(x: -cropRect.minX, y: -cropRect.minY))
+        }
+    }
+}
+
 @MainActor
 final class UGCCreateViewModel: ObservableObject {
-    @Published var media: SelectedUGCMedia?
+    @Published var media: [SelectedUGCMedia] = []
+    @Published var music: UGCMusicTrack?
     @Published var caption = ""
     @Published var posts: [UGCPost] = []
+    @Published var isPreparing = false
     @Published var isPublishing = false
     @Published var progress = 0.0
     @Published var progressLabel = "Preparing upload"
     @Published var error: String?
 
-    func load(_ item: PhotosPickerItem) async {
+    func load(_ items: [PhotosPickerItem]) async {
+        isPreparing = true
+        defer { isPreparing = false }
+        var prepared: [SelectedUGCMedia] = []
         do {
-            if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {
-                guard let movie = try await item.loadTransferable(type: TransferableVideo.self) else {
+            media.forEach { $0.removeTemporaryFiles() }
+            for item in items.prefix(10) {
+                if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {
+                    guard items.count == 1 else { throw UGCSelectionError.mixedMedia }
+                    guard let movie = try await item.loadTransferable(type: TransferableVideo.self) else {
+                        throw UGCSelectionError.unreadable
+                    }
+                    prepared.append(try await SelectedUGCMedia.video(url: movie.url))
+                } else if let data = try await item.loadTransferable(type: Data.self) {
+                    prepared.append(try SelectedUGCMedia.image(data: data))
+                } else {
                     throw UGCSelectionError.unreadable
                 }
-                media = try await SelectedUGCMedia.video(url: movie.url)
-            } else if let data = try await item.loadTransferable(type: Data.self) {
-                media = try SelectedUGCMedia.image(data: data)
-            } else {
-                throw UGCSelectionError.unreadable
             }
+            media = prepared
         } catch {
-            self.error = "That item couldn’t be prepared. Choose another photo or video."
+            prepared.forEach { $0.removeTemporaryFiles() }
+            media.forEach { $0.removeTemporaryFiles() }
+            media = []
+            self.error = error is UGCSelectionError && (error as? UGCSelectionError) == .videoTooLong
+                ? "Videos must be one minute or shorter."
+                : "That item couldn’t be prepared. Choose another photo or video."
         }
     }
 
+    func replaceDraft(with value: SelectedUGCMedia) {
+        media.forEach { $0.removeTemporaryFiles() }
+        media = [value]
+    }
+
+    func removeMedia(at index: Int) {
+        guard media.indices.contains(index) else { return }
+        media.remove(at: index).removeTemporaryFiles()
+    }
+
+    func replacePhoto(at index: Int, with image: UIImage) throws {
+        guard media.indices.contains(index), media[index].kind == .image else { return }
+        let replacement = try SelectedUGCMedia.image(image: image)
+        let old = media[index]
+        media[index] = replacement
+        old.removeTemporaryFiles()
+    }
+
     func clearDraft() {
-        media?.removeTemporaryFiles()
-        media = nil
+        media.forEach { $0.removeTemporaryFiles() }
+        media = []
+        music = nil
         caption = ""
     }
 
@@ -311,7 +541,7 @@ final class UGCCreateViewModel: ObservableObject {
     }
 
     func publish() async -> Bool {
-        guard let media else { return false }
+        guard !media.isEmpty else { return false }
         let cleanCaption = caption.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanCaption.isEmpty else { return false }
         isPublishing = true
@@ -319,15 +549,17 @@ final class UGCCreateViewModel: ObservableObject {
         progressLabel = "Preparing upload"
         defer { isPublishing = false }
         do {
-            let size = try media.fileSize()
+            let descriptors = try media.map { value in
+                ["mediaType": value.kind.rawValue, "mimeType": value.mimeType, "fileSize": try value.fileSize()] as [String: Any]
+            }
             let upload = try await APIClient.shared.createUGCUpload(
-                mediaType: media.kind.rawValue,
-                mimeType: media.mimeType,
-                fileSize: size,
-                caption: cleanCaption
+                media: descriptors,
+                caption: cleanCaption,
+                musicTrackId: music?.trackId
             )
+            let targets = upload.uploads ?? [UGCUploadTarget(index: 0, uploadUrl: upload.uploadUrl, uploadHeaders: upload.uploadHeaders)]
             if let posterURL = upload.posterUploadUrl,
-               let poster = media.posterURL {
+               let poster = media.first?.posterURL {
                 progressLabel = "Uploading preview"
                 try await APIClient.shared.uploadUGC(
                     fileURL: poster,
@@ -335,17 +567,21 @@ final class UGCCreateViewModel: ObservableObject {
                     headers: upload.posterUploadHeaders ?? ["Content-Type": "image/jpeg"]
                 )
             }
-            progress = 0.3
-            progressLabel = "Uploading media"
-            try await APIClient.shared.uploadUGC(fileURL: media.fileURL, to: upload.uploadUrl, headers: upload.uploadHeaders)
+            for (position, target) in targets.sorted(by: { $0.index < $1.index }).enumerated() {
+                guard media.indices.contains(target.index) else { throw UGCSelectionError.unreadable }
+                progress = 0.25 + (Double(position) / Double(max(1, targets.count))) * 0.55
+                progressLabel = targets.count > 1 ? "Uploading photo \(position + 1) of \(targets.count)" : "Uploading media"
+                try await APIClient.shared.uploadUGC(fileURL: media[target.index].fileURL, to: target.uploadUrl, headers: target.uploadHeaders)
+            }
             progress = 0.85
             progressLabel = "Starting safety review"
             try await APIClient.shared.completeUGCUpload(postId: upload.post.postId)
             progress = 1
             progressLabel = "Sent for review"
             posts.insert(upload.post, at: 0)
+            UGCPostingStore.shared.begin(upload.post, preview: media.first?.previewImage)
             clearDraft()
-            await poll(postId: upload.post.postId)
+            Task { await poll(postId: upload.post.postId) }
             return true
         } catch {
             self.error = error.localizedDescription
@@ -353,11 +589,14 @@ final class UGCCreateViewModel: ObservableObject {
         }
     }
 
+    // Video safety review is an async Rekognition job that routinely takes a
+    // couple of minutes — poll long enough to catch the terminal state.
     private func poll(postId: String) async {
-        for _ in 0..<20 {
-            try? await Task.sleep(for: .seconds(2))
+        for _ in 0..<45 {
+            try? await Task.sleep(for: .seconds(4))
             guard let post = try? await APIClient.shared.fetchUGCPost(postId: postId) else { continue }
             if let index = posts.firstIndex(where: { $0.id == post.id }) { posts[index] = post }
+            UGCPostingStore.shared.update(post)
             if post.isTerminal { return }
         }
     }
@@ -373,6 +612,10 @@ struct SelectedUGCMedia {
 
     static func image(data: Data) throws -> SelectedUGCMedia {
         guard let source = UIImage(data: data) else { throw UGCSelectionError.unreadable }
+        return try image(image: source)
+    }
+
+    static func image(image source: UIImage) throws -> SelectedUGCMedia {
         let image = source.preparingThumbnail(of: CGSize(width: 2048, height: 2048)) ?? source
         guard let jpeg = image.jpegData(compressionQuality: 0.86) else { throw UGCSelectionError.unreadable }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("ugc-\(UUID().uuidString).jpg")
@@ -382,14 +625,48 @@ struct SelectedUGCMedia {
 
     static func video(url: URL) async throws -> SelectedUGCMedia {
         let asset = AVURLAsset(url: url)
+        let duration = try await asset.load(.duration)
+        guard duration.seconds.isFinite, duration.seconds <= 60 else {
+            throw UGCSelectionError.videoTooLong
+        }
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
         let (frame, _) = try await generator.image(at: .zero)
         let image = UIImage(cgImage: frame)
         let poster = FileManager.default.temporaryDirectory.appendingPathComponent("ugc-poster-\(UUID().uuidString).jpg")
         try image.jpegData(compressionQuality: 0.82)?.write(to: poster, options: .atomic)
-        let type = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "video/quicktime"
-        return SelectedUGCMedia(kind: .video, fileURL: url, posterURL: poster, previewImage: image, mimeType: type)
+        let (fileURL, mimeType) = try await normalizeForModeration(asset: asset, originalURL: url)
+        return SelectedUGCMedia(kind: .video, fileURL: fileURL, posterURL: poster, previewImage: image, mimeType: mimeType)
+    }
+
+    // Server-side safety review runs Rekognition Video, which only decodes
+    // H.264 — iPhones capture HEVC by default, so those uploads came back
+    // "Processing failed". Anything not already H.264 gets exported to an
+    // H.264 MP4 here before upload.
+    private static func normalizeForModeration(asset: AVURLAsset, originalURL: URL) async throws -> (URL, String) {
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        guard let track = tracks.first else { throw UGCSelectionError.unreadable }
+        let descriptions = try await track.load(.formatDescriptions)
+        let isH264 = descriptions.contains { CMFormatDescriptionGetMediaSubType($0) == kCMVideoCodecType_H264 }
+        if isH264 {
+            let type = UTType(filenameExtension: originalURL.pathExtension)?.preferredMIMEType ?? "video/quicktime"
+            return (originalURL, type)
+        }
+        guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPreset1920x1080) else {
+            throw UGCSelectionError.unreadable
+        }
+        let output = FileManager.default.temporaryDirectory.appendingPathComponent("ugc-h264-\(UUID().uuidString).mp4")
+        session.outputURL = output
+        session.outputFileType = .mp4
+        session.shouldOptimizeForNetworkUse = true
+        await withCheckedContinuation { continuation in
+            session.exportAsynchronously { continuation.resume() }
+        }
+        guard session.status == .completed else {
+            throw session.error ?? UGCSelectionError.unreadable
+        }
+        try? FileManager.default.removeItem(at: originalURL)
+        return (output, "video/mp4")
     }
 
     func fileSize() throws -> Int {
@@ -416,7 +693,76 @@ private struct TransferableVideo: Transferable {
     }
 }
 
-private enum UGCSelectionError: Error { case unreadable }
+private enum UGCSelectionError: Error, Equatable { case unreadable, mixedMedia, videoTooLong }
+
+private struct UGCMusicPicker: View {
+    @Binding var selection: UGCMusicTrack?
+    @Environment(\.dismiss) private var dismiss
+    @State private var tracks: [UGCMusicTrack] = []
+    @State private var player: AVPlayer?
+    @State private var playingId: String?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Button("No music") {
+                    player?.pause()
+                    selection = nil
+                    dismiss()
+                }
+                .foregroundStyle(Color.ink)
+
+                ForEach(tracks) { track in
+                    HStack(spacing: ThemeSpacing.sm) {
+                        Button { toggle(track) } label: {
+                            Image(systemName: playingId == track.id ? "pause.circle.fill" : "play.circle.fill")
+                                .font(.title2).foregroundStyle(Color.coral)
+                        }
+                        .buttonStyle(.plain)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(track.title).font(.subheadline.weight(.semibold))
+                            Text("\(track.artist) · \(track.durationSeconds)s · \(track.license)")
+                                .font(.caption).foregroundStyle(Color.inkSecondary)
+                        }
+                        Spacer()
+                        Button("Use") {
+                            player?.pause()
+                            selection = track
+                            dismiss()
+                        }
+                        .font(.subheadline.weight(.bold)).foregroundStyle(Color.coral)
+                    }
+                }
+
+                if tracks.isEmpty {
+                    ContentUnavailableView(
+                        "Music is being prepared",
+                        systemImage: "music.note",
+                        description: Text("Only rights-cleared original tracks appear here.")
+                    )
+                }
+            }
+            .navigationTitle("Add music")
+            .navigationBarTitleDisplayMode(.inline)
+            .task { tracks = (try? await APIClient.shared.fetchUGCMusicTracks()) ?? [] }
+            .onDisappear { player?.pause() }
+        }
+    }
+
+    private func toggle(_ track: UGCMusicTrack) {
+        if playingId == track.id {
+            player?.pause()
+            playingId = nil
+            return
+        }
+        guard let url = URL(string: track.audioUrl) else { return }
+        player?.pause()
+        let next = AVPlayer(url: url)
+        player = next
+        playingId = track.id
+        next.play()
+    }
+}
 
 private struct UGCCameraPicker: UIViewControllerRepresentable {
     let onMedia: (SelectedUGCMedia) -> Void

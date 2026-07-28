@@ -68,7 +68,7 @@ struct DiscoverView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("A slower shelf. \(DiscoverViewModel.pageSize) picks ranked by how meaningful they are — story, maker, fit — not by what's newest. When you reach the end, that's the end.")
+                    Text("\(DiscoverViewModel.pageSize) picks, ranked by meaning.")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 16)
@@ -99,7 +99,7 @@ struct DiscoverView: View {
                             .frame(maxWidth: .infinity)
                             .padding(40)
                     } else if viewModel.filtered.isEmpty {
-                        Text("Nothing here under this filter yet — try another lens.")
+                        Text("Nothing under this filter yet.")
                             .font(.bodyMedium)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity)
@@ -122,7 +122,7 @@ struct DiscoverView: View {
                             Image(systemName: "leaf.fill")
                                 .font(.system(size: 20))
                                 .foregroundStyle(Color.coral)
-                            Text("That's all for now — \(viewModel.filtered.count) picks, chosen slowly.")
+                            Text("That's all for now.")
                                 .font(.system(size: 13))
                                 .foregroundStyle(.secondary)
                         }

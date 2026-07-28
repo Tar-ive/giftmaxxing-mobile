@@ -32,6 +32,7 @@ data "aws_iam_policy_document" "ddb_access" {
       "dynamodb:Query",
       "dynamodb:Scan",
       "dynamodb:BatchWriteItem",
+      "dynamodb:TransactWriteItems",
     ]
     resources = [
       aws_dynamodb_table.users.arn,
@@ -172,7 +173,14 @@ data "aws_iam_policy_document" "ugc_api_media" {
       "${aws_s3_bucket.media.arn}/ugc/raw/*",
       "${aws_s3_bucket.media.arn}/ugc/posters-raw/*",
       "${aws_s3_bucket.media.arn}/ugc/public/*",
+      "${aws_s3_bucket.media.arn}/avatars/raw/*",
+      "${aws_s3_bucket.media.arn}/avatars/public/*",
     ]
+  }
+
+  statement {
+    actions   = ["rekognition:DetectModerationLabels"]
+    resources = ["*"]
   }
 }
 

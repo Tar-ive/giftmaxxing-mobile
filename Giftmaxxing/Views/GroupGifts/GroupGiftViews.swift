@@ -312,6 +312,15 @@ struct GroupGiftCreateView: View {
         }
     }
 
+    // Words to build a group deck from before anyone has swiped anything.
+    private func fallbackSeedText(for recipient: String) -> String {
+        var parts = ["\(occasion == "other" ? "gift" : occasion) gift ideas"]
+        if !recipient.isEmpty { parts.append("for \(recipient)") }
+        let vibes = PersonalizationStore.consultVibes.prefix(4)
+        if !vibes.isEmpty { parts.append(vibes.joined(separator: ", ")) }
+        return parts.joined(separator: " — ")
+    }
+
     private func create() async {
         guard !isCreating else { return }
         isCreating = true
@@ -327,18 +336,21 @@ struct GroupGiftCreateView: View {
         if imageBase64 == nil {
             seedKeys = await TasteProfileStore.shared.snapshot().seedKeys
         }
-        guard imageBase64 != nil || !seedKeys.isEmpty else {
-            errorMessage = "Swipe a few gifts first (or seed with a photo) so we know the group's starting vibe."
-            return
-        }
+        // No photo and no swipe history is the NORMAL first-run state — it
+        // used to hard-stop here. The server now builds a deck from words, so
+        // send the occasion + declared taste instead of refusing.
+        let trimmedRecipient = recipient.trimmingCharacters(in: .whitespaces)
+        let seedText: String? = (imageBase64 == nil && seedKeys.isEmpty)
+            ? fallbackSeedText(for: trimmedRecipient)
+            : nil
 
         do {
-            let trimmedRecipient = recipient.trimmingCharacters(in: .whitespaces)
             let response = try await APIClient.shared.createChallenge(
                 senderId: senderId,
                 mode: "group",
                 seedImageBase64: imageBase64,
                 seedKeys: seedKeys.isEmpty ? nil : seedKeys,
+                seedText: seedText,
                 inviterName: inviterName,
                 to: trimmedRecipient,
                 occasion: occasion == "other" ? nil : occasion
@@ -610,7 +622,7 @@ private struct GroupPickRow: View {
                 RoundedRectangle(cornerRadius: 10)
                     .fill(Color.coralSoft)
                     .frame(width: 52, height: 52)
-                    .overlay(Text("🎁"))
+                    .overlay(BrandGlyph(size: 30, tile: false))
             }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -792,7 +804,8 @@ struct GroupSwipeSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var deck: [ChallengeCreateResponse.ChallengeDeckItem] = []
     @State private var index = 0
-    @State private var swipes: [(id: String, dir: String)] = []
+    @State private var swipes: [(id: String, dir: String, dwellMs: Double)] = []
+    @State private var cardShownAt = Date()
     @State private var isLoading = true
     @State private var isSubmitting = false
     @State private var submitted = false
@@ -851,7 +864,7 @@ struct GroupSwipeSheet: View {
                                 .frame(height: 300)
                                 .clipped()
                         } else {
-                            Text("🎁").font(.system(size: 64))
+                            BrandGlyph(size: 30, tile: false).font(.system(size: 64))
                         }
                     }
                     .frame(height: 300)
@@ -921,7 +934,12 @@ struct GroupSwipeSheet: View {
 
     private func record(_ dir: String) {
         guard index < deck.count else { return }
-        swipes.append((id: deck[index].postId, dir: dir))
+        swipes.append((
+            id: deck[index].postId,
+            dir: dir,
+            dwellMs: Date().timeIntervalSince(cardShownAt) * 1000
+        ))
+        cardShownAt = Date()
         index += 1
         if index >= deck.count {
             Task { await submit() }
@@ -951,7 +969,8 @@ struct GroupSwipeSheet: View {
                 swipes: swipes,
                 // The swiper's yes/no list is THEIR taste too — persist it
                 // under this device's anon id for a warm start at signup.
-                anonId: InteractionQueue.anonymousUserId
+                anonId: InteractionQueue.anonymousUserId,
+                viewerUserId: AuthManager.shared.userId
             )
             GroupGiftStore.shared.markSwiped(gift.id)
             submitted = true

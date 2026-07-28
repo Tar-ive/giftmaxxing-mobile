@@ -61,7 +61,10 @@ final class ScreenshotStore: ObservableObject {
         let ids = fetched.map(\.localIdentifier)
         guard ids != thumbnails.map(\.id) || thumbnails.isEmpty else { return }
 
-        assets = Dictionary(uniqueKeysWithValues: fetched.map { ($0.localIdentifier, $0) })
+        assets = Dictionary(
+            fetched.map { ($0.localIdentifier, $0) },
+            uniquingKeysWith: { _, latest in latest }
+        )
 
         let thumbOptions = PHImageRequestOptions()
         thumbOptions.deliveryMode = .opportunistic

@@ -52,3 +52,17 @@ export function interleaveAuthors(items, {
   }
   return out;
 }
+
+// Give approved community posts a predictable place in the product-heavy feed.
+// The ranker still orders each cohort; this only prevents a zero-price UGC post
+// from losing every slot to catalog inventory with stronger commerce signals.
+export function interleaveUGC(items, { firstSlot = 2, every = 8, max = 2 } = {}) {
+  if (!Array.isArray(items) || !items.some((item) => item.source === "ugc")) return items;
+  const ugc = items
+    .filter((item) => item.source === "ugc")
+    .sort((a, b) => Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
+    .slice(0, max);
+  const out = items.filter((item) => item.source !== "ugc");
+  ugc.forEach((item, index) => out.splice(Math.min(firstSlot + index * every, out.length), 0, item));
+  return out;
+}

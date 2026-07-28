@@ -26,6 +26,9 @@ struct ChallengeView: View {
     var prefillTheirName: String = ""
     /// When launched from a DM, the created challenge is also posted there.
     var dmThreadId: String? = nil
+    /// Birthday-journey notification taps: create the server challenge
+    /// immediately so the sheet opens ready to share.
+    var autoCreate = false
 
     @State private var yourName = ""
     @State private var theirName = ""
@@ -77,6 +80,16 @@ struct ChallengeView: View {
         yourName.isEmpty ? (authManager.displayName ?? "A friend") : yourName
     }
 
+    // Words to build a deck from when we know nothing else: the occasion plus
+    // whatever taste the account already declared during onboarding.
+    private var fallbackSeedText: String {
+        let occasionLabel = Self.occasions.first { $0.id == occasion }?.label ?? "gift"
+        var parts = ["\(occasionLabel) gift ideas"]
+        let vibes = PersonalizationStore.consultVibes.prefix(4)
+        if !vibes.isEmpty { parts.append(vibes.joined(separator: ", ")) }
+        return parts.joined(separator: " — ")
+    }
+
     private var inviteURL: URL? {
         InviteLink.buildURL(
             inviterName: inviterName,
@@ -102,15 +115,18 @@ struct ChallengeView: View {
                 .jpegData(compressionQuality: 0.8)?
                 .base64EncodedString()
         }
-        // Seed priority: chosen gift > captured photo > taste-key centroid.
+        // Seed priority: chosen gift > captured photo > taste-key centroid >
+        // a text seed. A brand-new account has no swipes yet, so the taste
+        // keys are empty — that used to short-circuit into "deck builder
+        // unreachable" without ever calling the server. The text seed keeps
+        // the real deck builder in play for first-time senders.
         var seedKeys: [String] = []
         if imageBase64 == nil && seedPostId == nil {
             seedKeys = await TasteProfileStore.shared.snapshot().seedKeys
         }
-        guard imageBase64 != nil || seedPostId != nil || !seedKeys.isEmpty else {
-            serverUnavailable = true
-            return
-        }
+        let seedText: String? = (imageBase64 == nil && seedPostId == nil && seedKeys.isEmpty)
+            ? fallbackSeedText
+            : nil
 
         do {
             let response = try await APIClient.shared.createChallenge(
@@ -118,6 +134,7 @@ struct ChallengeView: View {
                 seedImageBase64: seedPostId == nil ? imageBase64 : nil,
                 seedPostId: seedPostId,
                 seedKeys: seedKeys.isEmpty ? nil : seedKeys,
+                seedText: seedText,
                 inviterName: inviterName,
                 to: theirName,
                 occasion: occasion == "other" ? nil : occasion,
@@ -125,6 +142,8 @@ struct ChallengeView: View {
             )
             challengeId = response.challengeId
             serverUnavailable = false
+            // Feed the birthday journey's "sent, awaiting swipes" state.
+            BirthdayChallengeJourney.recordSentChallenge(recipientName: theirName)
             await postChallengeToDmIfNeeded()
             AnalyticsEngine.shared.trackScreenView(screen: "challenge_created_server")
         } catch {
@@ -376,6 +395,9 @@ struct ChallengeView: View {
                 yourName = authManager.displayName ?? ""
             }
             appState.suppressMaxiFAB()
+            if autoCreate, challengeId == nil {
+                Task { await createServerChallenge() }
+            }
         }
         .onChange(of: authManager.displayName) { _, name in
             if yourName.isEmpty { yourName = name ?? "" }
@@ -384,7 +406,18 @@ struct ChallengeView: View {
             if let url = inviteURL {
                 FriendPickerSheet(
                     messageText: "I made you a gift challenge — swipe a few finds so I can get your gift right 🎁\n\(url.absoluteString)"
-                )
+                ) { friendId in
+                    guard let challengeId else { return }
+                    Task {
+                        try? await APIClient.shared.inviteToChallenge(
+                            challengeId: challengeId,
+                            toUserId: friendId,
+                            byUserId: authManager.userId,
+                            byName: authManager.displayName,
+                            title: theirName.isEmpty ? nil : "For \(theirName)"
+                        )
+                    }
+                }
                 .environmentObject(authManager)
             }
         }
@@ -536,7 +569,7 @@ private struct SeedPickCard: View {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 18))
                             .foregroundStyle(Color.coral)
-                            .background(Circle().fill(.white))
+                            .background(Circle().fill(Color.surface))
                             .padding(5)
                     }
                 }

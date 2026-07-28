@@ -24,13 +24,13 @@ import { CognitoIdentityProviderClient, InitiateAuthCommand } from "@aws-sdk/cli
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { createHash } from "node:crypto";
 import { classifyPin, isMajorUSRetailer } from "./quality.mjs";
-import { interleaveAuthors } from "./feed-diversity.mjs";
+import { interleaveAuthors, interleaveUGC } from "./feed-diversity.mjs";
 import { sendPushToUser } from "./push.mjs";
 import { mobileRoutes } from "./mobile-routes.mjs";
 import { analyticsRoutes } from "./analytics-routes.mjs";
 import { birthdayFreebiesRoute } from "./birthday-freebies.mjs";
 import { friendsRoutes } from "./friends-routes.mjs";
-import { purgeUserUGC, ugcRoutes } from "./ugc-routes.mjs";
+import { publicPostsForProfile, purgeUserAvatar, purgeUserUGC, ugcRoutes } from "./ugc-routes.mjs";
 import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
@@ -65,6 +65,23 @@ const LOGIN_MAX_PER_IP = 10;
 const LOGIN_MAX_FAILURES = 5;
 const LOGIN_LOCK_MS = 15 * 60_000;
 const loginKey = (email) => createHash("sha256").update(String(email).trim().toLowerCase()).digest("hex");
+
+function includeOwnUGC(items, ownPosts, opts) {
+  const seen = new Set(items.map((item) => item.postId));
+  const merged = [...items];
+  for (const post of ownPosts) {
+    if (!post?.postId || seen.has(post.postId)) continue;
+    const q = feedClassification(post);
+    merged.push({
+      ...post,
+      contentType: q.contentType,
+      qualityScore: q.qualityScore,
+      feedEligible: true,
+      _score: scorePost(post, opts) + q.qualityScore * 0.4 + 2,
+    });
+  }
+  return merged;
+}
 const sourceIp = (event) => event.requestContext?.http?.sourceIp || event.headers?.["x-forwarded-for"]?.split(",")[0]?.trim() || "unknown";
 function loginEntry(email) {
   const key = loginKey(email);
@@ -523,6 +540,27 @@ async function embedImage(imageB64, text) {
       contentType: "application/json",
       accept: "application/json",
       body: JSON.stringify(reqBody),
+    })
+  );
+  return JSON.parse(Buffer.from(out.body).toString("utf8")).embedding;
+}
+
+// Text-only embedding — same shared Titan space as embedImage, so a deck can
+// be seeded from words alone. This is the cold-start path: a brand-new sender
+// has no swipe history and no photo, and without it /challenges 400s with
+// "seed required", which the app surfaced as "deck builder unreachable".
+async function embedText(text) {
+  const inputText = String(text).slice(0, 200);
+  if (!inputText.trim()) return null;
+  const out = await bedrock.send(
+    new InvokeModelCommand({
+      modelId: EMBED_MODEL,
+      contentType: "application/json",
+      accept: "application/json",
+      body: JSON.stringify({
+        inputText,
+        embeddingConfig: { outputEmbeddingLength: VECTOR_DIM },
+      }),
     })
   );
   return JSON.parse(Buffer.from(out.body).toString("utf8")).embedding;
@@ -2599,10 +2637,12 @@ async function purgeAccount(userId) {
     pools: 0,
     challenges: 0,
     ugcPosts: 0,
+    avatarObjects: 0,
   };
   // Clear the alias rows before the profile: the scan matches on
   // canonicalUserId, which does not depend on the profile item existing.
   summary.aliases = await purgeEmailAliases(userId);
+  summary.avatarObjects = await purgeUserAvatar(userId);
   if (USERS) {
     try {
       await ddb.send(new DeleteCommand({ TableName: USERS, Key: { userId } }));
@@ -2706,7 +2746,17 @@ export const handler = async (event) => {
 
     // Friends / people discovery / 1:1 DMs / circle account claim.
     {
-      const friendsRes = await friendsRoutes(method, path, body, qs, auth);
+      // /people/{id} is public, so the auth gate above never ran — but a
+      // signed-in viewer's identity is what unlocks a private profile they're
+      // friends with. Best-effort parse: a bad/absent token just stays public.
+      let friendsAuth = auth;
+      if (!friendsAuth?.ok && bearerToken(event)) {
+        try {
+          const attempt = await authorizeRequest(event, method, path);
+          if (attempt?.ok) friendsAuth = attempt;
+        } catch {}
+      }
+      const friendsRes = await friendsRoutes(method, path, body, qs, friendsAuth);
       if (friendsRes) return friendsRes;
     }
 
@@ -2720,8 +2770,9 @@ export const handler = async (event) => {
       if (!identity) return json(401, { error: "invalid provider token" });
       const userId = await resolveCanonicalUserId(identity.providerId, identity.email);
       const name = typeof body.name === "string" && body.name.trim() ? body.name.trim().slice(0, 80) : identity.name;
-      // Keep the users row warm (merge-safe, same shape as POST /me/identity).
+      // Keep the users row warm without wiping a profile photo on every login.
       try {
+        const existing = await ddb.send(new GetCommand({ TableName: USERS, Key: { userId } }));
         await ddb.send(
           new UpdateCommand({
             TableName: USERS,
@@ -2729,7 +2780,11 @@ export const handler = async (event) => {
             UpdateExpression: "SET #id = :id, lastSeenAt = :now, createdAt = if_not_exists(createdAt, :now)",
             ExpressionAttributeNames: { "#id": "identity" },
             ExpressionAttributeValues: {
-              ":id": { email: identity.email ?? null, name: name ?? null, imageUrl: null },
+              ":id": {
+                ...(existing.Item?.identity ?? {}),
+                email: identity.email ?? existing.Item?.identity?.email ?? null,
+                name: name ?? existing.Item?.identity?.name ?? null,
+              },
               ":now": Date.now(),
             },
           })
@@ -2777,6 +2832,25 @@ export const handler = async (event) => {
 
       // Per-user de-dup: skip anything this viewer has already seen/liked/saved.
       const exclude = await userExclusions(qs.userId);
+      const ownUGC = !start && qs.userId
+        ? await publicPostsForProfile(qs.userId, 3).catch(() => [])
+        : [];
+      // Social posts must not depend on the catalog's random seek. Always seed
+      // page one with the newest public, approved UGC, then let interleaveUGC
+      // place it naturally near the top.
+      const recentUGC = !start
+        ? (await feedRecencyItems(100).catch(() => []))
+            .filter((item) => item.source === "ugc"
+              && item.processingStatus === "READY"
+              && item.moderationStatus === "APPROVED"
+              && item.visibility !== "private"
+              && !exclude.posts.has(item.postId)
+              && !exclude.authors.has(item.ownerId))
+            .slice(0, 8)
+        : [];
+      const featuredUGC = [...ownUGC, ...recentUGC].filter(
+        (item, index, all) => all.findIndex((value) => value.postId === item.postId) === index
+      );
 
       // Sharded feed path (FEED_SHARDS > 1): the byFeed partition is split across
       // "all#<n>", so scatter-gather a recency window across every shard (filters
@@ -2818,8 +2892,8 @@ export const handler = async (event) => {
             if (!q.feedEligible) continue;
             ranked.push({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, feedEligible: true, _score: scorePost(p, opts) + q.qualityScore * 0.4 });
           }
-          ranked.sort((a, b) => b._score - a._score);
-          const mixed = interleaveAuthors(ranked);
+          const withOwnPosts = includeOwnUGC(ranked, featuredUGC, opts).sort((a, b) => b._score - a._score);
+          const mixed = interleaveUGC(interleaveAuthors(withOwnPosts));
           let offset = start?._offset ?? 0;
           const personalized = qs.recipient && qs.recipient !== "anyone";
           if (!start && !filters.length && !personalized && qs.fresh !== "0" && ranked.length > limit) {
@@ -2934,8 +3008,8 @@ export const handler = async (event) => {
           }
           if (!lastKey) break;    // reached the end of the range
         }
-        eligible.sort((a, b) => b._score - a._score);
-        return json(200, { items: interleaveAuthors(eligible).slice(0, limit), cursor: encodeCursor(lastKey) });
+        const withOwnPosts = includeOwnUGC(eligible, featuredUGC, opts).sort((a, b) => b._score - a._score);
+        return json(200, { items: interleaveUGC(interleaveAuthors(withOwnPosts)).slice(0, limit), cursor: encodeCursor(lastKey) });
       } catch (err) {
         // byFeed GSI not deployed yet (or transient error) -> legacy fallback.
         console.warn("byFeed query failed, falling back to full scan:", err.message);
@@ -2957,7 +3031,7 @@ export const handler = async (event) => {
         .filter((x) => x.q.feedEligible && !exclude.posts.has(x.p.postId) && !exclude.authors.has(x.p.ownerId))
         .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 }))
         .sort((a, b) => b._score - a._score);
-      const rankedMixed = interleaveAuthors(ranked);
+      const rankedMixed = interleaveUGC(interleaveAuthors(includeOwnUGC(ranked, featuredUGC, opts)));
       const offset = start?._offset ?? 0;
       const page = rankedMixed.slice(offset, offset + limit);
       const nextOffset = offset + limit;
@@ -3284,6 +3358,7 @@ export const handler = async (event) => {
     if (method === "GET" && path === "/recommendations") {
       const userId = qs.userId;
       let likedTargets = new Set();
+      let excludedTargets = new Set();
       if (userId) {
         const inter = await ddb.send(
           new QueryCommand({
@@ -3292,7 +3367,12 @@ export const handler = async (event) => {
             ExpressionAttributeValues: { ":u": userId },
           })
         );
-        likedTargets = new Set((inter.Items ?? []).map((i) => i.target));
+        const rows = inter.Items ?? [];
+        excludedTargets = new Set(rows.map((i) => i.target).filter(Boolean));
+        likedTargets = new Set(rows
+          .filter((i) => ["like", "save", "pledge", "board_add"].includes(i.type))
+          .map((i) => i.target)
+          .filter(Boolean));
       }
 
       const limit = Math.min(Number(qs.limit) || 12, 50);
@@ -3319,7 +3399,7 @@ export const handler = async (event) => {
           });
           if (vitems && vitems.length) {
             return json(200, {
-              items: interleaveAuthors(vitems.filter(giftTypeOk)),
+              items: interleaveAuthors(vitems.filter((item) => !excludedTargets.has(item.postId)).filter(giftTypeOk)),
               cursor: null,
               source: vitems.some((it) => it.mtl) ? "vector+mtl" : "vector",
             });
@@ -3345,7 +3425,7 @@ export const handler = async (event) => {
       const out = await ddb.send(new ScanCommand(scan));
       const items = interleaveAuthors(
         (out.Items ?? [])
-          .filter((p) => !likedTargets.has(p.postId) && p.author !== userId)
+          .filter((p) => !excludedTargets.has(p.postId) && p.author !== userId)
           .filter(giftTypeOk)
           .map((p) => ({ p, q: feedClassification(p) }))
           .filter((x) => x.q.feedEligible)
@@ -3685,6 +3765,15 @@ export const handler = async (event) => {
             if (first && !exactDeck) seedCard = deckSnapshot(vecToItem(first), "seed");
           }
         }
+        // Words-only seed (cold start: no photo, no taste history, or keys
+        // that resolved to nothing). Titan embeds text into the SAME space as
+        // images, so a described vibe builds a real deck.
+        if (!seedVector && seed.text) {
+          seedVector = await embedText(seed.text);
+          if (seedVector) {
+            seedInfo = { kind: "text", text: String(seed.text).slice(0, 200) };
+          }
+        }
       } catch (e) {
         console.warn("challenge seed resolve failed:", e.message);
       }
@@ -3748,7 +3837,7 @@ export const handler = async (event) => {
         if (!seedInfo) seedInfo = { kind: "list", keys: deck.map((d) => d.postId) };
       } else {
         if (!seedVector) {
-          return json(400, { error: "seed required: imageBase64, postId, or seedKeys" });
+          return json(400, { error: "seed required: imageBase64, postId, seedKeys, or text" });
         }
         deck = await buildChallengeDeck(seedVector, {
           size: seedCard ? deckSize - 1 : deckSize,
@@ -3985,6 +4074,26 @@ export const handler = async (event) => {
         })
       );
 
+      // Signed-in responder: clear the inbox row so a finished list stops
+      // showing up as waiting for them.
+      const viewerUserId =
+        typeof guest.userId === "string" ? guest.userId.trim().slice(0, 128) : "";
+      if (viewerUserId && EVENTS) {
+        try {
+          await ddb.send(
+            new UpdateCommand({
+              TableName: EVENTS,
+              Key: { userId: viewerUserId, eventId: `CHALINVITE#${challengeId}` },
+              UpdateExpression: "SET respondedAt = :t",
+              ConditionExpression: "attribute_exists(eventId)",
+              ExpressionAttributeValues: { ":t": createdAt },
+            })
+          );
+        } catch (e) {
+          // No invite row (web guest / link opener) — nothing to clear.
+        }
+      }
+
       // Mirror a soft profile so the sender's existing surfaces (Activity,
       // ChallengeView responses, Maxi's list_connections) pick this up as-is.
       if (meta.senderId) {
@@ -4086,6 +4195,185 @@ export const handler = async (event) => {
           seeds: guestSeeds,
         },
       });
+    }
+
+    // POST /challenges/{id}/invite  { toUserId, byUserId?, byName?, title? }
+    // Deliver a swipe list to a friend who ALREADY has the app: an inbox row on
+    // their own partition plus a push, instead of making them open a web link.
+    // The share link stays for everyone else.
+    if (method === "POST" && /^\/challenges\/[^/]+\/invite$/.test(path)) {
+      if (!CHALLENGES || !EVENTS) return json(503, { error: "not configured" });
+      const challengeId = decodeURIComponent(path.split("/")[2]);
+      const toUserId = String(body.toUserId ?? "").trim().slice(0, 128);
+      if (!toUserId) return json(400, { error: "toUserId required" });
+
+      const metaOut = await ddb.send(
+        new GetCommand({ TableName: CHALLENGES, Key: { challengeId, itemId: "META" } })
+      );
+      const meta = metaOut.Item;
+      if (!meta) return json(404, { error: "challenge not found" });
+
+      const byName = String(body.byName ?? meta.inviterName ?? "").trim().slice(0, 40);
+      const now = Date.now();
+      await ddb.send(
+        new PutCommand({
+          TableName: EVENTS,
+          Item: {
+            userId: toUserId,
+            eventId: `CHALINVITE#${challengeId}`,
+            scope: "challengeInvite",
+            challengeId,
+            fromUserId: String(body.byUserId ?? "").slice(0, 128) || null,
+            fromName: byName || null,
+            title: String(body.title ?? "").slice(0, 80) || null,
+            occasion: meta.occasion ?? null,
+            deckSize: Array.isArray(meta.deck) ? meta.deck.length : null,
+            createdAt: now,
+            respondedAt: null,
+          },
+        })
+      );
+
+      try {
+        await sendPushToUser(toUserId, {
+          title: byName ? `🎁 ${byName} needs your help` : "🎁 A gift challenge for you",
+          body: "Swipe a few ideas so they can get your gift right.",
+          data: { type: "challenge_invite", challengeId },
+        });
+      } catch (e) {
+        console.warn("challenge invite push failed:", e.message);
+      }
+
+      return json(200, { ok: true, challengeId });
+    }
+
+    // POST /boards/share  { toUserId, board:{name,recipientName?,occasion?,posts[]},
+    //                       byUserId?, byName? }
+    // Hand a Gift Board to a co-giver (a partner shopping for the same person)
+    // so they can add their own ideas before either of you sends the deck.
+    if (method === "POST" && path === "/boards/share") {
+      if (!EVENTS) return json(503, { error: "events table not configured" });
+      const toUserId = String(body.toUserId ?? "").trim().slice(0, 128);
+      const board = body.board ?? {};
+      const name = String(board.name ?? "").trim().slice(0, 60);
+      const posts = Array.isArray(board.posts) ? board.posts.slice(0, 100) : [];
+      if (!toUserId || !name) return json(400, { error: "toUserId and board.name required" });
+
+      const shareId = gid();
+      const now = Date.now();
+      await ddb.send(
+        new PutCommand({
+          TableName: EVENTS,
+          Item: {
+            userId: toUserId,
+            eventId: `BOARDSHARE#${shareId}`,
+            scope: "boardShare",
+            shareId,
+            name,
+            recipientName: board.recipientName ? String(board.recipientName).slice(0, 40) : null,
+            occasion: board.occasion ? String(board.occasion).slice(0, 40) : null,
+            relationship: board.relationship ? String(board.relationship).slice(0, 40) : null,
+            posts,
+            fromUserId: String(body.byUserId ?? "").slice(0, 128) || null,
+            fromName: String(body.byName ?? "").trim().slice(0, 40) || null,
+            createdAt: now,
+            acceptedAt: null,
+          },
+        })
+      );
+
+      try {
+        const who = String(body.byName ?? "").trim().slice(0, 40);
+        await sendPushToUser(toUserId, {
+          title: who ? `🎁 ${who} shared a gift board` : "🎁 A gift board was shared with you",
+          body: `"${name}" — add your ideas, then send it together.`,
+          data: { type: "board_shared", shareId },
+        });
+      } catch (e) {
+        console.warn("board share push failed:", e.message);
+      }
+
+      return json(200, { ok: true, shareId });
+    }
+
+    // GET /board-shares?userId= — boards a co-giver handed to this account.
+    if (method === "GET" && path === "/board-shares") {
+      if (!EVENTS) return json(503, { error: "events table not configured" });
+      const uid = String(qs.userId ?? "").trim();
+      if (!uid) return json(400, { error: "userId required" });
+      const out = await ddb.send(
+        new QueryCommand({
+          TableName: EVENTS,
+          KeyConditionExpression: "userId = :u AND begins_with(eventId, :p)",
+          ExpressionAttributeValues: { ":u": uid, ":p": "BOARDSHARE#" },
+        })
+      );
+      const items = (out.Items ?? [])
+        .filter((r) => !r.acceptedAt)
+        .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+        .slice(0, 20)
+        .map((r) => ({
+          shareId: r.shareId,
+          name: r.name,
+          recipientName: r.recipientName ?? null,
+          occasion: r.occasion ?? null,
+          relationship: r.relationship ?? null,
+          posts: r.posts ?? [],
+          fromName: r.fromName ?? null,
+          fromUserId: r.fromUserId ?? null,
+          createdAt: r.createdAt ?? null,
+        }));
+      return json(200, { items });
+    }
+
+    // POST /board-shares/{id}/accept — the co-giver took it into their boards.
+    if (method === "POST" && /^\/board-shares\/[^/]+\/accept$/.test(path)) {
+      if (!EVENTS) return json(503, { error: "events table not configured" });
+      const shareId = decodeURIComponent(path.split("/")[2]);
+      const uid = String(body.userId ?? "").trim().slice(0, 128);
+      if (!uid) return json(400, { error: "userId required" });
+      try {
+        await ddb.send(
+          new UpdateCommand({
+            TableName: EVENTS,
+            Key: { userId: uid, eventId: `BOARDSHARE#${shareId}` },
+            UpdateExpression: "SET acceptedAt = :t",
+            ConditionExpression: "attribute_exists(eventId)",
+            ExpressionAttributeValues: { ":t": Date.now() },
+          })
+        );
+      } catch (e) {
+        return json(404, { error: "share not found" });
+      }
+      return json(200, { ok: true });
+    }
+
+    // GET /challenge-invites?userId= — swipe lists waiting for this account.
+    if (method === "GET" && path === "/challenge-invites") {
+      if (!EVENTS) return json(503, { error: "events table not configured" });
+      const uid = String(qs.userId ?? "").trim();
+      if (!uid) return json(400, { error: "userId required" });
+      const out = await ddb.send(
+        new QueryCommand({
+          TableName: EVENTS,
+          KeyConditionExpression: "userId = :u AND begins_with(eventId, :p)",
+          ExpressionAttributeValues: { ":u": uid, ":p": "CHALINVITE#" },
+        })
+      );
+      const items = (out.Items ?? [])
+        .filter((r) => !r.respondedAt)
+        .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+        .slice(0, 20)
+        .map((r) => ({
+          challengeId: r.challengeId,
+          fromName: r.fromName ?? null,
+          fromUserId: r.fromUserId ?? null,
+          title: r.title ?? null,
+          occasion: r.occasion ?? null,
+          deckSize: r.deckSize ?? null,
+          createdAt: r.createdAt ?? null,
+        }));
+      return json(200, { items });
     }
 
     // GET /challenges?senderId= — the sender's challenges, newest first, with
@@ -4578,6 +4866,112 @@ export const handler = async (event) => {
       });
     }
 
+    // POST /circles/{id}/members  { userId, name, birthday?, byUserId?, byName? }
+    // Add someone who is ALREADY on Giftmaxxing straight into the circle —
+    // the WhatsApp-community / Discord model. The share link still exists for
+    // people without the app; this is the path for friends you're connected
+    // to. Writes two rows: the member on the circle's partition, and a
+    // back-reference on the member's OWN partition so their app can list the
+    // circles they belong to (membership used to be device-local only, so a
+    // server-side add would have been invisible to them).
+    if (method === "POST" && /^\/circles\/[^/]+\/members$/.test(path)) {
+      if (!EVENTS) return json(503, { error: "events table not configured" });
+      const circleId = decodeURIComponent(path.split("/")[2]);
+      const pk = `CIRCLE#${circleId}`;
+      const targetUserId = String(body.userId ?? "").trim().slice(0, 128);
+      const name = String(body.name ?? "").trim().slice(0, 40);
+      if (!targetUserId || !name) return json(400, { error: "userId and name required" });
+
+      const out = await ddb.send(
+        new QueryCommand({
+          TableName: EVENTS,
+          KeyConditionExpression: "userId = :u",
+          ExpressionAttributeValues: { ":u": pk },
+        })
+      );
+      const rows = out.Items ?? [];
+      const meta = rows.find((r) => r.eventId === "META");
+      if (!meta) return json(404, { error: "circle not found" });
+      const members = rows.filter((r) => r.eventId.startsWith("MEMBER#"));
+      if (members.length >= 100) return json(400, { error: "circle is full" });
+
+      // Idempotent: adding the same account twice just refreshes the link.
+      const existing =
+        members.find((r) => r.linkedUserId === targetUserId) ||
+        members.find((r) => String(r.name ?? "").toLowerCase() === name.toLowerCase());
+      const birthday =
+        typeof body.birthday === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.birthday)
+          ? body.birthday
+          : existing?.birthday ?? null;
+      const now = Date.now();
+      const item = {
+        userId: pk,
+        eventId: existing?.eventId ?? `MEMBER#${gid()}`,
+        scope: "circle",
+        name,
+        birthday,
+        role: existing?.role ?? "member",
+        joinedAt: existing?.joinedAt ?? now,
+        linkedUserId: targetUserId,
+        linkedAt: now,
+        addedBy: String(body.byUserId ?? "").slice(0, 128) || null,
+      };
+      await ddb.send(new PutCommand({ TableName: EVENTS, Item: item }));
+
+      // The member's own index row — cheap lookup for GET /circles?userId=.
+      await ddb.send(
+        new PutCommand({
+          TableName: EVENTS,
+          Item: {
+            userId: targetUserId,
+            eventId: `CIRCLEREF#${circleId}`,
+            scope: "circleRef",
+            circleId,
+            name: meta.name,
+            emoji: meta.emoji ?? null,
+            joinedAt: now,
+          },
+        })
+      );
+
+      const byName = String(body.byName ?? "").trim().slice(0, 40);
+      try {
+        await sendPushToUser(targetUserId, {
+          title: `👥 You're in ${meta.name}`,
+          body: byName
+            ? `${byName} added you to the ${meta.name} circle — see whose day is coming up.`
+            : `You were added to the ${meta.name} circle — see whose day is coming up.`,
+          data: { type: "circle_added", circleId },
+        });
+      } catch (e) {
+        console.warn("circle add push failed:", e.message);
+      }
+
+      return json(200, { ok: true, memberId: item.eventId.slice(7), circleId });
+    }
+
+    // GET /circles?userId=  — every circle this account belongs to, from the
+    // per-user index rows written on add/join.
+    if (method === "GET" && path === "/circles") {
+      if (!EVENTS) return json(503, { error: "events table not configured" });
+      const uid = String(qs.userId ?? "").trim();
+      if (!uid) return json(400, { error: "userId required" });
+      const out = await ddb.send(
+        new QueryCommand({
+          TableName: EVENTS,
+          KeyConditionExpression: "userId = :u AND begins_with(eventId, :p)",
+          ExpressionAttributeValues: { ":u": uid, ":p": "CIRCLEREF#" },
+        })
+      );
+      const items = (out.Items ?? []).map((r) => ({
+        circleId: r.circleId,
+        name: r.name,
+        emoji: r.emoji ?? null,
+        joinedAt: r.joinedAt ?? null,
+      }));
+      return json(200, { items });
+    }
+
     // POST /circles/{id}/events  { title, date, type?, forName?, addedBy? }
     if (method === "POST" && /^\/circles\/[^/]+\/events$/.test(path)) {
       if (!EVENTS) return json(503, { error: "events table not configured" });
@@ -4766,6 +5160,7 @@ export const handler = async (event) => {
       const { userId, email, name, imageUrl } = body;
       if (!userId) return json(400, { error: "userId required" });
       const now = Date.now();
+      const existing = await ddb.send(new GetCommand({ TableName: USERS, Key: { userId } }));
       await ddb.send(
         new UpdateCommand({
           TableName: USERS,
@@ -4773,7 +5168,12 @@ export const handler = async (event) => {
           UpdateExpression: "SET #id = :id, lastSeenAt = :now, createdAt = if_not_exists(createdAt, :now)",
           ExpressionAttributeNames: { "#id": "identity" },
           ExpressionAttributeValues: {
-            ":id": { email: email ?? null, name: name ?? null, imageUrl: imageUrl ?? null },
+            ":id": {
+              ...(existing.Item?.identity ?? {}),
+              email: email ?? existing.Item?.identity?.email ?? null,
+              name: name ?? existing.Item?.identity?.name ?? null,
+              imageUrl: imageUrl ?? existing.Item?.identity?.imageUrl ?? null,
+            },
             ":now": now,
           },
         })

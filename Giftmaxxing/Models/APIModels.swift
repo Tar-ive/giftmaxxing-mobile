@@ -4,6 +4,7 @@ struct APIPost: Codable {
     let postId: String
     var author: String?
     var authorName: String?
+    var authorImageUrl: String?
     var ownerId: String?
     var createdAt: Double?
     var likes: Int?
@@ -28,7 +29,10 @@ struct APIPost: Codable {
     var qualityScore: Double?
     var contentType: String?
     var mediaUrl: String?
+    var mediaUrls: [String]?
     var posterUrl: String?
+    var music: UGCMusicTrack?
+    var recentComments: [Comment]? = nil
     var feedEligible: Bool?
     // Products vs gift-able services (a year of Netflix, a Costco membership…).
     var giftType: String?
@@ -38,14 +42,20 @@ struct APIPost: Codable {
     var story: String?
 }
 
-struct UGCPost: Identifiable, Codable {
+struct UGCPost: Identifiable, Codable, Hashable {
     let postId: String
+    var ownerId: String? = nil
     var authorName: String?
+    var authorImageUrl: String?
     var caption: String
+    var likes: Int? = nil
+    var comments: Int? = nil
     var mediaType: String
     var mimeType: String?
     var mediaUrl: String?
+    var mediaUrls: [String]? = nil
     var posterUrl: String?
+    var music: UGCMusicTrack? = nil
     var processingStatus: String
     var moderationStatus: String
     var moderationReason: [String]?
@@ -54,6 +64,28 @@ struct UGCPost: Identifiable, Codable {
 
     var id: String { postId }
     var isTerminal: Bool { ["READY", "REJECTED", "FAILED"].contains(processingStatus) }
+}
+
+struct UGCMusicTrack: Identifiable, Codable, Hashable {
+    var trackId: String
+    var title: String
+    var artist: String
+    var audioUrl: String
+    var durationSeconds: Int
+    var license: String
+    var licenseUrl: String?
+
+    var id: String { trackId }
+}
+
+struct UGCMusicTracksResponse: Codable {
+    var items: [UGCMusicTrack]
+}
+
+struct UGCUploadTarget: Codable {
+    var index: Int
+    var uploadUrl: String
+    var uploadHeaders: [String: String]
 }
 
 struct UGCLabel: Codable, Hashable {
@@ -65,6 +97,7 @@ struct UGCUploadResponse: Codable {
     var post: UGCPost
     var uploadUrl: String
     var uploadHeaders: [String: String]
+    var uploads: [UGCUploadTarget]? = nil
     var posterUploadUrl: String?
     var posterUploadHeaders: [String: String]?
     var expiresIn: Int
@@ -82,6 +115,37 @@ struct UGCCompleteResponse: Codable {
     var ok: Bool
     var postId: String
     var status: String?
+}
+
+struct PostLikeResponse: Codable {
+    var liked: Bool
+    var likes: Int
+}
+
+struct PostLikeStatesResponse: Codable {
+    var likedPostIds: [String]
+}
+
+struct PostCommentsResponse: Codable {
+    var items: [Comment]
+    var count: Int
+}
+
+struct PostCommentResponse: Codable {
+    var item: Comment
+    var count: Int
+}
+
+struct AvatarUploadResponse: Codable {
+    var avatarId: String
+    var uploadUrl: String
+    var uploadHeaders: [String: String]
+    var expiresIn: Int
+}
+
+struct AvatarCompleteResponse: Codable {
+    var ok: Bool
+    var imageUrl: String
 }
 
 struct APIProduct: Codable {
@@ -292,6 +356,13 @@ struct UserProfile: Codable {
     var visibility: String?
     // Per-account Gift Boards, synced so they survive sign-out / new devices.
     var giftBoards: [SwipeList]?
+    // The public gifting persona (also served to friends via /people).
+    var tagline: String?
+    var philosophy: String?
+    var clothingSizes: [String: String]?
+    var dislikes: [String]?
+    var giftNote: String?
+    var giftShowcase: [GiftShowcaseItem]?
 
     struct Recipient: Codable, Identifiable {
         var id: String
@@ -395,6 +466,69 @@ struct CircleJoinResponse: Codable {
     var linkedUserId: String?
 }
 
+struct BoardShareAck: Codable {
+    var ok: Bool?
+    var shareId: String?
+}
+
+struct SharedBoard: Codable, Identifiable {
+    var shareId: String
+    var name: String
+    var recipientName: String?
+    var occasion: String?
+    var relationship: String?
+    var posts: [APIPost]?
+    var fromName: String?
+    var fromUserId: String?
+    var createdAt: Double?
+
+    var id: String { shareId }
+}
+
+struct SharedBoardsResponse: Codable {
+    var items: [SharedBoard]?
+}
+
+struct ChallengeInviteAck: Codable {
+    var ok: Bool?
+    var challengeId: String?
+}
+
+struct ChallengeInvite: Codable, Identifiable {
+    var challengeId: String
+    var fromName: String?
+    var fromUserId: String?
+    var title: String?
+    var occasion: String?
+    var deckSize: Int?
+    var createdAt: Double?
+
+    var id: String { challengeId }
+}
+
+struct ChallengeInvitesResponse: Codable {
+    var items: [ChallengeInvite]?
+}
+
+struct CircleMemberAddResponse: Codable {
+    var ok: Bool?
+    var memberId: String?
+    var circleId: String?
+}
+
+struct MyCircleRef: Codable, Identifiable {
+    var circleId: String
+    var name: String
+    var emoji: String?
+    var joinedAt: Double?
+
+    var id: String { circleId }
+}
+
+struct MyCirclesResponse: Codable {
+    var items: [MyCircleRef]?
+}
+
 struct CircleAck: Codable {
     var ok: Bool?
     var eventId: String?
@@ -452,8 +586,42 @@ struct PublicPerson: Codable, Identifiable, Hashable {
     var style: String?
     var role: String?
     var visibility: String?
+    // Gifting persona + the "gift me right" facts (sizes, dislikes, note,
+    // photos of gifts they'd love) — what friends use to pick well.
+    var tagline: String?
+    var philosophy: String?
+    var clothingSizes: [String: String]?
+    var dislikes: [String]?
+    var giftNote: String?
+    var giftShowcase: [GiftShowcaseItem]?
+    var posts: [UGCPost]?
+    var friendCount: Int? = nil
+    var circles: [PersonCircle]? = nil
 
     var id: String { userId }
+}
+
+struct PersonCircle: Codable, Identifiable, Hashable {
+    var circleId: String
+    var name: String
+    var emoji: String?
+
+    var id: String { circleId }
+}
+
+// One photo in a profile's "gifts I'd love" showcase — a board item the
+// owner wrote a why-note for, or explicitly liked.
+struct GiftShowcaseItem: Codable, Hashable, Identifiable {
+    var postId: String
+    var name: String?
+    var imageUrl: String?
+    var why: String?
+    var forWhom: String?
+    var brand: String?
+    var price: Double?
+    var productUrl: String?
+
+    var id: String { postId }
 }
 
 struct PeopleSearchResponse: Codable {
@@ -476,6 +644,7 @@ struct Friendship: Codable, Identifiable, Hashable {
     var handle: String?
     var bio: String?
     var interests: [String]?
+    var imageUrl: String? = nil
 
     var id: String { friendId }
 

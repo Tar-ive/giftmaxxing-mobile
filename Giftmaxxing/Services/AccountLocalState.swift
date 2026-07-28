@@ -48,6 +48,7 @@ enum AccountLocalState {
         // Persona texts on the public profile editor.
         UserDefaults.standard.removeObject(forKey: "gifting_tagline")
         UserDefaults.standard.removeObject(forKey: "gifting_philosophy")
+        UserDefaults.standard.removeObject(forKey: "gifting_showcase_synced")
         // Cached events (imported contacts' birthdays are PII) must not linger
         // for the next account on this device. Reads are already account-scoped,
         // but purge on the boundary too, for defense in depth.

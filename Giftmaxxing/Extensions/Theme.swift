@@ -3,21 +3,38 @@ import SwiftUI
 // Token surface for DESIGN.md — resolve colors, radii, spacing, and elevation
 // here instead of hardcoding values in views.
 extension Color {
-    static let coral = Color(hex: "#FB6F52")
-    static let coralEmphasis = Color(hex: "#E85A3D")
-    static let cream = Color(hex: "#F7F2EB")
-    static let ink = Color(hex: "#1A1A1A")
-    static let inkSecondary = Color(hex: "#6B6560")
-    static let inkTertiary = Color(hex: "#9B948C")
-    static let line = Color(hex: "#E5E0D8")
-    static let surface = Color(hex: "#FFFFFF")
-    static let surfaceSunken = Color(hex: "#F1EAE0")
-    static let coralSoft = Color(hex: "#FFF0ED")
-    static let gradientEnd = Color(hex: "#FF9A76")
-    static let onboardingGlow = Color(hex: "#FFC5A0")
-    static let onboardingWash = Color(hex: "#FFF9F5")
-    static let success = Color(hex: "#3E8E5A")
-    static let danger = Color(hex: "#D64545")
+    // Every token resolves per trait collection, so the whole app themes from
+    // this one place. Dark is a WARM dark (brown-black, not blue-black) —
+    // the boutique feel has to survive the switch.
+    // Light-mode coral is DEEPER than the original #FB6F52 for one reason:
+    // white-on-coral measured 2.80:1 and coral-as-text on cream 2.51:1, both
+    // far below the 4.5:1 AA floor. #C63F24 clears it everywhere it's used
+    // (fill 5.08, on cream 4.56, on surface 5.08, on coralSoft 4.58) while
+    // staying unmistakably the same coral. Dark mode already passed, so it is
+    // unchanged.
+    static let coral = dynamic(light: "#C63F24", dark: "#FF7F63")
+    static let coralEmphasis = dynamic(light: "#A8321B", dark: "#FF9A80")
+    static let cream = dynamic(light: "#F7F2EB", dark: "#141210")
+    static let ink = dynamic(light: "#1A1A1A", dark: "#F5F1EA")
+    static let inkSecondary = dynamic(light: "#6B6560", dark: "#B3ABA1")
+    // #9B948C was 2.69:1 on cream — placeholder text nobody could read.
+    static let inkTertiary = dynamic(light: "#7D7670", dark: "#867E75")
+    static let line = dynamic(light: "#E5E0D8", dark: "#332E28")
+    static let surface = dynamic(light: "#FFFFFF", dark: "#1E1B18")
+    static let surfaceSunken = dynamic(light: "#F1EAE0", dark: "#2A2620")
+    static let coralSoft = dynamic(light: "#FFF0ED", dark: "#3A2620")
+    static let gradientEnd = dynamic(light: "#FF9A76", dark: "#FF9A76")
+    static let onboardingGlow = dynamic(light: "#FFC5A0", dark: "#7A4A33")
+    static let onboardingWash = dynamic(light: "#FFF9F5", dark: "#1A1613")
+    static let success = dynamic(light: "#3E8E5A", dark: "#5FB77F")
+    static let danger = dynamic(light: "#D64545", dark: "#F06B6B")
+
+    /// A color that resolves differently in light and dark appearance.
+    static func dynamic(light: String, dark: String) -> Color {
+        Color(uiColor: UIColor { traits in
+            UIColor(Color(hex: traits.userInterfaceStyle == .dark ? dark : light))
+        })
+    }
 
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)

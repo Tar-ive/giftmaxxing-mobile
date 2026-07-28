@@ -19,7 +19,14 @@ struct ChallengeSwipeView: View {
     @State private var loadFailed = false
     @State private var index = 0
     @State private var offset: CGSize = .zero
-    @State private var swipes: [(id: String, dir: String)] = []
+    @State private var swipes: [(id: String, dir: String, dwellMs: Double)] = []
+    // Telemetry: how long each card was actually looked at, and whether they
+    // walked away mid-deck. A fast yes and a long deliberation are different
+    // signals, and an abandoned deck is its own answer.
+    @State private var cardShownAt = Date()
+    @State private var maxIndexSeen = 0
+    // Measured photo shape per card (adaptive card height).
+    @State private var cardAspect: [String: CGFloat] = [:]
     @State private var submitted = false
     @State private var submitting = false
 
@@ -61,19 +68,20 @@ struct ChallengeSwipeView: View {
                     deckCard(card)
                     actionButtons
                 } else {
-                    // Deck finished — send the answers.
+                    // Deck finished — sending is automatic; this is just the
+                    // beat before the confirmation (or a retry if it failed).
                     Spacer()
                     VStack(spacing: 14) {
                         Image(systemName: "paperplane.circle.fill")
                             .font(.system(size: 44))
                             .foregroundStyle(Color.coral)
-                        Text("That's all \(deck.count) — send your answers?")
+                        Text(submitting ? "Sending your answers…" : "That's all \(deck.count)")
                             .font(.displaySmall)
                             .foregroundStyle(Color.ink)
                         Button {
                             Task { await submit() }
                         } label: {
-                            Text(submitting ? "Sending…" : "Send to \(status?.inviterName ?? "them")")
+                            Text(submitting ? "Sending…" : "Try sending again")
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
@@ -105,6 +113,14 @@ struct ChallengeSwipeView: View {
                 }
             }
             .task { await load() }
+            .onChange(of: index) { _, newIndex in
+                // Last card swiped: send straight away instead of asking them
+                // to press "Send to <name>" — the swiping WAS the answer.
+                if newIndex >= deck.count, !deck.isEmpty, !submitted, !submitting {
+                    Task { await submit() }
+                }
+            }
+            .onDisappear { trackExitIfIncomplete() }
         }
     }
 
@@ -126,6 +142,14 @@ struct ChallengeSwipeView: View {
         .padding(.top, 10)
     }
 
+    // Cards take the shape of their photo instead of a fixed 1.1 box, so a
+    // tall product isn't cropped and a square one isn't padded out.
+    private func imageHeight(for card: ChallengeCreateResponse.ChallengeDeckItem, width: CGFloat) -> CGFloat {
+        let maxHeight = UIScreen.main.bounds.height * 0.58
+        guard let aspect = cardAspect[card.postId], aspect > 0 else { return width * 1.1 }
+        return min(max(width / aspect, width * 0.75), maxHeight)
+    }
+
     private func deckCard(_ card: ChallengeCreateResponse.ChallengeDeckItem) -> some View {
         GeometryReader { geo in
             let width = min(geo.size.width - 40, 500)
@@ -133,7 +157,11 @@ struct ChallengeSwipeView: View {
                 ZStack {
                     Color.gradient(for: .coral)
                     if let image = card.image {
-                        CachedAsyncImage(url: image, width: 600)
+                        CachedAsyncImage(url: image, width: 600) { ratio in
+                            if cardAspect[card.postId] == nil {
+                                withAnimation(.snappy) { cardAspect[card.postId] = ratio }
+                            }
+                        }
                     }
                     if card.giftType == "service" {
                         VStack {
@@ -146,7 +174,7 @@ struct ChallengeSwipeView: View {
                         .padding(12)
                     }
                 }
-                .frame(width: width, height: width * 1.1)
+                .frame(width: width, height: imageHeight(for: card, width: width))
                 .clipped()
                 .clipShape(UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24))
 
@@ -236,20 +264,41 @@ struct ChallengeSwipeView: View {
 
     private func swipe(_ dir: String) {
         guard let card = currentCard else { return }
-        swipes.append((id: card.postId, dir: dir))
+        let dwellMs = Date().timeIntervalSince(cardShownAt) * 1000
+        swipes.append((id: card.postId, dir: dir, dwellMs: dwellMs))
+        if dir == "yes" {
+            AnalyticsEngine.shared.trackSwipeRight(postId: card.postId, velocity: 0, position: index)
+        } else {
+            AnalyticsEngine.shared.trackSwipeLeft(postId: card.postId, velocity: 0, position: index)
+        }
         withAnimation(.spring(response: 0.35)) {
             offset = CGSize(width: dir == "yes" ? 500 : -500, height: 0)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             index += 1
+            maxIndexSeen = max(maxIndexSeen, index)
+            cardShownAt = Date()
             offset = .zero
         }
+    }
+
+    // Left mid-deck: record what they got through so an abandoned list still
+    // tells the sender something (and never looks like a finished response).
+    private func trackExitIfIncomplete() {
+        guard !submitted, !deck.isEmpty, swipes.count < deck.count else { return }
+        AnalyticsEngine.shared.trackChallengeAbandoned(
+            challengeId: challengeId,
+            swiped: swipes.count,
+            deckSize: deck.count,
+            yesCount: yesCount
+        )
     }
 
     private func load() async {
         do {
             status = try await APIClient.shared.fetchChallengeStatus(challengeId: challengeId)
             loadFailed = (status?.deck ?? []).isEmpty
+            cardShownAt = Date()
         } catch {
             loadFailed = true
         }
@@ -265,9 +314,15 @@ struct ChallengeSwipeView: View {
                 challengeId: challengeId,
                 guestName: guestName,
                 swipes: swipes,
-                anonId: InteractionQueue.anonymousUserId
+                anonId: InteractionQueue.anonymousUserId,
+                viewerUserId: authManager.userId
             )
             submitted = true
+            AnalyticsEngine.shared.trackDeckComplete(
+                yesCount: yesCount,
+                noCount: swipes.count - yesCount,
+                totalCards: deck.count
+            )
         } catch {
             // Leave the send button up — the guest can retry.
         }

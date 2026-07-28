@@ -22,6 +22,15 @@ enum E2ESupport {
     @MainActor
     static func autoSignInIfRequested(authManager: AuthManager) async {
         #if DEBUG
+        if UserDefaults.standard.bool(forKey: "profilePreview") || UserDefaults.standard.bool(forKey: "publicProfilePreview") {
+            authManager.isAuthenticated = true
+            authManager.userId = UserDefaults.standard.bool(forKey: "publicProfilePreview")
+                ? "profile-preview-viewer"
+                : "google_102419904198993789987"
+            authManager.displayName = UserDefaults.standard.bool(forKey: "publicProfilePreview") ? "Gift Friend" : "Saksham Adhikari"
+            PersonalizationStore.markOnboarded(identity: authManager.userId)
+            return
+        }
         // Keychain sessions survive Maestro's clearState (app-container wipes
         // don't touch securityd) — `-e2eReset 1` forces a signed-out start.
         if UserDefaults.standard.bool(forKey: "e2eReset") {
