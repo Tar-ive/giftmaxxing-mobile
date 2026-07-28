@@ -34,6 +34,9 @@ enum VisualSearchLauncher {
 // resolved by embedding the photo and kNN-ing the catalog (same path as camera
 // visual search). Hidden entirely when nothing matches closely enough.
 struct ShopThisPostRail: View {
+    /// Server-cached matches are keyed by post; without an id we fall back to
+    /// embedding the image on demand.
+    var postId: String? = nil
     let imageUrl: String?
     let caption: String?
 
@@ -125,6 +128,11 @@ struct ShopThisPostRail: View {
 
     private func load() async {
         defer { isLoading = false }
+        // Server-side, computed once and cached on the post.
+        if let postId, let cached = try? await APIClient.shared.fetchShoppable(postId: postId) {
+            matches = cached
+            if !cached.isEmpty { return }
+        }
         guard let base64 = await VisualSearchLauncher.payload(for: imageUrl) else { return }
         let response = try? await APIClient.shared.fetchVisualSearch(
             imageBase64: base64,

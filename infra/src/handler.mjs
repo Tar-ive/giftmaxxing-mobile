@@ -188,7 +188,7 @@ function isPublicRoute(method, path) {
     if (/^\/galleries\/[^/]+$/.test(path) || path === "/bundles") return true;
     if (path === "/birthday-freebies") return true;
     if (path === "/vectors") return true;
-    if (path.startsWith("/posts/")) return true;
+    if (path.startsWith("/posts/")) return true; // includes /posts/{id}/shoppable
     // Guest deck fetch (the invited friend swipes without an account). The
     // sender-only fields (seed, verdicts) are stripped unless the request
     // authenticates as the challenge's sender — see the route.
@@ -3040,6 +3040,69 @@ export const handler = async (event) => {
     }
 
     // GET /posts/{id}
+    // GET /posts/{id}/shoppable — "where do I buy what's in this photo?"
+    // Computed SERVER-side and cached on the post row: the embedding + kNN
+    // runs once for the first viewer, and every viewer after reads it straight
+    // from DynamoDB. Doing it per-view on the client meant re-downloading and
+    // re-embedding the same photo for every person who scrolled past it.
+    if (method === "GET" && /^\/posts\/[^/]+\/shoppable$/.test(path)) {
+      const postId = decodeURIComponent(path.split("/")[2] ?? "");
+      const out = await ddb.send(new GetCommand({ TableName: POSTS, Key: { postId } }));
+      const item = out.Item;
+      if (!item) return json(404, { error: "not found" });
+      if (Array.isArray(item.shoppable)) return json(200, { items: item.shoppable, cached: true });
+      if (!s3v || !(await aiEnabled())) return json(200, { items: [] });
+
+      const imageUrl = item.mediaUrl || item.posterUrl || item.product?.image;
+      if (!imageUrl) return json(200, { items: [] });
+
+      let matches = [];
+      try {
+        const res = await fetch(imageUrl);
+        if (!res.ok) throw new Error(`image fetch ${res.status}`);
+        const buf = Buffer.from(await res.arrayBuffer());
+        const queryVector = await embedImage(buf.toString("base64"), item.caption);
+        const knn = await s3v.send(
+          new QueryVectorsCommand({
+            vectorBucketName: VECTOR_BUCKET,
+            indexName: VECTOR_INDEX,
+            topK: 24,
+            queryVector: { float32: queryVector },
+            returnMetadata: true,
+            returnDistance: true,
+          })
+        );
+        matches = (knn.vectors ?? [])
+          .filter((v) => (v.distance ?? 1) <= VISUAL_SEARCH_MAX_DISTANCE)
+          .map((v) => vecToItem(v))
+          .filter((it) => it && classifyPin(it).feedEligible !== false)
+          .slice(0, 8)
+          .map((it) => ({
+            postId: it.postId,
+            name: it.name ?? it.caption ?? null,
+            image: it.image ?? null,
+            price: it.price ?? null,
+            productUrl: it.productUrl ?? it.url ?? null,
+            merchant: it.merchant ?? null,
+          }));
+      } catch (e) {
+        console.warn("shoppable resolve failed:", e.message);
+        return json(200, { items: [] });
+      }
+
+      // Cache even an empty result so a photo with no matches isn't re-embedded
+      // on every view.
+      await ddb.send(
+        new UpdateCommand({
+          TableName: POSTS,
+          Key: { postId },
+          UpdateExpression: "SET shoppable = :s, shoppableAt = :t",
+          ExpressionAttributeValues: { ":s": matches, ":t": Date.now() },
+        })
+      ).catch(() => {});
+      return json(200, { items: matches, cached: false });
+    }
+
     if (method === "GET" && path.startsWith("/posts/")) {
       const postId = decodeURIComponent(path.split("/")[2] ?? "");
       const out = await ddb.send(new GetCommand({ TableName: POSTS, Key: { postId } }));

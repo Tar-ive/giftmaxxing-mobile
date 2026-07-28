@@ -91,6 +91,7 @@ struct PostDetailView: View {
                     // "love that" into something you can actually buy.
                     if activePost.source == "ugc" {
                         ShopThisPostRail(
+                            postId: activePost.id,
                             imageUrl: activePost.product.gallery.first ?? activePost.product.image,
                             caption: activePost.caption
                         )

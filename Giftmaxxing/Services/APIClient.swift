@@ -719,6 +719,15 @@ actor APIClient {
         let _: BoardShareAck? = try? await post("/board-shares/\(shareId)/accept", body: ["userId": userId])
     }
 
+    /// Shoppable matches for a post's photo. The SERVER embeds and kNNs once,
+    /// then caches on the post — so this is a plain read for everyone after
+    /// the first viewer, instead of every client re-downloading and
+    /// re-embedding the same image.
+    func fetchShoppable(postId: String) async throws -> [VectorItem] {
+        let response: ShoppableResponse = try await get("/posts/\(postId)/shoppable")
+        return response.items ?? []
+    }
+
     /// Resolve postIds (e.g. a challenge responder's yes-swipes) to display
     /// items. GET /posts/{id} is public and returns the raw post row.
     func fetchPostsByIds(_ ids: [String]) async throws -> [VectorItem] {

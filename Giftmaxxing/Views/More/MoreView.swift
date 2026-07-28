@@ -1043,6 +1043,7 @@ struct UGCProfilePostSheet: View {
     let post: UGCPost
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var giftIdeas = SwipeListStore.shared
+    @EnvironmentObject private var appState: AppState
     @State private var liked = false
     @State private var likeCount = 0
     @State private var comments: [Comment] = []
@@ -1096,6 +1097,35 @@ struct UGCProfilePostSheet: View {
                     media
                         .frame(maxWidth: .infinity)
                         .aspectRatio(sheetAspectRatio, contentMode: .fit)
+                        .overlay(alignment: .bottom) {
+                            // Same "Find similar" affordance as the feed card —
+                            // this sheet had neither it nor the shop rail.
+                            Button {
+                                let image = gallery.first ?? post.posterUrl
+                                Task { await VisualSearchLauncher.open(imageUrl: image, in: appState) }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "sparkle.magnifyingglass")
+                                    Text("Find similar")
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 10, weight: .bold))
+                                }
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 9)
+                                .background(.black.opacity(0.55), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.bottom, 12)
+                            .accessibilityLabel("Find similar products in this photo")
+                        }
+
+                    ShopThisPostRail(
+                        postId: post.postId,
+                        imageUrl: gallery.first ?? post.posterUrl,
+                        caption: post.caption
+                    )
                         .background(Color.surfaceSunken)
                         .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
                         .contentShape(Rectangle())

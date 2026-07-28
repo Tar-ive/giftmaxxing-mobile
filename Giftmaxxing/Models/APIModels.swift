@@ -466,6 +466,11 @@ struct CircleJoinResponse: Codable {
     var linkedUserId: String?
 }
 
+struct ShoppableResponse: Codable {
+    var items: [VectorItem]?
+    var cached: Bool?
+}
+
 struct BoardShareAck: Codable {
     var ok: Bool?
     var shareId: String?
