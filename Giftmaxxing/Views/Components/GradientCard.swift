@@ -130,11 +130,11 @@ struct AvatarView: View {
 
     var body: some View {
         ZStack {
+            // The fallback is ALWAYS drawn; the photo sits on top. A broken
+            // avatar URL then reveals initials instead of a broken-photo icon.
             if anonymousFallback && imageUrl == nil { Color.surfaceSunken }
             else { Color.gradient(for: grad) }
-            if let imageUrl {
-                CachedAsyncImage(url: imageUrl, width: Int(size * 3))
-            } else if anonymousFallback {
+            if anonymousFallback && imageUrl == nil {
                 Image(systemName: "person.fill")
                     .font(.system(size: size * 0.52))
                     .foregroundStyle(Color.inkTertiary)
@@ -142,6 +142,13 @@ struct AvatarView: View {
                 Text(initials)
                     .font(.system(size: size * 0.35, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
+            }
+            if let imageUrl {
+                CachedAsyncImage(
+                    url: imageUrl,
+                    width: Int(size * 3),
+                    showsFailurePlaceholder: false
+                )
             }
         }
         .frame(width: size, height: size)

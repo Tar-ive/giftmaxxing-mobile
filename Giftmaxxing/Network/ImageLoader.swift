@@ -114,6 +114,9 @@ struct CachedAsyncImage: View {
     /// Reports the decoded image's width/height so callers can size
     /// user-uploaded media to its real shape (see MediaAspect).
     var onAspect: ((CGFloat) -> Void)? = nil
+    /// Avatars draw their own fallback underneath, so a failed load should
+    /// reveal it rather than stamp a broken-photo glyph on top.
+    var showsFailurePlaceholder = true
 
     @State private var image: UIImage?
     @State private var isLoading = true
@@ -135,13 +138,17 @@ struct CachedAsyncImage: View {
                         .aspectRatio(contentMode: contentMode)
                 }
             } else if isLoading {
-                Rectangle()
-                    .fill(Color.cream)
-                    .overlay {
-                        ProgressView()
-                            .tint(Color.coral)
-                    }
-            } else {
+                if showsFailurePlaceholder {
+                    Rectangle()
+                        .fill(Color.cream)
+                        .overlay {
+                            ProgressView()
+                                .tint(Color.coral)
+                        }
+                } else {
+                    Color.clear
+                }
+            } else if showsFailurePlaceholder {
                 Rectangle()
                     .fill(Color.cream)
                     .overlay {
@@ -149,6 +156,8 @@ struct CachedAsyncImage: View {
                             .font(.title2)
                             .foregroundStyle(.tertiary)
                     }
+            } else {
+                Color.clear
             }
         }
         .task(id: url) {

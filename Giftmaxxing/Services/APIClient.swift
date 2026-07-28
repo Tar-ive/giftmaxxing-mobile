@@ -719,6 +719,29 @@ actor APIClient {
         let _: BoardShareAck? = try? await post("/board-shares/\(shareId)/accept", body: ["userId": userId])
     }
 
+    /// Resolve postIds (e.g. a challenge responder's yes-swipes) to display
+    /// items. GET /posts/{id} is public and returns the raw post row.
+    func fetchPostsByIds(_ ids: [String]) async throws -> [VectorItem] {
+        await withTaskGroup(of: VectorItem?.self) { group in
+            for id in ids.prefix(12) {
+                group.addTask {
+                    guard let api: APIPost = try? await self.get("/posts/\(id)") else { return nil }
+                    return VectorItem(
+                        postId: api.postId ?? id,
+                        image: api.product?.image,
+                        name: api.product?.name ?? api.caption,
+                        productUrl: api.productUrl,
+                        price: api.product?.price,
+                        merchant: api.merchant
+                    )
+                }
+            }
+            var out: [VectorItem] = []
+            for await item in group { if let item { out.append(item) } }
+            return out
+        }
+    }
+
     // MARK: - On-device ranking support
 
     // Quantized Titan embeddings for a set of pin keys — feeds the on-device

@@ -167,6 +167,35 @@ struct PostCardView: View {
                         }
                     }
                     Spacer()
+                    // TikTok-style "Find similar": on a real photo of a person's
+                    // stuff, the question is always "where do I get that?" — so
+                    // the affordance is visible instead of a hidden long-press.
+                    if isUGC {
+                        HStack {
+                            Spacer()
+                            Button {
+                                let image = post.product.gallery.first ?? post.product.image
+                                Task { await VisualSearchLauncher.open(imageUrl: image, in: appState) }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "sparkle.magnifyingglass")
+                                        .font(.system(size: 13, weight: .semibold))
+                                    Text("Find similar")
+                                        .font(.system(size: 13, weight: .semibold))
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 10, weight: .bold))
+                                }
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 9)
+                                .background(.black.opacity(0.55), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Find similar products in this photo")
+                            Spacer()
+                        }
+                        .padding(.bottom, 10)
+                    }
                     HStack(alignment: .bottom) {
                         // The story hint — hold to read (only when there IS one).
                         if GiftStory.story(for: post) != nil {

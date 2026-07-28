@@ -282,6 +282,9 @@ struct ChallengeResultsSheet: View {
     @EnvironmentObject private var authManager: AuthManager
     @Environment(\.dismiss) private var dismiss
 
+    @State private var yesItems: [VectorItem] = []
+    @State private var loadingItems = true
+
     private var yesRate: Int? {
         guard let total = connection.totalSwipes, total > 0 else { return nil }
         return Int((Double(connection.yesCount ?? 0) / Double(total) * 100).rounded())
@@ -304,6 +307,37 @@ struct ChallengeResultsSheet: View {
                             }
                         }
                         Spacer(minLength: 0)
+                    }
+
+                    // The actual gifts they said yes to — the whole point of
+                    // sending the deck. Aggregates alone don't tell you what
+                    // to buy.
+                    if loadingItems {
+                        HStack(spacing: 8) {
+                            ProgressView().scaleEffect(0.8)
+                            Text("Loading what they liked…")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    } else if !yesItems.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("What they said yes to")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(Color.ink)
+                            LazyVGrid(
+                                columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible())],
+                                spacing: 10
+                            ) {
+                                ForEach(yesItems) { item in
+                                    yesCard(item)
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                        .background(Color.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
                     }
 
                     if let rate = yesRate {
@@ -356,6 +390,7 @@ struct ChallengeResultsSheet: View {
             }
         }
         .task {
+            await loadYesItems()
             // Opening the results clears the "unseen" state the birthday
             // reminders key off.
             if let userId = authManager.userId, connection.seen != true {
@@ -365,6 +400,45 @@ struct ChallengeResultsSheet: View {
                 )
             }
         }
+    }
+
+    private func yesCard(_ item: VectorItem) -> some View {
+        Button {
+            if let link = item.productUrl ?? item.url, let url = URL(string: link) {
+                UIApplication.shared.open(url)
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                ZStack {
+                    Color.surfaceSunken
+                    if let image = item.image {
+                        CachedAsyncImage(url: image, width: 400)
+                    }
+                }
+                .frame(height: 110)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.md, style: .continuous))
+                Text(item.name ?? "Gift idea")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                if let price = item.price, price > 0 {
+                    Text(price, format: .currency(code: "USD"))
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.coral)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    // connection.seeds holds the postIds they swiped right on.
+    private func loadYesItems() async {
+        defer { loadingItems = false }
+        let ids: [String] = Array((connection.seeds ?? []).prefix(8))
+        guard !ids.isEmpty else { return }
+        yesItems = (try? await APIClient.shared.fetchPostsByIds(ids)) ?? []
     }
 
     private func statCard(title: String, value: String, caption: String) -> some View {
