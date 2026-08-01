@@ -26,6 +26,14 @@
 				<string>giftmaxxing</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.facebook.sdk</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fb4754136508204035</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
@@ -33,6 +41,16 @@
 	<string>1i1d0pdrgcuh8vces1f4truubd</string>
 	<key>CognitoRegion</key>
 	<string>us-east-1</string>
+	<key>FacebookAdvertiserIDCollectionEnabled</key>
+	<true/>
+	<key>FacebookAppID</key>
+	<string>4754136508204035</string>
+	<key>FacebookAutoLogAppEventsEnabled</key>
+	<false/>
+	<key>FacebookClientToken</key>
+	<string>e8e3e5a5b3f37fbbbbf638177cd0b68c</string>
+	<key>FacebookDisplayName</key>
+	<string>Giftmaxxing</string>
 	<key>GoogleOAuthClientID</key>
 	<string>641193240796-iu86sunkraeuf5ks755ipcf10kvutugv.apps.googleusercontent.com</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

@@ -18,30 +18,37 @@ try FileManager.default.createDirectory(at: output, withIntermediateDirectories:
 let shots = [
     Shot(
         file: "01-home.png",
-        title: "Gifts they’ll\nactually love.",
-        subtitle: "Personalized finds, curated for every person.",
+        title: "Thoughtful gifts,\nmade easy.",
+        subtitle: "Discover ideas shaped around every person you love.",
         background: NSColor(calibratedRed: 0.969, green: 0.949, blue: 0.922, alpha: 1),
         foreground: NSColor(calibratedWhite: 0.10, alpha: 1)
     ),
     Shot(
         file: "02-swipe.png",
-        title: "Swipe until\nit feels right.",
-        subtitle: "Decide for yourself, someone special, or the whole group.",
+        title: "Teach it\ntheir taste.",
+        subtitle: "Swipe through ideas and make every suggestion more personal.",
         background: NSColor(calibratedWhite: 0.075, alpha: 1),
         foreground: .white
     ),
     Shot(
-        file: "03-gallery.png",
-        title: "Every occasion,\nalready curated.",
-        subtitle: "Beautiful shelves by moment, recipient, and budget.",
+        file: "03-post.png",
+        title: "Share finds\nworth gifting.",
+        subtitle: "Post photos and videos that inspire someone’s next gift.",
         background: NSColor(calibratedRed: 1, green: 0.941, blue: 0.925, alpha: 1),
         foreground: NSColor(calibratedWhite: 0.10, alpha: 1)
     ),
     Shot(
         file: "04-circles.png",
-        title: "Group gifts,\nminus the chaos.",
-        subtitle: "Remember the date, invite your people, and pick together.",
+        title: "Plan together,\nwithout the chaos.",
+        subtitle: "Bring friends into circles and make the moment count.",
         background: NSColor(calibratedRed: 0.965, green: 0.955, blue: 0.945, alpha: 1),
+        foreground: NSColor(calibratedWhite: 0.10, alpha: 1)
+    ),
+    Shot(
+        file: "05-you.png",
+        title: "Remember what\nthey really love.",
+        subtitle: "Keep tastes, sizes, posts, and gift ideas in one thoughtful profile.",
+        background: NSColor(calibratedRed: 0.969, green: 0.949, blue: 0.922, alpha: 1),
         foreground: NSColor(calibratedWhite: 0.10, alpha: 1)
     ),
 ]

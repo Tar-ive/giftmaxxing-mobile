@@ -183,6 +183,9 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .replayCoachMarks)) { _ in
             withAnimation(.easeOut(duration: 0.25)) { showCoachMarks = true }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .metaDeferredLinkReady)) { _ in
+            drainMetaDeferredLink()
+        }
         .sheet(isPresented: $appState.showBirthdayPerks) {
             BirthdayPerksSheet()
         }
@@ -258,6 +261,7 @@ struct ContentView: View {
             }
         }
         .onAppear {
+            drainMetaDeferredLink()
             drainCaptureInbox()
             PersonalizationStore.migrateLegacyFlagIfNeeded()
             #if DEBUG
@@ -268,7 +272,9 @@ struct ContentView: View {
             // marketing/App Store shots can be taken without hand-navigating.
             if let tab = UserDefaults.standard.string(forKey: "screenshotTab") {
                 switch tab {
+                case "feed": appState.selectedTab = .feed
                 case "swipe": appState.selectedTab = .swipe
+                case "post": appState.selectedTab = .create
                 case "circles": appState.selectedTab = .circles
                 case "you": appState.selectedTab = .you
                 default: break
@@ -298,24 +304,7 @@ struct ContentView: View {
             guard !showSplash else { return }
             Task { await resolveAppGate(userId: newUserId) }
         }
-        .onOpenURL { url in
-            if let circleId = CircleStore.circleId(fromURL: url) {
-                appState.openCircle(circleId)
-                return
-            }
-            // Challenge invites open the NATIVE deck — app users never bounce
-            // to the web guest page.
-            if let challengeId = InviteLink.challengeId(fromURL: url) {
-                appState.pendingChallengeId = challengeId
-                return
-            }
-            guard url.scheme == "giftmaxxing" else { return }
-            if url.host == "create" {
-                appState.selectedTab = .create
-                return
-            }
-            drainCaptureInbox()
-        }
+        .onOpenURL(perform: handleIncomingURL)
         .sheet(item: Binding(
             get: { appState.pendingChallengeId.map(ChallengeRef.init) },
             set: { appState.pendingChallengeId = $0?.id }
@@ -323,6 +312,30 @@ struct ContentView: View {
             ChallengeSwipeView(challengeId: ref.id)
                 .environmentObject(authManager)
         }
+    }
+
+    private func drainMetaDeferredLink() {
+        guard let url = MetaDeferredLink.takePendingURL() else { return }
+        handleIncomingURL(url)
+    }
+
+    private func handleIncomingURL(_ url: URL) {
+        if let circleId = CircleStore.circleId(fromURL: url) {
+            appState.openCircle(circleId)
+            return
+        }
+        // Challenge invites open the NATIVE deck — app users never bounce
+        // to the web guest page.
+        if let challengeId = InviteLink.challengeId(fromURL: url) {
+            appState.pendingChallengeId = challengeId
+            return
+        }
+        guard url.scheme == "giftmaxxing" else { return }
+        if url.host == "create" {
+            appState.selectedTab = .create
+            return
+        }
+        drainCaptureInbox()
     }
 
     @MainActor

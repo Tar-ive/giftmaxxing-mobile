@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UserNotifications
+import FBSDKCoreKit
 
 // Rebuild nudge: 2026-07-16 — verify Xcode Cloud auto-trigger on main.
 // SwiftUI apps never receive the APNs registration callbacks without a real
@@ -8,6 +9,29 @@ import UserNotifications
 // the device token to them, so no device was ever registered server-side.
 // This adaptor is the missing link in the push pipeline.
 final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        ApplicationDelegate.shared.application(
+            application,
+            didFinishLaunchingWithOptions: launchOptions
+        )
+        return true
+    }
+
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        MetaDeferredLink.fetchIfNeeded()
+    }
+
+    func application(
+        _ app: UIApplication,
+        open url: URL,
+        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+    ) -> Bool {
+        ApplicationDelegate.shared.application(app, open: url, options: options)
+    }
+
     func application(
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
