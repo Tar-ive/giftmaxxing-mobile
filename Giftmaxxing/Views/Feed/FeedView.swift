@@ -273,12 +273,9 @@ struct FeedView: View {
                 await viewModel.loadFeed(context: modelContext)
             }
             await refreshNotificationBadge()
-            // First-run permission ask, right where its value is visible (the
-            // bell). Declines are respected — we never re-prompt, the bell's
-            // enable card inside NotificationsView takes over from there.
-            if pushManager.permissionStatus == .notDetermined {
-                await pushManager.requestPermission()
-            }
+            // The launch brand stays uninterrupted. Notification permission is
+            // requested only after the user taps the bell's enable card or the
+            // explicit Settings action.
         }
         // Push taps route here (PushManager.handleNotification).
         .onReceive(NotificationCenter.default.publisher(for: .navigateToNotifications)) { _ in

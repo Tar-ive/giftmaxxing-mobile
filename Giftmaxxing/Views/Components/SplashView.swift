@@ -26,13 +26,17 @@ struct SplashView: View {
                 .frame(width: 360, height: 360)
                 .scaleEffect(glowScale)
 
-            VStack(spacing: 14) {
-                BrandGlyph(size: 64, tile: false)
-                    .font(.system(size: 72))
+            VStack(spacing: 16) {
+                Image("LaunchLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 156, height: 156)
+                    .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+                    .shadow(color: Color.coral.opacity(0.22), radius: 24, y: 10)
                     .scaleEffect(logoScale)
 
                 Text("giftmaxxing")
-                    .font(.system(size: 30, weight: .heavy, design: .rounded))
+                    .font(.system(size: 32, weight: .heavy, design: .rounded))
                     .foregroundStyle(Color.coral)
 
                 Text("gifting, solved")

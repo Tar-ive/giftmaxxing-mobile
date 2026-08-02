@@ -145,7 +145,6 @@ struct CirclesView: View {
                 // in before building the calendar.
                 await circleStore.syncFromServer(userId: authManager.userId)
                 await loadCircleMoments()
-                await ReminderScheduler.requestPermissionIfNeeded()
                 await resyncBirthdayJourney()
             }
             .onChange(of: circleStore.circles.count) { _, _ in
