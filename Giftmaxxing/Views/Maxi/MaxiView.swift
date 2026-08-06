@@ -57,6 +57,36 @@ final class MaxiViewModel: ObservableObject {
     func resetToGreeting() {
         messages = [Self.greeting]
         catalog = []
+        restoredForUserId = nil
+    }
+
+    private var restoredForUserId: String?
+
+    /// Pull the account's transcript from the server the first time this
+    /// identity opens the chat on this device. The local copy is the fast path;
+    /// this is what makes a reinstall or a new phone not start from nothing.
+    func restoreIfNeeded() async {
+        guard let userId = AuthManager.shared.userId, !userId.isEmpty else { return }
+        guard restoredForUserId != userId else { return }
+        restoredForUserId = userId
+        // A local transcript is already the freshest copy — don't clobber it.
+        guard MaxiConversationStore.shared.isEmpty else { return }
+
+        guard let turns = try? await APIClient.shared.fetchMaxiHistory(userId: userId),
+              !turns.isEmpty else { return }
+
+        var restored: [MaxiMessage] = []
+        for turn in turns {
+            if let user = turn.user, !user.isEmpty {
+                restored.append(MaxiMessage(role: .user, text: user))
+            }
+            if let say = turn.say, !say.isEmpty {
+                restored.append(MaxiMessage(role: .assistant, text: say, products: turn.pins ?? []))
+            }
+        }
+        guard !restored.isEmpty else { return }
+        messages = restored
+        MaxiConversationStore.shared.replaceAll(restored)
     }
 
     /// Every product still visible in the transcript, newest last, deduped.
@@ -429,6 +459,7 @@ struct MaxiView: View {
             }
         }
         .task {
+            await viewModel.restoreIfNeeded()
             // Arriving from a cart section or a Gift Board: start mid-job.
             if let seedRecipient, !seedRecipient.isEmpty {
                 viewModel.seed(recipient: seedRecipient)

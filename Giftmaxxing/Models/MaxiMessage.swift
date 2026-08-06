@@ -113,6 +113,20 @@ struct GiftBrief: Codable, Hashable {
     var isEmpty: Bool { summary.isEmpty }
 }
 
+// One stored turn from GET /maxi/history — a user message and Maxi's reply,
+// with the product cards it showed, so a restored conversation looks the same
+// as the live one rather than a wall of text.
+struct MaxiHistoryTurn: Codable {
+    var at: Double?
+    var user: String?
+    var say: String?
+    var pins: [MaxiProduct]?
+}
+
+struct MaxiHistoryResponse: Codable {
+    var items: [MaxiHistoryTurn]?
+}
+
 struct MaxiAgentReply: Codable {
     var say: String
     var pins: [MaxiProduct]

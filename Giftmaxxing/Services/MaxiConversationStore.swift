@@ -41,6 +41,12 @@ final class MaxiConversationStore: ObservableObject {
         persist()
     }
 
+    /// Adopt a transcript restored from the server (new device / reinstall).
+    func replaceAll(_ restored: [MaxiMessage]) {
+        messages = Array(restored.suffix(Self.maxMessages))
+        persist()
+    }
+
     /// Replace the last message — used when a streamed/retried reply supersedes
     /// a placeholder.
     func replaceLast(with message: MaxiMessage) {

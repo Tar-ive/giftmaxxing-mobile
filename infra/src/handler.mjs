@@ -1963,6 +1963,89 @@ async function saveBrief(userId, input) {
   return merged;
 }
 
+// ── Conversation persistence ─────────────────────────────────────────────────
+//
+// The transcript used to live in exactly two places, neither of them a store:
+// CloudWatch (a log — not queryable per user, not deletable per user) and the
+// device's UserDefaults (lost on reinstall, wiped on account switch). So the
+// record of what Maxi told someone survived nowhere durable.
+//
+// Turns go on the user's OWN graph partition beside their memories, briefs and
+// orders. That placement is the point:
+//   • purgeAccount() already wipes this partition, so account deletion (App
+//     Store 5.1.1(v)) covers chat history with no extra code — a separate
+//     table would have silently leaked it;
+//   • the GRAPH IAM grant already exists;
+//   • sk sorts chronologically, so reading a conversation back is one Query;
+//   • expiresAt gives retention control without a cleanup job.
+const CHAT_TTL_DAYS = Number(process.env.MAXI_CHAT_TTL_DAYS || 180);
+
+async function saveChatTurn(userId, turn) {
+  if (!GRAPH || !userId) return;
+  const now = Date.now();
+  try {
+    await ddb.send(
+      new PutCommand({
+        TableName: GRAPH,
+        Item: {
+          pk: userId,
+          sk: `CHAT#${now}#${gid()}`,
+          kind: "chat",
+          at: now,
+          // Same scrubbing as the log and the model payload.
+          user: scrubPII(String(turn.user ?? "")).slice(0, 2000),
+          say: scrubPII(String(turn.say ?? "")).slice(0, 4000),
+          model: turn.model ?? null,
+          tools: turn.tools ?? [],
+          actions: turn.actions ?? [],
+          // Enough to reconstruct the cards without re-querying the catalog.
+          pins: (turn.pins ?? []).slice(0, 10).map((p) => ({
+            postId: p.postId,
+            title: String(p.title ?? "").slice(0, 90),
+            price: typeof p.price === "number" ? p.price : null,
+            image: p.image ?? null,
+            brand: p.brand ?? null,
+          })),
+          reconciled: !!turn.reconciled,
+          costUsd: turn.costUsd ?? 0,
+          expiresAt: Math.floor(now / 1000) + CHAT_TTL_DAYS * 86400,
+        },
+      })
+    );
+  } catch (e) {
+    // Never fail a reply because we couldn't file it.
+    console.warn("saveChatTurn failed:", e.message);
+  }
+}
+
+async function listChatTurns(userId, limit = 40) {
+  if (!GRAPH || !userId) return [];
+  try {
+    const out = await ddb.send(
+      new QueryCommand({
+        TableName: GRAPH,
+        KeyConditionExpression: "pk = :u AND begins_with(sk, :p)",
+        ExpressionAttributeValues: { ":u": userId, ":p": "CHAT#" },
+        ScanIndexForward: false, // newest first, then reversed for display
+        Limit: Math.min(limit, 100),
+      })
+    );
+    return (out.Items ?? [])
+      .map((i) => ({
+        at: i.at,
+        user: i.user,
+        say: i.say,
+        pins: i.pins ?? [],
+        tools: i.tools ?? [],
+        actions: i.actions ?? [],
+      }))
+      .reverse();
+  } catch (e) {
+    console.warn("listChatTurns failed:", e.message);
+    return [];
+  }
+}
+
 // What the brief still needs, in the order to ask for it. Returned from
 // save_gift_brief so the model doesn't have to reason about what's missing —
 // it's the difference between "ask one thing at a time" being a hope and being
@@ -6131,6 +6214,18 @@ export const handler = async (event) => {
           })
       );
 
+      // Durable copy on the user's own partition — see saveChatTurn.
+      await saveChatTurn(userId, {
+        user: userText,
+        say: finalSay,
+        model: modelId,
+        tools: tctx.steps.map((s) => s.tool),
+        actions: tctx.actions,
+        pins,
+        reconciled,
+        costUsd: Math.round(usedCost * 1e5) / 1e5,
+      });
+
       return json(200, {
         say: finalSay,
         pins,
@@ -6143,6 +6238,20 @@ export const handler = async (event) => {
         ...(reconciled ? { reconciled: true } : {}),
         usage: { inputTokens: usedIn, outputTokens: usedOut, costUsd: Math.round(costUsd * 1e5) / 1e5 },
       });
+    }
+
+    // GET /maxi/history?userId=&limit=  -> { items:[{at,user,say,pins,…}] }
+    //
+    // The conversation follows the ACCOUNT, not the device. Without this the
+    // transcript lived only in UserDefaults and died on reinstall or a new
+    // phone — the concierge would forget everything it had told you, which is
+    // the one thing it is supposed to be good at. Auth-gated like /me: a
+    // transcript names the people you shop for.
+    if (method === "GET" && path === "/maxi/history") {
+      const userId = String(qs.userId || "").trim();
+      if (!userId) return json(400, { error: "userId required" });
+      const items = await listChatTurns(userId, Number(qs.limit) || 40);
+      return json(200, { items }, { "cache-control": "no-store" });
     }
 
     // POST /packaging  { userId?, items:[{postId,title,image,category,price}],

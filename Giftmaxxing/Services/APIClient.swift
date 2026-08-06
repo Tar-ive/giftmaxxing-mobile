@@ -563,6 +563,17 @@ actor APIClient {
         return reply
     }
 
+    // The account's Maxi transcript, oldest first. Server-side, so the
+    // conversation survives reinstall and follows the user to a new device —
+    // UserDefaults alone lost it both times.
+    func fetchMaxiHistory(userId: String, limit: Int = 40) async throws -> [MaxiHistoryTurn] {
+        let response: MaxiHistoryResponse = try await get(
+            "/maxi/history",
+            params: ["userId": userId, "limit": String(limit)]
+        )
+        return response.items ?? []
+    }
+
     // MARK: - Packaging
 
     // How to wrap a cart section. The server reads the actual product photos
