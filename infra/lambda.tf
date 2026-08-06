@@ -91,6 +91,12 @@ resource "aws_lambda_function" "api" {
       MAXI_PRICE_OUT_PER_1M          = tostring(var.maxi_price_out_per_1m) # legacy alias
       # Per-user Maxi rate limit (chats/user/UTC-day) — abuse guard, not a usage cap.
       MAXI_DAILY_LIMIT = tostring(var.maxi_daily_limit)
+      # Packaging (POST /packaging). Renders are billed to the SAME monthly
+      # Bedrock cap as Maxi, and cached forever against a hash of the cart.
+      PACKAGING_VISION_MODEL_ID = var.packaging_vision_model_id
+      PACKAGING_IMAGE_MODEL_ID  = var.packaging_image_model_id
+      PACKAGING_IMAGES          = var.packaging_images ? "1" : "0"
+      PACKAGING_DAILY_LIMIT     = tostring(var.packaging_daily_limit)
       # byFeed GSI sharding. 1 = single 'all' partition (unchanged). >1 spreads the
       # global feed across feedPk='all#<n>' shards (write + scatter-gather reads).
       FEED_SHARDS = tostring(var.feed_shards)

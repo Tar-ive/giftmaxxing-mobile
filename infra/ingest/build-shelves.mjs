@@ -73,6 +73,105 @@ const SHELVES = [
     theme: "minimalist design object: clean lines, premium simple everyday item, understated quality" },
 ];
 
+// Age-group idea packs.
+//
+// The Reddit KNOWLEDGE base is keyed by RELATIONSHIP (mom, wife, coworker…) —
+// only "kids" and "teen" are age-shaped, so there is nothing to mine for "what
+// do you get a 9-year-old". These bands are hand-authored and then run through
+// the SAME resolveBundleSlot() machinery as the mined bundles: each slot label
+// is Titan-embedded, kNN'd against the catalog, and quality/brand-filtered. So
+// the items are as real as everywhere else — only the idea is editorial.
+//
+// Slot labels are written as PRODUCT CAPTIONS, never containing "gift" — see
+// the note above SHELVES for why that word poisons the embedding.
+const AGE_PACKS = [
+  {
+    key: "age-kids-5-8",
+    label: "Ages 5–8",
+    why: "What actually lands with early-elementary kids",
+    childSafe: true,
+    slots: [
+      { key: "blocks", label: "wooden building blocks construction set for children", emoji: "🧱" },
+      { key: "book", label: "illustrated children's picture story book hardcover", emoji: "📚" },
+      { key: "art", label: "kids art supplies set crayons markers sketch pad", emoji: "🎨" },
+      { key: "outdoor", label: "kids scooter helmet outdoor play", emoji: "🛴" },
+    ],
+  },
+  {
+    key: "age-tween-9-12",
+    label: "Ages 9–12",
+    why: "The in-between years, handled",
+    childSafe: true,
+    slots: [
+      { key: "stem", label: "science experiment kit crystal growing robotics for kids", emoji: "🔬" },
+      { key: "craft", label: "friendship bracelet making kit beads jewelry craft", emoji: "🧶" },
+      { key: "active", label: "skateboard roller skates for kids", emoji: "🛹" },
+      { key: "handheld", label: "handheld electronic game console for kids", emoji: "🎮" },
+    ],
+  },
+  {
+    key: "age-teen-13-17",
+    label: "Ages 13–17",
+    why: "Teen-approved, not try-hard",
+    childSafe: true,
+    slots: [
+      { key: "audio", label: "over ear wireless headphones", emoji: "🎧" },
+      { key: "camera", label: "instant print camera with film", emoji: "📸" },
+      { key: "room", label: "LED strip lights bedroom decor", emoji: "💡" },
+      { key: "skin", label: "skincare set cleanser moisturizer sunscreen", emoji: "🧴" },
+    ],
+  },
+  {
+    key: "age-young-adult-18-25",
+    label: "Ages 18–25",
+    why: "First-apartment energy",
+    slots: [
+      { key: "coffee", label: "espresso maker pour over coffee brewer", emoji: "☕️" },
+      { key: "speaker", label: "portable bluetooth speaker waterproof", emoji: "🔊" },
+      { key: "cozy", label: "soft throw blanket for a small apartment", emoji: "🛋️" },
+      { key: "carry", label: "laptop backpack canvas leather", emoji: "🎒" },
+    ],
+  },
+  {
+    key: "age-adult-26-39",
+    label: "Ages 26–39",
+    why: "Upgrades to the things they already use daily",
+    slots: [
+      { key: "kitchen", label: "cast iron skillet dutch oven cookware", emoji: "🍳" },
+      { key: "sleep", label: "weighted blanket silk pillowcase", emoji: "🌙" },
+      { key: "carry", label: "leather dopp kit toiletry bag", emoji: "🧳" },
+      { key: "bar", label: "cocktail shaker bar tool set glassware", emoji: "🍸" },
+    ],
+  },
+  {
+    key: "age-40-54",
+    label: "Ages 40–54",
+    why: "Small luxuries they'd never buy themselves",
+    slots: [
+      { key: "recover", label: "massage gun heated neck shoulder wrap", emoji: "💆" },
+      { key: "audio", label: "record player turntable vinyl", emoji: "🎶" },
+      { key: "outdoor", label: "gardening tool set kneeler pruning shears", emoji: "🌱" },
+      { key: "wine", label: "wine decanter aerator glass set", emoji: "🍷" },
+    ],
+  },
+  {
+    key: "age-55-plus",
+    label: "Ages 55+",
+    why: "Comfort, craft, and time outdoors",
+    slots: [
+      { key: "warm", label: "cashmere merino wool scarf gloves", emoji: "🧣" },
+      { key: "puzzle", label: "jigsaw puzzle board game for adults", emoji: "🧩" },
+      { key: "frame", label: "digital photo frame wifi", emoji: "🖼️" },
+      { key: "tea", label: "loose leaf tea sampler teapot", emoji: "🍵" },
+    ],
+  },
+];
+
+// Age-gated categories must never resolve into a child band. Mirrors
+// knowledge.mjs's ADULT_ONLY guard, applied here by title since these slots
+// don't come from the mined lexicon.
+const ADULT_ONLY_RE = /\b(wine|whisk(?:e)?y|bourbon|scotch|vodka|gin|rum|tequila|liqueur|champagne|prosecco|beer|cocktail|barware|decanter|flask|cigar|lighter|vape)\b/i;
+
 const SHELF_SIZE = 60;
 const BRAND_CAP = 8;     // per shelf — no store owns a gallery
 const GIFTBOX_CAP = 6;   // generic "Gift Box/Set/Bundle" listings per shelf
@@ -157,7 +256,7 @@ async function curateShelf(shelf, dry) {
   }
 }
 
-async function resolveBundleSlot(idea) {
+async function resolveBundleSlot(idea, { childSafe = false } = {}) {
   // Embed the idea NOUN only — appending "gift" drags in generic gift boxes.
   const vec = await embedText(idea.label);
   const hits = await knn(vec, 40);
@@ -168,6 +267,9 @@ async function resolveBundleSlot(idea) {
     if (typeof v.distance === "number" && v.distance > MAX_DISTANCE) break;
     const m = v.metadata ?? {};
     if (!eligible(v) || isDeadListing(m)) continue;
+    // A kNN neighbour of "kids art supplies" can still be a wine-themed craft
+    // kit. Nothing age-gated reaches a child band.
+    if (childSafe && ADULT_ONLY_RE.test(String(m.title ?? ""))) continue;
     const tk = titleKey(m);
     if (tk && seenTitles.has(tk)) continue;
     const brand = m.sourceUser || m.domain || v.key;
@@ -208,6 +310,12 @@ async function buildBundles(dry) {
       }));
     }
   }
+
+  // Age packs share the index, so they MUST be resolved before it's written —
+  // the index is rewritten wholesale from `recipients`, and anything missing
+  // from this array silently disappears from the /bundles sampler.
+  await buildAgePacks(dry, recipients);
+
   if (!dry) {
     await ddb.send(new PutCommand({
       TableName: CONFIG_TABLE,
@@ -215,6 +323,41 @@ async function buildBundles(dry) {
     }));
   }
   console.log(`bundles built for ${recipients.length} recipients`);
+}
+
+// Hand-authored age bands, resolved to real products through the same kNN path
+// as the mined bundles. Written as ordinary `bundles#<key>` rows so GET
+// /bundles serves them with no server change at all.
+async function buildAgePacks(dry, recipientsOut) {
+  for (const pack of AGE_PACKS) {
+    const slots = [];
+    for (const slot of pack.slots) {
+      slots.push(await resolveBundleSlot(slot, { childSafe: pack.childSafe }));
+    }
+    const filled = slots.filter((s) => s.itemIds.length);
+    console.log(
+      `  ${pack.key}: ${filled.length}/${pack.slots.length} slots (${filled.map((s) => s.key).join(" + ") || "none"})`
+    );
+    // /bundles drops anything with fewer than 2 resolvable slots, so don't
+    // write a row that can never be served.
+    if (filled.length < 2) {
+      console.warn(`    skipped — only ${filled.length} slot(s) resolved`);
+      continue;
+    }
+    if (!dry) {
+      await ddb.send(new PutCommand({
+        TableName: CONFIG_TABLE,
+        Item: {
+          key: `bundles#${pack.key}`,
+          type: "bundles",
+          recipient: pack.key,
+          bundles: [{ why: `${pack.label} · ${pack.why}`, score: 1, slots: filled }],
+          updatedAt: Date.now(),
+        },
+      }));
+    }
+    recipientsOut.push(pack.key);
+  }
 }
 
 const args = new Set(process.argv.slice(2));

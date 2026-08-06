@@ -174,6 +174,14 @@ resource "aws_apprunner_service" "api" {
 
           MAXI_DAILY_LIMIT = tostring(var.maxi_daily_limit)
           FEED_SHARDS      = tostring(var.feed_shards)
+
+          # Packaging (POST /packaging). CloudFront's default behavior points
+          # here, so this — not Lambda — is the path that actually serves it,
+          # which matters: image generation runs well past Lambda's 10s cap.
+          PACKAGING_VISION_MODEL_ID = var.packaging_vision_model_id
+          PACKAGING_IMAGE_MODEL_ID  = var.packaging_image_model_id
+          PACKAGING_IMAGES          = var.packaging_images ? "1" : "0"
+          PACKAGING_DAILY_LIMIT     = tostring(var.packaging_daily_limit)
           },
           try(trimspace(var.login_reset_url), "") == "" ? {} : { LOGIN_RESET_URL = var.login_reset_url },
           try(trimspace(var.login_email_from), "") == "" ? {} : { LOGIN_EMAIL_FROM = var.login_email_from },

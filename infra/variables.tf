@@ -121,6 +121,36 @@ variable "maxi_model_id" {
   default     = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 }
 
+# ── Packaging (POST /packaging): the wrap plan + its rendered image ───────────
+# The PLAN is written by a multimodal model that reads the actual product
+# photos — Nova Lite by default, which is already access-granted and already in
+# the Bedrock IAM allowlist because it serves Maxi. The IMAGE needs Nova Canvas,
+# which requires a one-time model-access grant in the Bedrock console; until
+# that lands, keep packaging_images = false and the route ships plans only.
+variable "packaging_vision_model_id" {
+  description = "Bedrock model id used to WRITE the packaging plan from the product photos. Empty = reuse maxi_base_model_id."
+  type        = string
+  default     = ""
+}
+
+variable "packaging_image_model_id" {
+  description = "Bedrock image-generation model for the packaging render. Plain foundation model (no inference profile, no 'us.' prefix)."
+  type        = string
+  default     = "amazon.nova-canvas-v1:0"
+}
+
+variable "packaging_images" {
+  description = "Render packaging images. Leave false until Bedrock model access for packaging_image_model_id is granted — the plan ships either way."
+  type        = bool
+  default     = false
+}
+
+variable "packaging_daily_limit" {
+  description = "Per-principal packaging requests per UTC day (abuse guard, not a usage cap). 0 disables."
+  type        = number
+  default     = 20
+}
+
 # ── Maxi budgets (POST /maxi): per-interaction token caps + monthly Bedrock $ cap
 variable "maxi_max_tokens" {
   description = "Maxi per-call OUTPUT token cap (Bedrock Converse maxTokens)."

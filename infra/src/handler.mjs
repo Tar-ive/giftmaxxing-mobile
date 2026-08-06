@@ -23,8 +23,19 @@ import { SageMakerRuntimeClient, InvokeEndpointCommand } from "@aws-sdk/client-s
 import { CognitoIdentityProviderClient, InitiateAuthCommand } from "@aws-sdk/client-cognito-identity-provider";
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { createHash } from "node:crypto";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { classifyPin, isMajorUSRetailer } from "./quality.mjs";
+import {
+  cartSignature,
+  packagingCacheKey,
+  publicKeyFor,
+  seedFrom,
+  buildVisionPrompt,
+  buildCanvasPrompt,
+  normalizePlan,
+} from "./packaging.mjs";
 import { interleaveAuthors, interleaveUGC } from "./feed-diversity.mjs";
+import { prependFeatured } from "./featured-feed.mjs";
 import { sendPushToUser } from "./push.mjs";
 import { mobileRoutes } from "./mobile-routes.mjs";
 import { analyticsRoutes } from "./analytics-routes.mjs";
@@ -484,7 +495,7 @@ const s3v = VECTOR_BUCKET ? new S3VectorsClient({}) : null;
 // quality-gated). Backs /galleries/{id} and /bundles — their CONFIG rows
 // store postId lists, not documents, so the posts stay the single source
 // of truth for price/image/link freshness.
-async function hydratePosts(ids, limit = 60) {
+async function hydratePosts(ids, limit = 60, qualityGate = true) {
   const wanted = [...new Set(ids)].slice(0, Math.min(limit, 100));
   if (!wanted.length) return [];
   const found = new Map();
@@ -503,7 +514,34 @@ async function hydratePosts(ids, limit = 60) {
       const q = feedClassification(p);
       return { ...p, contentType: q.contentType, qualityScore: q.qualityScore, feedEligible: q.feedEligible };
     })
-    .filter((p) => p.feedEligible);
+    .filter((p) => !qualityGate || p.feedEligible);
+}
+
+// Editorial feed pins are configured in DynamoDB so content can be promoted or
+// removed without another deploy. They intentionally bypass the catalog's
+// listicle filter: a curated multi-slide gift guide is the supported format.
+let featuredFeedCache = { at: 0, items: [] };
+async function featuredFeedPosts() {
+  if (!CONFIG) return [];
+  const now = Date.now();
+  if (now - featuredFeedCache.at < 60_000) return featuredFeedCache.items;
+  try {
+    const out = await ddb.send(new GetCommand({ TableName: CONFIG, Key: { key: "featured#feed" } }));
+    const posts = await hydratePosts(out.Item?.itemIds ?? [], 10, false);
+    featuredFeedCache = {
+      at: now,
+      items: posts.map((post) => ({
+        ...post,
+        rec: true,
+        reason: post.reason || "Featured gift guide",
+        feedEligible: true,
+      })),
+    };
+  } catch (error) {
+    console.warn("featured feed lookup failed:", error.message);
+    featuredFeedCache = { at: now, items: [] };
+  }
+  return featuredFeedCache.items;
 }
 
 // MTL value model (SageMaker serverless endpoint, infra/ml). When configured,
@@ -564,6 +602,143 @@ async function embedText(text) {
     })
   );
   return JSON.parse(Buffer.from(out.body).toString("utf8")).embedding;
+}
+
+// ── Packaging: a wrap plan for one recipient's pile ──────────────────────────
+//
+// The cart is grouped by PERSON, so at checkout we know exactly what's going
+// into one bundle. A vision model looks at those actual product photos and
+// writes a wrap plan for them specifically; Nova Canvas renders one picture of
+// the result. Both are cached forever against a signature of the cart, because
+// image generation is the only genuinely expensive call in this API — the same
+// cart must never be rendered twice.
+//
+// Pure helpers (signature, prompts, plan normalization) live in packaging.mjs
+// and are unit-tested; this half is the AWS wiring.
+const PACKAGING_MEDIA_BUCKET = process.env.MEDIA_BUCKET;
+// Nova Lite: multimodal (accepts image input), already access-granted and
+// already in the Bedrock IAM allowlist because it serves /maxi. Only the image
+// MODEL below needs a new grant.
+const PACKAGING_VISION_MODEL =
+  process.env.PACKAGING_VISION_MODEL_ID ||
+  process.env.MAXI_BASE_MODEL_ID ||
+  "us.amazon.nova-lite-v1:0";
+const PACKAGING_IMAGE_MODEL = process.env.PACKAGING_IMAGE_MODEL_ID || "amazon.nova-canvas-v1:0";
+// Off by default: Nova Canvas needs a console model-access grant. Until it's
+// granted, the plan ships without a picture rather than 500ing.
+const PACKAGING_IMAGES = process.env.PACKAGING_IMAGES === "1";
+// Reading the real product photos is what makes the plan specific rather than
+// generic. Remote retailer CDNs can be slow or hostile, so it's separately
+// switchable and hard-bounded.
+const PACKAGING_VISION_IMAGES = process.env.PACKAGING_VISION_IMAGES !== "0";
+const PACKAGING_MAX_IMAGES = 3;
+const PACKAGING_IMAGE_FETCH_MS = 4000;
+const PACKAGING_DAILY_LIMIT = Number(process.env.PACKAGING_DAILY_LIMIT || 20);
+// Nova Canvas standard 1024x1024, list price. VERIFY against Bedrock pricing —
+// this only feeds the shared Maxi monthly budget counter.
+const PACKAGING_IMAGE_COST_USD = Number(process.env.PACKAGING_IMAGE_COST_USD || 0.04);
+const PACKAGING_CACHE_TTL_DAYS = 180;
+
+const s3 = PACKAGING_MEDIA_BUCKET ? new S3Client({}) : null;
+
+// Fetch up to N product photos so the planner can SEE what it's wrapping.
+// Any failure just means a text-only plan — never an error.
+async function fetchProductImages(items) {
+  if (!PACKAGING_VISION_IMAGES) return [];
+  const urls = items
+    .map((i) => i?.image)
+    .filter((u) => typeof u === "string" && /^https?:\/\//i.test(u))
+    .slice(0, PACKAGING_MAX_IMAGES);
+  if (!urls.length) return [];
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PACKAGING_IMAGE_FETCH_MS);
+  try {
+    const settled = await Promise.allSettled(
+      urls.map(async (url) => {
+        const res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) throw new Error(`image ${res.status}`);
+        const type = String(res.headers.get("content-type") || "");
+        const format = /png/i.test(type) ? "png" : /webp/i.test(type) ? "webp" : "jpeg";
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        // Bedrock caps image payloads; skip anything unreasonable.
+        if (bytes.byteLength > 3_500_000) throw new Error("image too large");
+        return { image: { format, source: { bytes } } };
+      })
+    );
+    return settled.filter((s) => s.status === "fulfilled").map((s) => s.value);
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// items + context -> a normalized plan (or null if the model didn't produce a
+// usable one). Exported shape matches PackagingPlan on the client.
+async function buildPackagingPlan(items, ctx) {
+  const imageBlocks = await fetchProductImages(items);
+  const content = [...imageBlocks, { text: buildVisionPrompt(items, ctx) }];
+  const res = await bedrock.send(
+    new ConverseCommand({
+      modelId: PACKAGING_VISION_MODEL,
+      messages: [{ role: "user", content }],
+      inferenceConfig: { maxTokens: 700, temperature: 0.5 },
+    })
+  );
+  const text = (res.output?.message?.content ?? [])
+    .filter((b) => b.text)
+    .map((b) => b.text)
+    .join("\n");
+  return {
+    plan: normalizePlan(text),
+    usage: { inputTokens: res.usage?.inputTokens || 0, outputTokens: res.usage?.outputTokens || 0 },
+  };
+}
+
+// Render the plan and park it in S3 under the cart signature. Returns the
+// RELATIVE path — the client prefixes its own base URL (same convention as
+// UGC media), so this works through CloudFront without hard-coding a domain.
+async function renderPackagingImage(plan, sig, brands) {
+  if (!PACKAGING_IMAGES || !s3) return null;
+  const out = await bedrock.send(
+    new InvokeModelCommand({
+      modelId: PACKAGING_IMAGE_MODEL,
+      contentType: "application/json",
+      accept: "application/json",
+      body: JSON.stringify({
+        taskType: "TEXT_IMAGE",
+        textToImageParams: {
+          text: buildCanvasPrompt(plan, brands),
+          negativeText: "text, words, watermark, logo, brand name, people, hands, faces",
+        },
+        imageGenerationConfig: {
+          numberOfImages: 1,
+          width: 1024,
+          height: 1024,
+          cfgScale: 7.5,
+          quality: "standard",
+          // Same cart -> same picture, even if the cache row is ever lost.
+          seed: seedFrom(sig),
+        },
+      }),
+    })
+  );
+  const body = JSON.parse(Buffer.from(out.body).toString("utf8"));
+  const b64 = body?.images?.[0];
+  if (!b64) return null;
+
+  const key = publicKeyFor(sig);
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: PACKAGING_MEDIA_BUCKET,
+      Key: key,
+      Body: Buffer.from(b64, "base64"),
+      ContentType: "image/png",
+      CacheControl: "public, max-age=31536000, immutable",
+    })
+  );
+  return `/${key}`;
 }
 
 const json = (statusCode, body, headers = {}) => ({
@@ -1463,7 +1638,17 @@ const MAXI_SHOPPING_MODEL_ID =
   process.env.MAXI_SHOPPING_MODEL_ID || process.env.MAXI_MODEL_ID || "us.anthropic.claude-haiku-4-5-20251001-v1:0";
 
 // Tools that, once the agent reaches for them, mean we're in a shopping flow.
-const MAXI_SHOPPING_TOOLS = new Set(["add_to_cart", "checkout"]);
+// The brief tools are here because running a multi-turn brief — remembering
+// what's filled, asking for exactly one missing thing, not re-interviewing — is
+// precisely the tool discipline the cheap base tier is worst at.
+const MAXI_SHOPPING_TOOLS = new Set([
+  "add_to_cart",
+  "checkout",
+  "save_gift_brief",
+  "get_gift_brief",
+  "add_to_board",
+  "packaging_ideas",
+]);
 
 // Transactional intent in the user's message. Mirrors the offline responder's
 // regexes (web/lib/maxi.ts) so the router and the fallback agree on "shopping".
@@ -1580,9 +1765,11 @@ function _secondsUntilUtcMidnight() {
   const next = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
   return Math.max(1, Math.ceil((next - now) / 1000));
 }
-async function checkMaxiRateLimit(principal) {
-  if (!CONFIG || MAXI_DAILY_LIMIT <= 0 || !principal) return { ok: true };
-  const key = `maxi-rate#${_utcDay()}#${principal}`;
+// Generic so every expensive AI route shares one implementation (Maxi chats,
+// packaging renders) instead of each growing its own counter.
+async function checkDailyLimit(scope, principal, limit) {
+  if (!CONFIG || limit <= 0 || !principal) return { ok: true };
+  const key = `${scope}#${_utcDay()}#${principal}`;
   const expiresAt = Math.floor(Date.now() / 1000) + 2 * 86400; // self-purge after 2 days
   try {
     const out = await ddb.send(
@@ -1596,13 +1783,15 @@ async function checkMaxiRateLimit(principal) {
       })
     );
     const count = Number(out.Attributes?.count) || 0;
-    if (count > MAXI_DAILY_LIMIT) return { ok: false, count, retryAfterSec: _secondsUntilUtcMidnight() };
+    if (count > limit) return { ok: false, count, retryAfterSec: _secondsUntilUtcMidnight() };
     return { ok: true, count };
   } catch (e) {
-    console.warn("checkMaxiRateLimit failed (fail-open):", e.message);
+    console.warn(`checkDailyLimit(${scope}) failed (fail-open):`, e.message);
     return { ok: true };
   }
 }
+
+const checkMaxiRateLimit = (principal) => checkDailyLimit("maxi-rate", principal, MAXI_DAILY_LIMIT);
 
 const MAXI_SYSTEM = `You are Maxi, the gift concierge inside Giftmaxxing. You help people find, shortlist, and (simulated) check out gifts, and you remember their taste and the people they shop for.
 
@@ -1615,13 +1804,22 @@ IMPORTANT — identity rules:
 - relationship_graph returns "otherPeople" — these are OTHER people in the user's gifting network, NOT the user themselves.
 - If the user asks "what is my name?" or similar, respond with the name from the system prompt or from get_profile's "yourName" field. NEVER return a connection's or recipient's name as the user's name.
 
+THE GIFT BRIEF — how you work:
+Almost every conversation is one job: help this person land a gift for ONE recipient. Run it as a brief, not as a search box.
+1. Establish who it's for. Call get_gift_brief FIRST. If a brief already exists, summarize it in one line and ask what's changed — never restart an interview you've already done.
+2. Never ask for something you can look up. Check get_profile, list_connections, relationship_graph and your memories before asking anything.
+3. Ask for AT MOST ONE missing thing per reply, in this order: occasion and date -> budget -> what they're into -> what you've already given them. Never two questions in one turn.
+4. Call save_gift_brief the moment you learn a field. Partial briefs are expected and useful.
+5. Once you know the recipient plus a budget or their interests, call find_gifts and propose exactly THREE, each with one line on why THIS person. Never propose something you can't justify from the brief.
+6. When they like one: add_to_board keeps it as an idea, add_to_cart is for buying now — always pass the recipient. Then offer packaging_ideas and a short note to go with it.
+7. If they push back ("cheaper", "less obvious", "more practical"), update the brief and run find_gifts again. Don't re-ask questions you already have answers to.
+
 Use tools, don't guess:
-- Find gifts by budget / vibe / recipient / category with find_gifts.
 - "Deals on what I buy/restock most", "reorder", "buy again": call order_history FIRST to find the user's most-restocked categories, THEN call find_deals for those categories, then briefly summarize the best deals (the product cards render automatically). find_deals also handles any "find a deal / what's on sale" request.
 - Look up Reddit-mined ideas for a recipient with gift_ideas, or list types with list_recipients.
-- Recall who they shop for and key dates with get_profile, upcoming_events, list_connections, relationship_graph — and proactively flag a date that's near.
+- Recall key dates with upcoming_events — and proactively flag a date that's near.
 - When the user states a durable fact (a budget, a like/dislike, who they shop for), call remember_fact. When they give a concrete dated occasion, call save_event so reminders fire.
-- add_to_cart and checkout are SIMULATED — say so honestly; never imply a real charge or shipment.
+- add_to_cart and add_to_board put things in the user's OWN app — real, and they'll see them immediately. checkout is SIMULATED: say so honestly and point them at their cart to buy for real; never imply a charge or a shipment.
 
 After find_gifts or gift_ideas, briefly say what you found; the products render automatically, so don't recite every price in prose. Ground all product claims in tool results — never invent prices, brands, or links. If a tool returns nothing, say so and offer an alternative.`;
 
@@ -1660,6 +1858,142 @@ async function saveMemory(userId, kind, text) {
       },
     })
   );
+}
+
+// ── Gift briefs ──────────────────────────────────────────────────────────────
+//
+// A brief is the shopping job itself: who it's for, the occasion, the budget,
+// what they're into, what's already been given. It's what turns Maxi from a
+// search box into something that can pick up where it left off — the model
+// asks for ONE missing field at a time and stops asking once it's filled.
+//
+// Stored on the user's own GRAPH partition beside memories and orders, with a
+// DETERMINISTIC sort key (unlike MEM#<gid>) so saving is an idempotent upsert
+// and reading one back is a single GetCommand. purgeAccount already deletes the
+// whole partition, so briefs need no separate deletion path.
+const briefSlug = (name) =>
+  String(name ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40);
+
+const BRIEF_FIELDS = [
+  "recipientName",
+  "relationship",
+  "occasion",
+  "date",
+  "budgetMin",
+  "budgetMax",
+  "interests",
+  "avoid",
+  "alreadyGiven",
+];
+
+function shapeBrief(item) {
+  if (!item) return null;
+  const out = {};
+  for (const field of BRIEF_FIELDS) {
+    if (item[field] !== undefined && item[field] !== null) out[field] = item[field];
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+async function getBrief(userId, recipientName) {
+  if (!GRAPH || !userId) return null;
+  const slug = briefSlug(recipientName);
+  if (!slug) return latestBrief(userId);
+  try {
+    const out = await ddb.send(
+      new GetCommand({ TableName: GRAPH, Key: { pk: userId, sk: `BRIEF#${slug}` } })
+    );
+    return shapeBrief(out.Item);
+  } catch (e) {
+    console.warn("getBrief failed:", e.message);
+    return null;
+  }
+}
+
+async function latestBrief(userId) {
+  if (!GRAPH || !userId) return null;
+  try {
+    const out = await ddb.send(
+      new QueryCommand({
+        TableName: GRAPH,
+        KeyConditionExpression: "pk = :u AND begins_with(sk, :p)",
+        ExpressionAttributeValues: { ":u": userId, ":p": "BRIEF#" },
+        Limit: 8,
+      })
+    );
+    const items = (out.Items ?? []).sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+    return shapeBrief(items[0]);
+  } catch (e) {
+    console.warn("latestBrief failed:", e.message);
+    return null;
+  }
+}
+
+// Merge-upsert: the model learns fields one at a time, so a save must never
+// wipe what an earlier turn established.
+async function saveBrief(userId, input) {
+  if (!GRAPH || !userId) return null;
+  const slug = briefSlug(input?.recipientName);
+  if (!slug) return null;
+
+  const existing = await getBrief(userId, input.recipientName);
+  const merged = { ...(existing ?? {}) };
+  for (const field of BRIEF_FIELDS) {
+    const value = input[field];
+    if (value === undefined || value === null || value === "") continue;
+    merged[field] = Array.isArray(value) ? value.slice(0, 10).map((v) => String(v).slice(0, 60)) : value;
+  }
+  merged.recipientName = String(input.recipientName).slice(0, 60);
+
+  await ddb.send(
+    new PutCommand({
+      TableName: GRAPH,
+      Item: { pk: userId, sk: `BRIEF#${slug}`, kind: "brief", ...merged, updatedAt: Date.now() },
+    })
+  );
+  return merged;
+}
+
+// What the brief still needs, in the order to ask for it. Returned from
+// save_gift_brief so the model doesn't have to reason about what's missing —
+// it's the difference between "ask one thing at a time" being a hope and being
+// a fact the tool hands back.
+function missingBriefFields(brief) {
+  const missing = [];
+  if (!brief.occasion) missing.push("occasion");
+  if (!brief.date) missing.push("date");
+  if (!brief.budgetMax && !brief.budgetMin) missing.push("budget");
+  if (!brief.interests?.length) missing.push("interests");
+  if (!brief.alreadyGiven?.length) missing.push("alreadyGiven");
+  return missing;
+}
+
+// The user's Gift Boards, read from the same USERS.giftBoards field the iOS
+// SwipeListStore syncs. Read-only on purpose: the client owns boards, so the
+// agent ADDS via an action (see add_to_board) rather than writing here and
+// racing the client's debounced push.
+async function listGiftBoards(userId) {
+  if (!USERS || !userId) return { boards: [] };
+  try {
+    const out = await ddb.send(new GetCommand({ TableName: USERS, Key: { userId } }));
+    const boards = Array.isArray(out.Item?.giftBoards) ? out.Item.giftBoards : [];
+    return {
+      boards: boards.slice(0, 25).map((b) => ({
+        id: b.id,
+        name: b.name,
+        recipientName: b.recipientName ?? null,
+        occasion: b.occasion ?? null,
+        count: Array.isArray(b.posts) ? b.posts.length : 0,
+      })),
+    };
+  } catch (e) {
+    console.warn("listGiftBoards failed:", e.message);
+    return { boards: [] };
+  }
 }
 
 function maxiProduct(p) {
@@ -1776,7 +2110,108 @@ async function getCatalogByCategory(category) {
   return items;
 }
 
-async function toolFindGifts({ budget, category, recipient, vibes, limit }) {
+// The seeds a user's taste centroid is built from — the same rows and the same
+// interaction types GET /recommendations uses, extracted so the two can't drift.
+async function seedTargetsFor(userId) {
+  if (!INTERACTIONS || !userId) return { liked: [], excluded: new Set() };
+  try {
+    const out = await ddb.send(
+      new QueryCommand({
+        TableName: INTERACTIONS,
+        KeyConditionExpression: "userId = :u",
+        ExpressionAttributeValues: { ":u": userId },
+      })
+    );
+    const rows = out.Items ?? [];
+    return {
+      liked: rows
+        .filter((i) => ["like", "save", "pledge", "board_add"].includes(i.type))
+        .map((i) => i.target)
+        .filter(Boolean),
+      excluded: new Set(rows.map((i) => i.target).filter(Boolean)),
+    };
+  } catch (e) {
+    console.warn("seedTargetsFor failed:", e.message);
+    return { liked: [], excluded: new Set() };
+  }
+}
+
+// Maxi searched a 600-item recency slice with the old facet ranker while the
+// feed used semantic kNN over the whole catalog — so the concierge gave
+// measurably worse picks than the surface it sits on top of. This puts them on
+// the same stack: the brief becomes a sentence, Titan embeds it into the same
+// space the catalog images live in, and the user's own taste centroid pulls the
+// result toward what they actually like. The facet path stays as the fallback
+// for cold starts, a disabled breaker, or an empty result.
+const FIND_GIFTS_MAX_DISTANCE = 0.62; // same relevance gate as /visual-search
+const FIND_GIFTS_BRAND_CAP = 2;
+
+// Never the word "gift": the catalog is full of generic "Gift Box/Set"
+// listings whose embeddings sit right on top of gift-language queries, so a
+// query containing it returns the same self-care boxes every time. Same
+// hard-won lesson as build-shelves.mjs.
+function buildGiftQuery({ interests, vibes, category, occasion, recipient }) {
+  return [
+    (interests ?? []).join(", "),
+    (vibes ?? []).join(", "),
+    category,
+    occasion ? `for a ${occasion}` : null,
+    recipient && !occasion ? `for a ${recipient}` : null,
+  ]
+    .filter((part) => part && String(part).trim())
+    .join(", ")
+    .slice(0, 200);
+}
+
+async function vectorFindGifts(query, { userId, budget, limit, excluded }) {
+  if (!s3v || !(await aiEnabled())) return null;
+
+  const queryVector = query ? await embedText(query) : null;
+  const { liked } = userId ? await seedTargetsFor(userId) : { liked: [] };
+  const tasteVector = liked.length ? await getCentroid(liked.slice(0, 20)) : null;
+
+  // Blend intent with taste: what they asked for leads, who they are steers.
+  let vector = queryVector;
+  if (queryVector && tasteVector && queryVector.length === tasteVector.length) {
+    vector = queryVector.map((v, i) => v * 0.6 + tasteVector[i] * 0.4);
+  } else if (!queryVector) {
+    vector = tasteVector;
+  }
+  if (!vector) return null;
+
+  const out = await s3v.send(
+    new QueryVectorsCommand({
+      vectorBucketName: VECTOR_BUCKET,
+      indexName: VECTOR_INDEX,
+      topK: limit * 6,
+      queryVector: { float32: vector },
+      returnMetadata: true,
+      returnDistance: true,
+    })
+  );
+
+  const brandCounts = new Map();
+  const items = [];
+  for (const v of out.vectors ?? []) {
+    if (typeof v.distance === "number" && v.distance > FIND_GIFTS_MAX_DISTANCE) break;
+    if (excluded?.has(v.key)) continue;
+    const item = vecToItem(v);
+    if (!item.feedEligible) continue;
+    if (budget && typeof item.price === "number" && item.price > budget) continue;
+
+    // No single store gets to own the answer.
+    const brand = item.merchant || item.domain || item.source || v.key;
+    const seen = brandCounts.get(brand) ?? 0;
+    if (seen >= FIND_GIFTS_BRAND_CAP) continue;
+    brandCounts.set(brand, seen + 1);
+
+    items.push(maxiProduct(item));
+    if (items.length >= limit) break;
+  }
+  return items.length ? items : null;
+}
+
+async function toolFindGifts({ budget, category, recipient, vibes, interests, limit }, ctx = {}) {
   const n = Math.min(Number(limit) || 6, 10);
   const opts = {
     vibes: Array.isArray(vibes) ? vibes : parseList(vibes),
@@ -1784,6 +2219,28 @@ async function toolFindGifts({ budget, category, recipient, vibes, limit }) {
     category: category || undefined,
     budget: Number(budget) || undefined,
   };
+  const interestList = Array.isArray(interests) ? interests : parseList(interests);
+
+  // Semantic first — the same ranking stack the feed runs on.
+  try {
+    const query = buildGiftQuery({
+      interests: interestList,
+      vibes: opts.vibes,
+      category: opts.category,
+      occasion: ctx.brief?.occasion,
+      recipient: opts.recipient,
+    });
+    const vectorItems = await vectorFindGifts(query, {
+      userId: ctx.userId,
+      budget: opts.budget,
+      limit: n,
+      excluded: ctx.excluded,
+    });
+    if (vectorItems) return { items: vectorItems, count: vectorItems.length, source: "vector" };
+  } catch (e) {
+    console.warn("vector find_gifts failed, falling back to facets:", e.message);
+  }
+
   // Category given -> deep category pool (byCategory GSI); else the recency cache.
   let pool = opts.category ? await getCatalogByCategory(opts.category) : await getCatalog();
   if (!pool.length) pool = await getCatalog();
@@ -1793,7 +2250,7 @@ async function toolFindGifts({ budget, category, recipient, vibes, limit }) {
     .sort((a, b) => b.s - a.s)
     .slice(0, n)
     .map(({ p }) => maxiProduct(p));
-  return { items, count: items.length };
+  return { items, count: items.length, source: "facet" };
 }
 
 async function toolGiftIdeas({ recipient }) {
@@ -2133,7 +2590,29 @@ function maxiStepLabel(name, input, out) {
       return { tool: name, label: `Found ${o.count || 0} active deal${(o.count || 0) === 1 ? "" : "s"}`, detail: cats ? `in ${cats}` : "" };
     }
     case "find_gifts":
-      return { tool: name, label: "Searched the catalog", detail: `${o.count || 0} matching pick${(o.count || 0) === 1 ? "" : "s"}` };
+      return {
+        tool: name,
+        label: o.source === "vector" ? "Matched against your taste" : "Searched the catalog",
+        detail: `${o.count || 0} matching pick${(o.count || 0) === 1 ? "" : "s"}`,
+      };
+    case "get_gift_brief":
+      return {
+        tool: name,
+        label: o.brief ? "Picked up where we left off" : "Starting a fresh brief",
+        detail: o.brief?.recipientName ? `for ${o.brief.recipientName}` : "",
+      };
+    case "save_gift_brief":
+      return {
+        tool: name,
+        label: "Noted that",
+        detail: o.brief?.recipientName ? `brief for ${o.brief.recipientName}` : "",
+      };
+    case "list_boards":
+      return { tool: name, label: "Checked your Gift Boards", detail: `${o.boards?.length || 0} board${(o.boards?.length || 0) === 1 ? "" : "s"}` };
+    case "add_to_board":
+      return { tool: name, label: `Saved ${o.added || 0} to ${o.board || "a board"}`, detail: "" };
+    case "packaging_ideas":
+      return { tool: name, label: "Sketched the wrapping", detail: o.plan?.title || "" };
     case "gift_ideas":
       return { tool: name, label: "Pulled gift ideas", detail: input?.recipient ? `for ${input.recipient}` : "" };
     case "get_profile":
@@ -2143,7 +2622,11 @@ function maxiStepLabel(name, input, out) {
     case "list_connections":
       return { tool: name, label: "Checked your people", detail: "" };
     case "add_to_cart":
-      return { tool: name, label: `Added ${o.added || 0} to your cart`, detail: "simulated" };
+      return {
+        tool: name,
+        label: `Added ${o.added || 0} to the cart`,
+        detail: o.recipient ? `for ${o.recipient}` : "",
+      };
     case "checkout":
       return { tool: name, label: "Placed your order", detail: "simulated — no real charge" };
     case "remember_fact":
@@ -2159,7 +2642,7 @@ function maxiStepLabel(name, input, out) {
 const MAXI_TOOLS = [
   {
     name: "find_gifts",
-    description: "Search the gift catalog by budget, category, recipient type, and/or vibes. Returns products that render to the user.",
+    description: "Search the gift catalog by budget, category, recipient type, vibes and/or the recipient's interests. Pass everything you know from the brief — interests especially, since they drive the semantic search. Returns products that render to the user.",
     schema: {
       type: "object",
       properties: {
@@ -2167,7 +2650,66 @@ const MAXI_TOOLS = [
         category: { type: "string", description: "e.g. home, kitchen, jewelry, tech, wellness, plants, art" },
         recipient: { type: "string", description: "recipient type, e.g. mom, dad, friend, partner" },
         vibes: { type: "array", items: { type: "string" }, description: "taste keywords, e.g. cozy, minimal" },
+        interests: {
+          type: "array",
+          items: { type: "string" },
+          description: "concrete things the recipient is into, e.g. pour-over coffee, trail running, ceramics",
+        },
         limit: { type: "number", description: "how many to return (max 10)" },
+      },
+    },
+  },
+  {
+    name: "get_gift_brief",
+    description: "The saved brief for who the user is shopping for — occasion, date, budget, interests, what's already been given. CALL THIS FIRST in any gifting conversation. Omit recipientName to get the most recently updated brief.",
+    schema: { type: "object", properties: { recipientName: { type: "string" } } },
+  },
+  {
+    name: "save_gift_brief",
+    description: "Save what you've learned about this gifting job. Merge-upsert: pass only the fields you just learned, earlier ones are preserved. Call it the moment the user tells you something, not at the end.",
+    schema: {
+      type: "object",
+      properties: {
+        recipientName: { type: "string" },
+        relationship: { type: "string", description: "e.g. partner, parent, sibling, friend, colleague" },
+        occasion: { type: "string" },
+        date: { type: "string", description: "YYYY-MM-DD" },
+        budgetMin: { type: "number" },
+        budgetMax: { type: "number" },
+        interests: { type: "array", items: { type: "string" } },
+        avoid: { type: "array", items: { type: "string" } },
+        alreadyGiven: { type: "array", items: { type: "string" } },
+      },
+      required: ["recipientName"],
+    },
+  },
+  {
+    name: "list_boards",
+    description: "The user's Gift Boards — the per-person collections of ideas they're keeping. Use to see what they've already saved for someone.",
+    schema: { type: "object", properties: {} },
+  },
+  {
+    name: "add_to_board",
+    description: "Save products to one of the user's Gift Boards (ideas to keep, not buying yet). Creates the board if the name is new.",
+    schema: {
+      type: "object",
+      properties: {
+        postIds: { type: "array", items: { type: "string" } },
+        boardName: { type: "string" },
+        recipientName: { type: "string" },
+      },
+      required: ["postIds", "boardName"],
+    },
+  },
+  {
+    name: "packaging_ideas",
+    description: "How to wrap and present a set of gifts together — materials, palette, steps, and a note idea. Offer this once the user has decided what they're giving.",
+    schema: {
+      type: "object",
+      properties: {
+        postIds: { type: "array", items: { type: "string" } },
+        occasion: { type: "string" },
+        recipientName: { type: "string" },
       },
     },
   },
@@ -2228,10 +2770,14 @@ const MAXI_TOOLS = [
   },
   {
     name: "add_to_cart",
-    description: "Add products (by postId) to the user's SIMULATED cart in the browser.",
+    description: "Put products in the user's cart, under a specific person's section. ALWAYS pass recipient — the cart is grouped by who each gift is for, and without it the items land in an unsorted pile the user has to file by hand.",
     schema: {
       type: "object",
-      properties: { postIds: { type: "array", items: { type: "string" } } },
+      properties: {
+        postIds: { type: "array", items: { type: "string" } },
+        recipient: { type: "string", description: "who these are for, e.g. Sarah" },
+        occasion: { type: "string" },
+      },
       required: ["postIds"],
     },
   },
@@ -2263,9 +2809,63 @@ async function runMaxiTool(name, input, ctx) {
   const i = input || {};
   switch (name) {
     case "find_gifts": {
-      const r = await toolFindGifts(i);
+      const r = await toolFindGifts(i, ctx);
       ctx.pins.push(...(r.items || []));
       return r;
+    }
+    case "get_gift_brief": {
+      const brief = await getBrief(ctx.userId, i.recipientName);
+      if (brief) ctx.brief = brief;
+      return brief ? { brief } : { brief: null, note: "no brief yet — ask who it's for" };
+    }
+    case "save_gift_brief": {
+      const brief = await saveBrief(ctx.userId, i);
+      if (brief) ctx.brief = brief;
+      return brief ? { ok: true, brief, missing: missingBriefFields(brief) } : { error: "recipientName required" };
+    }
+    case "list_boards":
+      return listGiftBoards(ctx.userId);
+    case "add_to_board": {
+      // The client owns Gift Boards (local-first, synced through /me), so we
+      // ask it to write rather than racing its debounced push.
+      const ids = Array.isArray(i.postIds) ? i.postIds.map(String).slice(0, 20) : [];
+      if (!ids.length || !i.boardName) return { error: "postIds and boardName required" };
+      ctx.actions.push({
+        type: "add_to_board",
+        postIds: ids,
+        boardName: String(i.boardName).slice(0, 60),
+        recipient: i.recipientName ? String(i.recipientName).slice(0, 60) : undefined,
+      });
+      return { ok: true, added: ids.length, board: i.boardName };
+    }
+    case "packaging_ideas": {
+      const ids = Array.isArray(i.postIds) ? i.postIds.map(String).slice(0, 8) : [];
+      const chosen = ids.length
+        ? (ctx.pins || []).filter((p) => ids.includes(p.postId))
+        : (ctx.cartItems || []);
+      if (!chosen.length) return { error: "no items to wrap — add some to the cart first" };
+      try {
+        const { plan } = await buildPackagingPlan(
+          chosen.map((p) => ({
+            postId: p.postId,
+            title: p.title,
+            image: p.image,
+            category: p.category,
+            price: p.price,
+          })),
+          {
+            occasion: i.occasion ?? ctx.brief?.occasion ?? null,
+            recipientName: i.recipientName ?? ctx.brief?.recipientName ?? null,
+            relationship: ctx.brief?.relationship ?? null,
+          }
+        );
+        if (!plan) return { error: "couldn't sketch a wrap for those" };
+        ctx.actions.push({ type: "show_packaging", postIds: chosen.map((p) => p.postId) });
+        return { plan };
+      } catch (e) {
+        console.warn("packaging_ideas failed:", e.message);
+        return { error: "packaging unavailable right now" };
+      }
     }
     case "gift_ideas":
       return toolGiftIdeas(i);
@@ -2292,7 +2892,16 @@ async function runMaxiTool(name, input, ctx) {
     }
     case "add_to_cart": {
       const ids = Array.isArray(i.postIds) ? i.postIds.map(String) : [];
-      ctx.actions.push({ type: "add_to_cart", postIds: ids });
+      // Carry the recipient so the items land in the right person's section.
+      // Fall back to the brief — the model often knows who it's for from
+      // context and forgets to repeat it in the tool call.
+      const recipient = i.recipient || ctx.brief?.recipientName || undefined;
+      ctx.actions.push({
+        type: "add_to_cart",
+        postIds: ids,
+        recipient: recipient ? String(recipient).slice(0, 60) : undefined,
+        occasion: i.occasion || ctx.brief?.occasion || undefined,
+      });
       // Track items so a later checkout records a real order. Resolve from the
       // products already shown this turn; fall back to a direct lookup.
       for (const id of ids) {
@@ -2829,6 +3438,7 @@ export const handler = async (event) => {
         budget: Number(qs.budget) || undefined,
         eventBoost: Number(qs.eventBoost) || 0,
       };
+      const featured = !start ? await featuredFeedPosts() : [];
 
       // Per-user de-dup: skip anything this viewer has already seen/liked/saved.
       const exclude = await userExclusions(qs.userId);
@@ -2899,9 +3509,13 @@ export const handler = async (event) => {
           if (!start && !filters.length && !personalized && qs.fresh !== "0" && ranked.length > limit) {
             offset = Math.floor(Math.random() * Math.max(1, ranked.length - limit));
           }
-          const page = mixed.slice(offset, offset + limit);
-          const nextOffset = offset + limit;
-          return json(200, { items: page, cursor: nextOffset < mixed.length ? encodeCursor({ _offset: nextOffset }) : null });
+          const pageSize = Math.max(0, limit - featured.length);
+          const page = mixed.slice(offset, offset + pageSize);
+          const nextOffset = offset + pageSize;
+          return json(200, {
+            items: prependFeatured(page, featured, limit),
+            cursor: nextOffset < mixed.length ? encodeCursor({ _offset: nextOffset }) : null,
+          });
         } catch (err) {
           console.warn("sharded byFeed query failed, falling back to full scan:", err.message);
         }
@@ -3009,7 +3623,9 @@ export const handler = async (event) => {
           if (!lastKey) break;    // reached the end of the range
         }
         const withOwnPosts = includeOwnUGC(eligible, featuredUGC, opts).sort((a, b) => b._score - a._score);
-        return json(200, { items: interleaveUGC(interleaveAuthors(withOwnPosts)).slice(0, limit), cursor: encodeCursor(lastKey) });
+        const pageSize = Math.max(0, limit - featured.length);
+        const page = interleaveUGC(interleaveAuthors(withOwnPosts)).slice(0, pageSize);
+        return json(200, { items: prependFeatured(page, featured, limit), cursor: encodeCursor(lastKey) });
       } catch (err) {
         // byFeed GSI not deployed yet (or transient error) -> legacy fallback.
         console.warn("byFeed query failed, falling back to full scan:", err.message);
@@ -3033,10 +3649,11 @@ export const handler = async (event) => {
         .sort((a, b) => b._score - a._score);
       const rankedMixed = interleaveUGC(interleaveAuthors(includeOwnUGC(ranked, featuredUGC, opts)));
       const offset = start?._offset ?? 0;
-      const page = rankedMixed.slice(offset, offset + limit);
-      const nextOffset = offset + limit;
+      const pageSize = Math.max(0, limit - featured.length);
+      const page = rankedMixed.slice(offset, offset + pageSize);
+      const nextOffset = offset + pageSize;
       const cursor = nextOffset < ranked.length ? encodeCursor({ _offset: nextOffset }) : null;
-      return json(200, { items: page, cursor });
+      return json(200, { items: prependFeatured(page, featured, limit), cursor });
     }
 
     // GET /posts/{id}
@@ -5298,15 +5915,35 @@ export const handler = async (event) => {
       const nameLine = typeof body.name === "string" && body.name ? `\n\nThe user's first name is ${body.name}. Always address them by this name. Do NOT confuse this with names from connections, recipients, or the relationship graph — those are other people.` : "";
       const signedOut = userId
         ? ""
-        : "\n\nThe user is signed out: get_profile, upcoming_events, list_connections, relationship_graph, save_event, and remember_fact are unavailable — help with catalog search only and gently suggest signing in to unlock memory.";
-      const sys = MAXI_SYSTEM + nameLine + signedOut + memBlock;
+        : "\n\nThe user is signed out: get_profile, upcoming_events, list_connections, relationship_graph, save_event, remember_fact and the gift-brief tools are unavailable — help with catalog search only and gently suggest signing in to unlock memory.";
+
+      // Inject the open brief rather than trusting the model to fetch it. The
+      // cheap base tier drops tool calls under pressure, and a forgotten brief
+      // means re-interviewing a user who already answered — the single worst
+      // failure mode this feature has.
+      const openBrief = await latestBrief(userId);
+      const briefBlock = openBrief
+        ? `\n\nOpen gift brief — resume it, and do NOT re-ask anything already filled in here:\n${JSON.stringify(scrubPII(openBrief))}\nStill missing: ${missingBriefFields(openBrief).join(", ") || "nothing — go find gifts"}.`
+        : "";
+
+      const sys = MAXI_SYSTEM + nameLine + signedOut + memBlock + briefBlock;
 
       const toolConfig = {
         tools: MAXI_TOOLS.map((t) => ({
           toolSpec: { name: t.name, description: t.description, inputSchema: { json: t.schema } },
         })),
       };
-      const tctx = { userId, pins: [], actions: [], cartItems: [], steps: [] };
+      const tctx = {
+        userId,
+        pins: [],
+        actions: [],
+        cartItems: [],
+        steps: [],
+        brief: openBrief,
+        // Things the user has already interacted with — kept out of find_gifts
+        // so the concierge doesn't keep re-proposing what they've seen.
+        excluded: userId ? (await seedTargetsFor(userId)).excluded : new Set(),
+      };
       // Model routing: cheap Amazon Nova by default; Claude Haiku once an agentic
       // shopping experience is triggered (intent now, or a cart/checkout tool below).
       // In DEGRADED mode we pin the cheap base model + cap the tool loop to shed cost.
@@ -5397,9 +6034,134 @@ export const handler = async (event) => {
         pins,
         actions: tctx.actions,
         steps: tctx.steps,
+        // The client shows this as a chip above the conversation, so the user
+        // can see (and correct) what Maxi thinks the job is.
+        brief: tctx.brief ?? null,
         source: "agent",
         usage: { inputTokens: usedIn, outputTokens: usedOut, costUsd: Math.round(costUsd * 1e5) / 1e5 },
       });
+    }
+
+    // POST /packaging  { userId?, items:[{postId,title,image,category,price}],
+    //                    occasion?, recipientName?, relationship? }
+    // -> { sig, plan, imageUrl, cached }
+    //
+    // How to wrap ONE recipient's pile. A vision model reads the actual product
+    // photos and writes the plan; Nova Canvas renders one picture of it. Both
+    // are cached against a signature of the cart, so a repeat visit is free and
+    // instant. The plan is the payload — the image is a bonus, and every
+    // failure path still returns the plan.
+    if (method === "POST" && path === "/packaging") {
+      const level = await getDegradeLevel();
+      if (level === "paused") return json(503, { error: "packaging is napping (cost guard)" });
+
+      const items = (Array.isArray(body.items) ? body.items : [])
+        .filter((i) => i && (i.postId || i.title))
+        .slice(0, 8)
+        .map((i) => ({
+          postId: String(i.postId || ""),
+          title: String(i.title || "").slice(0, 120),
+          image: typeof i.image === "string" ? i.image : null,
+          category: i.category ? String(i.category).slice(0, 40) : null,
+          price: typeof i.price === "number" && i.price > 0 ? i.price : null,
+        }));
+      if (!items.length) return json(400, { error: "items required" });
+
+      const ctx = {
+        occasion: body.occasion ? String(body.occasion).slice(0, 60) : null,
+        recipientName: body.recipientName ? String(body.recipientName).slice(0, 60) : null,
+        relationship: body.relationship ? String(body.relationship).slice(0, 40) : null,
+      };
+      const sig = cartSignature(items, ctx);
+      const cacheKey = packagingCacheKey(sig);
+
+      // Cache first — the whole cost model depends on this hitting.
+      try {
+        const hit = await ddb.send(new GetCommand({ TableName: CONFIG, Key: { key: cacheKey } }));
+        if (hit.Item?.plan) {
+          return json(200, {
+            sig,
+            plan: hit.Item.plan,
+            imageUrl: hit.Item.imageUrl ?? null,
+            cached: true,
+          });
+        }
+      } catch (e) {
+        console.warn("packaging cache read failed (continuing):", e.message);
+      }
+
+      if (!(await aiEnabled())) {
+        return json(503, { error: "packaging temporarily unavailable" });
+      }
+
+      // Abuse guard, not a usage cap — same shape as the Maxi limiter.
+      const auth = await authorizeRequest(event, method, path);
+      const principal =
+        auth?.via === "admin"
+          ? null
+          : auth?.sub || body.userId || event.requestContext?.http?.sourceIp || null;
+      if (principal && PACKAGING_DAILY_LIMIT > 0) {
+        const rl = await checkDailyLimit("pkg-rate", principal, PACKAGING_DAILY_LIMIT);
+        if (!rl.ok) {
+          return json(429, {
+            error: "rate_limited",
+            scope: "packaging_daily",
+            limit: PACKAGING_DAILY_LIMIT,
+            retryAfterSec: rl.retryAfterSec,
+          });
+        }
+      }
+
+      let plan = null;
+      let usage = { inputTokens: 0, outputTokens: 0 };
+      try {
+        const built = await buildPackagingPlan(items, ctx);
+        plan = built.plan;
+        usage = built.usage;
+      } catch (e) {
+        console.warn("packaging plan failed:", e.name, e.message);
+        return json(502, { error: "planner_unavailable" });
+      }
+      if (!plan) return json(502, { error: "planner_unavailable" });
+
+      // Degraded mode skips the expensive half; the plan still ships.
+      let imageUrl = null;
+      if (level !== "degraded") {
+        try {
+          const brands = items.map((i) => i.title.split(/\s+/)[0]).filter(Boolean);
+          imageUrl = await renderPackagingImage(plan, sig, brands);
+        } catch (e) {
+          console.warn("packaging render failed (plan still returned):", e.name, e.message);
+        }
+      }
+
+      // Bill against the SAME monthly Bedrock budget Maxi uses — one cap, not two.
+      const planCost = maxiStepCostUsd(PACKAGING_VISION_MODEL, usage.inputTokens, usage.outputTokens);
+      await recordMaxiUsage(
+        usage.inputTokens,
+        usage.outputTokens,
+        planCost + (imageUrl ? PACKAGING_IMAGE_COST_USD : 0)
+      );
+
+      try {
+        await ddb.send(
+          new PutCommand({
+            TableName: CONFIG,
+            Item: {
+              key: cacheKey,
+              type: "packaging",
+              plan,
+              imageUrl,
+              updatedAt: Date.now(),
+              expiresAt: Math.floor(Date.now() / 1000) + PACKAGING_CACHE_TTL_DAYS * 86400,
+            },
+          })
+        );
+      } catch (e) {
+        console.warn("packaging cache write failed:", e.message);
+      }
+
+      return json(200, { sig, plan, imageUrl, cached: false });
     }
 
     return json(404, { error: `no route for ${method} ${path}` });

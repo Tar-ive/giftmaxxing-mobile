@@ -142,6 +142,17 @@ data "aws_iam_policy_document" "bedrock_access" {
       [for m in local.maxi_model_ids : "arn:aws:bedrock:*::foundation-model/${replace(m, "us.", "")}"]
     )
   }
+
+  # Packaging (POST /packaging) renders one image of the suggested wrap with
+  # Amazon Nova Canvas. Note this is NOT an inference profile — plain
+  # InvokeModel against the region-pinned foundation model, so there is no
+  # "us." prefix and no profile ARN. Requires a one-time model-access grant in
+  # the Bedrock console; until then the route ships the plan without a picture.
+  statement {
+    sid       = "InvokeNovaCanvas"
+    actions   = ["bedrock:InvokeModel"]
+    resources = ["arn:aws:bedrock:${var.region}::foundation-model/${var.packaging_image_model_id}"]
+  }
 }
 
 resource "aws_iam_role_policy" "bedrock_access" {
@@ -175,6 +186,9 @@ data "aws_iam_policy_document" "ugc_api_media" {
       "${aws_s3_bucket.media.arn}/ugc/public/*",
       "${aws_s3_bucket.media.arn}/avatars/raw/*",
       "${aws_s3_bucket.media.arn}/avatars/public/*",
+      # Generated packaging renders (POST /packaging). Model output only —
+      # never a user upload — so it goes straight to the public prefix.
+      "${aws_s3_bucket.media.arn}/wrap/public/*",
     ]
   }
 
