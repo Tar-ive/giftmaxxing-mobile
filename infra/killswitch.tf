@@ -159,13 +159,19 @@ resource "aws_lambda_permission" "killswitch_invoke_breaker" {
   source_arn    = aws_sns_topic.cost_killswitch.arn
 }
 
-# API Lambda config access: GET the kill-switch flag + GET/UPDATE Maxi's monthly
+# API config access: GET the kill-switch flag + GET/UPDATE Maxi's monthly
 # Bedrock budget counter (key maxi-budget#YYYY-MM). The handler never writes the
 # "paused" flag in code (only the breaker does); both items share the config table.
+#
+# PutItem is required by the packaging cache (key packaging#<cart-hash>), which
+# stores a whole plan object rather than incrementing a counter. Without it the
+# write silently failed and EVERY packaging request re-rendered — the cache is
+# the only thing standing between us and paying per image view, so this grant is
+# a cost control, not a convenience.
 data "aws_iam_policy_document" "api_config_read" {
   statement {
     sid       = "ConfigReadWrite"
-    actions   = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
+    actions   = ["dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:PutItem"]
     resources = [aws_dynamodb_table.config.arn]
   }
 }
