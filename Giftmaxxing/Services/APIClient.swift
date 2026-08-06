@@ -534,13 +534,27 @@ actor APIClient {
 
     // MARK: - Maxi Agent
 
-    func askMaxi(userId: String?, name: String?, message: String, history: [(role: String, text: String)]) async throws -> MaxiAgentReply? {
+    func askMaxi(
+        userId: String?,
+        name: String?,
+        message: String,
+        history: [(role: String, text: String)],
+        shownProducts: [MaxiProduct] = []
+    ) async throws -> MaxiAgentReply? {
         var body: [String: Any] = ["message": message]
         if let userId { body["userId"] = userId }
         if let name { body["name"] = name }
         if !history.isEmpty {
             let msgs = history.suffix(12).map { ["role": $0.role, "text": $0.text] }
             body["messages"] = msgs
+        }
+        // Only text crosses turns, so the agent otherwise has no idea what
+        // "add all to cart" or "the second one" refers to. Send the postIds
+        // still on screen so it can act on them instead of describing them.
+        if !shownProducts.isEmpty {
+            body["shownProducts"] = shownProducts.suffix(12).map {
+                ["postId": $0.postId, "title": $0.title]
+            }
         }
 
         // Throws so the caller can tell 401 (sign-in needed) from 429/503

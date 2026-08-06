@@ -68,8 +68,15 @@ final class AppState: ObservableObject {
     // floating button. Use a depth counter so nested sheets restore it safely.
     @Published private(set) var maxiFABSuppressionDepth = 0
 
+    // Tabs where a concierge makes sense: browsing (Home), the people you shop
+    // for (Circles), and your own gifting life (You). Swipe and Post are
+    // hands-on, full-bleed surfaces — a swipe deck and a camera — where a
+    // floating button is in the way of the actual interaction, not a shortcut.
+    private static let maxiFABTabs: Set<Tab> = [.feed, .circles, .you]
+
     var showsMaxiFAB: Bool {
-        maxiFABSuppressionDepth == 0
+        Self.maxiFABTabs.contains(selectedTab)
+            && maxiFABSuppressionDepth == 0
             && !showMaxi
             && !showSearch
             && !showCreatePoolFromCapture

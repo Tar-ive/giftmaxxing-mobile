@@ -59,6 +59,16 @@ final class MaxiViewModel: ObservableObject {
         catalog = []
     }
 
+    /// Every product still visible in the transcript, newest last, deduped.
+    /// This is what "add all to cart" and "the second one" resolve against.
+    private var productsOnScreen: [MaxiProduct] {
+        var seen = Set<String>()
+        return messages
+            .flatMap(\.products)
+            .filter { seen.insert($0.postId).inserted }
+            .suffix(12)
+    }
+
     private func record(_ message: MaxiMessage) {
         messages.append(message)
         MaxiConversationStore.shared.append(message)
@@ -90,7 +100,8 @@ final class MaxiViewModel: ObservableObject {
                 userId: AuthManager.shared.userId,
                 name: AuthManager.shared.displayName,
                 message: text,
-                history: history
+                history: history,
+                shownProducts: productsOnScreen
             )
             if let reply, !reply.say.isEmpty {
                 record(MaxiMessage(
@@ -157,7 +168,13 @@ final class MaxiViewModel: ObservableObject {
         switch action.type {
         case "add_to_cart":
             let ids = Set(action.postIds ?? [])
-            let chosen = pins.filter { ids.contains($0.postId) }
+            // Resolve against everything in the transcript, not just this
+            // turn's results: "add all to cart" refers to products shown
+            // several turns ago, and matching only fresh pins silently
+            // dropped them.
+            var byId: [String: MaxiProduct] = [:]
+            for product in productsOnScreen + pins { byId[product.postId] = product }
+            let chosen = ids.compactMap { byId[$0] }
             guard !chosen.isEmpty else { return }
             // The model routinely omits `recipient` even when the conversation
             // has established one ("My mom" → "added to your cart", landing in

@@ -97,10 +97,11 @@ struct ContentView: View {
                     }
                 }
                 .padding(.trailing, ThemeSpacing.md)
-                // Sits ABOVE the tab bar and clear of the feed card's own
-                // Pool / Gift-board buttons, which live in the same corner —
-                // at 62 the FAB covered them.
-                .padding(.bottom, 128)
+                // Tucked just above the tab bar, BELOW the feed card's Pool /
+                // Gift-board buttons. Those sit in the same corner, so the FAB
+                // has to clear them on one side or the other — going under is
+                // the only option that also keeps it out of the card's title.
+                .padding(.bottom, 48)
                 .transition(.scale.combined(with: .opacity))
                 .zIndex(6)
             }

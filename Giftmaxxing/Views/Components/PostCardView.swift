@@ -68,6 +68,15 @@ struct PostCardView: View {
 
     // Inline gallery position (Instagram-style paging right in the feed).
     @State private var galleryIndex = 0
+
+    /// The slide currently on screen — what "Find similar" must search.
+    private var currentGalleryImage: String? {
+        let gallery = post.product.gallery
+        guard gallery.indices.contains(galleryIndex) else {
+            return gallery.first ?? post.product.image
+        }
+        return gallery[galleryIndex]
+    }
     // Real shape of a user upload, measured once the image decodes.
     @State private var measuredAspect: CGFloat?
     // Long-press reveals the gift's story — the alt-text of gifting.
@@ -176,8 +185,17 @@ struct PostCardView: View {
                         HStack {
                             Spacer()
                             Button {
-                                let image = post.product.gallery.first ?? post.product.image
-                                Task { await VisualSearchLauncher.open(imageUrl: image, in: appState) }
+                                // Search the slide you're LOOKING at. This used
+                                // to always take gallery.first, so paging to
+                                // slide 4 and tapping "Find similar" searched
+                                // slide 1 — results that matched nothing on
+                                // screen.
+                                Task {
+                                    await VisualSearchLauncher.open(
+                                        imageUrl: currentGalleryImage,
+                                        in: appState
+                                    )
+                                }
                             } label: {
                                 HStack(spacing: 6) {
                                     Image(systemName: "sparkle.magnifyingglass")

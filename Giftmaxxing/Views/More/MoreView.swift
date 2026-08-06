@@ -1101,7 +1101,12 @@ struct UGCProfilePostSheet: View {
                             // Same "Find similar" affordance as the feed card —
                             // this sheet had neither it nor the shop rail.
                             Button {
-                                let image = gallery.first ?? post.posterUrl
+                                // The slide on screen, not slide 1 — paging the
+                                // carousel then tapping this used to search the
+                                // first image regardless.
+                                let image = gallery.indices.contains(galleryIndex)
+                                    ? gallery[galleryIndex]
+                                    : (gallery.first ?? post.posterUrl)
                                 Task { await VisualSearchLauncher.open(imageUrl: image, in: appState) }
                             } label: {
                                 HStack(spacing: 6) {

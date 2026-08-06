@@ -1821,6 +1821,8 @@ Use tools, don't guess:
 - When the user states a durable fact (a budget, a like/dislike, who they shop for), call remember_fact. When they give a concrete dated occasion, call save_event so reminders fire.
 - add_to_cart and add_to_board put things in the user's OWN app — real, and they'll see them immediately. checkout is SIMULATED: say so honestly and point them at their cart to buy for real; never imply a charge or a shipment.
 - The cart is organised by PERSON. add_to_cart REQUIRES the recipient argument whenever you know who the gift is for — which is any time the conversation has named them. Omitting it dumps the item into an unsorted pile the user has to file by hand. When you confirm, name them: "Added to Mom's cart", never "added to your cart".
+- NEVER say you added, saved, or remembered something unless you actually called the tool and it returned ok. Saying "I've added that to your cart" without calling add_to_cart is a lie the user discovers when the cart is empty. If you intend to add something, CALL THE TOOL FIRST, then describe what happened.
+- "Add all" / "add them all" means call add_to_cart ONCE with every postId listed on the user's screen.
 
 Keep replies SHORT. Never dump a list of categories or counts — that is inventory, not advice. Name at most three specific things and say why each suits this person. If a tool hands you many options, choose.
 
@@ -5933,12 +5935,26 @@ export const handler = async (event) => {
       // cheap base tier drops tool calls under pressure, and a forgotten brief
       // means re-interviewing a user who already answered — the single worst
       // failure mode this feature has.
+      // Products the client currently has on screen from EARLIER turns. Only
+      // text crosses turns, so without this the agent has no idea what "add
+      // all to cart" or "the second one" refers to — it would answer as if it
+      // had acted while calling nothing, and the item never reached the cart.
+      const shownProducts = (Array.isArray(body.shownProducts) ? body.shownProducts : [])
+        .filter((p) => p && p.postId)
+        .slice(-12)
+        .map((p) => ({ postId: String(p.postId), title: String(p.title || "").slice(0, 80) }));
+      const shownBlock = shownProducts.length
+        ? `\n\nProducts currently on the user's screen (use these exact postIds with add_to_cart / add_to_board — never invent one):\n${shownProducts
+            .map((p, i) => `${i + 1}. ${p.title} [${p.postId}]`)
+            .join("\n")}`
+        : "";
+
       const openBrief = await latestBrief(userId);
       const briefBlock = openBrief
         ? `\n\nOpen gift brief — resume it, and do NOT re-ask anything already filled in here:\n${JSON.stringify(scrubPII(openBrief))}\nStill missing: ${missingBriefFields(openBrief).join(", ") || "nothing — go find gifts"}.`
         : "";
 
-      const sys = MAXI_SYSTEM + nameLine + signedOut + memBlock + briefBlock;
+      const sys = MAXI_SYSTEM + nameLine + signedOut + memBlock + briefBlock + shownBlock;
 
       const toolConfig = {
         tools: MAXI_TOOLS.map((t) => ({
@@ -6037,6 +6053,41 @@ export const handler = async (event) => {
       // so only the final, user-facing reply shows (Claude doesn't emit these).
       say = say.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "").replace(/<\/?thinking>/gi, "").trim();
 
+      // Claim/action reconciliation.
+      //
+      // The smaller model routinely WRITES that it added something to the cart
+      // without ever calling add_to_cart — the user is told "I've added all the
+      // gift ideas to your cart", the cart stays empty, and nothing in the UI
+      // reveals the gap. A confident false claim is worse than a refusal, so
+      // when the reply asserts a cart add and no tool call backs it up, make it
+      // true: add exactly the products the client had on screen (or surfaced
+      // this turn), which is what the user was looking at when they asked.
+      let reconciled = false;
+      const claimsCartAdd = /\b(added|adding|put|added them|i've added)\b[^.!?]{0,60}\b(to )?(your |the |their |her |his )?(cart|basket)\b/i.test(say);
+      const alreadyAdded = tctx.actions.some((a) => a.type === "add_to_cart");
+      if (claimsCartAdd && !alreadyAdded) {
+        const pool = (tctx.pins.length ? tctx.pins : shownProducts).filter((p) => p?.postId);
+        const ids = [...new Set(pool.map((p) => p.postId))].slice(0, 10);
+        if (ids.length) {
+          tctx.actions.push({
+            type: "add_to_cart",
+            postIds: ids,
+            recipient: tctx.brief?.recipientName || undefined,
+            occasion: tctx.brief?.occasion || undefined,
+          });
+          tctx.steps.push({
+            tool: "add_to_cart",
+            label: `Added ${ids.length} to the cart`,
+            detail: tctx.brief?.recipientName ? `for ${tctx.brief.recipientName}` : "",
+          });
+          reconciled = true;
+          console.log("maxi reconciled a cart claim with no tool call", JSON.stringify({ userId, ids: ids.length }));
+        } else {
+          // Nothing to add — don't leave a false claim standing.
+          say = "I couldn't add those just yet — tell me which one you mean and I'll put it in the right person's cart.";
+        }
+      }
+
       const seen = new Set();
       const pins = tctx.pins
         .filter((p) => p && p.postId && !seen.has(p.postId) && seen.add(p.postId))
@@ -6050,6 +6101,7 @@ export const handler = async (event) => {
         // can see (and correct) what Maxi thinks the job is.
         brief: tctx.brief ?? null,
         source: "agent",
+        ...(reconciled ? { reconciled: true } : {}),
         usage: { inputTokens: usedIn, outputTokens: usedOut, costUsd: Math.round(costUsd * 1e5) / 1e5 },
       });
     }

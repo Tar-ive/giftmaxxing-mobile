@@ -27,10 +27,9 @@ struct MaxiFloatingButton: View {
                         y: 4
                     )
 
-                Image(systemName: "sparkles")
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(.white)
-                    .symbolEffect(.pulse, isActive: reduceMotion)
+                // The same mark as the chat avatar — tapping a spark should be
+                // answered by a spark.
+                MaxiIcon(size: diameter * 0.62, showsBackground: false)
             }
             .scaleEffect(pulse ? 1.04 : 1.0)
         }
