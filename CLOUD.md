@@ -28,6 +28,7 @@
 | Concern | Decision | Why |
 |---|---|---|
 | **Embedding model** | Amazon Bedrock — **Titan Multimodal Embeddings G1** (`amazon.titan-embed-image-v1`), 1024-d (also 384/256) | Single **shared** text+image vector space → enables image↔image *and* text↔image search with one model. No servers to run, pay-per-call. |
+| **Maxi shopping tier** ✅ | **Claude Haiku 4.5** — `us.anthropic.claude-haiku-4-5-20251001-v1:0` (Aug 2026: access GRANTED, verified by live Converse invoke; the `terraform.tfvars` Nova Lite pin is removed) | Nova Lite could not hold the gift brief: it dumped category inventories and *claimed* cart adds without calling `add_to_cart`. Haiku runs the full loop — brief → save → vector `find_gifts` → 3 picks → real `add_to_cart` with the recipient. **Must be the `us.` inference profile**; the bare foundation-model id rejects on-demand throughput. |
 | **Forward option** | **Amazon Nova Multimodal Embeddings** (newer, unified text/image/video/audio) | Migration target once stable; same pipeline shape. |
 | **Image storage** | **Amazon S3** (private bucket, `s3:image/...`) | Cheap, event-driven, native Bedrock/OpenSearch integration. |
 | **Vector database (recommended)** | **Amazon S3 Vectors** — ✅ confirmed available in acct `445056752928`/`us-east-1` | The AWS-native, purpose-built vector store: lowest TCO, scales past 100k, native Bedrock + OpenSearch integration. Use as the canonical index. See §11 for the full options list. |
