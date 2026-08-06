@@ -117,6 +117,17 @@ async function ingestAnalytics(body) {
             postId: truncate(evt.postId, 128),
             position: typeof evt.position === "number" ? evt.position : undefined,
             source: truncate(evt.source, 32),
+            // Serving attribution — WHICH ranker put this item on screen.
+            // Without these, an outcome (dwell, tap, save) cannot be credited
+            // to a ranker: the server generates candidates three different ways
+            // and the on-device ranker then reorders them. `serverRank` paired
+            // with `position` is what makes the on-device re-rank measurable
+            // rather than merely recorded.
+            servedBy: truncate(evt.servedBy, 48),
+            serverSource: truncate(evt.serverSource, 32),
+            rerankedOnDevice: truncate(evt.rerankedOnDevice, 4),
+            serverRank: typeof evt.serverRank === "number" ? evt.serverRank : undefined,
+            rankDelta: typeof evt.rankDelta === "number" ? evt.rankDelta : undefined,
             // Dwell/timing metrics (Instagram-style)
             dwellMs: evt.dwellMs,
             dwellBucket: evt.dwellBucket,

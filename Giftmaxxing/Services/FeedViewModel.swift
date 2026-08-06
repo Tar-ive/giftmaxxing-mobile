@@ -27,6 +27,24 @@ final class FeedViewModel: ObservableObject {
     // Ranked-but-not-yet-shown candidates (output of the on-device ranker).
     private var rankedBuffer: [RankedCandidate] = []
     private var servedIds = Set<String>()
+
+    // Which ranker put each post on screen, keyed by postId. Consumed by
+    // `attribution(for:at:)` when an impression fires. Without it an outcome
+    // (dwell, tap, save) can't be credited to a ranker: the server generates
+    // candidates one of three ways and the on-device ranker then reorders
+    // them, so every offline comparison was unattributable.
+    private var servingSource: [String: String] = [:]
+    private var serverRank: [String: Int] = [:]
+    private var rerankedOnDevice = Set<String>()
+
+    /// Serving attribution for an impression at `position`.
+    func attribution(for postId: String, at position: Int) -> AnalyticsEngine.ServingAttribution {
+        AnalyticsEngine.ServingAttribution(
+            serverSource: servingSource[postId] ?? "",
+            rerankedOnDevice: rerankedOnDevice.contains(postId),
+            serverRank: serverRank[postId]
+        )
+    }
     // Interaction model phase-2 state: which slots the fast personalized
     // picks landed in, and the in-flight background refine (cancelled on
     // every reload so a stale ranking can't overwrite a fresh page).
@@ -133,7 +151,17 @@ final class FeedViewModel: ObservableObject {
         ),
               response.source == "vector" || response.source == "vector+mtl",
               let items = response.items, !items.isEmpty else { return [] }
-        return items.map(Post.init(vectorItem:))
+        let posts = items.map(Post.init(vectorItem:))
+        // Credit the ranker that produced these — "vector" (cosine) or
+        // "vector+mtl" (the trained model). These are NOT re-ranked on device:
+        // weave() places them at fixed slots, so any outcome here is
+        // attributable to the server alone.
+        for (i, p) in posts.enumerated() {
+            servingSource[p.id] = response.source ?? "vector"
+            serverRank[p.id] = i
+            rerankedOnDevice.remove(p.id)
+        }
+        return posts
     }
 
     // Interleave personalized picks into the first page (slots 1, 4, 7, …) so
@@ -262,6 +290,16 @@ final class FeedViewModel: ObservableObject {
         let negSimilarities = await negVectorSimilarities(for: page.posts)
 
         let fresh = page.posts.filter { !servedIds.contains($0.id) }
+        // Record the server's ordering BEFORE the on-device ranker touches it —
+        // the pair (serverRank, final position) is what makes the re-rank
+        // measurable rather than merely logged.
+        // GET /feed is always the facet ranker (scorePost); the vector and MTL
+        // paths arrive separately through fetchPersonalizedPicks.
+        for (i, p) in fresh.enumerated() {
+            servingSource[p.id] = "facet"
+            serverRank[p.id] = i
+            rerankedOnDevice.insert(p.id)
+        }
         let ranked = OnDeviceRanker.rank(
             candidates: fresh,
             profile: profile,
