@@ -20,7 +20,7 @@ import numpy as np
 from swipe_model import LogisticSwipeModel, FEATURE_NAMES, auc
 
 
-def loocv(X, Y, groups, l2=1.0):
+def loocv(X, Y, groups, l2=1.0, model_cls=LogisticSwipeModel):
     """Leave-one-USER-out. Returns pooled out-of-fold predictions so a single
     AUC can be computed over every held-out decision."""
     users = sorted(set(groups))
@@ -31,7 +31,7 @@ def loocv(X, Y, groups, l2=1.0):
         # A fold is only informative if training saw both classes.
         if Y[tr].sum() == 0 or Y[tr].sum() == tr.sum():
             continue
-        m = LogisticSwipeModel(l2=l2).fit(X[tr], Y[tr])
+        m = model_cls(l2=l2).fit(X[tr], Y[tr])
         oof[te] = m.predict_proba(X[te])
     return oof
 

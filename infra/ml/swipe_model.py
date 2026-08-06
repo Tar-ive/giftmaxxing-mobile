@@ -192,6 +192,56 @@ class LogisticSwipeModel:
         return m
 
 
+class LinearSwipeModel:
+    """Ordinary least squares on the same ten features.
+
+    Included as a control, not a candidate. Linear regression is the wrong tool
+    for a 0/1 target — it predicts unbounded values where only [0,1] is
+    meaningful, and it optimises squared error when we care about ranking. But
+    for RANKING, only the order of the scores matters, and OLS and logistic
+    regression often produce near-identical orderings. If they do here, that is
+    evidence the choice of model is not what is holding us back — the labels
+    are. That is worth knowing before anyone reaches for a bigger model.
+
+    Closed-form solve, so there is nothing to tune and no chance of blaming a
+    bad result on optimisation.
+    """
+
+    def __init__(self, l2=1.0):
+        self.l2 = l2
+        self.w = None
+        self.b = 0.0
+        self.mu = None
+        self.sd = None
+
+    def _standardize(self, X, fit=False):
+        if fit:
+            self.mu = X.mean(axis=0)
+            self.sd = X.std(axis=0)
+            self.sd[self.sd < 1e-6] = 1.0
+        return (X - self.mu) / self.sd
+
+    def fit(self, X, y):
+        Xs = self._standardize(np.asarray(X, dtype=np.float64), fit=True)
+        y = np.asarray(y, dtype=np.float64)
+        n, d = Xs.shape
+        # Ridge closed form; the intercept is the mean since features are centred.
+        A = Xs.T @ Xs + self.l2 * np.eye(d)
+        self.w = np.linalg.solve(A, Xs.T @ (y - y.mean()))
+        self.b = float(y.mean())
+        return self
+
+    def predict_proba(self, X):
+        """Not a probability — an unbounded score. Named to match
+        LogisticSwipeModel so evaluation code can treat them interchangeably,
+        which is exactly the point of the comparison."""
+        Xs = self._standardize(np.asarray(X, dtype=np.float64))
+        return Xs @ self.w + self.b
+
+    def weights(self):
+        return dict(zip(FEATURE_NAMES, np.round(self.w, 4).tolist()))
+
+
 def auc(y_true, scores):
     """Rank-based AUC. Returns nan when a class is absent — which is honest,
     and happens often at our data volume."""

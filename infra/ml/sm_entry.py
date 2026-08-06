@@ -16,7 +16,7 @@ import json
 import os
 import numpy as np
 
-from swipe_model import LogisticSwipeModel, FEATURE_NAMES, auc
+from swipe_model import LogisticSwipeModel, LinearSwipeModel, FEATURE_NAMES, auc
 from train_swipe import loocv
 
 TRAIN_DIR = os.environ.get("SM_CHANNEL_TRAINING", "data")
@@ -42,6 +42,15 @@ def main():
     model_auc = auc(Y[ok], oof[ok])
     lift = model_auc - base
 
+    # --- Control: ordinary least squares on the same features ----------------
+    # Wrong tool for a 0/1 target, but for RANKING only the order matters. If
+    # OLS matches logistic, the model family is not the constraint - the labels
+    # are - and nobody should reach for a bigger model.
+    oof_lin = loocv(X, Y, groups, model_cls=LinearSwipeModel)
+    ok_lin = ~np.isnan(oof_lin)
+    lin_auc = auc(Y[ok_lin], oof_lin[ok_lin])
+    print(f"auc_linear={lin_auc:.4f};")
+
     # --- Is the lift distinguishable from zero at this sample size? ----------
     rng = np.random.default_rng(0)
     idx = np.where(ok)[0]
@@ -64,6 +73,8 @@ def main():
     print(f"p_better={p_better:.4f};")
 
     ships = bool(lo > 0)
+    print(f"[control] linear regression AUC {lin_auc:.4f} "
+          f"(vs logistic {model_auc:.4f}) - a match means the model family is not the constraint")
     print(f"[verdict] {'SHIP — CI excludes zero' if ships else 'DO NOT SHIP over cosine — CI includes zero'}")
 
     # --- Fit on everything and persist ---------------------------------------
@@ -82,6 +93,7 @@ def main():
         "auc_cosine_baseline": None if np.isnan(base) else round(float(base), 4),
         "auc_model_loucv": None if np.isnan(model_auc) else round(float(model_auc), 4),
         "lift": None if np.isnan(lift) else round(float(lift), 4),
+        "auc_linear_regression": None if np.isnan(lin_auc) else round(float(lin_auc), 4),
         "ci95": [None if np.isnan(lo) else round(float(lo), 4),
                  None if np.isnan(hi) else round(float(hi), 4)],
         "p_lift_gt_0": None if np.isnan(p_better) else round(p_better, 4),

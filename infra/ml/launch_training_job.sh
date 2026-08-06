@@ -34,6 +34,7 @@ cat > /tmp/job.json <<JSON
       {"Name": "auc_cosine", "Regex": "auc_cosine=([0-9.]+);"},
       {"Name": "auc_model",  "Regex": "auc_model=([0-9.]+);"},
       {"Name": "lift",       "Regex": "lift=(-?[0-9.]+);"},
+      {"Name": "auc_linear", "Regex": "auc_linear=([0-9.]+);"},
       {"Name": "ci_low",     "Regex": "ci_low=(-?[0-9.]+);"},
       {"Name": "ci_high",    "Regex": "ci_high=(-?[0-9.]+);"},
       {"Name": "p_better",   "Regex": "p_better=([0-9.]+);"}
