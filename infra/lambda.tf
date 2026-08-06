@@ -95,6 +95,7 @@ resource "aws_lambda_function" "api" {
       # Bedrock cap as Maxi, and cached forever against a hash of the cart.
       PACKAGING_VISION_MODEL_ID = var.packaging_vision_model_id
       PACKAGING_IMAGE_MODEL_ID  = var.packaging_image_model_id
+      PACKAGING_IMAGE_REGION    = var.packaging_image_region
       PACKAGING_IMAGES          = var.packaging_images ? "1" : "0"
       PACKAGING_DAILY_LIMIT     = tostring(var.packaging_daily_limit)
       # byFeed GSI sharding. 1 = single 'all' partition (unchanged). >1 spreads the

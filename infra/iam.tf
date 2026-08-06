@@ -143,15 +143,22 @@ data "aws_iam_policy_document" "bedrock_access" {
     )
   }
 
-  # Packaging (POST /packaging) renders one image of the suggested wrap with
-  # Amazon Nova Canvas. Note this is NOT an inference profile — plain
-  # InvokeModel against the region-pinned foundation model, so there is no
-  # "us." prefix and no profile ARN. Requires a one-time model-access grant in
-  # the Bedrock console; until then the route ships the plan without a picture.
+  # Packaging (POST /packaging) renders one image of the suggested wrap.
+  #
+  # This is scoped to packaging_image_region, NOT var.region: Bedrock retired
+  # Amazon Nova Canvas mid-flight ("marked by provider as Legacy and you have
+  # not been actively using the model in the last 30 days") and us-east-1 has no
+  # ACTIVE text-to-image model left — every Stability model there edits an
+  # existing image rather than generating one. The render leg therefore calls
+  # us-west-2. Region is wildcarded on the second ARN so switching the model or
+  # region is a variable change, not a policy rewrite.
   statement {
-    sid       = "InvokeNovaCanvas"
-    actions   = ["bedrock:InvokeModel"]
-    resources = ["arn:aws:bedrock:${var.region}::foundation-model/${var.packaging_image_model_id}"]
+    sid     = "InvokePackagingImageModel"
+    actions = ["bedrock:InvokeModel"]
+    resources = [
+      "arn:aws:bedrock:${var.packaging_image_region}::foundation-model/${var.packaging_image_model_id}",
+      "arn:aws:bedrock:${var.packaging_image_region}:${data.aws_caller_identity.current.account_id}:inference-profile/*",
+    ]
   }
 }
 

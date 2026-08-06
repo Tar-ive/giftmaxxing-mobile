@@ -623,7 +623,17 @@ const PACKAGING_VISION_MODEL =
   process.env.PACKAGING_VISION_MODEL_ID ||
   process.env.MAXI_BASE_MODEL_ID ||
   "us.amazon.nova-lite-v1:0";
-const PACKAGING_IMAGE_MODEL = process.env.PACKAGING_IMAGE_MODEL_ID || "amazon.nova-canvas-v1:0";
+// Image generation is REGION-SPLIT from everything else.
+//
+// Amazon Nova Canvas was the only text-to-image model in us-east-1, and Bedrock
+// cut it off mid-flight: "This Model is marked by provider as Legacy and you
+// have not been actively using the model in the last 30 days." It worked in the
+// morning and was denied by the afternoon, account-wide. There is no ACTIVE
+// generator left in us-east-1 — every Stability model there is an EDITING model
+// (inpaint / upscale / background). us-west-2 has real generators, so the
+// render leg alone calls across regions; nothing else moves.
+const PACKAGING_IMAGE_MODEL = process.env.PACKAGING_IMAGE_MODEL_ID || "stability.stable-image-core-v1:1";
+const PACKAGING_IMAGE_REGION = process.env.PACKAGING_IMAGE_REGION || "us-west-2";
 // Off by default: Nova Canvas needs a console model-access grant. Until it's
 // granted, the plan ships without a picture rather than 500ing.
 const PACKAGING_IMAGES = process.env.PACKAGING_IMAGES === "1";
@@ -640,6 +650,8 @@ const PACKAGING_IMAGE_COST_USD = Number(process.env.PACKAGING_IMAGE_COST_USD || 
 const PACKAGING_CACHE_TTL_DAYS = 180;
 
 const s3 = PACKAGING_MEDIA_BUCKET ? new S3Client({}) : null;
+// Separate client: the image model lives in another region (see above).
+const bedrockImages = new BedrockRuntimeClient({ region: PACKAGING_IMAGE_REGION });
 
 // Fetch up to N product photos so the planner can SEE what it's wrapping.
 // Any failure just means a text-only plan — never an error.
@@ -699,32 +711,56 @@ async function buildPackagingPlan(items, ctx) {
 // Render the plan and park it in S3 under the cart signature. Returns the
 // RELATIVE path — the client prefixes its own base URL (same convention as
 // UGC media), so this works through CloudFront without hard-coding a domain.
+const NEGATIVE_PROMPT = "text, words, watermark, logo, brand name, people, hands, faces";
+
+// Amazon and Stability take different request shapes and Bedrock gives no
+// abstraction over them, so branch on the model id rather than hard-coding one
+// vendor — swapping back is then a variable change, as it was for Titan.
+function imageRequestBody(modelId, prompt, sig) {
+  if (modelId.startsWith("stability.")) {
+    return {
+      prompt,
+      negative_prompt: NEGATIVE_PROMPT,
+      mode: "text-to-image",
+      aspect_ratio: "1:1",
+      output_format: "png",
+      // Stability's seed space is wider than Nova's; same cart -> same picture.
+      seed: seedFrom(sig) % 4294967294,
+    };
+  }
+  // Amazon Nova Canvas / Titan Image shape.
+  return {
+    taskType: "TEXT_IMAGE",
+    textToImageParams: { text: prompt, negativeText: NEGATIVE_PROMPT },
+    imageGenerationConfig: {
+      numberOfImages: 1,
+      width: 1024,
+      height: 1024,
+      cfgScale: 7.5,
+      quality: "standard",
+      seed: seedFrom(sig),
+    },
+  };
+}
+
 async function renderPackagingImage(plan, sig, brands) {
   if (!PACKAGING_IMAGES || !s3) return null;
-  const out = await bedrock.send(
+  const prompt = buildCanvasPrompt(plan, brands);
+  const out = await bedrockImages.send(
     new InvokeModelCommand({
       modelId: PACKAGING_IMAGE_MODEL,
       contentType: "application/json",
       accept: "application/json",
-      body: JSON.stringify({
-        taskType: "TEXT_IMAGE",
-        textToImageParams: {
-          text: buildCanvasPrompt(plan, brands),
-          negativeText: "text, words, watermark, logo, brand name, people, hands, faces",
-        },
-        imageGenerationConfig: {
-          numberOfImages: 1,
-          width: 1024,
-          height: 1024,
-          cfgScale: 7.5,
-          quality: "standard",
-          // Same cart -> same picture, even if the cache row is ever lost.
-          seed: seedFrom(sig),
-        },
-      }),
+      body: JSON.stringify(imageRequestBody(PACKAGING_IMAGE_MODEL, prompt, sig)),
     })
   );
   const body = JSON.parse(Buffer.from(out.body).toString("utf8"));
+  // Stability reports a content-filter block here rather than erroring.
+  const finish = body?.finish_reasons?.[0];
+  if (finish) {
+    console.warn("packaging render filtered:", finish);
+    return null;
+  }
   const b64 = body?.images?.[0];
   if (!b64) return null;
 

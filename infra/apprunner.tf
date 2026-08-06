@@ -180,6 +180,7 @@ resource "aws_apprunner_service" "api" {
           # which matters: image generation runs well past Lambda's 10s cap.
           PACKAGING_VISION_MODEL_ID = var.packaging_vision_model_id
           PACKAGING_IMAGE_MODEL_ID  = var.packaging_image_model_id
+          PACKAGING_IMAGE_REGION    = var.packaging_image_region
           PACKAGING_IMAGES          = var.packaging_images ? "1" : "0"
           PACKAGING_DAILY_LIMIT     = tostring(var.packaging_daily_limit)
           },

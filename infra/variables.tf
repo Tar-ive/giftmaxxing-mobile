@@ -134,9 +134,21 @@ variable "packaging_vision_model_id" {
 }
 
 variable "packaging_image_model_id" {
-  description = "Bedrock image-generation model for the packaging render. Plain foundation model (no inference profile, no 'us.' prefix)."
+  description = "Bedrock text-to-image model for the packaging render. Amazon (nova-canvas/titan-image) and Stability request shapes are both handled; the handler branches on the id prefix."
   type        = string
-  default     = "amazon.nova-canvas-v1:0"
+  default     = "stability.stable-image-core-v1:1"
+}
+
+# Aug 2026: Bedrock retired Nova Canvas ("marked by provider as Legacy and you
+# have not been actively using the model in the last 30 days") and us-east-1
+# has NO active text-to-image model left — every Stability model there is an
+# editing model (inpaint/upscale/background), not a generator. us-west-2 has
+# stable-image-core / sd3-5-large / stable-image-ultra, so the render leg alone
+# crosses regions. Everything else stays in var.region.
+variable "packaging_image_region" {
+  description = "Region for the packaging image model. Separate from var.region because us-east-1 has no active text-to-image model."
+  type        = string
+  default     = "us-west-2"
 }
 
 variable "packaging_images" {
