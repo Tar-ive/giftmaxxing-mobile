@@ -156,6 +156,10 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           set -o pipefail
+          # Keep the RAW xcodebuild output. xcpretty prints a tidy summary but
+          # discards the actual diagnostic, so an archive failure surfaced as a
+          # bare "** ARCHIVE FAILED **" with nothing to act on. Tee first, and
+          # dump the real error on failure.
           xcodebuild archive \
             -project Giftmaxxing.xcodeproj \
             -scheme Giftmaxxing \
@@ -168,7 +172,13 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             CURRENT_PROJECT_VERSION=${{ github.run_number }} \
-            | xcpretty --color
+            2>&1 | tee "$RUNNER_TEMP/archive.log" | xcpretty --color || {
+              echo "::group::Raw xcodebuild output (last 200 lines)"
+              tail -200 "$RUNNER_TEMP/archive.log"
+              echo "::endgroup::"
+              echo "::error::Archive failed — see the raw output above"
+              exit 1
+            }
 
       - name: Upload to TestFlight (export + upload)
         env:
