@@ -32,22 +32,29 @@ struct PackagingSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: ThemeSpacing.lg) {
-                    if isLoading {
+                    if items.isEmpty {
+                        // Nothing to wrap is a state about the CART, not a
+                        // failed plan — and the "Still to buy" list below would
+                        // be an empty heading, which is what made this screen
+                        // look broken rather than empty.
+                        nothingToWrap
+                    } else if isLoading {
                         loadingState
                     } else if let plan = response?.plan {
                         hero
                         planBody(plan)
+                        buyList
                     } else {
                         failureState
+                        buyList
                     }
-
-                    buyList
                 }
                 .padding(.horizontal, ThemeSpacing.md)
                 .padding(.bottom, ThemeSpacing.xl)
             }
             .background(Color.cream)
-            .navigationTitle("Wrapping \(section.recipientName)'s")
+            // "Wrapping mom's" read as a truncated sentence. Say who it's for.
+            .navigationTitle(section.isUnassigned ? "Wrapping" : "Wrapping for \(section.recipientName)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -76,6 +83,31 @@ struct PackagingSheet: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 72)
+    }
+
+    // Distinguishes "you've bought everything" from "this section is empty" —
+    // the old copy said "Nothing left to wrap" for both, which reads as a bug
+    // when the section never had anything in it.
+    private var nothingToWrap: some View {
+        VStack(spacing: ThemeSpacing.sm) {
+            Image(systemName: section.items.isEmpty ? "bag" : "checkmark.circle")
+                .font(.largeTitle)
+                .foregroundStyle(section.items.isEmpty ? Color.inkTertiary : Color.success)
+            Text(section.items.isEmpty
+                 ? "Nothing in \(section.isUnassigned ? "this section" : "\(section.recipientName)'s section") yet."
+                 : "All bought — nothing left to wrap.")
+                .font(.body)
+                .foregroundStyle(Color.inkSecondary)
+                .multilineTextAlignment(.center)
+            if section.items.isEmpty {
+                Text("Add a few gifts and I'll suggest how to wrap them together.")
+                    .font(.footnote)
+                    .foregroundStyle(Color.inkTertiary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 64)
     }
 
     private var failureState: some View {

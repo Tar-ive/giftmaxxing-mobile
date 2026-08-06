@@ -6092,8 +6092,47 @@ export const handler = async (event) => {
       const pins = tctx.pins
         .filter((p) => p && p.postId && !seen.has(p.postId) && seen.add(p.postId))
         .slice(0, 10);
+      // ── Session transcript (one JSONL record per turn) ──────────────────
+      //
+      // The usage line above records tokens and cost, which tells you nothing
+      // about WHY a turn went wrong: whether the model called a tool, what it
+      // claimed, what the client was actually told to do. Debugging "it said it
+      // added to my cart but the cart is empty" from token counts is guesswork.
+      // One structured line per turn makes it answerable — pull them with
+      // `node infra/ingest/maxi-sessions.mjs`. PII-scrubbed like everything
+      // else we log or send to the model.
+      const finalSay = say || "Hmm, I didn't quite catch that — tell me a budget or who it's for and I'll find something.";
+      console.log(
+        "maxi session " +
+          JSON.stringify({
+            at: new Date().toISOString(),
+            userId,
+            model: modelId,
+            tier: isShopping ? "shopping" : "base",
+            degraded,
+            user: scrubPII(userText).slice(0, 400),
+            say: scrubPII(finalSay).slice(0, 900),
+            // What it actually DID, versus what it said.
+            tools: tctx.steps.map((s) => s.tool),
+            actions: tctx.actions.map((a) => ({
+              type: a.type,
+              n: a.postIds?.length ?? 0,
+              recipient: a.recipient ?? null,
+            })),
+            pins: pins.length,
+            shown: shownProducts.length,
+            brief: tctx.brief
+              ? { recipient: tctx.brief.recipientName, occasion: tctx.brief.occasion ?? null }
+              : null,
+            reconciled,
+            usedIn,
+            usedOut,
+            costUsd: Math.round(usedCost * 1e5) / 1e5,
+          })
+      );
+
       return json(200, {
-        say: say || "Hmm, I didn't quite catch that — tell me a budget or who it's for and I'll find something.",
+        say: finalSay,
         pins,
         actions: tctx.actions,
         steps: tctx.steps,

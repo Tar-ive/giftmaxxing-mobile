@@ -19,6 +19,10 @@
     "backfill:vectors": "node backfill-vectors.mjs --brands top",
     "ingest:pins:dry": "node ingest-pins.mjs --dry-run",
     "ingest:pins": "node ingest-pins.mjs",
+    "ingest:carousel:dry": "node ingest-carousel.mjs --dry-run",
+    "ingest:carousel": "node ingest-carousel.mjs --upload",
+    "ingest:apify:pinterest": "node ingest-apify-pinterest.mjs",
+    "test:apify:pinterest": "node --test ingest-apify-pinterest.test.mjs",
     "clean:posts:dry": "node clean-posts.mjs",
     "clean:posts": "node clean-posts.mjs --apply",
     "vectors:query": "node vector-query.mjs",
@@ -29,13 +33,15 @@
     "enrich:images:dry": "node enrich-images.mjs --dry-run --limit 20",
     "enrich:images": "node enrich-images.mjs",
     "ingest:shopify:dry": "node ingest-shopify.mjs --dry-run --limit 10",
-    "ingest:shopify": "node ingest-shopify.mjs --seed"
+    "ingest:shopify": "node ingest-shopify.mjs --seed",
+    "maxi:sessions": "node maxi-sessions.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.600.0",
     "@aws-sdk/client-dynamodb": "^3.600.0",
     "@aws-sdk/client-s3": "^3.600.0",
     "@aws-sdk/client-s3vectors": "^3.700.0",
-    "@aws-sdk/lib-dynamodb": "^3.600.0"
+    "@aws-sdk/lib-dynamodb": "^3.600.0",
+    "@aws-sdk/client-cloudwatch-logs": "^3.700.0"
   }
 }

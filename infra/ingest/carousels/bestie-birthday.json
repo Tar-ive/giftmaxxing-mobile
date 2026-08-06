@@ -1,0 +1,112 @@
+{
+  "id": "carousel-bestie-birthday-diy-v1",
+  "title": "Birthday gifts for your bestie",
+  "caption": "6 sentimental birthday gifts your bestie will keep forever 💝",
+  "apify": {
+    "actor": "automation-lab/pinterest-scraper",
+    "runId": "BqLlzsSm3wASuy2vU",
+    "datasetId": "c9lBGzIvR8vneO5bv",
+    "scrapedAt": "2026-08-04T17:08:14.241Z"
+  },
+  "slides": [
+    {
+      "id": "1092474822206214322",
+      "label": "Birthday gift inspo for your bestie ✨",
+      "title": "Best-friend flower gift bouquet",
+      "imageUrl": "https://i.pinimg.com/originals/62/ed/18/62ed184dc0f30aee7785b67c33289c46.jpg",
+      "sourceUrl": "https://www.pinterest.com/pin/1092474822206214322/",
+      "pinnerUsername": "chloebennettwhite",
+      "pinnerName": "chloebwhite",
+      "domain": "Uploaded by user",
+      "saves": 293,
+      "dominantColor": "#a58272",
+      "createdAt": "Fri, 27 Feb 2026 15:29:57 +0000",
+      "category": "diy"
+    },
+    {
+      "id": "986780968373896083",
+      "label": "1. Her favorites bouquet ✨",
+      "title": "Luxury self-care gift bouquet",
+      "imageUrl": "https://i.pinimg.com/originals/9a/e7/15/9ae71599092f1549f371441ab7ccd8bd.png",
+      "sourceUrl": "https://www.pinterest.com/pin/986780968373896083/",
+      "pinnerUsername": "rafiakhalid611",
+      "pinnerName": "Rafia Khalid",
+      "domain": "Uploaded by user",
+      "saves": 1,
+      "dominantColor": "#8b8268",
+      "createdAt": "Fri, 24 Jul 2026 17:06:36 +0000",
+      "category": "beauty"
+    },
+    {
+      "id": "4600919705335017600",
+      "label": "2. Scrapbook frame of you two ✨",
+      "title": "Personalized best-friend scrapbook frame",
+      "imageUrl": "https://i.pinimg.com/originals/05/59/25/05592567fa67206022dad79a17ff68bf.jpg",
+      "sourceUrl": "https://www.pinterest.com/pin/4600919705335017600/",
+      "link": "https://www.etsy.com/listing/4447137549/editable-matchbook-template-custom-best",
+      "pinnerUsername": "etsy",
+      "pinnerName": "Etsy",
+      "domain": "etsy.com",
+      "saves": 38,
+      "dominantColor": "#866957",
+      "createdAt": "Sun, 25 Jan 2026 21:11:09 +0000",
+      "category": "art"
+    },
+    {
+      "id": "91549804920358040",
+      "label": "3. Homemade cookies 💗",
+      "title": "Personalized homemade cookie gift box",
+      "imageUrl": "https://i.pinimg.com/originals/6e/3b/ea/6e3beaaeadd444d0fc1b01ede59d7ef1.jpg",
+      "sourceUrl": "https://www.pinterest.com/pin/91549804920358040/",
+      "pinnerUsername": "ErinFortinPhoto",
+      "pinnerName": "Erin Fortin Photography",
+      "domain": "Uploaded by user",
+      "saves": 0,
+      "dominantColor": "#865c34",
+      "createdAt": "Fri, 03 Apr 2026 16:04:20 +0000",
+      "category": "food"
+    },
+    {
+      "id": "2814818512837049",
+      "label": "4. CD photo scrapbook 🤍",
+      "title": "Best-friend CD photo scrapbook",
+      "imageUrl": "https://i.pinimg.com/originals/8e/05/9b/8e059b6b06ab44f21ece39393851bc60.jpg",
+      "sourceUrl": "https://www.pinterest.com/pin/2814818512837049/",
+      "pinnerUsername": "eydugert",
+      "pinnerName": "Ey Du Gert",
+      "domain": "Uploaded by user",
+      "saves": 631,
+      "dominantColor": "#a2856c",
+      "createdAt": "Wed, 28 Jan 2026 20:09:34 +0000",
+      "category": "art"
+    },
+    {
+      "id": "22518066882614512",
+      "label": "5. Mini photo frame ✨",
+      "title": "Mini best-friend photo collage frame",
+      "imageUrl": "https://i.pinimg.com/originals/84/0d/6e/840d6e8d82bfd053ee664f8b55504749.jpg",
+      "sourceUrl": "https://www.pinterest.com/pin/22518066882614512/",
+      "pinnerUsername": "khadams10",
+      "pinnerName": "rEiLlY",
+      "domain": "Uploaded by user",
+      "saves": 1621,
+      "dominantColor": "#a48a7e",
+      "createdAt": "Fri, 26 Jun 2026 20:35:12 +0000",
+      "category": "art"
+    },
+    {
+      "id": "1407443631098790",
+      "label": "6. Hot-air-balloon DIY gift 💗",
+      "title": "DIY hot-air-balloon birthday gift",
+      "imageUrl": "https://i.pinimg.com/originals/65/37/8e/65378ec33b42fb5a4b8c9f29c4ed227e.jpg",
+      "sourceUrl": "https://www.pinterest.com/pin/1407443631098790/",
+      "pinnerUsername": "hwieser1990",
+      "pinnerName": "Heidi Wieser",
+      "domain": "Uploaded by user",
+      "saves": 1197,
+      "dominantColor": "#514b3c",
+      "createdAt": "Tue, 07 Jul 2026 22:56:39 +0000",
+      "category": "diy"
+    }
+  ]
+}
