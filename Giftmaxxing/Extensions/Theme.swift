@@ -28,6 +28,9 @@ extension Color {
     static let onboardingWash = dynamic(light: "#FFF9F5", dark: "#1A1613")
     static let success = dynamic(light: "#3E8E5A", dark: "#5FB77F")
     static let danger = dynamic(light: "#D64545", dark: "#F06B6B")
+    // Text/icons sitting ON coral or on a scrim. Fixed white in both
+    // appearances by design — it must NOT invert (DESIGN.md → Colors).
+    static let onPrimary = Color.white
 
     /// A color that resolves differently in light and dark appearance.
     static func dynamic(light: String, dark: String) -> Color {

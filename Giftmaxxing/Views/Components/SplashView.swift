@@ -59,37 +59,3 @@ struct SplashView: View {
         }
     }
 }
-
-// Floating Maxi entry point (Amazon Rufus-style) — pulsing gradient bubble.
-struct MaxiFloatingButton: View {
-    var action: () -> Void
-    @State private var pulse = false
-
-    var body: some View {
-        Button(action: action) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.coral, Color(hex: "#FF9A76")],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 56, height: 56)
-                    .shadow(color: Color.coral.opacity(0.45), radius: pulse ? 14 : 8, y: 4)
-
-                Image(systemName: "sparkles")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(.white)
-            }
-            .scaleEffect(pulse ? 1.04 : 1.0)
-        }
-        .accessibilityLabel("Ask Maxi")
-        .onAppear {
-            withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) {
-                pulse = true
-            }
-        }
-    }
-}

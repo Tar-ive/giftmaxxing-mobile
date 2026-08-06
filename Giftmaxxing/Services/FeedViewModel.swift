@@ -133,29 +133,7 @@ final class FeedViewModel: ObservableObject {
         ),
               response.source == "vector" || response.source == "vector+mtl",
               let items = response.items, !items.isEmpty else { return [] }
-        return items.map { item in
-            Post(
-                id: item.postId,
-                user: item.author ?? "giftmaxxing",
-                time: "",
-                product: Product(
-                    id: item.postId,
-                    name: item.name ?? "Gift idea",
-                    brand: item.merchant ?? item.source ?? "",
-                    price: item.price ?? 0,
-                    grad: .coral,
-                    emoji: "🎁",
-                    image: item.image
-                ),
-                caption: "",
-                likes: 0,
-                productUrl: item.productUrl ?? item.url,
-                reason: item.reason ?? "Picked for you",
-                domain: item.domain,
-                giftType: item.giftType,
-                serviceDuration: item.serviceDuration
-            )
-        }
+        return items.map(Post.init(vectorItem:))
     }
 
     // Interleave personalized picks into the first page (slots 1, 4, 7, …) so

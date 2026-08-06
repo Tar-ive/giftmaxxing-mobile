@@ -81,9 +81,27 @@ struct ContentView: View {
             }
             .tint(Color.coral)
 
-            // Maxi's floating button is gone — its nudges now arrive as the
-            // staged Gift Journey (GiftJourneyEngine) and the Home search bar's
-            // mic opens the full conversation on demand.
+            // Maxi is one tap from every tab. The search bar's mic still opens
+            // the same conversation, but voice can't be the only door — and the
+            // staged Gift Journey nudges (GiftJourneyEngine) need somewhere to
+            // land. `showsMaxiFAB` keeps it out of focused flows (swipe decks,
+            // the taste interview, search, capture) that already own the screen.
+            // `!showBoardsHint` matters: BoardsHintCallout is positioned at
+            // (width * 0.9, height - 70), i.e. exactly where the FAB sits.
+            if appState.showsMaxiFAB && !showBoardsHint {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        MaxiFloatingButton { appState.showMaxi = true }
+                    }
+                }
+                .padding(.trailing, ThemeSpacing.md)
+                // Clearance for the tab bar — matches BoardSavedToast below.
+                .padding(.bottom, 62)
+                .transition(.scale.combined(with: .opacity))
+                .zIndex(6)
+            }
 
             if !offlineQueue.isOnline {
                 VStack {
@@ -207,7 +225,8 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $appState.showMaxi) {
-            MaxiView()
+            MaxiView(seedRecipient: appState.maxiSeedRecipient)
+                .onDisappear { appState.maxiSeedRecipient = nil }
         }
         .fullScreenCover(isPresented: $appState.showSearch) {
             SearchTabsView()
@@ -281,18 +300,20 @@ struct ContentView: View {
                 }
             }
             #endif
-            // Restore this account's Gift Boards on launch (a restored session
-            // doesn't fire onChange for the initial userId).
+            // Restore this account's Gift Boards + cart on launch (a restored
+            // session doesn't fire onChange for the initial userId).
             SwipeListStore.shared.configure(userId: authManager.userId)
+            CartStore.shared.configure(userId: authManager.userId)
         }
         .onChange(of: authManager.userId) { _, newUserId in
             // Privacy boundary: a different account (or a sign-out) on this
             // device must never see the previous account's pools, boards,
             // points, or persona texts.
             AccountLocalState.handleIdentityChange(newUserId)
-            // Bind Gift Boards to the new identity and pull that account's
-            // saved boards from the server (survives sign-out + new devices).
+            // Bind Gift Boards + cart to the new identity and pull that
+            // account's copies from the server (survives sign-out + new devices).
             SwipeListStore.shared.configure(userId: newUserId)
+            CartStore.shared.configure(userId: newUserId)
             // A fresh sign-in lands on Home, not wherever sign-in happened.
             if newUserId != nil {
                 #if DEBUG

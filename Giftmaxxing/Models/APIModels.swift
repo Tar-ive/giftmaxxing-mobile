@@ -183,6 +183,56 @@ struct VectorItem: Identifiable, Codable {
     var id: String { postId }
 }
 
+extension Post {
+    /// A kNN neighbour rendered as a feed post. Shared by every surface that
+    /// consumes /recommendations (Home picks, Ideas → For you, Maxi) so a
+    /// vector pick looks identical wherever it lands.
+    init(vectorItem item: VectorItem) {
+        self.init(
+            id: item.postId,
+            user: item.author ?? "giftmaxxing",
+            time: "",
+            product: Product(
+                id: item.postId,
+                name: item.name ?? "Gift idea",
+                brand: item.merchant ?? item.source ?? "",
+                price: item.price ?? 0,
+                grad: .coral,
+                emoji: "🎁",
+                image: item.image
+            ),
+            caption: "",
+            likes: 0,
+            productUrl: item.productUrl ?? item.url,
+            reason: item.reason ?? "Picked for you",
+            domain: item.domain,
+            giftType: item.giftType,
+            serviceDuration: item.serviceDuration
+        )
+    }
+}
+
+// POST /packaging — a wrap plan for one recipient's pile, written by a vision
+// model that has actually looked at the products, plus one rendered image of
+// the result. `imageUrl` is nil when image generation is unavailable (model
+// access, the cost breaker, or a render failure) — the plan still stands.
+struct PackagingPlanResponse: Codable {
+    var plan: PackagingPlan?
+    var imageUrl: String?
+    var cached: Bool?
+}
+
+struct PackagingPlan: Codable {
+    var title: String?
+    var vibe: String?
+    var materials: [String]?
+    var steps: [String]?
+    /// Hex strings, three of them — rendered as swatches.
+    var palette: [String]?
+    /// A short handwritten-note suggestion the giver can adopt verbatim.
+    var noteIdea: String?
+}
+
 // int8-quantized vector as the server packs it (same scheme as GET /vectors).
 struct PackedVector: Codable {
     var dim: Int
@@ -356,6 +406,9 @@ struct UserProfile: Codable {
     var visibility: String?
     // Per-account Gift Boards, synced so they survive sign-out / new devices.
     var giftBoards: [SwipeList]?
+    // The per-person cart, synced the same way (CartStore). PUT /me merges
+    // patches, so boards and cart write independently without clobbering.
+    var cart: [CartSection]?
     // The public gifting persona (also served to friends via /people).
     var tagline: String?
     var philosophy: String?

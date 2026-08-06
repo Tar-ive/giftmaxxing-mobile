@@ -28,8 +28,11 @@ struct CirclesView: View {
     @State private var showCreateCircle = false
     @State private var showAddEvent = false
     @State private var showJoinByLink = false
+    // DMs moved here from the Home header — Circles is where your people are.
+    @State private var showMessages = false
     @State private var openCircleId: String?
     @State private var openEvent: GiftEvent?
+    @State private var openPool: Pool?
     @State private var circleMoments: [TimelineMoment] = []
     // Circle members with birthdays — feeds the birthday-challenge journey.
     @State private var circleBirthdayPeople: [BirthdayChallengeJourney.Person] = []
@@ -56,6 +59,13 @@ struct CirclesView: View {
                     GiftStreakCard()
 
                     circlesSection
+
+                    // In-flight group-gift campaigns. These used to sit on Home;
+                    // they belong beside the people they're for. Self-hides
+                    // when there's nothing running.
+                    CompactPledgeRail { pool in openPool = pool }
+                        .padding(.horizontal, -16) // the rail owns its gutters
+
                     groupGiftsSection
 
                     // The other two social plays, one card each.
@@ -98,7 +108,28 @@ struct CirclesView: View {
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(Color.coral)
                     }
+                    .accessibilityLabel("Add a date")
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: { showMessages = true }) {
+                        Image(systemName: "paperplane")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Color.coral)
+                    }
+                    .accessibilityLabel("Messages")
+                }
+            }
+            .sheet(isPresented: $showMessages) {
+                NavigationStack { MessagesView() }
+            }
+            .sheet(item: $openPool) { pool in
+                PoolDetailView(poolId: pool.id)
+            }
+            // A message push (or any openMessages() intent) lands here.
+            .onChange(of: appState.pendingMessages) { _, pending in
+                guard pending else { return }
+                showMessages = true
+                appState.pendingMessages = false
             }
             .sheet(isPresented: $showPools) { PoolsView() }
             .sheet(isPresented: $showFriends) {
@@ -137,6 +168,12 @@ struct CirclesView: View {
                 if let pending = appState.pendingCircleId {
                     openCircleId = pending
                     appState.pendingCircleId = nil
+                }
+                // A message push can land before this view exists, so onChange
+                // alone would miss it.
+                if appState.pendingMessages {
+                    showMessages = true
+                    appState.pendingMessages = false
                 }
                 if eventsModel.events.isEmpty {
                     await eventsModel.loadEvents(context: modelContext)

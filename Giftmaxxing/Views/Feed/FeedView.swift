@@ -15,11 +15,11 @@ struct FeedView: View {
     // "Add to swipe list" opens the Instagram-collections-style picker: choose
     // WHOSE list this find belongs to (or make one) instead of a blind toggle.
     @State private var listPickerPost: Post?
-    @State private var viewingPool: Pool?
-    @State private var selectedCollection: CuratedCollection?
+    @State private var selectedPack: IdeaPack?
+    @State private var showIdeas = false
     @State private var showSearch = false
     @State private var showNotifications = false
-    @State private var showMessages = false
+    @State private var showCart = false
     // Bell badge = incoming friend requests + unseen swipe activity.
     @State private var notificationCount = 0
     @ObservedObject private var swipeList = SwipeListStore.shared
@@ -62,35 +62,24 @@ struct FeedView: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel("Notifications")
 
-                        Button {
-                            showMessages = true
-                        } label: {
-                            Image(systemName: "paperplane")
-                                .font(.system(size: 20))
-                                .foregroundStyle(Color.ink)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Messages")
+                        // Messages moved to Circles (where your people live);
+                        // this slot now holds the cart, which is the thing you
+                        // actually return to Home to check.
+                        CartButton { showCart = true }
                     }
                     .padding(.horizontal, 14)
                     .padding(.top, 6)
                     .padding(.bottom, 8)
 
-                    // Curated gift galleries — the immersive "world of
-                    // intentional gifts" front door (browse without setup).
-                    CuratedGalleriesRail { collection in
-                        selectedCollection = collection
-                    }
-
-                    // Group-gift pledge cards (Amazon-style horizontal swipe).
-                    // Replaces the old circular avatar tray at the top of Home.
-                    CompactPledgeRail { pool in
-                        viewingPool = pool
-                    }
-
-                    // Reddit-mined "goes well together" gift bundles resolved
-                    // to buyable products. Hidden until bundle data exists.
-                    GiftBundlesRail()
+                    // ONE discovery rail. Curated galleries and Reddit-mined
+                    // "goes together" bundles are the same thing to a user — a
+                    // pack of ideas — so they share a rail, a grid and a detail
+                    // screen. Group gifts moved to Circles, beside the people
+                    // they're for.
+                    IdeasRail(
+                        onSelect: { selectedPack = $0 },
+                        onSeeAll: { showIdeas = true }
+                    )
 
                     ForEach(postingStore.items) { item in
                         PendingUGCFeedCard(item: item)
@@ -219,9 +208,10 @@ struct FeedView: View {
                             Task { await refreshNotificationBadge() }
                         }
                 }
-                .navigationDestination(isPresented: $showMessages) { MessagesView() }
-                .navigationDestination(item: $selectedCollection) { collection in
-                    CollectionDetailView(collection: collection)
+                .navigationDestination(isPresented: $showCart) { CartView() }
+                .navigationDestination(isPresented: $showIdeas) { IdeasView() }
+                .navigationDestination(item: $selectedPack) { pack in
+                    IdeaPackDetailView(pack: pack)
                 }
                 .navigationDestination(item: $selectedAuthor) { person in
                     PublicProfileView(person: person)
@@ -262,9 +252,6 @@ struct FeedView: View {
             )
             .environmentObject(appState)
         }
-        .sheet(item: $viewingPool) { pool in
-            PoolDetailView(poolId: pool.id)
-        }
         .task {
             // appState.currentUser is never populated — AuthManager owns identity.
             viewModel.userId = authManager.userId
@@ -281,8 +268,10 @@ struct FeedView: View {
         .onReceive(NotificationCenter.default.publisher(for: .navigateToNotifications)) { _ in
             showNotifications = true
         }
+        // Messages live in Circles now — a message push switches tabs rather
+        // than pushing an inbox onto the Home stack.
         .onReceive(NotificationCenter.default.publisher(for: .navigateToMessages)) { _ in
-            showMessages = true
+            appState.openMessages()
         }
         // Account switched: re-pull the feed under the new identity so its
         // personalization (not the previous account's) shapes the page.

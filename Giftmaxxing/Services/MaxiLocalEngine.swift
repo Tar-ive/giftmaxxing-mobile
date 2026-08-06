@@ -10,7 +10,11 @@ enum MaxiLocalEngine {
         var chips: [String]
     }
 
-    static let seedChips = ["Gift under $40", "Something cozy", "Find a deal", "Like my taste"]
+    // Openers that START THE JOB rather than run a search. The old chips
+    // ("Gift under $40", "Something cozy") were queries — they got you a list
+    // and left you where you started. Naming a person is what lets Maxi pull
+    // up what it already knows and work a brief.
+    static let seedChips = ["My mom", "A friend's birthday", "My partner", "Just browsing"]
 
     // Mirror of web CATEGORY_SYNONYMS.
     private static let categorySynonyms: [String: [String]] = [

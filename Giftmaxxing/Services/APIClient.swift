@@ -549,6 +549,51 @@ actor APIClient {
         return reply
     }
 
+    // MARK: - Packaging
+
+    // How to wrap a cart section. The server reads the actual product photos
+    // with a vision model, writes a wrap plan, and renders one image of it.
+    // Both legs are best-effort: `imageUrl` is nil when image generation is
+    // unavailable, and the plan alone is still useful.
+    //
+    // This is a cold-start-heavy call (image generation runs for seconds), so
+    // it gets its own generous timeout rather than the client default.
+    func fetchPackaging(
+        userId: String?,
+        items: [PackagingRequestItem],
+        occasion: String?,
+        recipientName: String?
+    ) async throws -> PackagingPlanResponse {
+        var body: [String: Any] = [
+            "items": items.map { item -> [String: Any] in
+                var dict: [String: Any] = ["postId": item.postId, "title": item.title]
+                if let image = item.image { dict["image"] = image }
+                if let category = item.category { dict["category"] = category }
+                if let price = item.price { dict["price"] = price }
+                return dict
+            }
+        ]
+        if let userId { body["userId"] = userId }
+        if let occasion, !occasion.isEmpty { body["occasion"] = occasion }
+        if let recipientName, !recipientName.isEmpty { body["recipientName"] = recipientName }
+
+        var response: PackagingPlanResponse = try await post(
+            "/packaging",
+            body: body,
+            timeout: 90
+        )
+        response.imageUrl = absoluteMediaURL(response.imageUrl)
+        return response
+    }
+
+    struct PackagingRequestItem {
+        let postId: String
+        let title: String
+        let image: String?
+        let category: String?
+        let price: Double?
+    }
+
     // MARK: - Vector Recommendations
 
     func fetchVectorRecommendations(
@@ -868,12 +913,19 @@ actor APIClient {
         return try decoder.decode(T.self, from: data)
     }
 
-    private func post<T: Decodable>(_ path: String, body: [String: Any]) async throws -> T {
+    // `timeout` overrides the session default for the few calls that legitimately
+    // run long (image generation), so they aren't cut off mid-flight.
+    private func post<T: Decodable>(
+        _ path: String,
+        body: [String: Any],
+        timeout: TimeInterval? = nil
+    ) async throws -> T {
         var request = URLRequest(url: URL(string: baseURL + path)!)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        if let timeout { request.timeoutInterval = timeout }
         applyAuth(&request)
 
         let (data, response) = try await session.data(for: request)

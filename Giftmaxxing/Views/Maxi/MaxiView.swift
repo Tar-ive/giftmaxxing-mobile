@@ -1,27 +1,67 @@
 import SwiftUI
 
+// Shared, not per-sheet: the conversation is the product. A concierge that
+// restarts the interview every time you close the sheet is a search box with
+// extra steps.
 @MainActor
 final class MaxiViewModel: ObservableObject {
+    static let shared = MaxiViewModel()
+
     @Published var messages: [MaxiMessage] = []
     @Published var inputText = ""
     @Published var isThinking = false
+    /// Set when an action lands, so the chat can confirm it inline.
+    @Published var lastCartConfirmation: String?
+    /// What Maxi currently thinks the job is — shown as a chip so the user can
+    /// see the assumptions behind the picks.
+    @Published var brief: GiftBrief?
 
     private let api = APIClient.shared
     private var catalog: [Post] = []
 
-    init() {
-        messages.append(MaxiMessage(
-            role: .assistant,
-            text: "Hey! I'm Maxi, your AI gift concierge 🎁\n\nTell me who you're shopping for, their interests, or an occasion — I'll find the perfect gift.",
-            products: [],
-            steps: [],
-            chips: MaxiLocalEngine.seedChips
-        ))
+    private static let greeting = MaxiMessage(
+        role: .assistant,
+        // One question, not a manifesto — the workflow starts by naming the
+        // person, and everything else follows from that.
+        text: "Who are we shopping for?",
+        products: [],
+        steps: [],
+        chips: MaxiLocalEngine.seedChips
+    )
+
+    private init() {
+        let saved = MaxiConversationStore.shared.messages
+        messages = saved.isEmpty ? [Self.greeting] : saved
     }
 
     func send(_ text: String) {
         inputText = text
         Task { await sendMessage() }
+    }
+
+    /// Open the chat already focused on someone (from a cart section or a Gift
+    /// Board) so it starts mid-job instead of at "who is this for?".
+    func seed(recipient: String) {
+        guard !recipient.isEmpty,
+              recipient != CartSection.unassignedName else { return }
+        send("Help me pick something for \(recipient).")
+    }
+
+    /// New conversation, same account.
+    func startOver() {
+        MaxiConversationStore.shared.reset()
+        messages = [Self.greeting]
+    }
+
+    /// Account switch / sign-out wiped the transcript — drop it from memory too.
+    func resetToGreeting() {
+        messages = [Self.greeting]
+        catalog = []
+    }
+
+    private func record(_ message: MaxiMessage) {
+        messages.append(message)
+        MaxiConversationStore.shared.append(message)
     }
 
     // Product catalog for the local fallback engine (web runs respond() over
@@ -37,12 +77,11 @@ final class MaxiViewModel: ObservableObject {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
 
-        let userMessage = MaxiMessage(role: .user, text: text)
-        messages.append(userMessage)
+        record(MaxiMessage(role: .user, text: text))
         inputText = ""
         isThinking = true
 
-        let history = messages.dropLast().map { (role: $0.role.rawValue, text: $0.text) }
+        let history = MaxiConversationStore.shared.history()
 
         do {
             // Send the signed-in identity: the agent unlocks memory, events and
@@ -54,12 +93,20 @@ final class MaxiViewModel: ObservableObject {
                 history: history
             )
             if let reply, !reply.say.isEmpty {
-                messages.append(MaxiMessage(
+                record(MaxiMessage(
                     role: .assistant,
                     text: reply.say,
                     products: reply.pins,
                     steps: reply.steps
                 ))
+                if let replyBrief = reply.brief, !replyBrief.isEmpty {
+                    brief = replyBrief
+                }
+                // The agent doesn't write the cart itself — it asks us to, so
+                // the local-first store stays the single source of truth.
+                for action in reply.actions {
+                    apply(action, pins: reply.pins)
+                }
             } else {
                 await respondLocally(to: text, note: nil)
             }
@@ -96,23 +143,79 @@ final class MaxiViewModel: ObservableObject {
             shownFallbackNote = true
             say = "\(note)\n\n\(say)"
         }
-        messages.append(MaxiMessage(
+        record(MaxiMessage(
             role: .assistant,
             text: say,
             products: local.products,
             chips: local.chips
         ))
     }
+
+    // MARK: - Agent actions
+
+    private func apply(_ action: MaxiAgentReply.MaxiAction, pins: [MaxiProduct]) {
+        switch action.type {
+        case "add_to_cart":
+            let ids = Set(action.postIds ?? [])
+            let chosen = pins.filter { ids.contains($0.postId) }
+            guard !chosen.isEmpty else { return }
+            let recipient = action.recipient?.trimmingCharacters(in: .whitespacesAndNewlines)
+            for product in chosen {
+                CartStore.shared.add(
+                    Post(maxiProduct: product),
+                    for: recipient,
+                    occasion: action.occasion,
+                    source: "maxi"
+                )
+            }
+            let who = (recipient?.isEmpty == false) ? recipient! : "your cart"
+            lastCartConfirmation = chosen.count == 1
+                ? "Added to \(who)"
+                : "Added \(chosen.count) to \(who)"
+
+        case "checkout":
+            // The server's checkout is simulated; ours is honest — send them to
+            // the cart, where the real affiliate links and the packaging plan
+            // live.
+            lastCartConfirmation = "Your cart's ready"
+
+        default:
+            break
+        }
+    }
 }
 
 struct MaxiView: View {
-    @StateObject private var viewModel = MaxiViewModel()
+    /// Opens the conversation already focused on someone (from a cart section
+    /// or a Gift Board).
+    var seedRecipient: String?
+
+    @ObservedObject private var viewModel = MaxiViewModel.shared
     @StateObject private var speech = SpeechRecognizer()
     @Environment(\.dismiss) private var dismiss
+    @State private var showCart = false
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                // What Maxi thinks the job is. Visible so wrong assumptions are
+                // correctable, rather than quietly shaping every suggestion.
+                if let brief = viewModel.brief, !brief.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: "target")
+                            .font(.caption)
+                        Text(brief.summary)
+                            .font(.footnote.weight(.medium))
+                            .lineLimit(1)
+                        Spacer()
+                    }
+                    .foregroundStyle(Color.coral)
+                    .padding(.horizontal, ThemeSpacing.md)
+                    .padding(.vertical, 6)
+                    .background(Color.coralSoft)
+                    .accessibilityLabel("Shopping for \(brief.summary)")
+                }
+
                 // Messages
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -141,6 +244,31 @@ struct MaxiView: View {
                             proxy.scrollTo(viewModel.messages.last?.id ?? "thinking", anchor: .bottom)
                         }
                     }
+                }
+
+                // Inline confirmation when the agent lands something in the
+                // cart — the action has to be visible, or "added it" is a claim
+                // the user can't check without leaving the conversation.
+                if let confirmation = viewModel.lastCartConfirmation {
+                    Button {
+                        showCart = true
+                        viewModel.lastCartConfirmation = nil
+                    } label: {
+                        HStack(spacing: ThemeSpacing.xs) {
+                            Image(systemName: "bag.fill")
+                            Text(confirmation)
+                                .font(.subheadline.weight(.semibold))
+                            Spacer()
+                            Text("View")
+                                .font(.subheadline.weight(.bold))
+                        }
+                        .foregroundStyle(Color.coral)
+                        .padding(.horizontal, ThemeSpacing.md)
+                        .padding(.vertical, ThemeSpacing.sm)
+                        .background(Color.coralSoft)
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
 
                 Divider()
@@ -241,8 +369,35 @@ struct MaxiView: View {
                             .clipShape(Capsule())
                     }
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button {
+                            showCart = true
+                        } label: {
+                            Label("Open cart", systemImage: "bag")
+                        }
+                        Button(role: .destructive) {
+                            viewModel.startOver()
+                        } label: {
+                            Label("Start over", systemImage: "arrow.counterclockwise")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.ink)
+                    }
+                    .accessibilityLabel("Conversation options")
+                }
+            }
+            .navigationDestination(isPresented: $showCart) { CartView() }
+        }
+        .task {
+            // Arriving from a cart section or a Gift Board: start mid-job.
+            if let seedRecipient, !seedRecipient.isEmpty {
+                viewModel.seed(recipient: seedRecipient)
             }
         }
+        .animation(.snappy, value: viewModel.lastCartConfirmation)
     }
 }
 

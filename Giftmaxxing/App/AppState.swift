@@ -5,7 +5,8 @@ final class AppState: ObservableObject {
     @Published var selectedTab: Tab = .feed
     @Published var isAuthenticated = false
     @Published var currentUser: AppUser?
-    @Published var cartItems: [CartItem] = []
+    // The cart lives in CartStore (per-person sections, synced through /me) —
+    // AppState's old flat `cartItems` stub was never read by any view.
 
 
     // Search is a modal layer over any tab (HIG: search is a mode, not a
@@ -56,8 +57,13 @@ final class AppState: ObservableObject {
     @Published var pendingChallengeId: String?
 
     // Maxi (the AI concierge) is a floating button over every tab — not a tab
-    // of its own. ContentView presents MaxiView as a sheet when this is set.
+    // of its own. ContentView renders MaxiFloatingButton and presents MaxiView
+    // as a sheet when this is set. The Home search bar's mic sets it too.
     @Published var showMaxi = false
+    // Opening Maxi already focused on someone: the Cart's per-person "Ask Maxi"
+    // and a Gift Board both seed the brief so the conversation starts mid-job
+    // instead of at "who is this for?".
+    @Published var maxiSeedRecipient: String?
     // Focused flows (DMs, challenges, taste interview) suppress the global
     // floating button. Use a depth counter so nested sheets restore it safely.
     @Published private(set) var maxiFABSuppressionDepth = 0
@@ -77,9 +83,18 @@ final class AppState: ObservableObject {
         maxiFABSuppressionDepth = max(0, maxiFABSuppressionDepth - 1)
     }
 
+    // The DM inbox lives in Circles (your people), not on Home. Push taps and
+    // any other "open messages" intent route through here.
+    @Published var pendingMessages = false
+
     func openCircle(_ circleId: String) {
         selectedTab = .circles
         pendingCircleId = circleId
+    }
+
+    func openMessages() {
+        selectedTab = .circles
+        pendingMessages = true
     }
 
     func openBoard(_ boardId: String) {
@@ -119,22 +134,6 @@ final class AppState: ObservableObject {
         }
     }
 
-    var cartCount: Int { cartItems.count }
-
-    func addToCart(_ item: CartItem) {
-        cartItems.append(item)
-    }
-
-    func removeFromCart(at index: Int) {
-        guard cartItems.indices.contains(index) else { return }
-        cartItems.remove(at: index)
-    }
-}
-
-struct CartItem: Identifiable {
-    let id: String
-    let product: Product
-    let quantity: Int
 }
 
 struct AppUser: Identifiable, Codable {
@@ -156,9 +155,10 @@ struct AppUser: Identifiable, Codable {
 //               collaborative boards, pools, swipe challenges
 //   You       — the public gifting profile + settings (Shop and Intentional
 //               Discover live here as rows, not tabs)
-// Maxi (the AI concierge) is NOT a tab and no longer a floating button — its
-// nudges arrive through the Gift Journey (GiftJourneyEngine) and the Home
-// search bar's mic still opens the full conversation.
+// Maxi (the AI concierge) is NOT a tab — it's the floating button over every
+// tab (MaxiFloatingButton, rendered by ContentView), reachable from anywhere
+// without spending a tab slot. The Gift Journey (GiftJourneyEngine) nudges and
+// the Home search bar's mic open the same conversation.
 enum Tab: String, CaseIterable {
     case feed = "Home"
     case swipe = "Swipe"
