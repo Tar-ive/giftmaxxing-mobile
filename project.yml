@@ -56,7 +56,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.giftmaxxing.ios
         MARKETING_VERSION: "1.1.0"
-        CURRENT_PROJECT_VERSION: "124"
+        CURRENT_PROJECT_VERSION: "125"
         VERSIONING_SYSTEM: apple-generic
         INFOPLIST_KEY_CFBundleDisplayName: Giftmaxxing
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
@@ -103,7 +103,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.giftmaxxing.ios.share
         # Must match the parent app or App Store Connect rejects the delivery.
         MARKETING_VERSION: "1.1.0"
-        CURRENT_PROJECT_VERSION: "124"
+        CURRENT_PROJECT_VERSION: "125"
         VERSIONING_SYSTEM: apple-generic
         TARGETED_DEVICE_FAMILY: "1"
         INFOPLIST_KEY_CFBundleDisplayName: Giftmaxxing

@@ -97,8 +97,10 @@ struct ContentView: View {
                     }
                 }
                 .padding(.trailing, ThemeSpacing.md)
-                // Clearance for the tab bar — matches BoardSavedToast below.
-                .padding(.bottom, 62)
+                // Sits ABOVE the tab bar and clear of the feed card's own
+                // Pool / Gift-board buttons, which live in the same corner —
+                // at 62 the FAB covered them.
+                .padding(.bottom, 128)
                 .transition(.scale.combined(with: .opacity))
                 .zIndex(6)
             }

@@ -159,16 +159,23 @@ final class MaxiViewModel: ObservableObject {
             let ids = Set(action.postIds ?? [])
             let chosen = pins.filter { ids.contains($0.postId) }
             guard !chosen.isEmpty else { return }
-            let recipient = action.recipient?.trimmingCharacters(in: .whitespacesAndNewlines)
+            // The model routinely omits `recipient` even when the conversation
+            // has established one ("My mom" → "added to your cart", landing in
+            // an unassigned pile the user then has to file by hand). Fall back
+            // to the brief, which is the whole point of tracking it.
+            let recipient = (action.recipient?.trimmingCharacters(in: .whitespacesAndNewlines))
+                .flatMap { $0.isEmpty ? nil : $0 }
+                ?? brief?.recipientName
             for product in chosen {
                 CartStore.shared.add(
                     Post(maxiProduct: product),
                     for: recipient,
-                    occasion: action.occasion,
+                    relationship: brief?.relationship,
+                    occasion: action.occasion ?? brief?.occasion,
                     source: "maxi"
                 )
             }
-            let who = (recipient?.isEmpty == false) ? recipient! : "your cart"
+            let who = (recipient?.isEmpty == false) ? "\(recipient!)'s cart" : "your cart"
             lastCartConfirmation = chosen.count == 1
                 ? "Added to \(who)"
                 : "Added \(chosen.count) to \(who)"
@@ -194,6 +201,7 @@ struct MaxiView: View {
     @StateObject private var speech = SpeechRecognizer()
     @Environment(\.dismiss) private var dismiss
     @State private var showCart = false
+    @State private var cartPickerProduct: MaxiProduct?
 
     var body: some View {
         NavigationStack {
@@ -221,9 +229,11 @@ struct MaxiView: View {
                     ScrollView {
                         LazyVStack(spacing: 12) {
                             ForEach(viewModel.messages) { message in
-                                MaxiMessageBubble(message: message) { chip in
-                                    viewModel.send(chip)
-                                }
+                                MaxiMessageBubble(
+                                    message: message,
+                                    onChipTap: { viewModel.send($0) },
+                                    onAddToCart: { cartPickerProduct = $0 }
+                                )
                                 .id(message.id)
                             }
 
@@ -390,6 +400,16 @@ struct MaxiView: View {
                 }
             }
             .navigationDestination(isPresented: $showCart) { CartView() }
+            // Adding from a card asks who it's for, pre-filled with whoever the
+            // brief says we're shopping for — so the common case is one tap.
+            .sheet(item: $cartPickerProduct) { product in
+                RecipientPickerSheet(
+                    posts: [Post(maxiProduct: product)],
+                    source: "maxi",
+                    occasion: viewModel.brief?.occasion,
+                    presetRecipient: viewModel.brief?.recipientName
+                )
+            }
         }
         .task {
             // Arriving from a cart section or a Gift Board: start mid-job.
@@ -404,8 +424,34 @@ struct MaxiView: View {
 struct MaxiMessageBubble: View {
     let message: MaxiMessage
     var onChipTap: ((String) -> Void)?
+    var onAddToCart: ((MaxiProduct) -> Void)?
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            bubble
+
+            // The product carousel lives OUTSIDE the bubble column. Inside it
+            // the row was squeezed between the avatar and a 40pt trailing
+            // spacer, which clipped the third card mid-image; full width lets
+            // the cards read as a proper shelf and scroll to the end.
+            if !message.products.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(message.products) { product in
+                            MaxiProductCard(product: product) {
+                                onAddToCart?(product)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 2)
+                }
+                .scrollClipDisabled()
+            }
+        }
+    }
+
+    private var bubble: some View {
         HStack(alignment: .top, spacing: 8) {
             if message.role == .assistant {
                 MaxiIcon(size: 28)
@@ -414,18 +460,24 @@ struct MaxiMessageBubble: View {
             }
 
             VStack(alignment: message.role == .user ? .trailing : .leading, spacing: 8) {
-                // Text
-                Text(message.text)
-                    .font(.bodyMedium)
-                    .foregroundStyle(message.role == .user ? .white : Color.ink)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(
-                        message.role == .user
-                            ? AnyShapeStyle(Color.coral)
-                            : AnyShapeStyle(Color.cream)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                // Text. Assistant replies carry light markdown, so they go
+                // through MaxiRichText; the user's own text is literal.
+                Group {
+                    if message.role == .user {
+                        Text(message.text).font(.bodyMedium)
+                    } else {
+                        MaxiRichText(text: message.text)
+                    }
+                }
+                .foregroundStyle(message.role == .user ? Color.onPrimary : Color.ink)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    message.role == .user
+                        ? AnyShapeStyle(Color.coral)
+                        : AnyShapeStyle(Color.cream)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
 
                 // Steps
                 if !message.steps.isEmpty {
@@ -444,16 +496,7 @@ struct MaxiMessageBubble: View {
                     .padding(.horizontal, 4)
                 }
 
-                // Products
-                if !message.products.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(message.products) { product in
-                                MaxiProductCard(product: product)
-                            }
-                        }
-                    }
-                }
+                // Products render full-width below the bubble — see `body`.
 
                 // Suggestion chips (web parity)
                 if !message.chips.isEmpty && message.role == .assistant {
@@ -487,9 +530,19 @@ struct MaxiMessageBubble: View {
     }
 }
 
+// A pick Maxi surfaced, as a real card rather than a thumbnail.
+//
+// The old version was a bare 120pt image with text under it and no action —
+// you could tap through to a retailer, but not do the one thing the
+// conversation was building toward. Now the card carries the two moves that
+// matter: add it to someone's cart, or go look at it.
 struct MaxiProductCard: View {
     let product: MaxiProduct
+    var onAddToCart: (() -> Void)?
+
     @State private var browserTarget: BrowserTarget?
+
+    private let width: CGFloat = 152
 
     private var outboundURL: URL? {
         let query = [product.title, product.brand ?? ""]
@@ -499,51 +552,86 @@ struct MaxiProductCard: View {
     }
 
     var body: some View {
-        cardBody
-            .onTapGesture {
-                if let url = outboundURL {
-                    OutboundRouter.open(url, postId: product.postId, source: "maxi") {
-                        browserTarget = BrowserTarget(url: $0)
-                    }
-                }
-            }
-            .sheet(item: $browserTarget) { target in
-                SafariView(url: target.url)
-                    .ignoresSafeArea()
-            }
+        VStack(alignment: .leading, spacing: 0) {
+            cover
+            details
+        }
+        .frame(width: width)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
+        .shadow(
+            color: ThemeElevation.card.color,
+            radius: ThemeElevation.card.radius,
+            y: ThemeElevation.card.y
+        )
+        .sheet(item: $browserTarget) { target in
+            SafariView(url: target.url).ignoresSafeArea()
+        }
     }
 
-    private var cardBody: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ZStack {
-                Color.gradient(for: .coral)
-                if let image = product.image, let url = URL(string: image) {
-                    AsyncImage(url: url) { phase in
-                        if let image = phase.image {
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        }
-                    }
-                } else {
-                    BrandGlyph(size: 30, tile: false)
-                        .font(.system(size: 28))
-                }
+    private var cover: some View {
+        ZStack {
+            Color.surfaceSunken
+            if let image = product.image {
+                CachedAsyncImage(url: image, width: 400)
+            } else {
+                Image(systemName: "gift")
+                    .font(.title)
+                    .foregroundStyle(Color.inkTertiary)
             }
-            .frame(width: 120, height: 120)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .frame(width: width, height: width)
+        .clipped()
+        .contentShape(Rectangle())
+        .onTapGesture { openProduct() }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel("View \(product.title)")
+    }
 
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 6) {
             Text(product.title)
-                .font(.system(size: 12, weight: .medium))
+                .font(.footnote.weight(.medium))
                 .foregroundStyle(Color.ink)
                 .lineLimit(2)
-                .frame(width: 120, alignment: .leading)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
 
-            if let price = product.price {
-                Text("$\(Int(price))")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Color.coral)
+            if let brand = product.brand, !brand.isEmpty {
+                Text(brand)
+                    .font(.caption)
+                    .foregroundStyle(Color.inkTertiary)
+                    .lineLimit(1)
             }
+
+            HStack(spacing: 6) {
+                if let price = product.price, price > 0 {
+                    Text(price, format: .currency(code: "USD").precision(.fractionLength(0)))
+                        .font(.subheadline.weight(.bold))
+                        .monospacedDigit()
+                        .foregroundStyle(Color.coral)
+                }
+                Spacer(minLength: 0)
+                Button(action: { onAddToCart?() }) {
+                    Image(systemName: "bag.badge.plus")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.coral)
+                        .frame(width: 36, height: 32)
+                        .background(Color.coralSoft)
+                        .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.sm, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Add \(product.title) to a cart")
+            }
+        }
+        .padding(10)
+    }
+
+    private func openProduct() {
+        guard let url = outboundURL else { return }
+        OutboundRouter.open(url, postId: product.postId, source: "maxi") {
+            browserTarget = BrowserTarget(url: $0)
         }
     }
 }

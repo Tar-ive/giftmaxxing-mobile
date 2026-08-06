@@ -14,6 +14,9 @@ struct RecipientPickerSheet: View {
     /// Pre-links the new section back to the Gift Board it grew out of.
     var boardId: String?
     var occasion: String?
+    /// Who we already believe this is for (e.g. Maxi's active gift brief).
+    /// Shown first and pre-filled so the common case is a single tap.
+    var presetRecipient: String?
     var onDone: ((CartSection) -> Void)?
 
     @ObservedObject private var cart = CartStore.shared
@@ -31,6 +34,18 @@ struct RecipientPickerSheet: View {
     private var suggestions: [Suggestion] {
         var seen = Set<String>()
         var out: [Suggestion] = []
+
+        // Whoever we're already shopping for leads the list.
+        if let preset = presetRecipient?.trimmingCharacters(in: .whitespaces),
+           !preset.isEmpty,
+           seen.insert(preset.lowercased()).inserted {
+            out.append(Suggestion(
+                name: preset,
+                detail: "who you're shopping for",
+                relationship: nil,
+                occasion: occasion
+            ))
+        }
 
         for section in cart.sortedSections where !section.isUnassigned {
             let key = section.recipientName.lowercased()

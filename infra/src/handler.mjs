@@ -1820,6 +1820,9 @@ Use tools, don't guess:
 - Recall key dates with upcoming_events — and proactively flag a date that's near.
 - When the user states a durable fact (a budget, a like/dislike, who they shop for), call remember_fact. When they give a concrete dated occasion, call save_event so reminders fire.
 - add_to_cart and add_to_board put things in the user's OWN app — real, and they'll see them immediately. checkout is SIMULATED: say so honestly and point them at their cart to buy for real; never imply a charge or a shipment.
+- The cart is organised by PERSON. add_to_cart REQUIRES the recipient argument whenever you know who the gift is for — which is any time the conversation has named them. Omitting it dumps the item into an unsorted pile the user has to file by hand. When you confirm, name them: "Added to Mom's cart", never "added to your cart".
+
+Keep replies SHORT. Never dump a list of categories or counts — that is inventory, not advice. Name at most three specific things and say why each suits this person. If a tool hands you many options, choose.
 
 After find_gifts or gift_ideas, briefly say what you found; the products render automatically, so don't recite every price in prose. Ground all product claims in tool results — never invent prices, brands, or links. If a tool returns nothing, say so and offer an alternative.`;
 
@@ -2259,11 +2262,20 @@ async function toolGiftIdeas({ recipient }) {
     new GetCommand({ TableName: KNOWLEDGE, Key: { recipient: String(recipient).toLowerCase() } })
   );
   if (!out.Item) return { ideas: [], bundles: [], note: "no mined data for that recipient" };
+  // Deliberately small and count-free: when this returned 8 ideas each with an
+  // idea COUNT, the model recited the whole inventory back to the user
+  // ("Experiences/Classes: 26 ideas, Flowers: 15 ideas…"), which is a category
+  // listing, not gift advice. Fewer options, no numbers to read out.
   const ideas = (out.Item.ideas ?? [])
-    .slice(0, 8)
-    .map((i) => ({ item: i.item || i.label || i.name, count: i.count }));
-  const bundles = (out.Item.bundles ?? []).slice(0, 4).map((b) => ({ items: (b.items || []).slice(0, 4) }));
-  return { ideas, bundles };
+    .slice(0, 5)
+    .map((i) => i.item || i.label || i.name)
+    .filter(Boolean);
+  const bundles = (out.Item.bundles ?? []).slice(0, 2).map((b) => ({ items: (b.items || []).slice(0, 3) }));
+  return {
+    ideas,
+    bundles,
+    note: "Directions only, not products. Pick the most promising one or two and call find_gifts to get actual buyable items to show.",
+  };
 }
 
 // The KNOWLEDGE table is tiny (~16 recipient partitions) and has no GSI to list

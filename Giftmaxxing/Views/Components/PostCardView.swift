@@ -63,6 +63,8 @@ struct PostCardView: View {
     var onProductTap: (() -> Void)?
     var onAuthorTap: (() -> Void)?
     var onHide: (() -> Void)?
+    /// Manual "put this in someone's cart" — the `…` menu's primary action.
+    var onAddToCart: (() -> Void)?
 
     // Inline gallery position (Instagram-style paging right in the feed).
     @State private var galleryIndex = 0
@@ -377,7 +379,14 @@ struct PostCardView: View {
             .padding(.bottom, 14)
         }
         .background(Color.surface)
-        .confirmationDialog("Post options", isPresented: $showActions) {
+        // Every post gets real actions here. This dialog used to contain ONLY
+        // "Cancel" for non-UGC posts — and since virtually the whole feed is
+        // non-UGC, SwiftUI rendered a degenerate empty sheet: the "…" looked
+        // broken on almost every card.
+        .confirmationDialog("Post options", isPresented: $showActions, titleVisibility: .hidden) {
+            Button("Add to cart") { onAddToCart?() }
+            Button("Save to a Gift Board") { onAddToSwipeList?() }
+            Button("Not interested") { onHide?() }
             if isUGC, post.ownerId != AuthManager.shared.userId {
                 Button("Report post", role: .destructive) { showReportReasons = true }
                 if let ownerId = post.ownerId {

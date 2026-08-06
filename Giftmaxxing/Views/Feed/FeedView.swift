@@ -15,6 +15,8 @@ struct FeedView: View {
     // "Add to swipe list" opens the Instagram-collections-style picker: choose
     // WHOSE list this find belongs to (or make one) instead of a blind toggle.
     @State private var listPickerPost: Post?
+    // "Add to cart" from a card's … menu — asks who it's for.
+    @State private var cartPickerPost: Post?
     @State private var selectedPack: IdeaPack?
     @State private var showIdeas = false
     @State private var showSearch = false
@@ -149,7 +151,8 @@ struct FeedView: View {
                                         imageUrl: post.authorImageUrl
                                     )
                                 },
-                                onHide: { viewModel.hide(postId: post.id) }
+                                onHide: { viewModel.hide(postId: post.id) },
+                                onAddToCart: { cartPickerPost = post }
                             )
                             .onAppear {
                                 viewModel.recordImpression(for: post)
@@ -242,6 +245,9 @@ struct FeedView: View {
         .sensoryFeedback(.success, trigger: refreshed)
         .sheet(item: $listPickerPost) { post in
             SwipeListPickerSheet(post: post)
+        }
+        .sheet(item: $cartPickerPost) { post in
+            RecipientPickerSheet(posts: [post], source: "feed")
         }
         .sheet(item: $pledgingPost) { post in
             // Pledge → pool creation prefilled with this post's product.
