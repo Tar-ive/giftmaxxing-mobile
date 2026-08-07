@@ -265,21 +265,62 @@ struct TasteCalibrationStep: View {
         }
     }
 
+    // Card 1 should never be random. By this point onboarding has collected
+    // four independent signals — persona, gift styles, who they shop for, and
+    // their budget — and the deck used to throw three of them away. Seeding
+    // from all four is the difference between "here is the catalog" and "here
+    // is a guess at you", and a better first card produces a better label.
     private func load() async {
         isLoading = true
         failed = false
-        // Persona/vibes from the earlier steps already bias this, so even the
-        // first card is not random.
-        let vibes = GiftingPrefs.giftStyles + PersonalizationStore.consultVibes
-        let page = try? await APIClient.shared.fetchFeed(
+
+        let vibes = Array(Set(GiftingPrefs.giftStyles + PersonalizationStore.consultVibes))
+        var page = try? await APIClient.shared.fetchFeed(
             limit: 40,
-            vibes: vibes.isEmpty ? nil : Array(Set(vibes))
+            vibes: vibes.isEmpty ? nil : vibes,
+            recipient: Self.primaryRecipient(),
+            budget: Self.budgetCeiling()
         )
+        // Every one of those is a SOFT preference server-side, but a narrow
+        // combination can still come back thin. Widen rather than show a
+        // half-empty deck.
+        if (page?.posts ?? []).count < 8 {
+            page = try? await APIClient.shared.fetchFeed(
+                limit: 40, vibes: vibes.isEmpty ? nil : vibes
+            )
+        }
+        if (page?.posts ?? []).count < 8 {
+            page = try? await APIClient.shared.fetchFeed(limit: 40)
+        }
+
         // Only cards with a real photo — judging a placeholder teaches nothing.
         let usable = (page?.posts ?? []).filter { $0.product.image != nil }
         cards = Array(usable.prefix(14))
         failed = cards.isEmpty
         isLoading = false
         cardShownAt = Date()
+    }
+
+    /// The relationship they picked, mapped to the catalog's recipient
+    /// vocabulary. A miss costs nothing — the server treats recipient as a
+    /// soft boost, not a filter.
+    static func primaryRecipient() -> String? {
+        let map = [
+            "Partner": "partner", "Parent": "parents", "Best friend": "friend",
+            "Sibling": "sister", "Grandparent": "grandma", "Coworker": "coworker",
+            "My kids": "kids",
+        ]
+        return GiftingPrefs.relationships.compactMap { map[$0] }.first
+    }
+
+    /// Upper bound of the budget band. "$200+" has no ceiling, so it returns
+    /// nil rather than a made-up number.
+    static func budgetCeiling() -> Double? {
+        switch GiftingPrefs.budget {
+        case "Under $25": return 25
+        case "$25–75": return 75
+        case "$75–200": return 200
+        default: return nil
+        }
     }
 }
