@@ -17,6 +17,7 @@ enum GiftingPrefs {
     private static let relationshipsKey = "onboarding.relationships"
     private static let budgetKey = "onboarding.budget"
     private static let stylesKey = "onboarding.giftStyles"
+    private static let contactRelKey = "onboarding.contactRelationships"
 
     static var persona: String? {
         get { UserDefaults.standard.string(forKey: personaKey) }
@@ -34,10 +35,17 @@ enum GiftingPrefs {
         get { UserDefaults.standard.stringArray(forKey: stylesKey) ?? [] }
         set { UserDefaults.standard.set(newValue, forKey: stylesKey) }
     }
+    /// Relationships tagged on individual contacts ("Mom", "Sibling", …).
+    /// More specific than `relationships`, which is an aggregate self-report:
+    /// this is who they ACTUALLY put in their calendar.
+    static var contactRelationships: [String] {
+        get { UserDefaults.standard.stringArray(forKey: contactRelKey) ?? [] }
+        set { UserDefaults.standard.set(newValue, forKey: contactRelKey) }
+    }
 
     // Account deletion — forget the onboarding answers.
     static func clear() {
-        for k in [personaKey, relationshipsKey, budgetKey, stylesKey] {
+        for k in [personaKey, relationshipsKey, budgetKey, stylesKey, contactRelKey] {
             UserDefaults.standard.removeObject(forKey: k)
         }
     }
@@ -71,6 +79,9 @@ struct PurposeOnboardingView: View {
     @State private var picksFailed = false
     // Taste calibration (step 3). `calibrationFailed` is the escape hatch: a
     // deck that never loaded must not trap anyone in onboarding.
+    // contactId -> "Sister" / "Mom" / … The name never leaves the device; only
+    // the RELATIONSHIP is used as a signal.
+    @State private var contactRelationships: [String: String] = [:]
     @State private var calibrationSwipes = 0
     @State private var calibrationFailed = false
     @State private var note = ""
@@ -94,6 +105,10 @@ struct PurposeOnboardingView: View {
         ("special", "sparkles", "I love making others feel special"),
     ]
     private static let relationshipOptions = ["Partner", "Parent", "Best friend", "Sibling", "Grandparent", "Coworker", "My kids"]
+    // Per-CONTACT tags. Shorter than the aggregate list above because it is
+    // read at a glance while scanning a contact list.
+    private static let contactRelationOptions = ["Partner", "Mom", "Dad", "Sibling", "Friend", "Kid", "Grandparent", "Coworker"]
+    private static let contactTarget = 5
     private static let budgetOptions = ["Under $25", "$25–75", "$75–200", "$200+"]
     private static let styleOptions: [(id: String, label: String)] = [
         ("handmade", "Handmade"), ("experiences", "Experiences"), ("personalized", "Personalized"),
@@ -220,32 +235,74 @@ struct PurposeOnboardingView: View {
                     .foregroundStyle(.secondary)
             }
 
+            if contactsLoaded && !contacts.isEmpty {
+                // Soft target, never a gate: Contacts permission can be denied
+                // outright, so a hard minimum here would make onboarding
+                // impossible to finish rather than merely annoying.
+                Text(selectedContacts.count >= Self.contactTarget
+                     ? "That's a good start — tag anyone you buy for."
+                     : "Pick \(Self.contactTarget) or so, and say who they are to you.")
+                    .font(.footnote)
+                    .foregroundStyle(selectedContacts.count >= Self.contactTarget ? Color.success : Color.inkTertiary)
+            }
+
             ForEach(contacts) { contact in
-                Button {
-                    if selectedContacts.contains(contact.id) {
-                        selectedContacts.remove(contact.id)
-                    } else {
-                        selectedContacts.insert(contact.id)
-                    }
-                } label: {
-                    HStack(spacing: 12) {
-                        AvatarView(name: contact.name, grad: .sky, size: 40)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(contact.name)
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(Color.ink)
-                            Text("🎂 in \(contact.daysUntil) day\(contact.daysUntil == 1 ? "" : "s")")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 8) {
+                    Button {
+                        if selectedContacts.contains(contact.id) {
+                            selectedContacts.remove(contact.id)
+                            contactRelationships[contact.id] = nil
+                        } else {
+                            selectedContacts.insert(contact.id)
                         }
-                        Spacer()
-                        Image(systemName: selectedContacts.contains(contact.id) ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 22))
-                            .foregroundStyle(selectedContacts.contains(contact.id) ? Color.coral : Color.line)
+                    } label: {
+                        HStack(spacing: 12) {
+                            AvatarView(name: contact.name, grad: .sky, size: 40)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(contact.name)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(Color.ink)
+                                Text("🎂 in \(contact.daysUntil) day\(contact.daysUntil == 1 ? "" : "s")")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: selectedContacts.contains(contact.id) ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 22))
+                                .foregroundStyle(selectedContacts.contains(contact.id) ? Color.coral : Color.line)
+                        }
+                        .padding(.vertical, 6)
                     }
-                    .padding(.vertical, 6)
+                    .buttonStyle(.plain)
+
+                    // "Sarah's birthday" alone can't shape a gift. "Sarah is my
+                    // sister" can — it is the strongest prior we have when
+                    // building a deck FOR her, and the only one available before
+                    // she has swiped anything.
+                    if selectedContacts.contains(contact.id) {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(Self.contactRelationOptions, id: \.self) { rel in
+                                    let on = contactRelationships[contact.id] == rel
+                                    Button {
+                                        contactRelationships[contact.id] = on ? nil : rel
+                                    } label: {
+                                        Text(rel)
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(on ? Color.coral : Color.inkSecondary)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 7)
+                                            .background(on ? Color.coralSoft : Color.cream, in: Capsule())
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.leading, 52)
+                        }
+                        .scrollClipDisabled()
+                    }
                 }
-                .buttonStyle(.plain)
+                .animation(.snappy, value: selectedContacts.contains(contact.id))
             }
         }
     }
@@ -664,7 +721,15 @@ struct PurposeOnboardingView: View {
     }
 
     private func importSelectedContacts() {
+        // The relationship mix is a real taste signal — "shops for a sibling
+        // and two friends" shapes a deck in a way "has 3 birthdays" cannot.
+        // Names stay on device; only the relationship words are kept.
+        let tagged = selectedContacts.compactMap { contactRelationships[$0] }
+        if !tagged.isEmpty {
+            GiftingPrefs.contactRelationships = tagged
+        }
         for contact in contacts where selectedContacts.contains(contact.id) {
+            let relation = contactRelationships[contact.id]
             let event = GiftEvent(
                 id: "evt_\(UUID().uuidString.prefix(8))",
                 userId: authManager.userId,
@@ -676,7 +741,9 @@ struct PurposeOnboardingView: View {
                 recurrence: "yearly",
                 reminderLeadDays: 14,
                 budget: nil,
-                notes: nil,
+                // Carries the relationship forward so any deck built for this
+                // person later starts with the strongest prior we have.
+                notes: relation.map { "relationship:\($0)" },
                 scope: "personal",
                 createdAt: Date()
             )

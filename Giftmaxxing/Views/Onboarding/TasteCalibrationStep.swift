@@ -305,12 +305,25 @@ struct TasteCalibrationStep: View {
     /// vocabulary. A miss costs nothing — the server treats recipient as a
     /// soft boost, not a filter.
     static func primaryRecipient() -> String? {
-        let map = [
+        // Per-contact tags first: they describe who is ACTUALLY in the user's
+        // calendar, whereas GiftingPrefs.relationships is an aggregate
+        // self-report. "I put my sister in" beats "I generally buy for
+        // siblings" — and the most imminent birthday is the one they came here
+        // to solve.
+        let perContact = [
+            "Partner": "partner", "Mom": "mom", "Dad": "dad", "Sibling": "sister",
+            "Friend": "friend", "Kid": "kids", "Grandparent": "grandma",
+            "Coworker": "coworker",
+        ]
+        if let tagged = GiftingPrefs.contactRelationships.compactMap({ perContact[$0] }).first {
+            return tagged
+        }
+        let selfReported = [
             "Partner": "partner", "Parent": "parents", "Best friend": "friend",
             "Sibling": "sister", "Grandparent": "grandma", "Coworker": "coworker",
             "My kids": "kids",
         ]
-        return GiftingPrefs.relationships.compactMap { map[$0] }.first
+        return GiftingPrefs.relationships.compactMap { selfReported[$0] }.first
     }
 
     /// Upper bound of the budget band. "$200+" has no ceiling, so it returns
