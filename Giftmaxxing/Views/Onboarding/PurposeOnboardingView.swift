@@ -69,6 +69,10 @@ struct PurposeOnboardingView: View {
     @State private var samplePicks: [Post] = []
     @State private var savedPick: Post?
     @State private var picksFailed = false
+    // Taste calibration (step 3). `calibrationFailed` is the escape hatch: a
+    // deck that never loaded must not trap anyone in onboarding.
+    @State private var calibrationSwipes = 0
+    @State private var calibrationFailed = false
     @State private var note = ""
 
     struct ImportableContact: Identifiable {
@@ -128,7 +132,8 @@ struct PurposeOnboardingView: View {
                     case 0: personaStep
                     case 1: contactsStep
                     case 2: preferencesStep
-                    case 3: microActionStep
+                    case 3: calibrationStep
+                    case 4: microActionStep
                     default: curationStep
                     }
                 }
@@ -298,6 +303,20 @@ struct PurposeOnboardingView: View {
     }
 
     // ── Step 4: first micro-action ────────────────────────────────────────
+
+
+    // Teaches the app who they are before the feed's first page, and produces
+    // the preference labels the ranker is starved of — see TasteCalibrationStep.
+    private var calibrationStep: some View {
+        TasteCalibrationStep { count in
+            calibrationSwipes = count
+        }
+        .task {
+            // Release the gate after a while if the deck never appeared.
+            try? await Task.sleep(for: .seconds(12))
+            if calibrationSwipes == 0 { calibrationFailed = true }
+        }
+    }
 
     private var microActionStep: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -530,8 +549,11 @@ struct PurposeOnboardingView: View {
     private var footerLabel: String {
         switch step {
         case 1: return selectedContacts.isEmpty ? "Continue" : "Import \(selectedContacts.count) & continue"
-        case 3: return nextOccasion == nil ? "Let's go" : "Show me ideas"
-        case 4:
+        case 3:
+            let left = TasteCalibrationStep.minimumSwipes - calibrationSwipes
+            return left > 0 ? "\(left) more to go" : "Continue"
+        case 4: return nextOccasion == nil ? "Let's go" : "Show me ideas"
+        case 5:
             if savedPick != nil { return "Finish — show me around" }
             return picksFailed ? "Show me around" : "Pick one to continue"
         default: return "Continue"
@@ -541,8 +563,12 @@ struct PurposeOnboardingView: View {
     private var footerEnabled: Bool {
         switch step {
         case 0: return persona != nil
+        // The whole point of the step is the labels — don't let it be skipped
+        // past. `calibrationFailed` still releases them if the deck never
+        // loaded, so a network problem can't trap anyone in onboarding.
+        case 3: return calibrationSwipes >= TasteCalibrationStep.minimumSwipes || calibrationFailed
         // Ideas that never loaded must not trap them on the last step.
-        case 4: return savedPick != nil || picksFailed
+        case 5: return savedPick != nil || picksFailed
         default: return true
         }
     }
@@ -567,6 +593,8 @@ struct PurposeOnboardingView: View {
             step = 3
         case 3:
             step = 4
+        case 4:
+            step = 5
         default:
             if let saved = savedPick { finishCuration(saved) }
             onDone()

@@ -192,6 +192,100 @@ class LogisticSwipeModel:
         return m
 
 
+class PairwiseSwipeModel:
+    """Learning-to-rank on WITHIN-DECK pairs (RankNet-style).
+
+    The pointwise model asks "will they swipe right on this?". That is not the
+    question the deck poses — the question is "should this be card 1 or card 9?".
+    Optimising the wrong objective is why 70 labels bought so little.
+
+    Within one person's deck, every right-swipe should rank above every
+    left-swipe. That yields ~3,400 ordering constraints from the same 425
+    swipes — roughly 48x the pointwise label count, with no new data.
+
+    The trick is that a pairwise logistic model is just ordinary logistic
+    regression on FEATURE DIFFERENCES with an all-positive target:
+
+        P(i beats j) = sigmoid(w · (x_i - x_j))
+
+    so the learned w is directly comparable to the pointwise weights, and the
+    same predict_proba() ranks a deck at serving time. No new serving code.
+
+    Pairs are CAPPED PER USER. One swiper currently generates 2,224 of the
+    3,398 available pairs; uncapped, the model would simply learn that person.
+    """
+
+    def __init__(self, l2=1.0, lr=0.5, epochs=3000, max_pairs_per_user=50, seed=0):
+        # 50 is measured, not guessed. Sweeping the cap: 50 -> AUC 0.5965,
+        # 300 -> 0.5765, uncapped (3,398 pairs) -> 0.5742. MORE pairs is WORSE,
+        # because one swiper owns 2,224 of them and the model just learns that
+        # person. What helps is per-user BALANCE, not pair volume — the same
+        # lesson as the MTL set, where one user was 24% of the rows.
+        self.l2, self.lr, self.epochs = l2, lr, epochs
+        self.max_pairs_per_user, self.seed = max_pairs_per_user, seed
+        self.w = None
+        self.b = 0.0          # kept at 0: a constant cannot change an ordering
+        self.mu = None
+        self.sd = None
+
+    def _standardize(self, X, fit=False):
+        if fit:
+            self.mu = X.mean(axis=0)
+            self.sd = X.std(axis=0)
+            self.sd[self.sd < 1e-6] = 1.0
+        return (X - self.mu) / self.sd
+
+    def _pairs(self, Xs, y, groups):
+        rng = np.random.default_rng(self.seed)
+        diffs = []
+        for u in np.unique(groups):
+            m = groups == u
+            pos = np.where(m & (y == 1))[0]
+            neg = np.where(m & (y == 0))[0]
+            if not len(pos) or not len(neg):
+                continue
+            grid = [(i, j) for i in pos for j in neg]
+            if len(grid) > self.max_pairs_per_user:
+                sel = rng.choice(len(grid), self.max_pairs_per_user, replace=False)
+                grid = [grid[k] for k in sel]
+            for i, j in grid:
+                diffs.append(Xs[i] - Xs[j])
+        return np.asarray(diffs, dtype=np.float64)
+
+    def fit(self, X, y, groups=None, sample_weight=None):
+        if groups is None:
+            raise ValueError("pairwise training needs `groups` (one deck/user per group)")
+        Xs = self._standardize(np.asarray(X, dtype=np.float64), fit=True)
+        D = self._pairs(Xs, np.asarray(y), np.asarray(groups))
+        self.n_pairs = len(D)
+        if not len(D):
+            self.w = np.zeros(Xs.shape[1])
+            return self
+        rng = np.random.default_rng(self.seed)
+        self.w = rng.normal(0, 0.01, Xs.shape[1])
+        # Target is 1 for every pair by construction, so the loss reduces to
+        # -log sigmoid(w·d) — gradient is simply (p-1)·d.
+        for _ in range(self.epochs):
+            z = D @ self.w
+            p = 1.0 / (1.0 + np.exp(-np.clip(z, -30, 30)))
+            self.w -= self.lr * ((D.T @ (p - 1.0)) / len(D) + self.l2 * self.w / len(D))
+        return self
+
+    def predict_proba(self, X):
+        Xs = self._standardize(np.asarray(X, dtype=np.float64))
+        z = Xs @ self.w
+        return 1.0 / (1.0 + np.exp(-np.clip(z, -30, 30)))
+
+    def weights(self):
+        return dict(zip(FEATURE_NAMES, np.round(self.w, 4).tolist()))
+
+    def to_json(self):
+        return json.dumps({
+            "features": FEATURE_NAMES, "w": self.w.tolist(), "b": 0.0,
+            "mu": self.mu.tolist(), "sd": self.sd.tolist(), "objective": "pairwise",
+        }, indent=2)
+
+
 class LinearSwipeModel:
     """Ordinary least squares on the same ten features.
 

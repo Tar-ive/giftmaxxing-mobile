@@ -16,7 +16,7 @@ import json
 import os
 import numpy as np
 
-from swipe_model import LogisticSwipeModel, LinearSwipeModel, FEATURE_NAMES, auc
+from swipe_model import LogisticSwipeModel, LinearSwipeModel, PairwiseSwipeModel, FEATURE_NAMES, auc
 from train_swipe import loocv
 
 TRAIN_DIR = os.environ.get("SM_CHANNEL_TRAINING", "data")
@@ -40,6 +40,40 @@ def main():
     oof = loocv(X, Y, groups)
     ok = ~np.isnan(oof)
     model_auc = auc(Y[ok], oof[ok])
+    lift = model_auc - base
+
+    # --- Class-weighted pointwise: with 16.5% positives the L2 penalty drags
+    # coefficients toward the majority class; weighting lets positives push back.
+    def _cw_loocv():
+        oo = np.full(len(Y), np.nan)
+        for u in sorted(set(groups)):
+            te = groups == u; tr = ~te
+            if Y[tr].sum() == 0 or Y[tr].sum() == tr.sum():
+                continue
+            yt = Y[tr]; p_ = yt.mean()
+            sw = np.where(yt == 1, 1 / max(p_, 1e-6), 1 / max(1 - p_, 1e-6))
+            oo[te] = LogisticSwipeModel(l2=1.0).fit(X[tr], yt, sample_weight=sw).predict_proba(X[te])
+        return oo
+    oof_cw = _cw_loocv(); ok_cw = ~np.isnan(oof_cw)
+    cw_auc = auc(Y[ok_cw], oof_cw[ok_cw])
+    print(f"auc_classweight={cw_auc:.4f};")
+
+    # --- Pairwise learning-to-rank: the objective the deck actually poses.
+    def _pw_loocv():
+        oo = np.full(len(Y), np.nan)
+        for u in sorted(set(groups)):
+            te = groups == u; tr = ~te
+            if Y[tr].sum() == 0 or Y[tr].sum() == tr.sum():
+                continue
+            oo[te] = PairwiseSwipeModel(l2=1.0).fit(X[tr], Y[tr], groups=groups[tr]).predict_proba(X[te])
+        return oo
+    oof_pw = _pw_loocv(); ok_pw = ~np.isnan(oof_pw)
+    pw_auc = auc(Y[ok_pw], oof_pw[ok_pw])
+    print(f"auc_pairwise={pw_auc:.4f};")
+
+    # The best variant becomes the shipped artifact.
+    oof, ok, model_auc = (oof_pw, ok_pw, pw_auc) if pw_auc >= max(cw_auc, model_auc) else (
+        (oof_cw, ok_cw, cw_auc) if cw_auc >= model_auc else (oof, ok, model_auc))
     lift = model_auc - base
 
     # --- Control: ordinary least squares on the same features ----------------
@@ -78,7 +112,16 @@ def main():
     print(f"[verdict] {'SHIP — CI excludes zero' if ships else 'DO NOT SHIP over cosine — CI includes zero'}")
 
     # --- Fit on everything and persist ---------------------------------------
-    final = LogisticSwipeModel(l2=1.0).fit(X, Y)
+    best = "pairwise" if model_auc == pw_auc else ("classweight" if model_auc == cw_auc else "pointwise")
+    print(f"[best] {best}")
+    if best == "pairwise":
+        final = PairwiseSwipeModel(l2=1.0).fit(X, Y, groups=groups)
+    elif best == "classweight":
+        p_ = Y.mean()
+        final = LogisticSwipeModel(l2=1.0).fit(
+            X, Y, sample_weight=np.where(Y == 1, 1 / max(p_, 1e-6), 1 / max(1 - p_, 1e-6)))
+    else:
+        final = LogisticSwipeModel(l2=1.0).fit(X, Y)
     os.makedirs(MODEL_DIR, exist_ok=True)
     with open(os.path.join(MODEL_DIR, "swipe_lr.json"), "w") as f:
         f.write(final.to_json())
@@ -93,6 +136,9 @@ def main():
         "auc_cosine_baseline": None if np.isnan(base) else round(float(base), 4),
         "auc_model_loucv": None if np.isnan(model_auc) else round(float(model_auc), 4),
         "lift": None if np.isnan(lift) else round(float(lift), 4),
+        "auc_classweight": None if np.isnan(cw_auc) else round(float(cw_auc), 4),
+        "auc_pairwise": None if np.isnan(pw_auc) else round(float(pw_auc), 4),
+        "objective": best,
         "auc_linear_regression": None if np.isnan(lin_auc) else round(float(lin_auc), 4),
         "ci95": [None if np.isnan(lo) else round(float(lo), 4),
                  None if np.isnan(hi) else round(float(hi), 4)],
