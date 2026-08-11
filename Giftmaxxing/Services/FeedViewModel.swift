@@ -22,6 +22,11 @@ final class FeedViewModel: ObservableObject {
     private var exhausted = false
     // Unique per pull-to-refresh; nil for normal (CDN-cacheable) loads.
     private var cacheBuster: String?
+    private var usingMixer = false
+    private var browseThemeId = "for-you"
+    private var browseTagId: String?
+    private var mixerAttribution: [String: String] = [:]
+    private var staleCachedPosts: [Post] = []
     private let api = APIClient.shared
 
     // Ranked-but-not-yet-shown candidates (output of the on-device ranker).
@@ -72,6 +77,28 @@ final class FeedViewModel: ObservableObject {
 
     // forceFresh = pull-to-refresh: bust the CDN cache so the server deals a
     // brand-new random window instead of replaying the cached page.
+    // Active browse selection (Tier 1 theme + Tier 2 tag), as query words.
+    // Empty = "For you", i.e. the personalized feed.
+    private(set) var browseQuery: [String] = []
+    private(set) var browseMaxPrice: Double?
+
+    /// Switch the browse taxonomy and reload. Cheap to call — a no-op when
+    /// nothing actually changed, so tapping the active chip doesn't refetch.
+    func setBrowse(theme: FeedTheme, tag: FeedTag?, context: ModelContext?) async {
+        var words: [String] = []
+        if !theme.query.isEmpty { words.append(contentsOf: theme.query.split(separator: " ").map(String.init)) }
+        if let tag { words.append(contentsOf: tag.query.split(separator: " ").map(String.init)) }
+
+        let price = tag?.maxPrice
+        guard words != browseQuery || price != browseMaxPrice || theme.id != browseThemeId || tag?.id != browseTagId else { return }
+        browseQuery = words
+        browseMaxPrice = price
+        browseThemeId = theme.id
+        browseTagId = tag?.id
+        posts = []
+        await loadFeed(context: context, forceFresh: true)
+    }
+
     func loadFeed(context: ModelContext? = nil, forceFresh: Bool = false) async {
         guard !isLoading else { return }
         isLoading = true
@@ -80,7 +107,16 @@ final class FeedViewModel: ObservableObject {
         exhausted = false
         rankedBuffer = []
         servedIds = []
+        usingMixer = false
+        mixerAttribution = [:]
         cacheBuster = forceFresh ? UUID().uuidString : nil
+
+        if CuratedGiftStore.isPilotEnabled {
+            posts = CuratedGiftStore.shared.feed(query: browseQuery.joined(separator: " "))
+            exhausted = true
+            isLoading = false
+            return
+        }
 
         // Instant paint from the SwiftData cache while network + ranking run.
         if let context, posts.isEmpty {
@@ -89,24 +125,15 @@ final class FeedViewModel: ObservableObject {
 
         await refreshTasteCentroid()
         do {
-            // Recommendation-API-first (signed-in): the server builds a taste
-            // centroid from THIS user's interaction history and kNNs the vector
-            // index — richer than what a generic candidate page can carry. Runs
-            // concurrently with the candidate fetch; on a cold start (no
-            // interactions yet → source:"facet" or empty) it contributes
-            // nothing and the generic page stands alone, so the experience is
-            // seamless either way.
-            async let personalizedTask = fetchPersonalizedPicks(forceFresh: forceFresh)
             try await fetchAndRankNextPage()
             posts = drain(uiPageSize)
-            weave(personalized: await personalizedTask)
-            // The first card a user sees on every open/refresh should be a
-            // swipeable carousel (a real multi-image product), not a static
-            // single Pinterest photo — and a different one each time.
-            ensureCarouselFirst()
+            if !usingMixer {
+                weave(personalized: await fetchPersonalizedPicks(forceFresh: forceFresh))
+                ensureCarouselFirst()
+            }
             await hydrateLikeStates()
             if let context {
-                cacheResults(posts, context: context)
+                cacheResults(Array((posts + rankedBuffer.map(\.post)).prefix(24)), context: context)
             }
             // Interaction model, phase 2 (intelligent back-end): the fast
             // picks above rendered instantly in cosine order; now ask the
@@ -114,11 +141,12 @@ final class FeedViewModel: ObservableObject {
             // upgrade the below-the-fold slots when it arrives. The user
             // never waits on the model — a cold endpoint just means this
             // pass quietly does nothing.
-            refineTask?.cancel()
-            refineTask = Task { [weak self] in
-                await self?.refinePersonalizedPicks()
+            if !usingMixer {
+                refineTask?.cancel()
+                refineTask = Task { [weak self] in await self?.refinePersonalizedPicks() }
             }
         } catch {
+            if posts.isEmpty, !staleCachedPosts.isEmpty { posts = staleCachedPosts }
             if posts.isEmpty { self.error = error.localizedDescription }
         }
 
@@ -249,6 +277,7 @@ final class FeedViewModel: ObservableObject {
     }
 
     func loadMore(context: ModelContext? = nil) async {
+        if CuratedGiftStore.isPilotEnabled { return }
         guard !isRefreshing, !isLoadingMore, !isLoading, !(exhausted && rankedBuffer.isEmpty) else { return }
         isLoadingMore = true
 
@@ -271,7 +300,32 @@ final class FeedViewModel: ObservableObject {
     // already leans their way — the on-device ranker needs interactions the
     // user doesn't have yet.
     private func fetchAndRankNextPage() async throws {
-        let consultVibes = PersonalizationStore.consultVibes
+        if let page = try? await api.fetchMixerRecommendations(
+            surface: "home", cursor: cursor, limit: networkPageSize,
+            themeId: browseThemeId, tagId: browseTagId, maxPrice: browseMaxPrice,
+            excludeItemIds: Array(servedIds)
+        ), !page.posts.isEmpty {
+            usingMixer = true
+            cursor = page.cursor
+            mixerAttribution.merge(page.attributions) { _, new in new }
+            if page.cursor == nil { exhausted = true }
+            let fresh = page.posts.filter { !servedIds.contains($0.id) }
+            for (index, post) in fresh.enumerated() {
+                servingSource[post.id] = "mixer:\(page.modelVersion)"
+                serverRank[post.id] = index
+            }
+            rankedBuffer.append(contentsOf: fresh.enumerated().map {
+                RankedCandidate(post: $0.element, score: Double(fresh.count - $0.offset), reason: $0.element.reason)
+            })
+            return
+        }
+        usingMixer = false
+        // A browse theme/tag REPLACES the personal cold-start vibes: the user
+        // has explicitly said what they want to look at, and blending their
+        // onboarding answers back in would dilute the thing they just asked for.
+        let consultVibes = browseQuery.isEmpty
+            ? PersonalizationStore.consultVibes
+            : browseQuery
         let page = try await api.fetchFeed(
             cursor: cursor,
             limit: networkPageSize,
@@ -319,6 +373,11 @@ final class FeedViewModel: ObservableObject {
     }
 
     private func drain(_ n: Int) -> [Post] {
+        // "Under $N" tags: the feed endpoint has no price filter, so the cap is
+        // enforced here, before the page is handed to the UI.
+        if let cap = browseMaxPrice {
+            rankedBuffer.removeAll { $0.post.product.price > cap }
+        }
         let count = min(n, rankedBuffer.count)
         var batch = Array(rankedBuffer.prefix(count))
         rankedBuffer.removeFirst(count)
@@ -491,13 +550,16 @@ final class FeedViewModel: ObservableObject {
             sortBy: [SortDescriptor(\.feedPosition)]
         )
         if let cached = try? context.fetch(descriptor), !cached.isEmpty {
-            posts = cached.map { $0.toPost() }
+            let age = Date().timeIntervalSince(cached.map(\.cachedAt).max() ?? .distantPast)
+            let values = cached.map { $0.toPost() }
+            if age <= 24 * 60 * 60 { posts = values }
+            if age <= 7 * 24 * 60 * 60 { staleCachedPosts = values }
         }
     }
 
     private func cacheResults(_ posts: [Post], context: ModelContext) {
         try? context.delete(model: CachedPost.self)
-        for (index, post) in posts.enumerated() {
+        for (index, post) in posts.prefix(24).enumerated() {
             let cached = CachedPost(from: post, position: index)
             context.insert(cached)
         }

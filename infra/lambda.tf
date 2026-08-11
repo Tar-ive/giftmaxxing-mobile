@@ -29,20 +29,25 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      USERS_TABLE        = aws_dynamodb_table.users.name
-      POSTS_TABLE        = aws_dynamodb_table.posts.name
-      UGC_REPORTS_TABLE  = aws_dynamodb_table.ugc_reports.name
-      MEDIA_BUCKET       = aws_s3_bucket.media.id
-      INTERACTIONS_TABLE = aws_dynamodb_table.interactions.name
-      KNOWLEDGE_TABLE    = aws_dynamodb_table.knowledge.name
-      CONNECTIONS_TABLE  = aws_dynamodb_table.connections.name
-      CHALLENGES_TABLE   = aws_dynamodb_table.challenges.name
-      POOLS_TABLE        = aws_dynamodb_table.pools.name
-      FRIENDS_TABLE      = aws_dynamodb_table.friends.name
-      EVENTS_TABLE       = aws_dynamodb_table.events.name
-      GRAPH_TABLE        = aws_dynamodb_table.graph.name
-      CONFIG_TABLE       = aws_dynamodb_table.config.name
-      ANALYTICS_TABLE    = aws_dynamodb_table.analytics.name
+      USERS_TABLE              = aws_dynamodb_table.users.name
+      POSTS_TABLE              = aws_dynamodb_table.posts.name
+      UGC_REPORTS_TABLE        = aws_dynamodb_table.ugc_reports.name
+      MEDIA_BUCKET             = aws_s3_bucket.media.id
+      INTERACTIONS_TABLE       = aws_dynamodb_table.interactions.name
+      KNOWLEDGE_TABLE          = aws_dynamodb_table.knowledge.name
+      CONNECTIONS_TABLE        = aws_dynamodb_table.connections.name
+      CHALLENGES_TABLE         = aws_dynamodb_table.challenges.name
+      POOLS_TABLE              = aws_dynamodb_table.pools.name
+      FRIENDS_TABLE            = aws_dynamodb_table.friends.name
+      EVENTS_TABLE             = aws_dynamodb_table.events.name
+      GRAPH_TABLE              = aws_dynamodb_table.graph.name
+      CONFIG_TABLE             = aws_dynamodb_table.config.name
+      ANALYTICS_TABLE          = aws_dynamodb_table.analytics.name
+      CATALOG_ENTITIES_TABLE   = aws_dynamodb_table.catalog_entities.name
+      CATALOG_EDGES_TABLE      = aws_dynamodb_table.catalog_edges.name
+      TASTE_PROFILES_TABLE     = aws_dynamodb_table.taste_profiles.name
+      RECOMMENDER_MODEL_BUCKET = aws_s3_bucket.recommender_ml.id
+      RECOMMENDER_MODEL_KEY    = "models/active.json"
       # APNs push: device registration (mobile-routes) + sends (push.mjs). The
       # platform-app ARN stays "" until var.apns_private_key is supplied.
       DEVICES_TABLE = aws_dynamodb_table.devices.name

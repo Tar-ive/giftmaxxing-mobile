@@ -411,6 +411,18 @@ final class AnalyticsEngine: ObservableObject {
         ])
     }
 
+    /// Thumbs up/down on a reply's picks. `postIds` lets the exporter join the
+    /// verdict back to the items, so a thumbs-down becomes negative labels on
+    /// exactly what was shown.
+    func trackMaxiRating(rating: Int, postIds: [String]) {
+        track(.maxiRating, properties: [
+            "rating": .int(rating),
+            "productCount": .int(postIds.count),
+            "postIds": .string(postIds.joined(separator: ",")),
+            "sessionId": .string(sessionId),
+        ])
+    }
+
     // MARK: - Core
 
     private func track(_ type: AnalyticsEvent.EventType, properties: [String: AnyCodableValue] = [:]) {

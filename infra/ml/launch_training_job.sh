@@ -39,7 +39,10 @@ cat > /tmp/job.json <<JSON
       {"Name": "auc_pairwise", "Regex": "auc_pairwise=([0-9.]+);"},
       {"Name": "ci_low",     "Regex": "ci_low=(-?[0-9.]+);"},
       {"Name": "ci_high",    "Regex": "ci_high=(-?[0-9.]+);"},
-      {"Name": "p_better",   "Regex": "p_better=([0-9.]+);"}
+      {"Name": "p_better",   "Regex": "p_better=([0-9.]+);"},
+      {"Name": "ndcg10_model", "Regex": "ndcg10_model=([0-9.]+);"},
+      {"Name": "ndcg10_lift", "Regex": "ndcg10_lift=(-?[0-9.]+);"},
+      {"Name": "ndcg10_ci_low", "Regex": "ndcg10_ci_low=(-?[0-9.]+);"}
     ]
   },
   "RoleArn": "$ROLE",

@@ -5,6 +5,11 @@ struct ContentView: View {
     @EnvironmentObject private var authManager: AuthManager
     @EnvironmentObject private var offlineQueue: OfflineQueue
     @Environment(\.scenePhase) private var scenePhase
+    // Colour tokens read the active palette inside their UIColor providers, so
+    // a theme switch is invisible to SwiftUI's dependency tracking — nothing it
+    // watches has changed. Keying the tree on the theme is what forces the
+    // repaint. Only a deliberate theme change fires it.
+    @ObservedObject private var themeManager = ThemeManager.shared
     @State private var showOnboarding = false
     @State private var showSplash = true
     @State private var gateResolved = false
@@ -35,25 +40,25 @@ struct ContentView: View {
             TabView(selection: $appState.selectedTab) {
                 FeedView()
                     .tabItem {
-                        Label(Tab.feed.rawValue, systemImage: Tab.feed.icon)
+                        Label(Tab.feed.rawValue, systemImage: Tab.feed.icon(selected: appState.selectedTab == .feed))
                     }
                     .tag(Tab.feed)
 
                 SwipeView()
                     .tabItem {
-                        Label(Tab.swipe.rawValue, systemImage: Tab.swipe.icon)
+                        Label(Tab.swipe.rawValue, systemImage: Tab.swipe.icon(selected: appState.selectedTab == .swipe))
                     }
                     .tag(Tab.swipe)
 
-                UGCCreateView()
+                SearchTabsView()
                     .tabItem {
-                        Label(Tab.create.rawValue, systemImage: Tab.create.icon)
+                        Label(Tab.search.rawValue, systemImage: Tab.search.icon(selected: appState.selectedTab == .search))
                     }
-                    .tag(Tab.create)
+                    .tag(Tab.search)
 
                 CirclesView()
                     .tabItem {
-                        Label(Tab.circles.rawValue, systemImage: Tab.circles.icon)
+                        Label(Tab.circles.rawValue, systemImage: Tab.circles.icon(selected: appState.selectedTab == .circles))
                     }
                     .tag(Tab.circles)
 
@@ -75,7 +80,7 @@ struct ContentView: View {
                     #endif
                 }
                     .tabItem {
-                        Label(Tab.you.rawValue, systemImage: Tab.you.icon)
+                        Label(Tab.you.rawValue, systemImage: Tab.you.icon(selected: appState.selectedTab == .you))
                     }
                     .tag(Tab.you)
             }
@@ -97,12 +102,20 @@ struct ContentView: View {
                     }
                 }
                 .padding(.trailing, ThemeSpacing.md)
-                // Tucked just above the tab bar, BELOW the feed card's Pool /
-                // Gift-board buttons. Those sit in the same corner, so the FAB
-                // has to clear them on one side or the other — going under is
-                // the only option that also keeps it out of the card's title.
-                .padding(.bottom, 48)
-                .transition(.scale.combined(with: .opacity))
+                // Standard FAB inset above the tab bar. It shares this corner
+                // with each feed card's Pool / Gift-board buttons — which move,
+                // so no inset can clear them. Fading while the feed is in motion
+                // is what clears them: by the time you reach for a card control,
+                // the FAB is out of the way.
+                //
+                // Opacity ONLY — the button is never unmounted mid-scroll. An
+                // `if` here made SwiftUI insert/remove it on every scroll phase
+                // and the corner visibly jittered.
+                .padding(.bottom, 72)
+                .opacity(appState.maxiFABDimmed ? 0.12 : 1)
+                .scaleEffect(appState.maxiFABDimmed ? 0.92 : 1, anchor: .bottomTrailing)
+                .allowsHitTesting(!appState.maxiFABDimmed)
+                .animation(.easeOut(duration: 0.2), value: appState.maxiFABDimmed)
                 .zIndex(6)
             }
 
@@ -287,7 +300,9 @@ struct ContentView: View {
             drainCaptureInbox()
             PersonalizationStore.migrateLegacyFlagIfNeeded()
             #if DEBUG
-            if UserDefaults.standard.bool(forKey: "profilePreview") || UserDefaults.standard.bool(forKey: "publicProfilePreview") {
+            if UserDefaults.standard.bool(forKey: "curatedScreenshotMode") {
+                appState.selectedTab = .feed
+            } else if UserDefaults.standard.bool(forKey: "profilePreview") || UserDefaults.standard.bool(forKey: "publicProfilePreview") {
                 appState.selectedTab = .you
             }
             // Screenshot capture (Debug only): land directly on a screen so
@@ -296,7 +311,7 @@ struct ContentView: View {
                 switch tab {
                 case "feed": appState.selectedTab = .feed
                 case "swipe": appState.selectedTab = .swipe
-                case "post": appState.selectedTab = .create
+                case "post": appState.showCreate = true
                 case "circles": appState.selectedTab = .circles
                 case "you": appState.selectedTab = .you
                 default: break
@@ -307,6 +322,17 @@ struct ContentView: View {
             // session doesn't fire onChange for the initial userId).
             SwipeListStore.shared.configure(userId: authManager.userId)
             CartStore.shared.configure(userId: authManager.userId)
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "curatedScreenshotMode"), CartStore.shared.isEmpty,
+               let journey = CuratedGiftStore.shared.catalog.journeys.first {
+                CartStore.shared.addAll(
+                    journey.products.map(\.post) + CuratedGiftStore.shared.wrapPosts,
+                    for: nil,
+                    source: "curated-screenshot"
+                )
+            }
+            #endif
+            DebugSessionManager.shared.handleIdentityChange(email: authManager.email)
         }
         .onChange(of: authManager.userId) { _, newUserId in
             // Privacy boundary: a different account (or a sign-out) on this
@@ -317,6 +343,10 @@ struct ContentView: View {
             // account's copies from the server (survives sign-out + new devices).
             SwipeListStore.shared.configure(userId: newUserId)
             CartStore.shared.configure(userId: newUserId)
+            // Design variants are an operator tool — re-evaluate on every
+            // identity change so signing in as anyone else drops back to the
+            // shipped design immediately.
+            DebugSessionManager.shared.handleIdentityChange(email: authManager.email)
             // A fresh sign-in lands on Home, not wherever sign-in happened.
             if newUserId != nil {
                 #if DEBUG
@@ -336,6 +366,23 @@ struct ContentView: View {
             ChallengeSwipeView(challengeId: ref.id)
                 .environmentObject(authManager)
         }
+        // Posting lost its tab slot to Search. It is presented from Home's "+"
+        // (and from deep links) as a full-screen composer — the same shape
+        // Instagram uses, and an occasional action does not need a permanent
+        // fifth of the tab bar.
+        .fullScreenCover(isPresented: $appState.showCreate) {
+            NavigationStack {
+                UGCCreateView()
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Cancel") { appState.showCreate = false }
+                        }
+                    }
+            }
+        }
+        // See `themeManager` above — forces the repaint a theme switch cannot
+        // otherwise trigger.
+        .id(themeManager.theme)
     }
 
     private func drainMetaDeferredLink() {
@@ -356,7 +403,7 @@ struct ContentView: View {
         }
         guard url.scheme == "giftmaxxing" else { return }
         if url.host == "create" {
-            appState.selectedTab = .create
+            appState.showCreate = true
             return
         }
         drainCaptureInbox()

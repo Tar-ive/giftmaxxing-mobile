@@ -17,69 +17,209 @@ struct FeedView: View {
     @State private var listPickerPost: Post?
     // "Add to cart" from a card's … menu — asks who it's for.
     @State private var cartPickerPost: Post?
-    @State private var selectedPack: IdeaPack?
+    @State private var selectedJourney: CuratedGiftJourney?
     @State private var showIdeas = false
-    @State private var showSearch = false
-    @State private var showNotifications = false
     @State private var showCart = false
-    // Bell badge = incoming friend requests + unseen swipe activity.
-    @State private var notificationCount = 0
     @ObservedObject private var swipeList = SwipeListStore.shared
     @ObservedObject private var postingStore = UGCPostingStore.shared
     @State private var refreshed = false
+    // Two-tier browse taxonomy. Theme selects the query; tag narrows it in
+    // place. Both live here rather than in the view model so the bars can
+    // animate independently of a network round-trip.
+    @State private var themeId: String = FeedTheme.all.first?.id ?? "for-you"
+    @State private var themes = FeedTheme.all
+    @State private var tagId: String?
+    @State private var showFilterSheet = false
+    // Tier-2 hides on down-scroll and returns on up-scroll. Tier 1 never hides:
+    // it is navigation, and losing it mid-scroll strands you in a category with
+    // no way back.
+    @State private var tagBarHidden = false
+    @State private var lastScrollY: CGFloat = .greatestFiniteMagnitude
+    @State private var scrollOrigin: CGFloat = .greatestFiniteMagnitude
+    @State private var atTop = true
+    // Which feed layout to draw. Locked to A for everyone but an allowlisted
+    // operator account (DebugSessionManager).
+    @ObservedObject private var debugSession = DebugSessionManager.shared
+    private var variant: DesignVariant { DebugSessionManager.active }
+
+    private var activeTheme: FeedTheme {
+        themes.first { $0.id == themeId } ?? themes[0]
+    }
+    private var activeTag: FeedTag? {
+        activeTheme.tags.first { $0.id == tagId }
+    }
+
+
+    // One post rendered as a full-width card. Community posts only — see the
+    // segment comment in `body`.
+    @ViewBuilder
+    private func fullWidthCard(for post: Post, at index: Int) -> some View {
+        PostCardView(
+            post: post,
+            inSwipeList: swipeList.contains(post),
+            inMyGiftIdeas: swipeList.containsInMyGiftIdeas(post),
+            onLike: { viewModel.toggleLike(for: post, context: modelContext) },
+            onComment: { selectedPost = post },
+            onBookmark: {
+                swipeList.toggleMyGiftIdea(post)
+                viewModel.toggleSave(for: post, context: modelContext)
+            },
+            onPledge: {
+                pledgingPost = post
+                // Pledge = the strongest positive signal the feed has.
+                AnalyticsEngine.shared.trackContentAction(.contentLike, postId: post.id)
+            },
+            onAddToSwipeList: {
+                listPickerPost = post
+                AnalyticsEngine.shared.trackContentAction(.contentSave, postId: post.id)
+            },
+            onProductTap: {
+                selectedPost = post
+                AnalyticsEngine.shared.trackContentAction(.contentTap, postId: post.id)
+            },
+            onAuthorTap: {
+                guard let ownerId = post.ownerId else { return }
+                selectedAuthor = PublicPerson(
+                    userId: ownerId,
+                    name: post.user,
+                    handle: "",
+                    imageUrl: post.authorImageUrl
+                )
+            },
+            onHide: { viewModel.hide(postId: post.id) },
+            onAddToCart: { cartPickerPost = post }
+        )
+        .onAppear {
+            viewModel.recordImpression(for: post)
+            viewModel.prefetchImages(around: index)
+        }
+        .trackImpression(
+            postId: post.id,
+            position: index,
+            source: "feed",
+            attribution: viewModel.attribution(for: post.id, at: index)
+        ) { dwellMs in
+            viewModel.recordDwell(for: post, dwellMs: dwellMs)
+        }
+        .trackScrollAnalytics(currentPosition: index)
+    }
+
+    // Ranked order, chopped into runs of products (one grid each) and single
+    // UGC posts (one full-width card each).
+    private struct FeedSegment: Identifiable {
+        enum Kind {
+            case products([Post])
+            case ugc(Post)
+        }
+        let id: String
+        let kind: Kind
+        let startIndex: Int
+    }
+
+    private var feedSegments: [FeedSegment] {
+        var segments: [FeedSegment] = []
+        var run: [Post] = []
+        var runStart = 0
+
+        func flush() {
+            guard !run.isEmpty else { return }
+            segments.append(FeedSegment(id: "grid-\(run[0].id)", kind: .products(run), startIndex: runStart))
+            run = []
+        }
+
+        for (index, post) in viewModel.posts.enumerated() {
+            if post.source == "ugc" {
+                flush()
+                segments.append(FeedSegment(id: "ugc-\(post.id)", kind: .ugc(post), startIndex: index))
+            } else {
+                if run.isEmpty { runStart = index }
+                run.append(post)
+            }
+        }
+        flush()
+        return segments
+    }
+
+    // Identity row: + · giftmaxxing · cart.
+    //
+    // The wordmark is CENTRED, with the two controls hung off the edges — a
+    // plain HStack would centre it between them and drift as the cart badge
+    // changes width. A ZStack pins it to the true centre of the screen.
+    private var identityRow: some View {
+        ZStack {
+            Text("giftmaxxing")
+                .font(.system(size: 21, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color.ink)
+
+            HStack {
+                Button { appState.showCreate = true } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(Color.ink)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("New post")
+
+                Spacer()
+
+                CartButton { showCart = true }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
+    }
+
+    /// The identity row is only earned by an unfiltered feed at the top.
+    ///
+    /// Once you pick a category — or a sub-filter, or scroll — you are browsing,
+    /// and the row that identifies the app is the least useful thing on screen.
+    /// Giving its height back to the grid is worth more than the branding.
+    private var showsIdentityRow: Bool {
+        #if DEBUG
+        if UserDefaults.standard.bool(forKey: "curatedScreenshotMode") { return true }
+        #endif
+        return themeId == themes.first?.id && tagId == nil && atTop
+    }
+
+    // Pinned header: identity row (conditional) THEN the category pills, THEN
+    // the sub-filters. Order matters — pills sat above the wordmark before,
+    // which read as the categories belonging to the status bar.
+    @ViewBuilder
+    private var stickyHeader: some View {
+        VStack(spacing: 0) {
+            if showsIdentityRow {
+                identityRow
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            FeedThemeBar(themes: themes, selection: $themeId)
+
+            if !activeTheme.tags.isEmpty && !tagBarHidden {
+                FeedTagBar(
+                    tags: activeTheme.tags,
+                    selection: $tagId,
+                    onOpenFilter: { showFilterSheet = true }
+                )
+                .padding(.bottom, 4)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .background(.regularMaterial)
+        .animation(.snappy(duration: 0.22), value: showsIdentityRow)
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 1) {
-                    // Compact custom header (system toolbar stays hidden on
-                    // Home) — the search bar IS the identity row (Amazon-style),
-                    // with the notification bell and messages beside it. Shop
-                    // lives in the tab bar, not up here.
-                    HStack(spacing: 10) {
-                        HomeSearchBar(
-                            onSearchTap: { showSearch = true },
-                            onCameraTap: { showSearch = true },
-                            onMicTap: { appState.showMaxi = true }
-                        )
-
-                        Button {
-                            showNotifications = true
-                        } label: {
-                            ZStack(alignment: .topTrailing) {
-                                Image(systemName: "bell")
-                                    .font(.system(size: 20, weight: .medium))
-                                    .foregroundStyle(Color.ink)
-                                if notificationCount > 0 {
-                                    Text("\(min(notificationCount, 9))")
-                                        .font(.system(size: 10, weight: .bold))
-                                        .foregroundStyle(.white)
-                                        .frame(width: 15, height: 15)
-                                        .background(Color.coral)
-                                        .clipShape(Circle())
-                                        .offset(x: 7, y: -6)
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Notifications")
-
-                        // Messages moved to Circles (where your people live);
-                        // this slot now holds the cart, which is the thing you
-                        // actually return to Home to check.
-                        CartButton { showCart = true }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.top, 6)
-                    .padding(.bottom, 8)
-
-                    // ONE discovery rail. Curated galleries and Reddit-mined
-                    // "goes together" bundles are the same thing to a user — a
-                    // pack of ideas — so they share a rail, a grid and a detail
-                    // screen. Group gifts moved to Circles, beside the people
-                    // they're for.
-                    IdeasRail(
-                        onSelect: { selectedPack = $0 },
+                    // This pilot starts from four manually reviewed source
+                    // posts. Nothing from the legacy catalog is mixed in until
+                    // the curation proves useful.
+                    CuratedJourneyRail(
+                        onSelect: { selectedJourney = $0 },
                         onSeeAll: { showIdeas = true }
                     )
 
@@ -109,71 +249,38 @@ struct FeedView: View {
                         }
                         .padding(40)
                     } else {
-                        ForEach(Array(viewModel.posts.enumerated()), id: \.element.id) { index, post in
-                            PostCardView(
-                                post: post,
-                                inSwipeList: swipeList.contains(post),
-                                inMyGiftIdeas: swipeList.containsInMyGiftIdeas(post),
-                                onLike: { viewModel.toggleLike(for: post, context: modelContext) },
-                                onComment: { selectedPost = post },
-                                onBookmark: {
-                                    swipeList.toggleMyGiftIdea(post)
-                                    viewModel.toggleSave(for: post, context: modelContext)
-                                },
-                                onPledge: {
-                                    pledgingPost = post
-                                    // Pledge = the strongest positive signal the feed has.
-                                    AnalyticsEngine.shared.trackContentAction(
-                                        .contentLike,
-                                        postId: post.id
-                                    )
-                                },
-                                onAddToSwipeList: {
-                                    listPickerPost = post
-                                    AnalyticsEngine.shared.trackContentAction(
-                                        .contentSave,
-                                        postId: post.id
-                                    )
-                                },
-                                onProductTap: {
-                                    selectedPost = post
-                                    AnalyticsEngine.shared.trackContentAction(
-                                        .contentTap,
-                                        postId: post.id
-                                    )
-                                },
-                                onAuthorTap: {
-                                    guard let ownerId = post.ownerId else { return }
-                                    selectedAuthor = PublicPerson(
-                                        userId: ownerId,
-                                        name: post.user,
-                                        handle: "",
-                                        imageUrl: post.authorImageUrl
-                                    )
-                                },
-                                onHide: { viewModel.hide(postId: post.id) },
-                                onAddToCart: { cartPickerPost = post }
-                            )
-                            .onAppear {
-                                viewModel.recordImpression(for: post)
-                                viewModel.prefetchImages(around: index)
-                            }
-                            // Instagram-style: track when each post enters/leaves viewport;
-                            // dwell ≥ 3s upgrades the impression to a warm taste signal.
-                            .trackImpression(
-                                postId: post.id,
-                                position: index,
-                                source: "feed",
-                                attribution: viewModel.attribution(for: post.id, at: index)
-                            ) { dwellMs in
-                                viewModel.recordDwell(for: post, dwellMs: dwellMs)
-                            }
-                            // Scroll depth analytics
-                            .trackScrollAnalytics(currentPosition: index)
+                        // Feed layout is LOCKED to the masonry grid — the
+                        // variant experiment settled on it. Variants still
+                        // differ elsewhere (Create, Circles, accent).
+                        //
+                        // Products go in the grid; UGC does NOT. A grid tile
+                        // cannot carry a video, a music track or a carousel, so
+                        // community posts keep the full-width card and the feed
+                        // renders as alternating runs: grid, grid, grid, UGC
+                        // card, grid… Ranked order is preserved exactly.
+                        ForEach(feedSegments) { segment in
+                            switch segment.kind {
+                            case .products(let posts):
+                                MasonryFeedGrid(
+                                    posts: posts,
+                                    savedIds: Set(posts.filter { swipeList.containsInMyGiftIdeas($0) }.map(\.id)),
+                                    onTap: { post in
+                                        selectedPost = post
+                                        AnalyticsEngine.shared.trackContentAction(.contentTap, postId: post.id)
+                                    },
+                                    onSave: { post in
+                                        swipeList.toggleMyGiftIdea(post)
+                                        viewModel.toggleSave(for: post, context: modelContext)
+                                        AnalyticsEngine.shared.trackContentAction(.contentSave, postId: post.id)
+                                    }
+                                )
+                                .onAppear {
+                                    for post in posts { viewModel.recordImpression(for: post) }
+                                }
+                                .padding(.bottom, 10)
 
-                            if index < viewModel.posts.count - 1 {
-                                Divider()
-                                    .padding(.horizontal, 14)
+                            case .ugc(let post):
+                                fullWidthCard(for: post, at: segment.startIndex)
                             }
                         }
 
@@ -190,6 +297,62 @@ struct FeedView: View {
                     }
                 }
                 .background(Color.surface)
+                // Sticky browse header. safeAreaInset rather than an overlay so
+                // the grid's own content inset accounts for it — an overlay
+                // would hide the first row behind the bars.
+                // Collapsing two-tier header.
+                //
+                //   At rest      → Tier 1 (search + cart) and Tier 2 (category
+                //                  capsules) are both visible.
+                //   Scrolled     → Tier 1 collapses away entirely and Tier 2
+                //                  locks to the top edge.
+                //   Back at top  → Tier 1 returns.
+                //
+                // Search is deliberately unreachable mid-scroll: the row is
+                // worth its height only when you have stopped browsing, and
+                // reclaiming it gives the grid a full extra row of product.
+                .safeAreaInset(edge: .top, spacing: 0) { stickyHeader }
+                .onChange(of: themeId) { _, _ in
+                    // A new macro theme drops the old micro tag — "Pour-over
+                    // kits" is meaningless under Beauty.
+                    tagId = nil
+                    withAnimation(.snappy) { tagBarHidden = false }
+                    Task { await viewModel.setBrowse(theme: activeTheme, tag: nil, context: modelContext) }
+                }
+                .onChange(of: tagId) { _, _ in
+                    Task { await viewModel.setBrowse(theme: activeTheme, tag: activeTag, context: modelContext) }
+                }
+                .sheet(isPresented: $showFilterSheet) {
+                    FeedFilterSheet(theme: activeTheme, selection: $tagId)
+                }
+                // Fade the Maxi FAB out while the feed moves. It shares the
+                // bottom-right corner with each card's Pool / Gift-board
+                // buttons, and those scroll — so "get out of the way while
+                // scrolling" is the only rule that actually clears them.
+                .onScrollActivityChange { moving in
+                    guard moving != appState.isScrolling else { return }
+                    withAnimation(.easeOut(duration: 0.18)) { appState.isScrolling = moving }
+                }
+                // Direction, not just motion: down hides the tag bar, up brings
+                // it straight back. The 12pt threshold keeps a jittery finger
+                // from flapping it open and shut.
+                .onScrollOffsetChange { y in
+                    if scrollOrigin == .greatestFiniteMagnitude { scrollOrigin = y }
+                    let scrolled = scrollOrigin - y
+
+                    // The identity row comes back only at the very top.
+                    let top = scrolled <= 8
+                    if top != atTop { atTop = top }
+                    // The capsules hide once you are properly into the grid and
+                    // come back the moment you scroll up.
+                    defer { lastScrollY = y }
+                    guard lastScrollY != .greatestFiniteMagnitude else { return }
+                    let delta = y - lastScrollY
+                    guard abs(delta) > 12 else { return }
+                    let hide = delta < 0 && scrolled > 120
+                    guard hide != tagBarHidden else { return }
+                    withAnimation(.snappy(duration: 0.22)) { tagBarHidden = hide }
+                }
                 .toolbar(.hidden, for: .navigationBar)
                 .overlay(alignment: .top) {
                     if syncEngine.isSyncing {
@@ -208,18 +371,10 @@ struct FeedView: View {
                 }
                 // Programmatic pushes for the header controls. These must live
                 // INSIDE the NavigationStack to resolve.
-                .navigationDestination(isPresented: $showSearch) { SearchTabsView() }
-                .navigationDestination(isPresented: $showNotifications) {
-                    NotificationsView()
-                        .onDisappear {
-                            // Viewing clears the unseen flags — refresh the badge.
-                            Task { await refreshNotificationBadge() }
-                        }
-                }
                 .navigationDestination(isPresented: $showCart) { CartView() }
-                .navigationDestination(isPresented: $showIdeas) { IdeasView() }
-                .navigationDestination(item: $selectedPack) { pack in
-                    IdeaPackDetailView(pack: pack)
+                .navigationDestination(isPresented: $showIdeas) { CuratedJourneyListView() }
+                .navigationDestination(item: $selectedJourney) { journey in
+                    CuratedJourneyDetailView(journey: journey)
                 }
                 .navigationDestination(item: $selectedAuthor) { person in
                     PublicProfileView(person: person)
@@ -264,20 +419,23 @@ struct FeedView: View {
             .environmentObject(appState)
         }
         .task {
+            if let remote = try? await APIClient.shared.fetchFeedTaxonomy(), !remote.isEmpty {
+                themes = remote
+                if !themes.contains(where: { $0.id == themeId }) { themeId = themes[0].id }
+            }
             // appState.currentUser is never populated — AuthManager owns identity.
             viewModel.userId = authManager.userId
             if viewModel.posts.isEmpty {
                 AnalyticsEngine.shared.trackScreenView(screen: "feed")
                 await viewModel.loadFeed(context: modelContext)
             }
-            await refreshNotificationBadge()
             // The launch brand stays uninterrupted. Notification permission is
             // requested only after the user taps the bell's enable card or the
             // explicit Settings action.
         }
         // Push taps route here (PushManager.handleNotification).
         .onReceive(NotificationCenter.default.publisher(for: .navigateToNotifications)) { _ in
-            showNotifications = true
+            appState.openActivity()
         }
         // Messages live in Circles now — a message push switches tabs rather
         // than pushing an inbox onto the Home stack.
@@ -303,14 +461,6 @@ struct FeedView: View {
 
     // Bell badge = incoming pending friend requests + unseen swipe activity.
     // Two cheap reads, fired on Home load and after the inbox is viewed.
-    private func refreshNotificationBadge() async {
-        let userId = authManager.userId ?? InteractionQueue.anonymousUserId
-        async let pending = try? APIClient.shared.listFriends(userId: userId, status: "pending")
-        async let unseen = try? APIClient.shared.fetchConnections(userId: userId, unseenOnly: true)
-        let incoming = (await pending ?? []).filter { $0.isPending && ($0.incoming ?? ($0.requestedBy != userId)) }
-        let unseenCount = (await unseen ?? []).count
-        notificationCount = incoming.count + unseenCount
-    }
 }
 
 struct PostCardSkeleton: View {

@@ -1,0 +1,234 @@
+{
+  "version": "2026-08-11.1",
+  "sourceFile": "dataset_tiktok-profile-scraper_2026-08-11_21-42-15-426.jsonl",
+  "reviewedAt": "2026-08-11T22:00:00Z",
+  "journeys": [
+    {
+      "id": "sentimental-keepsakes",
+      "sourcePostId": "7670641859131100430",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670641859131100430",
+      "title": "Make the memory the gift",
+      "subtitle": "Start with one shared moment, then personalize it.",
+      "whySelected": "The export's clearest value signal: 11.8k plays, 1,246 likes and 514 saves. Every slide teaches a reusable personalization move instead of listing generic products.",
+      "labels": ["sentimental", "partner", "anniversary", "personalized", "photo"],
+      "images": [
+        "bundle:///7670641859131100430-01.jpg",
+        "bundle:///7670641859131100430-02.jpg",
+        "bundle:///7670641859131100430-03.jpg",
+        "bundle:///7670641859131100430-04.jpg",
+        "bundle:///7670641859131100430-05.jpg",
+        "bundle:///7670641859131100430-06.jpg",
+        "bundle:///7670641859131100430-07.jpg"
+      ],
+      "products": [
+        {
+          "id": "nomination-composable-bracelet",
+          "name": "Composable Italian charm bracelet",
+          "brand": "Nomination",
+          "price": 47,
+          "merchant": "Nomination",
+          "productUrl": "https://www.nomination.com/us_en/composable",
+          "image": "bundle:///7670641859131100430-02.jpg",
+          "purchaseMode": "configure",
+          "capabilities": ["bracelet configurator", "home delivery"],
+          "matchEvidence": "Slide 2 shows an Italian charm bracelet personalized with photo-booth pictures; Nomination is the original configurable Italian-link system."
+        },
+        {
+          "id": "michaels-front-opening-shadow-box",
+          "name": "8×10 front-opening shadow box",
+          "brand": "Studio Décor",
+          "price": 0,
+          "merchant": "Michaels",
+          "productUrl": "https://www.michaels.com/product/black-front-opening-shadow-box-by-studio-decor-10383116",
+          "image": "bundle:///7670641859131100430-05.jpg",
+          "purchaseMode": "productPage",
+          "capabilities": ["add to cart", "store pickup", "shipping"],
+          "matchEvidence": "Slide 5 preserves a handwritten note and small keepsakes in a memory box; the verified frame opens from the front for arranging those pieces."
+        }
+      ]
+    },
+    {
+      "id": "basket-formula",
+      "sourcePostId": "7670641318242077966",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670641318242077966",
+      "title": "Build a basket that isn't random",
+      "subtitle": "One hobby + one upgrade + one comfort + one plan.",
+      "whySelected": "The four-part formula is specific enough to use immediately and broad enough to personalize for any recipient.",
+      "labels": ["basket", "birthday", "beauty", "comfort", "experience"],
+      "images": [
+        "bundle:///7670641318242077966-01.jpg",
+        "bundle:///7670641318242077966-02.jpg",
+        "bundle:///7670641318242077966-03.jpg",
+        "bundle:///7670641318242077966-04.jpg",
+        "bundle:///7670641318242077966-05.jpg",
+        "bundle:///7670641318242077966-06.jpg",
+        "bundle:///7670641318242077966-07.jpg"
+      ],
+      "products": [
+        {
+          "id": "target-fujifilm-quicksnap",
+          "name": "QuickSnap Flash 400 camera",
+          "brand": "Fujifilm",
+          "price": 21.99,
+          "merchant": "Target",
+          "productUrl": "https://www.target.com/p/-/A-79898667",
+          "image": "bundle:///7670641318242077966-02.jpg",
+          "purchaseMode": "productPage",
+          "capabilities": ["add to cart", "pickup", "same-day delivery", "shipping"],
+          "matchEvidence": "The anchor-hobby slide contains a Fujifilm QuickSnap; Target's verified listing is the 27-exposure Flash 400 shown in the idea."
+        },
+        {
+          "id": "target-eos-vanilla-cashmere",
+          "name": "Vanilla Cashmere body lotion",
+          "brand": "eos",
+          "price": 9.99,
+          "merchant": "Target",
+          "productUrl": "https://www.target.com/p/-/A-79906523",
+          "image": "bundle:///7670641318242077966-03.jpg",
+          "purchaseMode": "productPage",
+          "capabilities": ["add to cart", "pickup", "same-day delivery", "shipping"],
+          "matchEvidence": "The daily-upgrade and completed-basket slides show eos lotion; the verified Target listing is in stock and identifies the Vanilla Cashmere scent."
+        },
+        {
+          "id": "target-mediheal-collagen-mask",
+          "name": "Collagen Essential sheet mask",
+          "brand": "MEDIHEAL",
+          "price": 1.79,
+          "merchant": "Target",
+          "productUrl": "https://www.target.com/p/-/A-94420730",
+          "image": "bundle:///7670641318242077966-07.jpg",
+          "purchaseMode": "productPage",
+          "capabilities": ["add to cart", "pickup", "same-day delivery", "shipping"],
+          "matchEvidence": "The completed basket visibly includes a MEDIHEAL Collagen Essential Mask; the linked Target item matches that product name and pack format."
+        }
+      ]
+    },
+    {
+      "id": "practical-gifts-for-him",
+      "sourcePostId": "7672135662056869133",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7672135662056869133",
+      "title": "Useful gifts, upgraded",
+      "subtitle": "Recognizable quality without novelty clutter.",
+      "whySelected": "The post names and photographs concrete products, explains why each earns a place, and spans practical price points.",
+      "labels": ["men", "birthday", "practical", "tech", "style"],
+      "images": [
+        "bundle:///7672135662056869133-01.jpg",
+        "bundle:///7672135662056869133-02.jpg",
+        "bundle:///7672135662056869133-03.jpg",
+        "bundle:///7672135662056869133-04.jpg",
+        "bundle:///7672135662056869133-05.jpg",
+        "bundle:///7672135662056869133-06.jpg",
+        "bundle:///7672135662056869133-07.jpg",
+        "bundle:///7672135662056869133-08.jpg",
+        "bundle:///7672135662056869133-09.jpg",
+        "bundle:///7672135662056869133-10.jpg"
+      ],
+      "products": [
+        {
+          "id": "arcteryx-mantis-26",
+          "name": "Mantis 26 backpack",
+          "brand": "Arc'teryx",
+          "price": 160,
+          "merchant": "Arc'teryx",
+          "productUrl": "https://arcteryx.com/us/en/shop/mantis-26-backpack-0643",
+          "image": "bundle:///7672135662056869133-07.jpg",
+          "purchaseMode": "productPage",
+          "capabilities": ["add to cart", "shipping"],
+          "matchEvidence": "Slide 7 shows and names an Arc'teryx backpack; the official listing confirms the Mantis 26 and its 26-liter recycled-material design."
+        },
+        {
+          "id": "hermes-un-jardin-sur-le-nil",
+          "name": "Un Jardin sur le Nil eau de toilette",
+          "brand": "Hermès",
+          "price": 91,
+          "merchant": "Hermès",
+          "productUrl": "https://www.hermes.com/us/en/product/un-jardin-sur-le-nil-eau-de-toilette-V26993/",
+          "image": "bundle:///7672135662056869133-08.jpg",
+          "purchaseMode": "chooseVariant",
+          "capabilities": ["add to cart", "volume selection", "shipping"],
+          "matchEvidence": "Slide 8 labels Un Jardin sur le Nil; Hermès' official US page confirms the fragrance and current 1.01 fl oz option."
+        },
+        {
+          "id": "ralph-lauren-chino-cap",
+          "name": "Iconic Cotton Chino Ball Cap",
+          "brand": "Polo Ralph Lauren",
+          "price": 49.5,
+          "merchant": "Ralph Lauren",
+          "productUrl": "https://www.ralphlauren.com/men-accessories-hats-scarves-gloves/the-iconic-cotton-chino-ball-cap/0070142070.html",
+          "image": "bundle:///7672135662056869133-09.jpg",
+          "purchaseMode": "chooseVariant",
+          "capabilities": ["color selection", "add to bag", "store finder"],
+          "matchEvidence": "Slide 9 shows two embroidered Polo caps; Ralph Lauren's official listing identifies the same cotton-chino silhouette."
+        },
+        {
+          "id": "apple-watch-se-3",
+          "name": "Apple Watch SE 3",
+          "brand": "Apple",
+          "price": 249,
+          "merchant": "Apple",
+          "productUrl": "https://www.apple.com/us/shop/buy-watch/apple-watch-se",
+          "image": "bundle:///7672135662056869133-10.jpg",
+          "purchaseMode": "configure",
+          "capabilities": ["case and band configurator", "store pickup", "delivery"],
+          "matchEvidence": "Slide 10 recommends Apple Watch as a daily-use upgrade; Apple's buy flow currently starts with the SE 3 at $249."
+        }
+      ]
+    },
+    {
+      "id": "attention-over-price",
+      "sourcePostId": "7670644980880248077",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670644980880248077",
+      "title": "Attention over price",
+      "subtitle": "Repeat one color, create tiny reveals, handwrite the headline.",
+      "whySelected": "It completes the journey after purchase with three concrete presentation rules and an achievable low-budget result.",
+      "labels": ["wrapping", "presentation", "diy", "budget", "personalized"],
+      "images": [
+        "bundle:///7670644980880248077-01.jpg",
+        "bundle:///7670644980880248077-02.jpg",
+        "bundle:///7670644980880248077-03.jpg",
+        "bundle:///7670644980880248077-04.jpg",
+        "bundle:///7670644980880248077-05.jpg",
+        "bundle:///7670644980880248077-06.jpg"
+      ],
+      "products": []
+    }
+  ],
+  "wrapKit": [
+    {
+      "id": "michaels-pink-satin-ribbon",
+      "name": "Pink satin ribbon, 5/8 in × 7 yd",
+      "brand": "Celebrate It",
+      "price": 5.99,
+      "merchant": "Michaels",
+      "productUrl": "https://www.michaels.com/product/58-x-7yd-satin-ribbon-by-celebrate-it-10690155",
+      "image": "bundle:///7670644980880248077-02.jpg",
+      "purchaseMode": "productPage",
+      "capabilities": ["add to cart", "buy now", "pickup", "shipping"],
+      "matchEvidence": "The source guide's repeated-color technique uses pale satin bows; the verified ribbon is sold directly by Michaels rather than a marketplace seller."
+    },
+    {
+      "id": "michaels-large-kraft-gift-box",
+      "name": "Large kraft gift box",
+      "brand": "Celebrate It",
+      "price": 7.99,
+      "merchant": "Michaels",
+      "productUrl": "https://www.michaels.com/product/large-kraft-gift-box-by-celebrate-it-10406362",
+      "image": "bundle:///7670644980880248077-03.jpg",
+      "purchaseMode": "productPage",
+      "capabilities": ["add to cart", "pickup", "shipping"],
+      "matchEvidence": "The tiny-reveals slide uses simple kraft boxes; Michaels lists this first-party box with pickup and shipping."
+    },
+    {
+      "id": "michaels-white-tissue-paper",
+      "name": "White tissue paper, 25 sheets",
+      "brand": "Celebrate It",
+      "price": 4.99,
+      "merchant": "Michaels",
+      "productUrl": "https://www.michaels.com/shop/party/gift-packaging/tissue-paper-shredded-filler?Retailers=Michaels&brand=Celebrate+It",
+      "image": "bundle:///7670644980880248077-01.jpg",
+      "purchaseMode": "chooseVariant",
+      "capabilities": ["add to cart", "pickup", "shipping"],
+      "matchEvidence": "Tissue creates the soft reveal shown throughout the source guide; the filtered Michaels page exposes the verified 25-sheet first-party option."
+    }
+  ]
+}

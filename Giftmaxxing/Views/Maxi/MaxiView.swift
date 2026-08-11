@@ -47,6 +47,45 @@ final class MaxiViewModel: ObservableObject {
         send("Help me pick something for \(recipient).")
     }
 
+    /// One-tap verdict on a set of picks. Set-level feedback is weaker than a
+    /// deliberate swipe — the user is judging the batch, not each item — so the
+    /// taste events carry a reduced weight, but they are still real labels on
+    /// items the ranker actually served, which is exactly what it is starved of.
+    func rate(_ message: MaxiMessage, rating: Int) {
+        guard let i = messages.firstIndex(where: { $0.id == message.id }),
+              messages[i].rating == nil else { return }
+        messages[i].rating = rating
+        MaxiConversationStore.shared.rate(messageId: message.id, rating: rating)
+
+        let liked = rating > 0
+        let products = message.products
+        Task {
+            for product in products {
+                let post = Post(maxiProduct: product)
+                let signals = TasteSignals.extract(from: post)
+                await TasteProfileStore.shared.record(TasteEvent(
+                    kind: liked ? .like : .hide,
+                    postId: product.postId,
+                    author: post.user,
+                    price: product.price ?? post.product.price,
+                    vibes: signals.vibes,
+                    category: signals.category,
+                    giftType: post.giftType ?? "product",
+                    weightScale: 0.6
+                ))
+                await InteractionQueue.shared.enqueue(
+                    userId: AuthManager.shared.userId ?? InteractionQueue.anonymousUserId,
+                    targetId: product.postId,
+                    type: liked ? "like" : "hide",
+                    data: ["source": "maxi_rating"]
+                )
+            }
+        }
+        // Separate from the per-item labels: this one says whether the ANSWER
+        // was good, which is what tells us the concierge is missing.
+        AnalyticsEngine.shared.trackMaxiRating(rating: rating, postIds: products.map(\.postId))
+    }
+
     /// New conversation, same account.
     func startOver() {
         MaxiConversationStore.shared.reset()
@@ -249,6 +288,15 @@ struct MaxiView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showCart = false
     @State private var cartPickerProduct: MaxiProduct?
+    @FocusState private var composerFocused: Bool
+
+    // What the single action button means right now. Recording wins over
+    // everything (you must be able to stop), then typed text, then voice.
+    private var composerMode: ComposerActionButton.Mode {
+        if speech.isRecording { return .stopRecording }
+        let typed = viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return typed.isEmpty ? .voice : .send
+    }
 
     var body: some View {
         NavigationStack {
@@ -279,7 +327,8 @@ struct MaxiView: View {
                                 MaxiMessageBubble(
                                     message: message,
                                     onChipTap: { viewModel.send($0) },
-                                    onAddToCart: { cartPickerProduct = $0 }
+                                    onAddToCart: { cartPickerProduct = $0 },
+                                    onRate: { viewModel.rate(message, rating: $0) }
                                 )
                                 .id(message.id)
                             }
@@ -296,6 +345,12 @@ struct MaxiView: View {
                         }
                         .padding(.vertical, 16)
                     }
+                    // Tapping the transcript puts the keyboard away without
+                    // losing the draft — the Alexa/iMessage behaviour. Scroll
+                    // dismissal alone is not enough: reading a reply while a
+                    // keyboard eats half the screen is the common case.
+                    .scrollDismissesKeyboard(.interactively)
+                    .onTapGesture { composerFocused = false }
                     .onChange(of: viewModel.messages.count) { _, _ in
                         withAnimation {
                             proxy.scrollTo(viewModel.messages.last?.id ?? "thinking", anchor: .bottom)
@@ -356,6 +411,7 @@ struct MaxiView: View {
                 // Input
                 HStack(spacing: 10) {
                     TextField("Ask Maxi anything...", text: $viewModel.inputText, axis: .vertical)
+                        .focused($composerFocused)
                         .font(.bodyMedium)
                         .lineLimit(1...4)
                         .textFieldStyle(.plain)
@@ -364,26 +420,18 @@ struct MaxiView: View {
                         .background(Color.cream)
                         .clipShape(RoundedRectangle(cornerRadius: 20))
 
-                    // Voice input (Amazon-style voice shopping)
-                    Button(action: { speech.toggle() }) {
-                        Image(systemName: speech.isRecording ? "stop.circle.fill" : "mic.fill")
-                            .font(.system(size: speech.isRecording ? 32 : 20, weight: .semibold))
-                            .foregroundStyle(speech.isRecording ? .red : Color.coral)
-                            .frame(width: 36, height: 36)
-                    }
-
-                    Button(action: {
-                        Task { await viewModel.sendMessage() }
-                    }) {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 32))
-                            .foregroundStyle(
-                                viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                    ? Color.gray.opacity(0.4)
-                                    : Color.coral
-                            )
-                    }
-                    .disabled(viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isThinking)
+                    // ONE contextual action button, not two. An empty composer
+                    // affords voice; the moment there is something to send, the
+                    // same control becomes send. Two permanently-visible buttons
+                    // made the user choose between actions only one of which was
+                    // ever valid, and left a dead grey arrow sitting there the
+                    // whole time you were not typing.
+                    ComposerActionButton(
+                        mode: composerMode,
+                        onVoice: { speech.toggle() },
+                        onSend: { Task { await viewModel.sendMessage() } }
+                    )
+                    .disabled(composerMode == .send && viewModel.isThinking)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
@@ -473,6 +521,7 @@ struct MaxiMessageBubble: View {
     let message: MaxiMessage
     var onChipTap: ((String) -> Void)?
     var onAddToCart: ((MaxiProduct) -> Void)?
+    var onRate: ((Int) -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -495,6 +544,42 @@ struct MaxiMessageBubble: View {
                     .padding(.bottom, 2)
                 }
                 .scrollClipDisabled()
+
+                // One tap, no question asked. "Were these relevant?" as a
+                // sentence is a chore nobody answers; two icons get answered,
+                // and the answer is a training label.
+                HStack(spacing: ThemeSpacing.sm) {
+                    if let rating = message.rating {
+                        Label(rating > 0 ? "Thanks — more like these." : "Got it — I'll steer away.",
+                              systemImage: rating > 0 ? "hand.thumbsup.fill" : "hand.thumbsdown.fill")
+                            .font(.caption)
+                            .foregroundStyle(Color.inkTertiary)
+                    } else {
+                        Text("Any good?")
+                            .font(.caption)
+                            .foregroundStyle(Color.inkTertiary)
+                        Button { onRate?(1) } label: {
+                            Image(systemName: "hand.thumbsup")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(Color.inkSecondary)
+                                .frame(width: 40, height: 32)
+                                .contentShape(Rectangle())
+                        }
+                        .accessibilityLabel("These were relevant")
+                        Button { onRate?(-1) } label: {
+                            Image(systemName: "hand.thumbsdown")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(Color.inkSecondary)
+                                .frame(width: 40, height: 32)
+                                .contentShape(Rectangle())
+                        }
+                        .accessibilityLabel("These missed")
+                    }
+                    Spacer()
+                }
+                .buttonStyle(.plain)
+                .padding(.leading, 52)
+                .animation(.snappy, value: message.rating)
             }
         }
     }

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { interleaveAuthors, interleaveUGC } from "./feed-diversity.mjs";
+import { interleaveAuthors, interleaveUGC, collapseVariants } from "./feed-diversity.mjs";
 
 const item = (id, author, category) => ({ postId: id, author, category });
 
@@ -74,4 +74,41 @@ test("reserves feed slots for the newest approved UGC", () => {
 test("leaves catalog-only pages untouched", () => {
   const catalog = [item("a", "one", "tech"), item("b", "two", "home")];
   assert.equal(interleaveUGC(catalog), catalog);
+});
+
+test("collapseVariants keeps one card per product, not per colourway", () => {
+  const items = [
+    { product: { name: "Men's Strider - Natural Black (Blizzard Sole)", brand: "Allbirds" } },
+    { product: { name: "Men's Strider - Medium Grey (Blizzard Sole)", brand: "Allbirds" } },
+    { product: { name: "Men's Strider - Rugged Beige (Stony Cream Sole)", brand: "Allbirds" } },
+    { product: { name: "Crossover Polo | Sage Signature Fit", brand: "Cuts" } },
+    { product: { name: "Crossover Polo | Vapor Signature Fit", brand: "Cuts" } },
+  ];
+  const out = collapseVariants(items);
+  assert.equal(out.length, 2);
+  assert.equal(out[0].product.name, "Men's Strider - Natural Black (Blizzard Sole)");
+  assert.equal(out[1].product.name, "Crossover Polo | Sage Signature Fit");
+});
+
+test("collapseVariants never merges genuinely different products", () => {
+  const items = [
+    { product: { name: "Men's Strider - Blizzard", brand: "Allbirds" } },
+    { product: { name: "Men's Tree Runner - Mist", brand: "Allbirds" } },
+    { product: { name: "Anytime Crew Sock - Natural Black", brand: "Allbirds" } },
+    // Same stem, different brand — different product.
+    { product: { name: "Men's Strider - Blizzard", brand: "Vessi" } },
+    // Unspaced hyphens are part of the name, not a variant marker.
+    { product: { name: "Non-Stick Skillet", brand: "Made In" } },
+    { product: { name: "Non-Stick Saucepan", brand: "Made In" } },
+  ];
+  assert.equal(collapseVariants(items).length, 6);
+});
+
+test("collapseVariants leaves untitled or brandless items alone", () => {
+  const items = [
+    { product: { name: "", brand: "" } },
+    { product: { name: "", brand: "" } },
+    { caption: "Cherish her #love", author: "Saksham Adhikari" },
+  ];
+  assert.equal(collapseVariants(items).length, 3);
 });

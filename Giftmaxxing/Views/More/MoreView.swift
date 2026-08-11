@@ -825,6 +825,13 @@ struct MoreView: View {
                         MoreSectionHeader(title: "Explore")
                         MoreRow(icon: "bag.fill", title: "Shop", subtitle: "Curated picks") { ShopView() }
                         MoreRow(icon: "leaf.fill", title: "Intentional Discover", subtitle: "Ranked by meaning") { DiscoverView() }
+                        MoreRow(icon: "paintpalette", title: "Appearance", subtitle: "Try a different theme") { AppearanceView() }
+                        // Operator-only. The row itself is absent for everyone
+                        // else — a disabled or hidden-behind-a-tap entry would
+                        // still tell people the bench exists.
+                        if DebugSessionManager.shared.isUnlocked {
+                            MoreRow(icon: "slider.horizontal.3", title: "Design bench", subtitle: "Feed variants A / B / C") { DebugMenuView() }
+                        }
                     }
                     VStack(spacing: 2) {
                         MoreSectionHeader(title: "Settings")

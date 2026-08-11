@@ -79,6 +79,20 @@ const AUTO_BRAND = /\b(dorman|motorcraft|acdelco|duralast|cardone|timken|moog|fe
 const AUTO_PART_AMBIG = /\b(fenders?|bumpers?|tail\s?lights?|headlights?|headlamps?|grilles?|struts?|axles?|gaskets?|radiators?|fuel pumps?|starter motors?)\b/i;
 const AUTO_CONTEXT = /\b(car|cars|truck|suv|sedan|coupe|vehicle|auto(motive)?|driver'?s? side|passenger'?s? side|front (left|right)|rear (left|right)|oem)\b/i;
 const HARDWARE_PART = /\b(plumbing|faucet cartridge|sink strainer|drain (valve|plug|assembly|stopper|snake)|p-?trap|sump pump|shut-?off valve|pipe (fitting|wrench)|pvc (pipe|fitting)|toilet (flange|flapper|fill valve|seat|repair)|water heater (element|thermostat)|garbage disposal|caulk(ing)?|grout|drywall|circuit breaker|junction box|weather stripping|hvac|furnace filter|condenser coil|compressor unit)\b/i;
+// Household consumables, tyres/wheels, fixtures and event stationery. All three
+// carry price + retailer + PDP path, so they sailed through every gate above and
+// reached the swipe deck, where they are indefensible: nobody swipes right on
+// "Zep Antibacterial 32-fl oz Lemon Disinfectant", "Fuel Maverick 15" Wheels
+// Black 32" Outlaw Max Tires", "Gold Clothing Racks, Metal Clothes Rack With 8
+// Straight Arms" or "We Couldn't Wait Reception Invitation - Elopement
+// Announcement". These are supplies, fitments and paper goods, not gifts.
+const CLEANING_SUPPLY = /\b(disinfectant|bleach|all[- ]purpose cleaner|degreaser|drain cleaner|toilet (bowl )?cleaner|laundry detergent|fabric softener|dish soap|dishwasher (pods?|detergent)|trash bags?|paper towels?|toilet paper|mop refills?|floor cleaner|glass cleaner|air freshener|pest (control|spray)|insecticide|weed killer|motor oil|antifreeze|windshield washer fluid)\b/i;
+const TIRES_WHEELS = /\b(\d{2}"?\s*(wheels?|rims?)|tires?\s*(and|&|\+)\s*wheels?|wheels?\s*(and|&|\+)\s*tires?|all[- ]terrain tires?|mud tires?|atv tires?|utv|wheel and tire (package|kit)|tire package)\b/i;
+// Fixtures and furniture that exist to store or mount other things.
+const FIXTURE = /\b(clothes? racks?|clothing racks?|garment racks?|shoe racks?|storage (racks?|shelv(es|ing)|bins?)|shelving units?|closet organizers?|curtain rods?|towel bars?|cabinet (pulls?|knobs?|hinges?)|door (knobs?|handles?|hinges?)|(window|mini|vertical|roller) blinds?|window screens?|ceiling fans?|light fixtures?|floor tiles?|backsplash|countertops?|vanity units?|mailboxes?|fence panels?|gutter guards?)\b/i;
+// Event paper goods: invitations, announcements, save-the-dates, RSVP cards,
+// place cards. Bought by the event host in bulk; never given as a gift.
+const EVENT_STATIONERY = /\b(invitations?|announcements?|save[- ]the[- ]dates?|rsvp cards?|place cards?|escort cards?|seating charts?|menu cards?|table numbers?|wedding (invites?|stationery))\b/i;
 const DIGITAL_FILE = /\b(pdf (file|pattern|download)|digital (download|file|print|pattern|planner)|printables?|instant download|svg (file|bundle|cut file)|cut files?|(crochet|knitting|knit|sewing|cross-?stitch|embroidery|quilt(ing)?|amigurumi) patterns?|clip\s?art|cricut|silhouette cameo|lightroom presets?|procreate brush(es)?)\b/i;
 
 // ── Caption signals ──────────────────────────────────────────────────────────
@@ -159,8 +173,11 @@ export function classifyPin({ title = "", domain = "", link = "", price = 0, gif
     AUTO_PART.test(lt) || AUTO_BRAND.test(lt) ||
     (AUTO_PART_AMBIG.test(lt) && AUTO_CONTEXT.test(lt)) ||
     HARDWARE_PART.test(lt);
-  if (partish || DIGITAL_FILE.test(lt)) {
-    reasons.push(partish ? "non_gift_part" : "digital_file");
+  const supply =
+    CLEANING_SUPPLY.test(lt) || TIRES_WHEELS.test(lt) ||
+    FIXTURE.test(lt) || EVENT_STATIONERY.test(lt);
+  if (partish || supply || DIGITAL_FILE.test(lt)) {
+    reasons.push(partish ? "non_gift_part" : supply ? "non_gift_supply" : "digital_file");
     return result("non_gift", "drop", 0.05);
   }
 

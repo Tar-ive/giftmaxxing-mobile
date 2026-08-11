@@ -1,8 +1,10 @@
 resource "aws_dynamodb_table" "analytics" {
-  name         = "${var.prefix}-analytics"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "userId"
-  range_key    = "sk"
+  name             = "${var.prefix}-analytics"
+  billing_mode     = "PAY_PER_REQUEST"
+  hash_key         = "userId"
+  range_key        = "sk"
+  stream_enabled   = true
+  stream_view_type = "NEW_IMAGE"
 
   attribute {
     name = "userId"

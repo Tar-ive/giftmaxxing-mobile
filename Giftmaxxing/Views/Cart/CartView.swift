@@ -213,7 +213,9 @@ struct CartView: View {
                     .lineLimit(2)
 
                 HStack(spacing: ThemeSpacing.xs) {
-                    Text(item.lineTotal, format: .currency(code: "USD").precision(.fractionLength(0)))
+                    Text(item.post.product.price > 0
+                         ? item.lineTotal.formatted(.currency(code: "USD").precision(.fractionLength(0)))
+                         : "Check price")
                         .font(.footnote.weight(.semibold))
                         .monospacedDigit()
                         .foregroundStyle(Color.coral)

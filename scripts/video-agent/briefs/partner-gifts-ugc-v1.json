@@ -1,0 +1,37 @@
+{
+  "id": "partner-gifts-ugc-v1",
+  "title": "Skip generic romance",
+  "outputDir": "marketing-assets/video/partner-gifts-ugc-v1",
+  "identityAnchor": { "mode": "reuse", "path": "marketing-assets/video/gift-rules-ugc-v2/stills/01-forgettable-gifts.png" },
+  "voice": {
+    "voice_name": "Aoede",
+    "audio_profile": "A warm, confident young woman giving practical gift-giving advice to a friend",
+    "accent": "American (Gen)",
+    "style": "Empathetic",
+    "pace": "Natural"
+  },
+  "voiceSceneContext": "A confident, warm creator speaking directly to a phone camera, giving one quick tip on personalized gifts for a partner in a TikTok voiceover.",
+  "scenes": [
+    {
+      "name": "01-skip-generic-romance",
+      "caption": { "title": "SKIP THE GENERIC ROMANCE", "subtitle": "Flowers and chocolate don't say much." },
+      "voiceoverLine": "Skip the flowers and chocolate. Personalized gifts hit different.",
+      "imagePrompt": "Retain ONLY the woman's exact identity, hair, and realistic UGC style from Image 1 (ignore her sweater and the closet setting). She now wears a soft blush knit top. In a bright apartment living room, she holds a generic bouquet of red roses and a plain heart-shaped box of chocolates, looking mildly unimpressed at the phone camera. Natural window light, realistic skin and hands, safe caption space, no readable text or branding.",
+      "motionPrompt": "She glances at the generic bouquet and chocolate box in her hands, gives a small unimpressed head tilt, then sets them on a side table. Subtle handheld phone drift. Preserve her exact face, hands, top, and every object. Natural UGC motion, no speaking."
+    },
+    {
+      "name": "02-daily-ritual",
+      "caption": { "title": "BUILD IT AROUND THEIR RITUAL", "subtitle": "The everyday thing they'd never buy themselves." },
+      "voiceoverLine": "Build it around their daily ritual, something they'd never buy themselves.",
+      "imagePrompt": "Use Image 1 as the exact identity reference; she wears the same soft blush knit top as the prior scene. In a warm kitchen, she hands a partner (an adult man in a relaxed henley shirt, back partially to camera) a beautifully finished pour-over coffee set as he stands at the counter mid-morning-routine. His genuine surprised smile is visible in profile. Natural morning light, realistic hands and skin, safe caption space, no text or logos.",
+      "motionPrompt": "She holds out the pour-over coffee set toward him; he turns from the counter, notices it, and breaks into a warm surprised smile. Gentle handheld phone drift. Preserve both identities, the coffee set, kitchen counter, and realistic hands. No speaking, no physical contact."
+    },
+    {
+      "name": "03-shared-memory",
+      "caption": { "title": "OR A MEMORY ONLY YOU TWO SHARE", "subtitle": "That's what makes it unforgettable." },
+      "voiceoverLine": "Or turn a memory only the two of you share into something they can hold.",
+      "imagePrompt": "Use Image 1 as the exact identity reference; she wears the same soft blush knit top. On a cozy living room couch, she gives the same partner from the prior scene a small personalized photo memory frame filled with candid couple snapshots and a red ribbon detail. He looks down at it with a touched, delighted expression, one hand near his chest. Warm evening lamp light, realistic faces and hands, safe caption space, no readable text.",
+      "motionPrompt": "He opens the memory frame, looks at the photos, and breaks into a touched, delighted smile while she watches warmly beside him. Slow natural push-in. Preserve both identities, the frame and photos, ribbon, and couch. No speaking, no physical contact, no exaggerated expression."
+    }
+  ]
+}

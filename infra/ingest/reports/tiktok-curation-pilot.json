@@ -1,0 +1,2919 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-11T22:09:26.414Z",
+  "sourceFile": "dataset_tiktok-profile-scraper_2026-08-11_21-42-15-426.jsonl",
+  "manifestVersion": "2026-08-11.1",
+  "region": "us-east-1",
+  "selection": {
+    "approved": [
+      {
+        "sourcePostId": "7670641859131100430",
+        "title": "Make the memory the gift",
+        "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670641859131100430",
+        "plays": 11800,
+        "likes": 1246,
+        "saves": 514,
+        "photos": [
+          "bundle:///7670641859131100430-01.jpg",
+          "bundle:///7670641859131100430-02.jpg",
+          "bundle:///7670641859131100430-03.jpg",
+          "bundle:///7670641859131100430-04.jpg",
+          "bundle:///7670641859131100430-05.jpg",
+          "bundle:///7670641859131100430-06.jpg",
+          "bundle:///7670641859131100430-07.jpg"
+        ],
+        "productIds": [
+          "nomination-composable-bracelet",
+          "michaels-front-opening-shadow-box"
+        ]
+      },
+      {
+        "sourcePostId": "7670641318242077966",
+        "title": "Build a basket that isn't random",
+        "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670641318242077966",
+        "plays": 1071,
+        "likes": 25,
+        "saves": 4,
+        "photos": [
+          "bundle:///7670641318242077966-01.jpg",
+          "bundle:///7670641318242077966-02.jpg",
+          "bundle:///7670641318242077966-03.jpg",
+          "bundle:///7670641318242077966-04.jpg",
+          "bundle:///7670641318242077966-05.jpg",
+          "bundle:///7670641318242077966-06.jpg",
+          "bundle:///7670641318242077966-07.jpg"
+        ],
+        "productIds": [
+          "target-fujifilm-quicksnap",
+          "target-eos-vanilla-cashmere",
+          "target-mediheal-collagen-mask"
+        ]
+      },
+      {
+        "sourcePostId": "7672135662056869133",
+        "title": "Useful gifts, upgraded",
+        "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7672135662056869133",
+        "plays": 173,
+        "likes": 1,
+        "saves": 0,
+        "photos": [
+          "bundle:///7672135662056869133-01.jpg",
+          "bundle:///7672135662056869133-02.jpg",
+          "bundle:///7672135662056869133-03.jpg",
+          "bundle:///7672135662056869133-04.jpg",
+          "bundle:///7672135662056869133-05.jpg",
+          "bundle:///7672135662056869133-06.jpg",
+          "bundle:///7672135662056869133-07.jpg",
+          "bundle:///7672135662056869133-08.jpg",
+          "bundle:///7672135662056869133-09.jpg",
+          "bundle:///7672135662056869133-10.jpg"
+        ],
+        "productIds": [
+          "onitsuka-mexico-66",
+          "arcteryx-mantis-26",
+          "hermes-un-jardin-sur-le-nil",
+          "ralph-lauren-chino-cap",
+          "apple-watch-se-3"
+        ]
+      },
+      {
+        "sourcePostId": "7670644980880248077",
+        "title": "Attention over price",
+        "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670644980880248077",
+        "plays": 1011,
+        "likes": 13,
+        "saves": 4,
+        "photos": [
+          "bundle:///7670644980880248077-01.jpg",
+          "bundle:///7670644980880248077-02.jpg",
+          "bundle:///7670644980880248077-03.jpg",
+          "bundle:///7670644980880248077-04.jpg",
+          "bundle:///7670644980880248077-05.jpg",
+          "bundle:///7670644980880248077-06.jpg"
+        ],
+        "productIds": []
+      }
+    ],
+    "rejectedSourceIds": [
+      "7672130969398250765",
+      "7672125837486886157",
+      "7672118727348899086",
+      "7671936750964477197",
+      "7671711751519423757",
+      "7670650943305682190",
+      "7671663894208777485",
+      "7671430372646767885",
+      "7671418075136232717",
+      "7670651866773982478",
+      "7670946847652908301",
+      "7670588155153665293",
+      "7670786931785026830",
+      "7670581868282219789",
+      "7670580687371586829",
+      "7670277671624002830",
+      "7670035064398335246"
+    ]
+  },
+  "evidence": [
+    {
+      "sourcePostId": "7670641859131100430",
+      "images": [
+        {
+          "file": "7670641859131100430-01.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Person",
+              "confidence": 96.42,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Face",
+              "confidence": 90.29,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Head",
+              "confidence": 90.29,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Photo Frame",
+              "confidence": 80.77,
+              "categories": [
+                "Furniture and Furnishings"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "Gifts for the girlfriend who",
+              "confidence": 99.98
+            },
+            {
+              "value": "keeps EVERYTHING",
+              "confidence": 99.87
+            },
+            {
+              "value": "TRANSPORT",
+              "confidence": 94.99
+            },
+            {
+              "value": "Having her last Month",
+              "confidence": 96.45
+            },
+            {
+              "value": "of So you has sentimental for th Team girl edition",
+              "confidence": 85.02
+            },
+            {
+              "value": "you the same way you have me",
+              "confidence": 83.81
+            },
+            {
+              "value": "I've never had feelings like this &",
+              "confidence": 95.39
+            },
+            {
+              "value": "I'M form grateful and lucky to",
+              "confidence": 89.17
+            },
+            {
+              "value": "have found a diamond of a gid",
+              "confidence": 85.49
+            },
+            {
+              "value": "I can proudly call My girlfriend",
+              "confidence": 84.86
+            },
+            {
+              "value": "It really upsets Me you're gonna be",
+              "confidence": 86.7
+            },
+            {
+              "value": "for away this",
+              "confidence": 89.01
+            },
+            {
+              "value": "so Maker a to paths Me crossed such reading a But locky but boy really it that",
+              "confidence": 81.38
+            },
+            {
+              "value": "letting you go after you've",
+              "confidence": 93.3
+            }
+          ]
+        },
+        {
+          "file": "7670641859131100430-02.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Person",
+              "confidence": 96.97,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Cosmetics",
+              "confidence": 92.28,
+              "categories": [
+                "Beauty and Personal Care"
+              ]
+            },
+            {
+              "name": "Lipstick",
+              "confidence": 92.28,
+              "categories": [
+                "Beauty and Personal Care"
+              ]
+            },
+            {
+              "name": "Face",
+              "confidence": 91.08,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Head",
+              "confidence": 91.08,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Advertisement",
+              "confidence": 87.41,
+              "categories": [
+                "Text and Documents"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "1. Put your best photo",
+              "confidence": 100
+            },
+            {
+              "value": "somewhere she can wear it",
+              "confidence": 99.8
+            },
+            {
+              "value": "anddsnap",
+              "confidence": 97.4
+            },
+            {
+              "value": "anddsnap",
+              "confidence": 97.42
+            },
+            {
+              "value": "Photobooth pics into",
+              "confidence": 99.99
+            },
+            {
+              "value": "Italian charm!",
+              "confidence": 99.78
+            },
+            {
+              "value": "andd",
+              "confidence": 94.61
+            }
+          ]
+        },
+        {
+          "file": "7670641859131100430-03.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Envelope",
+              "confidence": 99.99,
+              "categories": [
+                "Text and Documents"
+              ]
+            },
+            {
+              "name": "Greeting Card",
+              "confidence": 99.99,
+              "categories": [
+                "Hobbies and Interests"
+              ]
+            },
+            {
+              "name": "Mail",
+              "confidence": 99.99,
+              "categories": [
+                "Text and Documents"
+              ]
+            },
+            {
+              "name": "Birthday Cake",
+              "confidence": 98.09,
+              "categories": [
+                "Events and Attractions"
+              ]
+            },
+            {
+              "name": "Cake",
+              "confidence": 98.09,
+              "categories": [
+                "Food and Beverage"
+              ]
+            },
+            {
+              "name": "Cream",
+              "confidence": 98.09,
+              "categories": [
+                "Food and Beverage"
+              ]
+            },
+            {
+              "name": "Dessert",
+              "confidence": 98.09,
+              "categories": [
+                "Food and Beverage"
+              ]
+            },
+            {
+              "name": "Food",
+              "confidence": 98.09,
+              "categories": [
+                "Food and Beverage"
+              ]
+            },
+            {
+              "name": "Icing",
+              "confidence": 87.14,
+              "categories": [
+                "Food and Beverage"
+              ]
+            },
+            {
+              "name": "Animal",
+              "confidence": 83.98,
+              "categories": [
+                "Animals and Pets"
+              ]
+            },
+            {
+              "name": "Bear",
+              "confidence": 83.98,
+              "categories": [
+                "Animals and Pets"
+              ]
+            },
+            {
+              "name": "Mammal",
+              "confidence": 83.98,
+              "categories": [
+                "Animals and Pets"
+              ]
+            },
+            {
+              "name": "Wildlife",
+              "confidence": 83.98,
+              "categories": [
+                "Animals and Pets"
+              ]
+            },
+            {
+              "name": "Face",
+              "confidence": 80.63,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Head",
+              "confidence": 80.63,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Person",
+              "confidence": 80.63,
+              "categories": [
+                "Person Description"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "Happy",
+              "confidence": 98.38
+            },
+            {
+              "value": "2. Make a zine",
+              "confidence": 98.8
+            },
+            {
+              "value": "Anniversary tiny of your",
+              "confidence": 97.71
+            },
+            {
+              "value": "weirdest shared memories",
+              "confidence": 99.96
+            },
+            {
+              "value": "Love Amy",
+              "confidence": 96.67
+            },
+            {
+              "value": "Zine book for bf",
+              "confidence": 99.88
+            }
+          ]
+        },
+        {
+          "file": "7670641859131100430-04.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Symbol",
+              "confidence": 99.77,
+              "categories": [
+                "Symbols and Flags"
+              ]
+            },
+            {
+              "name": "Adult",
+              "confidence": 90.37,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Bride",
+              "confidence": 90.37,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Female",
+              "confidence": 90.37,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Person",
+              "confidence": 90.37,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Wedding",
+              "confidence": 90.37,
+              "categories": [
+                "Events and Attractions"
+              ]
+            },
+            {
+              "name": "Woman",
+              "confidence": 90.37,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Love Heart Symbol",
+              "confidence": 84.53,
+              "categories": [
+                "Symbols and Flags"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "3. Build the 6+ El around RTENSPIEL 6+",
+              "confidence": 97.33
+            },
+            {
+              "value": "SAMMELKARTENSPIEL",
+              "confidence": 90
+            },
+            {
+              "value": "her actual obsession",
+              "confidence": 99.2
+            },
+            {
+              "value": "SAMMELKA",
+              "confidence": 87.01
+            },
+            {
+              "value": "SKE",
+              "confidence": 95.84
+            },
+            {
+              "value": "KARMESINGPURP",
+              "confidence": 80.63
+            },
+            {
+              "value": "MASKER",
+              "confidence": 97.22
+            },
+            {
+              "value": "I HAVE so SO so",
+              "confidence": 81.38
+            },
+            {
+              "value": "MUCH LOVE FOR",
+              "confidence": 98.67
+            },
+            {
+              "value": "you IN MY",
+              "confidence": 94.48
+            },
+            {
+              "value": "HEART IT",
+              "confidence": 98.44
+            },
+            {
+              "value": "FIT.",
+              "confidence": 97.78
+            },
+            {
+              "value": "DOESN'T",
+              "confidence": 95.37
+            }
+          ]
+        },
+        {
+          "file": "7670641859131100430-05.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Accessories",
+              "confidence": 78.53,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Formal Wear",
+              "confidence": 78.53,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Tie",
+              "confidence": 78.53,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Box",
+              "confidence": 75.49,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "4. Save the ticket, note + photo",
+              "confidence": 99.87
+            },
+            {
+              "value": "in one memory box",
+              "confidence": 99.92
+            },
+            {
+              "value": "you for",
+              "confidence": 95.82
+            },
+            {
+              "value": "the aging",
+              "confidence": 82.15
+            },
+            {
+              "value": "Crosswoods",
+              "confidence": 87.35
+            },
+            {
+              "value": "Sun",
+              "confidence": 95.16
+            },
+            {
+              "value": "10/23",
+              "confidence": 98.32
+            },
+            {
+              "value": "22",
+              "confidence": 97.88
+            },
+            {
+              "value": "Invitation",
+              "confidence": 96.35
+            },
+            {
+              "value": "06:45PM Fri 09 02 22",
+              "confidence": 96.71
+            },
+            {
+              "value": "EMP $0.00",
+              "confidence": 97.17
+            },
+            {
+              "value": "Seat G15",
+              "confidence": 97.38
+            }
+          ]
+        },
+        {
+          "file": "7670641859131100430-06.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Box",
+              "confidence": 96.07,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Flower",
+              "confidence": 94.5,
+              "categories": [
+                "Plants and Flowers"
+              ]
+            },
+            {
+              "name": "Plant",
+              "confidence": 94.5,
+              "categories": [
+                "Plants and Flowers"
+              ]
+            },
+            {
+              "name": "Rose",
+              "confidence": 94.5,
+              "categories": [
+                "Plants and Flowers"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "5. Write the sentence only",
+              "confidence": 99.94
+            },
+            {
+              "value": "the two of you understand",
+              "confidence": 99.99
+            },
+            {
+              "value": "for my love",
+              "confidence": 93.96
+            },
+            {
+              "value": "the love OF my life U",
+              "confidence": 84.86
+            }
+          ]
+        },
+        {
+          "file": "7670641859131100430-07.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Person",
+              "confidence": 88.71,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Face",
+              "confidence": 85.65,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Head",
+              "confidence": 85.65,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Photo Frame",
+              "confidence": 83.4,
+              "categories": [
+                "Furniture and Furnishings"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "The rule: if it could be",
+              "confidence": 99.26
+            },
+            {
+              "value": "for anyone, personalize it",
+              "confidence": 99.93
+            },
+            {
+              "value": "one more time",
+              "confidence": 100
+            },
+            {
+              "value": "I",
+              "confidence": 95.05
+            },
+            {
+              "value": "know true friend",
+              "confidence": 91.99
+            },
+            {
+              "value": "Forever rich",
+              "confidence": 94.38
+            },
+            {
+              "value": "friend like your",
+              "confidence": 80.64
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourcePostId": "7670641318242077966",
+      "images": [
+        {
+          "file": "7670641318242077966-01.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Basket",
+              "confidence": 95.88,
+              "categories": [
+                "Everyday Objects"
+              ]
+            },
+            {
+              "name": "Cabinet",
+              "confidence": 81.56,
+              "categories": [
+                "Furniture and Furnishings"
+              ]
+            },
+            {
+              "name": "Furniture",
+              "confidence": 81.56,
+              "categories": [
+                "Furniture and Furnishings"
+              ]
+            },
+            {
+              "name": "Cosmetics",
+              "confidence": 79.96,
+              "categories": [
+                "Beauty and Personal Care"
+              ]
+            },
+            {
+              "name": "Lipstick",
+              "confidence": 74.22,
+              "categories": [
+                "Beauty and Personal Care"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "How to build a gift basket",
+              "confidence": 98.99
+            },
+            {
+              "value": "that doesn't feel RANDOM",
+              "confidence": 100
+            },
+            {
+              "value": "the 4-part formula",
+              "confidence": 99.72
+            },
+            {
+              "value": "BEIJA FLOR ELASTI-C EAM",
+              "confidence": 84.31
+            },
+            {
+              "value": "OL",
+              "confidence": 98.71
+            },
+            {
+              "value": "touchland",
+              "confidence": 95.66
+            },
+            {
+              "value": "DE",
+              "confidence": 89.54
+            },
+            {
+              "value": "ROSEWATER",
+              "confidence": 97.73
+            },
+            {
+              "value": "EIPO",
+              "confidence": 96.19
+            },
+            {
+              "value": "GLOW MIST",
+              "confidence": 97
+            },
+            {
+              "value": "BLUSH",
+              "confidence": 97.08
+            },
+            {
+              "value": "SUGARFIX",
+              "confidence": 98.29
+            },
+            {
+              "value": "BY BAUBLEBAR",
+              "confidence": 95.06
+            },
+            {
+              "value": "tr",
+              "confidence": 84.34
+            },
+            {
+              "value": "L",
+              "confidence": 89.3
+            },
+            {
+              "value": "Heart's Delight",
+              "confidence": 97.41
+            },
+            {
+              "value": "KISS",
+              "confidence": 87.96
+            },
+            {
+              "value": "those butterflies",
+              "confidence": 91.76
+            },
+            {
+              "value": "GLOW",
+              "confidence": 90.98
+            },
+            {
+              "value": "HAUTY",
+              "confidence": 94.94
+            },
+            {
+              "value": "fi",
+              "confidence": 94.21
+            },
+            {
+              "value": "pb",
+              "confidence": 85.16
+            },
+            {
+              "value": "hland",
+              "confidence": 97.62
+            },
+            {
+              "value": "mL)",
+              "confidence": 83.98
+            }
+          ]
+        },
+        {
+          "file": "7670641318242077966-02.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Fun",
+              "confidence": 98.7,
+              "categories": [
+                "Travel and Adventure"
+              ]
+            },
+            {
+              "name": "Leisure Activities",
+              "confidence": 87.55,
+              "categories": [
+                "Travel and Adventure"
+              ]
+            },
+            {
+              "name": "Picnic",
+              "confidence": 87.55,
+              "categories": [
+                "Travel and Adventure"
+              ]
+            },
+            {
+              "name": "Basket",
+              "confidence": 83.93,
+              "categories": [
+                "Everyday Objects"
+              ]
+            },
+            {
+              "name": "Picnic Basket",
+              "confidence": 74.63,
+              "categories": [
+                "Travel and Adventure"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "1. Start with one anchor hobby-",
+              "confidence": 99.91
+            },
+            {
+              "value": "not a color",
+              "confidence": 98.07
+            },
+            {
+              "value": "27",
+              "confidence": 99.21
+            },
+            {
+              "value": "FUJIFILM",
+              "confidence": 97.99
+            },
+            {
+              "value": "QuickS",
+              "confidence": 97.09
+            }
+          ]
+        },
+        {
+          "file": "7670641318242077966-03.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Basket",
+              "confidence": 93.45,
+              "categories": [
+                "Everyday Objects"
+              ]
+            },
+            {
+              "name": "Bed",
+              "confidence": 89.16,
+              "categories": [
+                "Home and Indoors"
+              ]
+            },
+            {
+              "name": "Furniture",
+              "confidence": 89.16,
+              "categories": [
+                "Furniture and Furnishings"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "2. Add one daily upgrade",
+              "confidence": 99.99
+            },
+            {
+              "value": "she won't buy herself",
+              "confidence": 100
+            },
+            {
+              "value": "eos",
+              "confidence": 98.8
+            },
+            {
+              "value": "sundae",
+              "confidence": 97.85
+            },
+            {
+              "value": "ém",
+              "confidence": 96.71
+            },
+            {
+              "value": "Moisture",
+              "confidence": 87.99
+            },
+            {
+              "value": "OTION",
+              "confidence": 97.08
+            },
+            {
+              "value": "GLOW RECIPE",
+              "confidence": 97.19
+            },
+            {
+              "value": "NIACIN AMIDE",
+              "confidence": 84.38
+            },
+            {
+              "value": "TREE HUT",
+              "confidence": 97.92
+            },
+            {
+              "value": "YOUR",
+              "confidence": 93.08
+            },
+            {
+              "value": "VANILLA",
+              "confidence": 99.56
+            },
+            {
+              "value": "CLEANER",
+              "confidence": 95.69
+            },
+            {
+              "value": "VITAMASQUES",
+              "confidence": 95.76
+            },
+            {
+              "value": "SUGAR COOKIE",
+              "confidence": 94.54
+            },
+            {
+              "value": "bit",
+              "confidence": 86.25
+            }
+          ]
+        },
+        {
+          "file": "7670641318242077966-04.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Bottle",
+              "confidence": 92.96,
+              "categories": [
+                "Everyday Objects"
+              ]
+            },
+            {
+              "name": "Lotion",
+              "confidence": 90.06,
+              "categories": [
+                "Beauty and Personal Care"
+              ]
+            },
+            {
+              "name": "Basket",
+              "confidence": 87.22,
+              "categories": [
+                "Everyday Objects"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "3. Pick one VICTORIA'S e scent a or flavor",
+              "confidence": 92.1
+            },
+            {
+              "value": "she already loves",
+              "confidence": 99.91
+            },
+            {
+              "value": "pure",
+              "confidence": 95.21
+            },
+            {
+              "value": "ce",
+              "confidence": 97.7
+            },
+            {
+              "value": "LANEIGE",
+              "confidence": 97.73
+            },
+            {
+              "value": "ee CAN",
+              "confidence": 97.11
+            },
+            {
+              "value": "gisou",
+              "confidence": 95.35
+            }
+          ]
+        },
+        {
+          "file": "7670641318242077966-05.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Fun",
+              "confidence": 99.81,
+              "categories": [
+                "Travel and Adventure"
+              ]
+            },
+            {
+              "name": "Leisure Activities",
+              "confidence": 90.71,
+              "categories": [
+                "Travel and Adventure"
+              ]
+            },
+            {
+              "name": "Picnic",
+              "confidence": 90.71,
+              "categories": [
+                "Travel and Adventure"
+              ]
+            },
+            {
+              "name": "Cup",
+              "confidence": 82.75,
+              "categories": [
+                "Kitchen and Dining"
+              ]
+            },
+            {
+              "name": "Picnic Basket",
+              "confidence": 82.16,
+              "categories": [
+                "Travel and Adventure"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "4. Add one comfort item",
+              "confidence": 100
+            },
+            {
+              "value": "for the texture",
+              "confidence": 100
+            },
+            {
+              "value": "BURR",
+              "confidence": 96.01
+            },
+            {
+              "value": "BASKET",
+              "confidence": 91.18
+            },
+            {
+              "value": "finery",
+              "confidence": 91.74
+            },
+            {
+              "value": "essie",
+              "confidence": 86.83
+            }
+          ]
+        },
+        {
+          "file": "7670641318242077966-06.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Basket",
+              "confidence": 96.98,
+              "categories": [
+                "Everyday Objects"
+              ]
+            },
+            {
+              "name": "Teddy Bear",
+              "confidence": 83.67,
+              "categories": [
+                "Hobbies and Interests"
+              ]
+            },
+            {
+              "name": "Toy",
+              "confidence": 83.67,
+              "categories": [
+                "Hobbies and Interests"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "5. Include a plan: movie night,",
+              "confidence": 99.27
+            },
+            {
+              "value": "bath night, or Sunday reset",
+              "confidence": 99.89
+            },
+            {
+              "value": "18",
+              "confidence": 94.77
+            },
+            {
+              "value": "tru",
+              "confidence": 97.13
+            }
+          ]
+        },
+        {
+          "file": "7670641318242077966-07.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Tape",
+              "confidence": 91.37,
+              "categories": [
+                "Tools and Machinery"
+              ]
+            },
+            {
+              "name": "Can",
+              "confidence": 90.07,
+              "categories": [
+                "Food and Beverage"
+              ]
+            },
+            {
+              "name": "Tin",
+              "confidence": 90.07,
+              "categories": [
+                "Materials"
+              ]
+            },
+            {
+              "name": "Person",
+              "confidence": 73.71,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "First Aid",
+              "confidence": 71.43,
+              "categories": [
+                "Medical"
+              ]
+            },
+            {
+              "name": "Fun",
+              "confidence": 70.13,
+              "categories": [
+                "Travel and Adventure"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "One hobby + one upgrade",
+              "confidence": 99.89
+            },
+            {
+              "value": "+ one comfort + one plan",
+              "confidence": 99.72
+            },
+            {
+              "value": "CLAW CLIPS",
+              "confidence": 91.91
+            },
+            {
+              "value": "ALL HAIR",
+              "confidence": 98.02
+            },
+            {
+              "value": "NEW",
+              "confidence": 97.39
+            },
+            {
+              "value": "ALL DAY HOLD",
+              "confidence": 97.1
+            },
+            {
+              "value": "= perfect",
+              "confidence": 93.11
+            },
+            {
+              "value": "HUEFULL",
+              "confidence": 98.97
+            },
+            {
+              "value": "eos",
+              "confidence": 98.69
+            },
+            {
+              "value": "BIRTHDAY",
+              "confidence": 98.02
+            },
+            {
+              "value": "CAKE",
+              "confidence": 98.15
+            },
+            {
+              "value": "SMOOTH LIP BALM",
+              "confidence": 97.37
+            },
+            {
+              "value": "Gummy",
+              "confidence": 97.08
+            },
+            {
+              "value": "ZERO SUGAR",
+              "confidence": 97.87
+            },
+            {
+              "value": "eos",
+              "confidence": 98.25
+            },
+            {
+              "value": "-",
+              "confidence": 82.74
+            },
+            {
+              "value": "NATURALLY FLAVORED",
+              "confidence": 87.89
+            },
+            {
+              "value": "shea better",
+              "confidence": 96.82
+            },
+            {
+              "value": "24H Moist",
+              "confidence": 97.39
+            },
+            {
+              "value": "ON",
+              "confidence": 94.27
+            },
+            {
+              "value": "ani",
+              "confidence": 98.56
+            },
+            {
+              "value": "SCENTSATIONAL",
+              "confidence": 93.33
+            },
+            {
+              "value": "TREE HUT",
+              "confidence": 96.9
+            },
+            {
+              "value": "Tr",
+              "confidence": 97.27
+            },
+            {
+              "value": "low",
+              "confidence": 91.42
+            },
+            {
+              "value": "SHEA SUGAR SCRUB",
+              "confidence": 98.19
+            },
+            {
+              "value": "TANGERINE",
+              "confidence": 98.25
+            },
+            {
+              "value": "Exotic Bloom",
+              "confidence": 97.53
+            },
+            {
+              "value": "EA BODY BUTTER",
+              "confidence": 97.43
+            },
+            {
+              "value": "FIRMING",
+              "confidence": 92.93
+            },
+            {
+              "value": "GUAVA",
+              "confidence": 97.39
+            },
+            {
+              "value": "510 g(18 OZ NET WT /POIDS NET",
+              "confidence": 81.01
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourcePostId": "7672135662056869133",
+      "images": [
+        {
+          "file": "7672135662056869133-01.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Clothing",
+              "confidence": 99.95,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Footwear",
+              "confidence": 99.95,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Shoe",
+              "confidence": 99.95,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Sneaker",
+              "confidence": 99.38,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Bottle",
+              "confidence": 97.98,
+              "categories": [
+                "Everyday Objects"
+              ]
+            },
+            {
+              "name": "Shaker",
+              "confidence": 97.98,
+              "categories": [
+                "Kitchen and Dining"
+              ]
+            },
+            {
+              "name": "Electronics",
+              "confidence": 94.72,
+              "categories": [
+                "Technology and Computing"
+              ]
+            },
+            {
+              "name": "Phone",
+              "confidence": 94.72,
+              "categories": [
+                "Technology and Computing"
+              ]
+            },
+            {
+              "name": "Mobile Phone",
+              "confidence": 91.2,
+              "categories": [
+                "Technology and Computing"
+              ]
+            },
+            {
+              "name": "Accessories",
+              "confidence": 82.06,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Bag",
+              "confidence": 82.06,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Handbag",
+              "confidence": 82.06,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Cosmetics",
+              "confidence": 70.27,
+              "categories": [
+                "Beauty and Personal Care"
+              ]
+            },
+            {
+              "name": "Perfume",
+              "confidence": 70.27,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "STANL Y",
+              "confidence": 95.51
+            },
+            {
+              "value": "GIFT IDEAS",
+              "confidence": 100
+            },
+            {
+              "value": "FOR HIS",
+              "confidence": 100
+            },
+            {
+              "value": "DI",
+              "confidence": 81.16
+            },
+            {
+              "value": "BIRTHDAY",
+              "confidence": 100
+            },
+            {
+              "value": "Thoughtful gifts he'll love",
+              "confidence": 99.68
+            },
+            {
+              "value": "and use all year long.",
+              "confidence": 99.59
+            },
+            {
+              "value": "ARCTERYX",
+              "confidence": 95.76
+            }
+          ]
+        },
+        {
+          "file": "7672135662056869133-02.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Electronics",
+              "confidence": 100,
+              "categories": [
+                "Technology and Computing"
+              ]
+            },
+            {
+              "name": "Mobile Phone",
+              "confidence": 100,
+              "categories": [
+                "Technology and Computing"
+              ]
+            },
+            {
+              "name": "Phone",
+              "confidence": 100,
+              "categories": [
+                "Technology and Computing"
+              ]
+            },
+            {
+              "name": "Iphone",
+              "confidence": 85.75,
+              "categories": [
+                "Technology and Computing"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "Power banks, chargers, and the like-just buy this one",
+              "confidence": 99.89
+            },
+            {
+              "value": "blindly, it's so good!",
+              "confidence": 95.58
+            },
+            {
+              "value": "The design is filled with a tech vibe, and the texture",
+              "confidence": 99.67
+            },
+            {
+              "value": "is amazing.",
+              "confidence": 99.67
+            },
+            {
+              "value": "I feel guys will immediately recognize this",
+              "confidence": 98.41
+            },
+            {
+              "value": "brand if you gift it to them.",
+              "confidence": 99.83
+            },
+            {
+              "value": "#CUKTECH",
+              "confidence": 98.5
+            },
+            {
+              "value": "CUKTECH",
+              "confidence": 95.75
+            },
+            {
+              "value": "Screen real-time display, so cool...",
+              "confidence": 95.95
+            },
+            {
+              "value": "SWIPE",
+              "confidence": 99.69
+            }
+          ]
+        },
+        {
+          "file": "7672135662056869133-03.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Bottle",
+              "confidence": 99.72,
+              "categories": [
+                "Everyday Objects"
+              ]
+            },
+            {
+              "name": "Advertisement",
+              "confidence": 95.42,
+              "categories": [
+                "Text and Documents"
+              ]
+            },
+            {
+              "name": "Cosmetics",
+              "confidence": 94.84,
+              "categories": [
+                "Beauty and Personal Care"
+              ]
+            },
+            {
+              "name": "Perfume",
+              "confidence": 94.84,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "MEN EXPERT",
+              "confidence": 98.22
+            },
+            {
+              "value": "L'ORÉAL",
+              "confidence": 97.7
+            },
+            {
+              "value": "MEN EXPERT",
+              "confidence": 97.98
+            },
+            {
+              "value": "MEN EXPERT",
+              "confidence": 98.23
+            },
+            {
+              "value": "L'ORÉAL",
+              "confidence": 89.76
+            },
+            {
+              "value": "MEN EXPERT",
+              "confidence": 98.09
+            },
+            {
+              "value": "MEN EXPERT",
+              "confidence": 97.94
+            },
+            {
+              "value": "AGE PROTECT",
+              "confidence": 96.96
+            },
+            {
+              "value": "SKIN PURIFYING",
+              "confidence": 96.65
+            },
+            {
+              "value": "CLEANSER",
+              "confidence": 97.02
+            },
+            {
+              "value": "DUAL-PEPTIGE",
+              "confidence": 95.78
+            },
+            {
+              "value": "AHIMO ACID SURFACTANT",
+              "confidence": 96.98
+            },
+            {
+              "value": "AGE PROTECT",
+              "confidence": 96.71
+            },
+            {
+              "value": "SKIN FIRMING",
+              "confidence": 97.81
+            },
+            {
+              "value": "AGE PROTECT",
+              "confidence": 97.08
+            },
+            {
+              "value": "TONER",
+              "confidence": 98.25
+            },
+            {
+              "value": "SKIN FIRMING",
+              "confidence": 98
+            },
+            {
+              "value": "LOTION",
+              "confidence": 98.84
+            },
+            {
+              "value": "COPPER TRIPEPTIDE",
+              "confidence": 96.5
+            },
+            {
+              "value": "MARINE BIOENERGY",
+              "confidence": 97.61
+            },
+            {
+              "value": "COPPER TRIPEPTIDE",
+              "confidence": 97.27
+            },
+            {
+              "value": "MARINE BIOENERGY",
+              "confidence": 97.51
+            },
+            {
+              "value": "#LOrealMenExpertFirmingSet",
+              "confidence": 98.37
+            },
+            {
+              "value": "If you don't know how to choose skincare for men, just",
+              "confidence": 99.56
+            },
+            {
+              "value": "buy this set and you're good to go. L'Oreal Men's",
+              "confidence": 99.43
+            },
+            {
+              "value": "Anti-Wrinkle Set-complete with cleanser, toner, and lotion.",
+              "confidence": 99.14
+            },
+            {
+              "value": "Simple and efficient.",
+              "confidence": 99.76
+            },
+            {
+              "value": "Plus, it's a major international brand specifically researching",
+              "confidence": 99.57
+            },
+            {
+              "value": "men's skincare, which makes it super reassuring.",
+              "confidence": 99.6
+            },
+            {
+              "value": "1",
+              "confidence": 98.7
+            }
+          ]
+        },
+        {
+          "file": "7672135662056869133-04.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Bottle",
+              "confidence": 99.9,
+              "categories": [
+                "Everyday Objects"
+              ]
+            },
+            {
+              "name": "Cosmetics",
+              "confidence": 97.39,
+              "categories": [
+                "Beauty and Personal Care"
+              ]
+            },
+            {
+              "name": "Perfume",
+              "confidence": 97.39,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Advertisement",
+              "confidence": 95.73,
+              "categories": [
+                "Text and Documents"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "#LOrealMenExpert",
+              "confidence": 98.57
+            },
+            {
+              "value": "It contains blue copper peptide e-a",
+              "confidence": 98.24
+            },
+            {
+              "value": "L'ORÉAL®",
+              "confidence": 82.41
+            },
+            {
+              "value": "powerhouse ingredient-with very",
+              "confidence": 99.28
+            },
+            {
+              "value": "MEN EXPERT",
+              "confidence": 98.05
+            },
+            {
+              "value": "visible anti-wrinkle results.",
+              "confidence": 99.88
+            },
+            {
+              "value": "L'ORÉAL",
+              "confidence": 94.61
+            },
+            {
+              "value": "After using it for about three weeks,",
+              "confidence": 99.77
+            },
+            {
+              "value": "MEN EXPERT",
+              "confidence": 97.85
+            },
+            {
+              "value": "the fine lines around his eyes have visibly",
+              "confidence": 99.68
+            },
+            {
+              "value": "faded, and his skin looks much firmer.",
+              "confidence": 99.59
+            },
+            {
+              "value": "Calm and soothing effect.",
+              "confidence": 99.75
+            },
+            {
+              "value": "MEN EXPERT",
+              "confidence": 96.84
+            },
+            {
+              "value": "MEN EXPERT",
+              "confidence": 97.67
+            },
+            {
+              "value": "MEN EXPERT",
+              "confidence": 97.11
+            },
+            {
+              "value": "AGE PROTECT",
+              "confidence": 97.14
+            },
+            {
+              "value": "SKIN MRNING",
+              "confidence": 93.98
+            },
+            {
+              "value": "TONER",
+              "confidence": 97.08
+            },
+            {
+              "value": "AGE PROTECT",
+              "confidence": 95.67
+            },
+            {
+              "value": "SKIN PURIFYING",
+              "confidence": 95.92
+            },
+            {
+              "value": "CLEANSER",
+              "confidence": 96.55
+            },
+            {
+              "value": "AGE PROTECT",
+              "confidence": 95.82
+            },
+            {
+              "value": "SKIN DRINING",
+              "confidence": 89.53
+            },
+            {
+              "value": "RIRRE3 ACID SURPACTANT",
+              "confidence": 91
+            },
+            {
+              "value": "LOTION",
+              "confidence": 97.17
+            },
+            {
+              "value": "COPPER THIREFTIGE",
+              "confidence": 95.98
+            },
+            {
+              "value": "MARINE BHUSHEDOY",
+              "confidence": 86.26
+            },
+            {
+              "value": "2",
+              "confidence": 99.2
+            }
+          ]
+        },
+        {
+          "file": "7672135662056869133-05.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Clothing",
+              "confidence": 100,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Footwear",
+              "confidence": 100,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Shoe",
+              "confidence": 100,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Sneaker",
+              "confidence": 100,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Person",
+              "confidence": 93.81,
+              "categories": [
+                "Person Description"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "#OnitsukaTiger",
+              "confidence": 98.86
+            },
+            {
+              "value": "Tiger",
+              "confidence": 97.8
+            },
+            {
+              "value": "Tiger",
+              "confidence": 98.78
+            },
+            {
+              "value": "Tiger",
+              "confidence": 82.18
+            },
+            {
+              "value": "Tiger",
+              "confidence": 92.68
+            },
+            {
+              "value": "So beautiful! I've been eyeing these Onitsuka Tiger",
+              "confidence": 99.71
+            },
+            {
+              "value": "shoes for a long time and finally got them. They are",
+              "confidence": 99.53
+            },
+            {
+              "value": "super comfortable for daily wear or gym workouts.",
+              "confidence": 99.86
+            },
+            {
+              "value": "The colorway is clean, neat, and very versatile. Very",
+              "confidence": 99.92
+            },
+            {
+              "value": "lightweight and breathable.",
+              "confidence": 99.51
+            },
+            {
+              "value": "DM Sans Regular at 55% opacity",
+              "confidence": 99.65
+            },
+            {
+              "value": "3",
+              "confidence": 98.07
+            }
+          ]
+        },
+        {
+          "file": "7672135662056869133-06.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Accessories",
+              "confidence": 99.77,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Belt",
+              "confidence": 96.39,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Text",
+              "confidence": 86.89,
+              "categories": [
+                "Text and Documents"
+              ]
+            },
+            {
+              "name": "Clothing",
+              "confidence": 78.69,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Glove",
+              "confidence": 78.69,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "ZERO TO HERO",
+              "confidence": 98.91
+            },
+            {
+              "value": "PRO",
+              "confidence": 93.71
+            },
+            {
+              "value": "N",
+              "confidence": 94.02
+            },
+            {
+              "value": "Z",
+              "confidence": 96.08
+            },
+            {
+              "value": "EAR-",
+              "confidence": 86.47
+            },
+            {
+              "value": "ZERO TO HERO",
+              "confidence": 99.01
+            },
+            {
+              "value": "PRO",
+              "confidence": 84.81
+            },
+            {
+              "value": "#ZEROTOHERO",
+              "confidence": 99.6
+            },
+            {
+              "value": "I did some research and bought these gym lifting straps",
+              "confidence": 98.83
+            },
+            {
+              "value": "for him. This domestic brand seems to be quite good!",
+              "confidence": 99.73
+            },
+            {
+              "value": "Perfect for guys who lift weights often. They increase",
+              "confidence": 99.83
+            },
+            {
+              "value": "friction during pulling movements, helping them apply",
+              "confidence": 99.56
+            },
+            {
+              "value": "force better.",
+              "confidence": 99.68
+            },
+            {
+              "value": "4",
+              "confidence": 99.93
+            }
+          ]
+        },
+        {
+          "file": "7672135662056869133-07.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Bag",
+              "confidence": 100,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Backpack",
+              "confidence": 99.13,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "ARC'TERYX",
+              "confidence": 96.95
+            },
+            {
+              "value": "#arcteryx",
+              "confidence": 99.21
+            },
+            {
+              "value": "ARCTERYX",
+              "confidence": 90
+            },
+            {
+              "value": "ARCTERYX",
+              "confidence": 95.03
+            },
+            {
+              "value": "The one on the right is one of the most frequently used backpacks",
+              "confidence": 99.61
+            },
+            {
+              "value": "in our household. So I decided to get the one on the left as well,",
+              "confidence": 98.16
+            },
+            {
+              "value": "so we can wear them as a couple's set.",
+              "confidence": 99.27
+            },
+            {
+              "value": "Combining athletic and casual vibes, they are extremely durable,",
+              "confidence": 99.88
+            },
+            {
+              "value": "stain-resistant, and highly practical.",
+              "confidence": 99.62
+            },
+            {
+              "value": "5",
+              "confidence": 99.18
+            }
+          ]
+        },
+        {
+          "file": "7672135662056869133-08.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Bottle",
+              "confidence": 99.98,
+              "categories": [
+                "Everyday Objects"
+              ]
+            },
+            {
+              "name": "Cosmetics",
+              "confidence": 99.56,
+              "categories": [
+                "Beauty and Personal Care"
+              ]
+            },
+            {
+              "name": "Perfume",
+              "confidence": 99.56,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Aftershave",
+              "confidence": 97.9,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "Un Jardin sur le Nil (Hermes) conveys a",
+              "confidence": 99.48
+            },
+            {
+              "value": "vibe of not wearing perfume intentionally.",
+              "confidence": 99.89
+            },
+            {
+              "value": "Citrusy, aquatic, and versatile.",
+              "confidence": 99.81
+            },
+            {
+              "value": "#Hermes",
+              "confidence": 99.54
+            },
+            {
+              "value": "SUR LE NIL",
+              "confidence": 96.1
+            },
+            {
+              "value": "ACQUA",
+              "confidence": 98.77
+            },
+            {
+              "value": "DI",
+              "confidence": 98.31
+            },
+            {
+              "value": "PARMA",
+              "confidence": 98.62
+            },
+            {
+              "value": "LUCE DI ROSA",
+              "confidence": 97.92
+            },
+            {
+              "value": "HERME",
+              "confidence": 95.65
+            },
+            {
+              "value": "#AcquaDiParma",
+              "confidence": 98.98
+            },
+            {
+              "value": "Luce di Rosa (Acqua di Parma) is a rare",
+              "confidence": 99.56
+            },
+            {
+              "value": "gender-neutral rose fragrance. Refreshing,",
+              "confidence": 100
+            },
+            {
+              "value": "bright, and vibrant with steady woody tones.",
+              "confidence": 99.9
+            },
+            {
+              "value": "6",
+              "confidence": 99.07
+            }
+          ]
+        },
+        {
+          "file": "7672135662056869133-09.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Baseball Cap",
+              "confidence": 100,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Cap",
+              "confidence": 100,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Clothing",
+              "confidence": 100,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Hat",
+              "confidence": 100,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "@Ralph Lauren",
+              "confidence": 99.3
+            },
+            {
+              "value": "Ralph Lauren's baseball caps have an amazing shape!",
+              "confidence": 99.76
+            },
+            {
+              "value": "They are super flattering, perfect for larger heads or wider faces.",
+              "confidence": 99.8
+            },
+            {
+              "value": "Shades like gray, khaki, and blue are very versatile for daily outfits.",
+              "confidence": 99.89
+            },
+            {
+              "value": "7",
+              "confidence": 98.56
+            }
+          ]
+        },
+        {
+          "file": "7672135662056869133-10.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Wristwatch",
+              "confidence": 99.76,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Arm",
+              "confidence": 98.17,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Body Part",
+              "confidence": 98.17,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Person",
+              "confidence": 98.17,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Accessories",
+              "confidence": 97.56,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Wallet",
+              "confidence": 97.56,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Electronics",
+              "confidence": 91.32,
+              "categories": [
+                "Technology and Computing"
+              ]
+            },
+            {
+              "name": "Mobile Phone",
+              "confidence": 91.32,
+              "categories": [
+                "Technology and Computing"
+              ]
+            },
+            {
+              "name": "Phone",
+              "confidence": 91.32,
+              "categories": [
+                "Technology and Computing"
+              ]
+            },
+            {
+              "name": "Computer Hardware",
+              "confidence": 83.66,
+              "categories": [
+                "Technology and Computing"
+              ]
+            },
+            {
+              "name": "Hardware",
+              "confidence": 83.66,
+              "categories": [
+                "Technology and Computing"
+              ]
+            },
+            {
+              "name": "Monitor",
+              "confidence": 83.66,
+              "categories": [
+                "Technology and Computing"
+              ]
+            },
+            {
+              "name": "Screen",
+              "confidence": 83.66,
+              "categories": [
+                "Technology and Computing"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "#Applewatch",
+              "confidence": 99.97
+            },
+            {
+              "value": "I can't afford luxury watches, but surely I can",
+              "confidence": 98.29
+            },
+            {
+              "value": "afford a smartwatch! It's way more practical",
+              "confidence": 99.44
+            },
+            {
+              "value": "and can be used every single day.",
+              "confidence": 99.8
+            },
+            {
+              "value": "Not only is it practical, but it also works as a",
+              "confidence": 99.67
+            },
+            {
+              "value": "great accessory. A clean and fresh look.",
+              "confidence": 99.33
+            },
+            {
+              "value": "8",
+              "confidence": 99.79
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourcePostId": "7670644980880248077",
+      "images": [
+        {
+          "file": "7670644980880248077-01.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Baby",
+              "confidence": 88.55,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Person",
+              "confidence": 88.55,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Gift",
+              "confidence": 73.14,
+              "categories": [
+                "Everyday Objects"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "make a small gift feel special",
+              "confidence": 98.96
+            },
+            {
+              "value": "attention over price",
+              "confidence": 99.92
+            }
+          ]
+        },
+        {
+          "file": "7670644980880248077-02.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Home Decor",
+              "confidence": 80.77,
+              "categories": [
+                "Furniture and Furnishings"
+              ]
+            },
+            {
+              "name": "Gift",
+              "confidence": 77.16,
+              "categories": [
+                "Everyday Objects"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "repeat one color",
+              "confidence": 100
+            },
+            {
+              "value": "@sarahhsol",
+              "confidence": 98.63
+            }
+          ]
+        },
+        {
+          "file": "7670644980880248077-03.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Person",
+              "confidence": 93.77,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Gift",
+              "confidence": 83.78,
+              "categories": [
+                "Everyday Objects"
+              ]
+            },
+            {
+              "name": "Box",
+              "confidence": 83.69,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Face",
+              "confidence": 82.28,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Head",
+              "confidence": 82.28,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Accessories",
+              "confidence": 72.88,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Bag",
+              "confidence": 72.88,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Handbag",
+              "confidence": 72.88,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Business Card",
+              "confidence": 70.28,
+              "categories": [
+                "Text and Documents"
+              ]
+            },
+            {
+              "name": "Paper",
+              "confidence": 70.28,
+              "categories": [
+                "Materials"
+              ]
+            },
+            {
+              "name": "Text",
+              "confidence": 70.28,
+              "categories": [
+                "Text and Documents"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "are the best",
+              "confidence": 95.82
+            },
+            {
+              "value": "thing",
+              "confidence": 95.61
+            },
+            {
+              "value": "to",
+              "confidence": 87.77
+            },
+            {
+              "value": "Taste",
+              "confidence": 97.59
+            },
+            {
+              "value": "and perfect",
+              "confidence": 94.79
+            },
+            {
+              "value": "memories",
+              "confidence": 92.01
+            },
+            {
+              "value": "together",
+              "confidence": 82.99
+            },
+            {
+              "value": "that",
+              "confidence": 94.89
+            },
+            {
+              "value": "are",
+              "confidence": 95.03
+            },
+            {
+              "value": "one",
+              "confidence": 85.34
+            },
+            {
+              "value": "most",
+              "confidence": 92.93
+            },
+            {
+              "value": "caring humans",
+              "confidence": 90.51
+            },
+            {
+              "value": "I've ever",
+              "confidence": 86.89
+            },
+            {
+              "value": "Thank",
+              "confidence": 87.01
+            },
+            {
+              "value": "into this version of myself and",
+              "confidence": 91.75
+            },
+            {
+              "value": "Touch",
+              "confidence": 98.28
+            },
+            {
+              "value": "for",
+              "confidence": 94.89
+            },
+            {
+              "value": "down All of with my",
+              "confidence": 86.47
+            },
+            {
+              "value": "I'm",
+              "confidence": 81.97
+            },
+            {
+              "value": "when I'm",
+              "confidence": 90.48
+            },
+            {
+              "value": "day my love, and you",
+              "confidence": 89.63
+            },
+            {
+              "value": "Happy",
+              "confidence": 93.73
+            },
+            {
+              "value": "here's",
+              "confidence": 89.65
+            },
+            {
+              "value": "to many",
+              "confidence": 95.18
+            }
+          ]
+        },
+        {
+          "file": "7670644980880248077-04.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Envelope",
+              "confidence": 99.83,
+              "categories": [
+                "Text and Documents"
+              ]
+            },
+            {
+              "name": "Greeting Card",
+              "confidence": 99.83,
+              "categories": [
+                "Hobbies and Interests"
+              ]
+            },
+            {
+              "name": "Mail",
+              "confidence": 99.83,
+              "categories": [
+                "Text and Documents"
+              ]
+            },
+            {
+              "name": "Box",
+              "confidence": 95.2,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "handwrite the headline",
+              "confidence": 99.63
+            },
+            {
+              "value": "Choose",
+              "confidence": 96.79
+            }
+          ]
+        },
+        {
+          "file": "7670644980880248077-05.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Envelope",
+              "confidence": 100,
+              "categories": [
+                "Text and Documents"
+              ]
+            },
+            {
+              "name": "Greeting Card",
+              "confidence": 100,
+              "categories": [
+                "Hobbies and Interests"
+              ]
+            },
+            {
+              "name": "Mail",
+              "confidence": 100,
+              "categories": [
+                "Text and Documents"
+              ]
+            },
+            {
+              "name": "Baby",
+              "confidence": 95.13,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Person",
+              "confidence": 95.13,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Face",
+              "confidence": 94.45,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Head",
+              "confidence": 94.45,
+              "categories": [
+                "Person Description"
+              ]
+            },
+            {
+              "name": "Pattern",
+              "confidence": 85.58,
+              "categories": [
+                "Patterns and Shapes"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "make one piece yourself",
+              "confidence": 99.96
+            },
+            {
+              "value": "HAPPY",
+              "confidence": 98.45
+            },
+            {
+              "value": "BIRTHDAY",
+              "confidence": 98.36
+            }
+          ]
+        },
+        {
+          "file": "7670644980880248077-06.jpg",
+          "modelVersion": "3.0",
+          "labels": [
+            {
+              "name": "Flower",
+              "confidence": 99.98,
+              "categories": [
+                "Plants and Flowers"
+              ]
+            },
+            {
+              "name": "Flower Arrangement",
+              "confidence": 99.98,
+              "categories": [
+                "Plants and Flowers"
+              ]
+            },
+            {
+              "name": "Plant",
+              "confidence": 99.98,
+              "categories": [
+                "Plants and Flowers"
+              ]
+            },
+            {
+              "name": "Flower Bouquet",
+              "confidence": 99.94,
+              "categories": [
+                "Plants and Flowers"
+              ]
+            },
+            {
+              "name": "Petal",
+              "confidence": 99.87,
+              "categories": [
+                "Plants and Flowers"
+              ]
+            },
+            {
+              "name": "Bag",
+              "confidence": 84.05,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Accessories",
+              "confidence": 75.67,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Handbag",
+              "confidence": 75.67,
+              "categories": [
+                "Apparel and Accessories"
+              ]
+            },
+            {
+              "name": "Person",
+              "confidence": 72.94,
+              "categories": [
+                "Person Description"
+              ]
+            }
+          ],
+          "text": [
+            {
+              "value": "small budget. big attention.",
+              "confidence": 99.9
+            },
+            {
+              "value": "5",
+              "confidence": 86.92
+            },
+            {
+              "value": "SNOOPY",
+              "confidence": 98.39
+            },
+            {
+              "value": "S",
+              "confidence": 91.68
+            },
+            {
+              "value": "MAS",
+              "confidence": 98.91
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -26,6 +26,7 @@ struct APIPost: Codable {
     var merchant: String?
     var price: Double?
     var vibes: [String]?
+    let aspectRatio: Double?
     var qualityScore: Double?
     var contentType: String?
     var mediaUrl: String?
@@ -164,6 +165,36 @@ struct FeedResponse: Codable {
     var items: [APIPost]?
     var cursor: String?
 }
+
+struct MixerMedia: Codable { var url: String; var role: String? }
+struct MixerOffer: Codable {
+    var offerId: String?; var merchant: String?; var url: String?
+    var price: Double?; var currency: String?; var availability: String?
+}
+struct MixerCommerce: Codable { var shoppability: String; var offers: [MixerOffer]? }
+struct MixerTaxonomy: Codable { var primaryCategoryId: String?; var labelIds: [String]? }
+struct MixerCreator: Codable { var id: String?; var name: String? }
+struct MixerProvenance: Codable { var type: String?; var provider: String?; var sourceUrl: String? }
+struct MixerQuality: Codable { var score: Double?; var giftable: Bool? }
+struct MixerCatalogItem: Codable {
+    var entityId: String; var kind: String; var title: String; var summary: String?
+    var media: [MixerMedia]?; var creator: MixerCreator?; var provenance: MixerProvenance?
+    var taxonomy: MixerTaxonomy?; var commerce: MixerCommerce; var quality: MixerQuality?
+    var legacyPost: APIPost?
+}
+struct MixerReason: Codable { var code: String; var label: String }
+struct MixerResult: Codable {
+    var item: MixerCatalogItem; var rank: Int; var reason: MixerReason
+    var attributionToken: String; var source: String
+}
+struct MixerResponse: Codable {
+    var recommendationId: String; var surface: String; var policyVersion: String
+    var modelVersion: String; var taxonomyVersion: String; var profileVersion: Int
+    var items: [MixerResult]; var nextCursor: String?
+}
+struct RemoteFeedTag: Codable { var id: String; var title: String; var terms: [String]; var maxPrice: Double? }
+struct RemoteFeedTheme: Codable { var id: String; var title: String; var terms: [String]; var tags: [RemoteFeedTag] }
+struct FeedTaxonomyResponse: Codable { var version: String; var themes: [RemoteFeedTheme] }
 
 struct VectorItem: Identifiable, Codable {
     var postId: String

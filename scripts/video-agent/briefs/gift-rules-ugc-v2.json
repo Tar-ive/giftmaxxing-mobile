@@ -1,0 +1,60 @@
+{
+  "id": "gift-rules-ugc-v2",
+  "title": "Stop buying forgettable gifts",
+  "outputDir": "marketing-assets/video/gift-rules-ugc-v2",
+  "audioDir": "marketing-assets/video/gift-rules-30s/audio",
+  "captionsDir": "marketing-assets/video/gift-rules-30s/caption-cards",
+  "identityAnchor": { "mode": "generate" },
+  "voice": {
+    "voice_name": "Aoede",
+    "audio_profile": "A warm, confident young woman giving practical gift-giving advice to a friend",
+    "accent": "American (Gen)",
+    "style": "Empathetic",
+    "pace": "Natural"
+  },
+  "voiceSceneContext": "A confident, warm creator speaking directly to a phone camera, giving one quick practical gift-giving tip in a TikTok voiceover.",
+  "scenes": [
+    {
+      "name": "01-forgettable-gifts",
+      "caption": { "title": "STOP BUYING FORGETTABLE GIFTS", "subtitle": "Five rules for gifts people remember." },
+      "voiceoverLine": "Stop buying forgettable gifts. Great gift givers follow five rules.",
+      "imagePrompt": "Authentic vertical iPhone UGC photo. A woman in her late 20s with warm olive skin, shoulder-length loose dark brown hair, cream knit sweater, minimal makeup, and small gold hoops stands at a cluttered apartment gift closet. She holds an untouched generic candle and plain gift card and gives the phone camera a mildly unimpressed look. Natural window light, realistic skin, slightly imperfect handheld framing, safe caption space, no readable text or branding.",
+      "motionPrompt": "Subtle handheld phone drift. She glances from the generic candle and gift card toward the cluttered closet, gives a small unimpressed expression, then lowers the items. Preserve her exact face, hands, clothing, and every object. Natural UGC motion, no speaking."
+    },
+    {
+      "name": "02-micro-friction",
+      "caption": { "title": "1. SOLVE A MICRO-FRICTION", "subtitle": "Replace the thing they tolerate every day." },
+      "voiceoverLine": "One: solve a micro-friction. Replace the leaky bottle, frayed charger, or cold coffee mug.",
+      "imagePrompt": "Retain ONLY the woman's exact identity, hair, sweater, earrings, and realistic UGC style from Image 1. Remove the candle, card, closet, and original pose completely. In a warm apartment kitchen, she replaces a messy olive oil bottle with an elegant no-drip glass dispenser beside a frying pan. One hand holds the dispenser; the other moves the old bottle aside. Natural morning light, realistic hands, safe caption space, no labels.",
+      "motionPrompt": "She sets aside the leaky bottle, lifts the no-drip dispenser, and pours a small clean stream into the pan. Gentle handheld phone movement. Preserve her exact identity, outfit, dispenser, bottle, counter, and realistic hands. No speaking."
+    },
+    {
+      "name": "03-small-luxury",
+      "caption": { "title": "2. UPGRADE THE EVERYDAY", "subtitle": "Buy the best version of something inexpensive." },
+      "voiceoverLine": "Two: buy the best version of something inexpensive, not the cheapest version of something expensive.",
+      "imagePrompt": "Use Image 1 as the exact identity and wardrobe reference. The same woman sits at a casual breakfast table, pouring beautiful amber artisanal maple syrup from an unbranded glass bottle over pancakes. Her expression shows delighted surprise at an elevated everyday luxury. Vertical iPhone UGC photo, warm window light, authentic home texture, realistic face and hands, safe caption space, no text or logos.",
+      "motionPrompt": "She slowly pours amber syrup over the pancakes, watches it settle, and smiles with genuine delight. Small natural handheld push-in. Preserve her exact identity, hands, bottle, food, and table. Realistic UGC motion, no speaking."
+    },
+    {
+      "name": "04-inside-callback",
+      "caption": { "title": "3. USE AN INSIDE CALLBACK", "subtitle": "Turn your shared memory into something physical." },
+      "voiceoverLine": "Three: turn an inside joke into a physical callback.",
+      "imagePrompt": "Use Image 1 as the exact identity and wardrobe reference. The same woman gives a handcrafted wooden chess set to a close female friend at a coffee table. The friend has just opened it, and both share an immediate knowing laugh from an old inside joke. Vertical candid iPhone UGC photo, cozy apartment, natural afternoon light, believable emotion and hands, safe caption space, no readable text.",
+      "motionPrompt": "The friend opens the wooden chess set and reacts with recognition; both women share a warm laugh. Gentle phone-camera drift. Preserve both faces, all chess pieces, hands, clothing, and room. Natural restrained motion, no speaking."
+    },
+    {
+      "name": "05-permission-gift",
+      "caption": { "title": "4. GIVE GUILT-FREE PERMISSION", "subtitle": "Support the experience they keep postponing." },
+      "voiceoverLine": "Four: give guilt-free permission for the hobby, facial, or experience they never buy themselves.",
+      "imagePrompt": "Use Image 1 as the exact identity reference. The same woman relaxes during a personalized professional facial she has wanted for months, wearing a white spa headband while an esthetician gently applies a hydrating treatment. Her natural skin texture stays visible and healthy. Vertical candid phone photo, refined but believable treatment room, soft diffused light, safe caption space, no product labels or text.",
+      "motionPrompt": "The esthetician gently applies the treatment while the woman closes her eyes and relaxes with a small contented smile. Slow natural camera drift. Preserve her exact face and natural skin texture, the esthetician's hands, headband, and room. No speaking or exaggerated beauty effect."
+    },
+    {
+      "name": "06-gift-notes",
+      "caption": { "title": "5. KEEP THE NOTES", "subtitle": "What friction or desire can I solve?" },
+      "voiceoverLine": "Five: keep notes whenever someone mentions a want or annoyance. Don't ask, what should I buy. Ask, what friction or desire can I solve.",
+      "imagePrompt": "Retain ONLY the woman's exact identity, hair, sweater, earrings, and realistic UGC style from Image 1. Remove the candle, card, closet, and original pose completely. In a cozy cafe she discreetly types a gift idea while a friend chats across the table. Show the phone from a steep side angle so its screen is blurred and contains no letters, words, or glyphs. No gift box. Vertical over-shoulder iPhone photo, warm light, realistic hands, safe caption space.",
+      "motionPrompt": "She types one quick note on the phone, glances warmly toward her friend, and gives a subtle satisfied smile. The friend gestures casually in soft focus. Preserve both identities, phone, hands, cups, and cafe. Keep the screen unreadable, no speaking."
+    }
+  ]
+}

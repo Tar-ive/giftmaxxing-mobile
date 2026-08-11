@@ -39,6 +39,7 @@ import { prependFeatured } from "./featured-feed.mjs";
 import { sendPushToUser } from "./push.mjs";
 import { mobileRoutes } from "./mobile-routes.mjs";
 import { analyticsRoutes } from "./analytics-routes.mjs";
+import { recommenderV2Routes } from "./recommender-v2.mjs";
 import { birthdayFreebiesRoute } from "./birthday-freebies.mjs";
 import { friendsRoutes } from "./friends-routes.mjs";
 import { publicPostsForProfile, purgeUserAvatar, purgeUserUGC, ugcRoutes } from "./ugc-routes.mjs";
@@ -61,6 +62,7 @@ const CONFIG = process.env.CONFIG_TABLE;
 const FRIENDS = process.env.FRIENDS_TABLE;
 const ANALYTICS = process.env.ANALYTICS_TABLE;
 const DEVICES = process.env.DEVICES_TABLE;
+const TASTE_PROFILES = process.env.TASTE_PROFILES_TABLE;
 const COGNITO_CLIENT_ID = process.env.COGNITO_CLIENT_ID || "";
 const LOGIN_RESET_URL = process.env.LOGIN_RESET_URL || "";
 const LOGIN_EMAIL_FROM = process.env.LOGIN_EMAIL_FROM || "";
@@ -192,6 +194,7 @@ function isPublicRoute(method, path) {
   if (method === "OPTIONS") return true;
   if (method === "POST" && path === "/login") return true;
   if (method === "GET") {
+    if (path === "/v2/feed-taxonomy" || /^\/v2\/items\/[^/]+$/.test(path)) return true;
     if (path === "/feed" || path === "/recommendations" || path === "/pins") return true;
     if (path === "/recipients" || path === "/ideas") return true;
     // Curated gallery membership + Reddit-mined gift bundles — public catalog
@@ -213,6 +216,7 @@ function isPublicRoute(method, path) {
   // Behavioral analytics ingestion — events arrive before sign-in completes
   // (and from guests), keyed by userId/anonymousId inside the payload.
   if (method === "POST" && path === "/mobile/analytics") return true;
+  if (method === "POST" && (path === "/v2/recommendations" || path === "/v2/events/batch")) return true;
   // APNs token registration — arrives before sign-in completes (guests/anon
   // senders need pushes for challenge responses); token is opaque + harmless.
   if (method === "POST" && path === "/mobile/device") return true;
@@ -813,6 +817,57 @@ function inferAudience(text) {
   if (men > women) return "men";
   return null;
 }
+
+/**
+ * Does this post belong to the requested browse category at all?
+ *
+ * MEASURED PROBLEM. `vibes` was only ever a scoring nudge — worth at most 0.25
+ * against social proof's 0.35 — so a popular untagged item beat a perfectly
+ * tagged one. Live check: `vibes=coffee` returned "Island Girl Backless Sweater
+ * Top" and "Morgan Wallen Tee"; `vibes=matcha` returned 0 matcha items out of
+ * 22 ranked. The pills changed the results (different scoring noise) without
+ * ever changing the SUBJECT, which is exactly what a user notices.
+ *
+ * A browse pill is a statement of intent, not a preference. It scopes.
+ */
+function matchesBrowse(p, { vibes = [], category }) {
+  if (!vibes.length && !category) return true;
+  if (category && String(p.category || "").toLowerCase() === String(category).toLowerCase()) return true;
+  if (vibes.length && Array.isArray(p.vibes) && p.vibes.some((v) => vibes.includes(v))) return true;
+  // Image labels (Rekognition) and the title are the fallback: the vibe
+  // vocabulary is a closed set of ~40 tags and misses plenty of real subjects.
+  const haystack = `${p.product?.name ?? ""} ${p.category ?? ""} ${(p.imageLabels || []).join(" ")}`.toLowerCase();
+  return vibes.some((v) => {
+    const t = String(v).toLowerCase();
+    return t.length >= 4 && new RegExp(`\\b${t}s?\\b`).test(haystack);
+  });
+}
+
+/**
+ * Put on-topic items first, and only pad with the rest when the category is
+ * too thin to fill a page. A hard filter would blank the feed for any pill the
+ * catalog barely covers; leading with the matches gets the subject right
+ * without ever returning an empty screen.
+ */
+function scopeToBrowse(list, opts, minimum = 12) {
+  if (!opts?.vibes?.length && !opts?.category) return list;
+  const onTopic = [], offTopic = [];
+  for (const p of list) {
+    // TAG the item rather than only ordering it. The first version returned
+    // on-topic items first and every call site then did `.sort(by _score)`,
+    // which shuffled the off-topic padding straight back to the top — measured
+    // 0% relevance on cozy / makeup / tech even after the scoping "worked".
+    // Sorts must use `_onTopic` as the primary key.
+    p._onTopic = matchesBrowse(p, opts) ? 1 : 0;
+    (p._onTopic ? onTopic : offTopic).push(p);
+  }
+  if (onTopic.length >= minimum) return onTopic;
+  return [...onTopic, ...offTopic];
+}
+
+/** Ranked order that respects the browse scope. */
+const byBrowseThenScore = (a, b) =>
+  ((b._onTopic ?? 0) - (a._onTopic ?? 0)) || (b._score - a._score);
 
 function scorePost(p, { vibes = [], recipient, occasion, category, budget, eventBoost = 0, now = Date.now() } = {}) {
   let s = 0;
@@ -3380,6 +3435,7 @@ async function purgeAccount(userId) {
     challenges: 0,
     ugcPosts: 0,
     avatarObjects: 0,
+    tasteProfiles: 0,
   };
   // Clear the alias rows before the profile: the scan matches on
   // canonicalUserId, which does not depend on the profile item existing.
@@ -3399,6 +3455,19 @@ async function purgeAccount(userId) {
   summary.graph = await purgeByPartition(GRAPH, "pk", userId, ["pk", "sk"]);
   summary.friends = await purgeByPartition(FRIENDS, "pk", userId, ["pk", "sk"]);
   summary.analytics = await purgeByPartition(ANALYTICS, "userId", userId, ["userId", "sk"]);
+  if (TASTE_PROFILES) {
+    try {
+      let lastKey;
+      do {
+        const out = await ddb.send(new ScanCommand({ TableName: TASTE_PROFILES, FilterExpression: "ownerId = :u OR profileId = :p", ExpressionAttributeValues: { ":u": userId, ":p": `taste:${userId}` }, ExclusiveStartKey: lastKey }));
+        for (const profile of out.Items ?? []) {
+          await ddb.send(new DeleteCommand({ TableName: TASTE_PROFILES, Key: { profileId: profile.profileId } }));
+          summary.tasteProfiles++;
+        }
+        lastKey = out.LastEvaluatedKey;
+      } while (lastKey);
+    } catch (e) { console.warn("purge taste profiles failed:", e.message); }
+  }
   summary.devices = await purgeByPartition(DEVICES, "userId", userId, ["userId", "deviceId"]);
   summary.pools = await purgePoolRows(userId);
   summary.challenges = await purgeOwnedChallenges(userId);
@@ -3459,6 +3528,22 @@ export const handler = async (event) => {
 
   try {
     if (method === "POST" && path === "/login") return await loginRoute(event, body);
+
+    // Recommender Mixer v2 is isolated from the legacy route monolith. Public
+    // catalog requests remain anonymous-capable; a valid bearer/admin token is
+    // parsed best-effort so subject-profile ACLs and event attribution bind to
+    // the server-verified actor rather than a user id supplied in JSON.
+    if (path.startsWith("/v2/") || path.startsWith("/internal/v2/")) {
+      let recommenderAuth = auth;
+      if (!recommenderAuth?.ok && (bearerToken(event) || hasAdminToken(event))) {
+        try {
+          const attempt = await authorizeRequest(event, method, path);
+          if (attempt?.ok) recommenderAuth = attempt;
+        } catch {}
+      }
+      const response = await recommenderV2Routes(method, path, body, qs, { auth: recommenderAuth });
+      if (response) return response;
+    }
 
     // User-generated media is always identity-bound, even while the broader
     // AUTH_ENFORCE migration flag is off. Raw uploads remain private until the
@@ -3607,8 +3692,37 @@ export const handler = async (event) => {
           // recipient intentionally NOT a filter — soft-ranked in scorePost().
           if (qs.occasion && qs.occasion !== "any") { filters.push("occasion = :o"); baseEav[":o"] = qs.occasion; }
           if (qs.category) { filters.push("category = :c"); baseEav[":c"] = String(qs.category).toLowerCase(); }
+
+          // Filter on the TAG in the query, not after it.
+          //
+          // The candidate window is the most-recent N rows, and the 795
+          // Instagram inspiration posts are the newest in the table — they
+          // flooded it, and none carry vibe tags. Post-hoc scoping therefore
+          // kept finding <12 matches and degrading back to padding, which is
+          // why `cozy` returned lingerie and `headphones` returned heels.
+          //
+          // `contains(vibes, :v)` makes DynamoDB do the work: with FilterExpression
+          // the Limit still caps ROWS READ, so this is paired with the wider
+          // window below rather than replacing it.
+          const browseVibes = parseList(qs.vibes).slice(0, 6);
+          if (browseVibes.length) {
+            const ors = browseVibes.map((v, i) => {
+              baseEav[`:bv${i}`] = v;
+              return `contains(vibes, :bv${i})`;
+            });
+            filters.push(`(${ors.join(" OR ")})`);
+          }
           const keys = feedShardKeys();
-          const perShard = Math.ceil((filters.length ? 600 : 400) / keys.length);
+          // A browse pill needs a MUCH wider candidate window than an
+          // unfiltered feed. Measured: `cozy` is 141 of 4,045 posts (3.5%), so
+          // a 400-row window yields ~14 matches before quality gates — not
+          // enough to fill a page, which is why the scope kept degrading back
+          // to padding. Widen when the user has actually asked for a subject.
+          const browsing = browseVibes.length > 0 || Boolean(qs.category);
+          // With a FilterExpression, Limit caps rows READ not rows returned, so
+          // a browse query has to read deep to find its matches.
+          const windowSize = browsing ? 4000 : filters.length ? 600 : 400;
+          const perShard = Math.ceil(windowSize / keys.length);
           const pages = await Promise.all(
             keys.map((f) =>
               ddb
@@ -3635,7 +3749,8 @@ export const handler = async (event) => {
             if (!q.feedEligible) continue;
             ranked.push({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, feedEligible: true, _score: scorePost(p, opts) + q.qualityScore * 0.4 });
           }
-          const withOwnPosts = includeOwnUGC(ranked, featuredUGC, opts).sort((a, b) => b._score - a._score);
+          const withOwnPosts = scopeToBrowse(includeOwnUGC(ranked, featuredUGC, opts), opts)
+            .sort(byBrowseThenScore);
           const mixed = interleaveUGC(interleaveAuthors(withOwnPosts));
           let offset = start?._offset ?? 0;
           const personalized = qs.recipient && qs.recipient !== "anyone";
@@ -3666,9 +3781,23 @@ export const handler = async (event) => {
         // recipient intentionally NOT a filter — soft-ranked in scorePost().
         if (qs.occasion && qs.occasion !== "any") { filters.push("occasion = :o"); eav[":o"] = qs.occasion; }
         if (qs.category) { filters.push("category = :c"); eav[":c"] = qs.category; }
+        // Same tag filter as the sharded path above. THIS is the path that
+        // usually serves a fresh load, and leaving it unfiltered is why browse
+        // relevance kept flapping between calls: two of the three /feed paths
+        // scoped and one did not, so which one ran decided whether `cozy`
+        // returned candles or Gymshark shorts.
+        const browseVibes = parseList(qs.vibes).slice(0, 6);
+        if (browseVibes.length) {
+          const ors = browseVibes.map((v, i) => {
+            eav[`:bv${i}`] = v;
+            return `contains(vibes, :bv${i})`;
+          });
+          filters.push(`(${ors.join(" OR ")})`);
+        }
         // Over-read: the quality + de-dup filters below remove listicles/guides
         // (~37%) and already-seen items, so fetch a wider window than the page.
-        const fetchN = filters.length ? 150 : Math.min(Math.max(limit * 4, 80), 150);
+        // A tag filter needs far more headroom — Limit caps rows READ.
+        const fetchN = browseVibes.length ? 600 : filters.length ? 150 : Math.min(Math.max(limit * 4, 80), 150);
         // Variety: on a fresh (uncursored, unfiltered) load, jump to RANDOM
         // spots in the catalog instead of always the newest head. Posts
         // adjacent in createdAt are the SAME ingest batch (one store's whole
@@ -3755,7 +3884,8 @@ export const handler = async (event) => {
           }
           if (!lastKey) break;    // reached the end of the range
         }
-        const withOwnPosts = includeOwnUGC(eligible, featuredUGC, opts).sort((a, b) => b._score - a._score);
+        const withOwnPosts = scopeToBrowse(includeOwnUGC(eligible, featuredUGC, opts), opts)
+          .sort(byBrowseThenScore);
         const pageSize = Math.max(0, limit - featured.length);
         const page = interleaveUGC(interleaveAuthors(withOwnPosts)).slice(0, pageSize);
         return json(200, { items: prependFeatured(page, featured, limit), cursor: encodeCursor(lastKey) });
@@ -3775,11 +3905,13 @@ export const handler = async (event) => {
         allItems.push(...(out.Items ?? []));
         scanKey = out.LastEvaluatedKey;
       } while (scanKey);
-      const ranked = allItems
-        .map((p) => ({ p, q: feedClassification(p) }))
-        .filter((x) => x.q.feedEligible && !exclude.posts.has(x.p.postId) && !exclude.authors.has(x.p.ownerId))
-        .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 }))
-        .sort((a, b) => b._score - a._score);
+      const ranked = scopeToBrowse(
+        allItems
+          .map((p) => ({ p, q: feedClassification(p) }))
+          .filter((x) => x.q.feedEligible && !exclude.posts.has(x.p.postId) && !exclude.authors.has(x.p.ownerId))
+          .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 })),
+        opts
+      ).sort(byBrowseThenScore);
       const rankedMixed = interleaveUGC(interleaveAuthors(includeOwnUGC(ranked, featuredUGC, opts)));
       const offset = start?._offset ?? 0;
       const pageSize = Math.max(0, limit - featured.length);
@@ -4237,13 +4369,15 @@ export const handler = async (event) => {
       };
       const out = await ddb.send(new ScanCommand(scan));
       const items = interleaveAuthors(
-        (out.Items ?? [])
-          .filter((p) => !excludedTargets.has(p.postId) && p.author !== userId)
-          .filter(giftTypeOk)
-          .map((p) => ({ p, q: feedClassification(p) }))
-          .filter((x) => x.q.feedEligible)
-          .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 }))
-          .sort((a, b) => b._score - a._score)
+        scopeToBrowse(
+          (out.Items ?? [])
+            .filter((p) => !excludedTargets.has(p.postId) && p.author !== userId)
+            .filter(giftTypeOk)
+            .map((p) => ({ p, q: feedClassification(p) }))
+            .filter((x) => x.q.feedEligible)
+            .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 })),
+          opts
+        ).sort(byBrowseThenScore)
       ).slice(0, limit);
 
       return json(200, { items, cursor: encodeCursor(out.LastEvaluatedKey), source: "facet" });

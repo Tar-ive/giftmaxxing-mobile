@@ -168,7 +168,7 @@ def main():
 
     # Walk forward in time per user so each profile sees only the past.
     history = defaultdict(list)
-    X, Y, groups, origins = [], [], [], []
+    X, Y, groups, origins, timestamps = [], [], [], [], []
     skipped = 0
     for uid, pid, y, ts, origin in rows:
         vec = vectors.get(pid)
@@ -182,6 +182,7 @@ def main():
         Y.append(y)
         groups.append(uid)
         origins.append(origin)
+        timestamps.append(ts)
         history[uid].append((pid, y))
 
     X = np.stack(X) if X else np.zeros((0, len(FEATURE_NAMES)), dtype=np.float32)
@@ -191,7 +192,7 @@ def main():
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     np.savez(args.out, X=X, Y=Y, groups=np.array(groups), origins=np.array(origins),
-             features=np.array(FEATURE_NAMES))
+             timestamps=np.asarray(timestamps, dtype=np.float64), features=np.array(FEATURE_NAMES))
     print(f"wrote {args.out}")
 
     meta_path = os.path.splitext(args.out)[0] + "_meta.json"

@@ -31,7 +31,6 @@ struct UGCCreateView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: ThemeSpacing.xl) {
-                    intro
                     if !model.media.isEmpty {
                         preview
                         musicPicker
@@ -41,6 +40,26 @@ struct UGCCreateView: View {
                         preparingCard
                     } else {
                         mediaPicker
+
+                        // The shot you want is almost always one you just took,
+                        // so put the tail of the camera roll right here instead
+                        // of behind a system sheet.
+                        RecentMediaStrip(
+                            onSelect: { asset in Task { await model.load(asset: asset) } },
+                            onOpenLibrary: { showSourcePicker = true }
+                        )
+
+                        CreateStarterRail(
+                            focus: DebugSessionManager.active.createFocus,
+                            onPickMedia: { showSourcePicker = true },
+                            onUseTemplate: { prompt in
+                                // Only prefill an untouched caption — never
+                                // clobber something already typed.
+                                if model.caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                    model.caption = prompt + " "
+                                }
+                            }
+                        )
                     }
                     if !model.posts.isEmpty { posts }
                 }
@@ -107,13 +126,6 @@ struct UGCCreateView: View {
         }
     }
 
-    private var intro: some View {
-        Text("Share a gift find")
-            .font(.title2.weight(.bold))
-            .fontDesign(.rounded)
-            .foregroundStyle(Color.ink)
-    }
-
     // Videos are re-encoded to H.264 on-device before upload (safety review
     // can't decode HEVC) — that can take a moment for long clips.
     private var preparingCard: some View {
@@ -130,21 +142,35 @@ struct UGCCreateView: View {
         .cardElevation()
     }
 
+    // The primary action, and it should look like one target rather than a
+    // white card that reads the same as every other card on the screen. A
+    // dashed border is the universal "put something here" affordance.
     private var mediaPicker: some View {
         Button { showSourcePicker = true } label: {
-            VStack(spacing: ThemeSpacing.md) {
+            VStack(spacing: ThemeSpacing.sm) {
                 Image(systemName: "photo.on.rectangle.angled")
                     .font(.largeTitle)
                     .foregroundStyle(Color.coral)
                 Text("Choose photos or a video")
                     .font(.headline)
+                    .foregroundStyle(Color.ink)
+                Text("Up to 10 photos, or one video under a minute")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .foregroundStyle(Color.ink)
             .frame(maxWidth: .infinity)
             .padding(.vertical, ThemeSpacing.xl)
-            .background(Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.xl, style: .continuous))
-            .cardElevation()
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.coralSoft.opacity(0.5))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(
+                        Color.coral.opacity(0.55),
+                        style: StrokeStyle(lineWidth: 1.5, dash: [6])
+                    )
+            )
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Choose up to ten photos or one video to post")
@@ -508,6 +534,66 @@ final class UGCCreateViewModel: ObservableObject {
             self.error = error is UGCSelectionError && (error as? UGCSelectionError) == .videoTooLong
                 ? "Videos must be one minute or shorter."
                 : "That item couldn’t be prepared. Choose another photo or video."
+        }
+    }
+
+    /// One asset tapped in the recent strip. Routed through the same
+    /// SelectedUGCMedia preparation as the system picker — including the H.264
+    /// re-encode that video moderation depends on — so a shortcut cannot skip
+    /// a step the upload path assumes has run.
+    func load(asset: PHAsset) async {
+        isPreparing = true
+        defer { isPreparing = false }
+        do {
+            media.forEach { $0.removeTemporaryFiles() }
+            let prepared: SelectedUGCMedia
+            switch asset.mediaType {
+            case .video:
+                let url = try await Self.videoURL(for: asset)
+                prepared = try await SelectedUGCMedia.video(url: url)
+            default:
+                let data = try await Self.imageData(for: asset)
+                prepared = try SelectedUGCMedia.image(data: data)
+            }
+            media = [prepared]
+        } catch {
+            media.forEach { $0.removeTemporaryFiles() }
+            media = []
+            self.error = (error as? UGCSelectionError) == .videoTooLong
+                ? "Videos must be one minute or shorter."
+                : "That item couldn’t be prepared. Choose another photo or video."
+        }
+    }
+
+    private static func imageData(for asset: PHAsset) async throws -> Data {
+        let options = PHImageRequestOptions()
+        options.isNetworkAccessAllowed = true   // iCloud-only originals
+        options.deliveryMode = .highQualityFormat
+        options.isSynchronous = false
+        return try await withCheckedThrowingContinuation { continuation in
+            PHImageManager.default().requestImageDataAndOrientation(
+                for: asset, options: options
+            ) { data, _, _, _ in
+                if let data { continuation.resume(returning: data) }
+                else { continuation.resume(throwing: UGCSelectionError.unreadable) }
+            }
+        }
+    }
+
+    private static func videoURL(for asset: PHAsset) async throws -> URL {
+        let options = PHVideoRequestOptions()
+        options.isNetworkAccessAllowed = true
+        options.deliveryMode = .highQualityFormat
+        return try await withCheckedThrowingContinuation { continuation in
+            PHImageManager.default().requestAVAsset(
+                forVideo: asset, options: options
+            ) { avAsset, _, _ in
+                guard let url = (avAsset as? AVURLAsset)?.url else {
+                    continuation.resume(throwing: UGCSelectionError.unreadable)
+                    return
+                }
+                continuation.resume(returning: url)
+            }
         }
     }
 

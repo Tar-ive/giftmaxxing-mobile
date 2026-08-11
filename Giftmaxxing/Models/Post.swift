@@ -24,6 +24,13 @@ struct Post: Identifiable, Codable, Hashable {
     var occasion: String?
     var category: String?
     var domain: String?
+    /// The image's real width÷height, when the source told us.
+    ///
+    /// Instagram posts arrive with true dimensions, and cropping a 4:5 keepsake
+    /// photo into a different 4:5 or letterboxing a 1:1 into 2:3 both destroy
+    /// the composition the poster actually framed. Nil = unknown; the view
+    /// falls back to measuring or to its editorial default.
+    var aspectRatio: Double?
     var qualityScore: Double?
     var feedEligible: Bool?
     // A gift can be a THING or a YEAR OF SOMETHING (Netflix, Costco, Prime…).

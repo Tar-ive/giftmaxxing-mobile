@@ -47,6 +47,13 @@ final class MaxiConversationStore: ObservableObject {
         persist()
     }
 
+    /// Record a thumbs up/down on a specific reply.
+    func rate(messageId: String, rating: Int) {
+        guard let i = messages.firstIndex(where: { $0.id == messageId }) else { return }
+        messages[i].rating = rating
+        persist()
+    }
+
     /// Replace the last message — used when a streamed/retried reply supersedes
     /// a placeholder.
     func replaceLast(with message: MaxiMessage) {

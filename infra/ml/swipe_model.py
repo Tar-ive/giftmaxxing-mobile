@@ -235,9 +235,10 @@ class PairwiseSwipeModel:
             self.sd[self.sd < 1e-6] = 1.0
         return (X - self.mu) / self.sd
 
-    def _pairs(self, Xs, y, groups):
+    def _pairs(self, Xs, y, groups, sample_weight=None):
         rng = np.random.default_rng(self.seed)
-        diffs = []
+        diffs, weights = [], []
+        sample_weight = np.ones(len(y)) if sample_weight is None else np.asarray(sample_weight)
         for u in np.unique(groups):
             m = groups == u
             pos = np.where(m & (y == 1))[0]
@@ -250,13 +251,14 @@ class PairwiseSwipeModel:
                 grid = [grid[k] for k in sel]
             for i, j in grid:
                 diffs.append(Xs[i] - Xs[j])
-        return np.asarray(diffs, dtype=np.float64)
+                weights.append(np.sqrt(sample_weight[i] * sample_weight[j]))
+        return np.asarray(diffs, dtype=np.float64), np.asarray(weights, dtype=np.float64)
 
     def fit(self, X, y, groups=None, sample_weight=None):
         if groups is None:
             raise ValueError("pairwise training needs `groups` (one deck/user per group)")
         Xs = self._standardize(np.asarray(X, dtype=np.float64), fit=True)
-        D = self._pairs(Xs, np.asarray(y), np.asarray(groups))
+        D, pair_weight = self._pairs(Xs, np.asarray(y), np.asarray(groups), sample_weight)
         self.n_pairs = len(D)
         if not len(D):
             self.w = np.zeros(Xs.shape[1])
@@ -268,7 +270,8 @@ class PairwiseSwipeModel:
         for _ in range(self.epochs):
             z = D @ self.w
             p = 1.0 / (1.0 + np.exp(-np.clip(z, -30, 30)))
-            self.w -= self.lr * ((D.T @ (p - 1.0)) / len(D) + self.l2 * self.w / len(D))
+            pair_weight = pair_weight / max(pair_weight.mean(), 1e-9)
+            self.w -= self.lr * ((D.T @ ((p - 1.0) * pair_weight)) / len(D) + self.l2 * self.w / len(D))
         return self
 
     def predict_proba(self, X):

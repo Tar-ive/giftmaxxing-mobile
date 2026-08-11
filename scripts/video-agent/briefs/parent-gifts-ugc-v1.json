@@ -1,0 +1,37 @@
+{
+  "id": "parent-gifts-ugc-v1",
+  "title": "What actually says I see you, for parents",
+  "outputDir": "marketing-assets/video/parent-gifts-ugc-v1",
+  "identityAnchor": { "mode": "reuse", "path": "marketing-assets/video/gift-rules-ugc-v2/stills/01-forgettable-gifts.png" },
+  "voice": {
+    "voice_name": "Aoede",
+    "audio_profile": "A warm, confident young woman giving practical gift-giving advice to a friend",
+    "accent": "American (Gen)",
+    "style": "Empathetic",
+    "pace": "Natural"
+  },
+  "voiceSceneContext": "A confident, warm creator speaking directly to a phone camera about meaningful gifts for parents, TikTok voiceover.",
+  "scenes": [
+    {
+      "name": "01-hook-worlds-best-mug",
+      "caption": { "title": "WORLD'S BEST MOM MUGS", "subtitle": "...don't actually say much." },
+      "voiceoverLine": "World's Best Mom mugs don't actually say much.",
+      "imagePrompt": "Retain ONLY the woman's exact identity, hair, and realistic UGC style from Image 1 (ignore her sweater and the closet setting). She now wears a soft navy sweater. In a store aisle full of generic mugs and candles with vague World's Best Mom / Dad style lettering blurred and illegible, she holds one up, looking unimpressed at the phone camera. Natural store lighting, realistic skin and hands, safe caption space, no readable legible text anywhere.",
+      "motionPrompt": "She turns the generic mug slightly, gives a small unimpressed head shake, then places it back on the shelf. Subtle handheld phone drift. Preserve her exact face, hands, sweater, and the shelf. Natural UGC motion, no speaking, keep all background text blurred and illegible."
+    },
+    {
+      "name": "02-the-recipe-card",
+      "caption": { "title": "PRESERVE A STORY INSTEAD.", "subtitle": "A recipe, a memory, a small repair." },
+      "voiceoverLine": "Preserve a story instead. A recipe card, a memory, a small repair.",
+      "imagePrompt": "Use Image 1 as the exact identity reference; she wears the same soft navy sweater as the prior scene. At a kitchen table, she carefully places a handwritten recipe card into a simple wooden frame, her hands steady and focused. Warm afternoon light through a window, realistic hands and skin, safe caption space, the recipe card handwriting stays soft and illegible rather than sharp readable text.",
+      "motionPrompt": "She slides the recipe card into the wooden frame, adjusts it gently, and sets it upright on the table. Gentle handheld push-in. Preserve her exact identity, sweater, the frame, and the card. No speaking."
+    },
+    {
+      "name": "03-moms-reaction",
+      "caption": { "title": "THAT'S WHAT THEY REMEMBER.", "subtitle": "Not the mug. The story." },
+      "voiceoverLine": "That's what they remember. Not the mug. The story.",
+      "imagePrompt": "Use Image 1 as the exact identity reference; she wears the same soft navy sweater. In a warm living room, she hands the framed recipe card to an older woman (gray-streaked hair, warm cardigan, clearly her mother) seated on a couch. The mother holds it with both hands, eyes glistening, a quiet emotional smile. Warm lamp light, realistic faces and hands, safe caption space, no readable text.",
+      "motionPrompt": "The mother looks down at the framed recipe card, then up with a quiet, moved smile, pressing one hand lightly to her own chest. Slow natural push-in. Preserve both identities, the frame, and the couch. No speaking, no physical contact, no exaggerated expression."
+    }
+  ]
+}

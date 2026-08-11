@@ -41,6 +41,8 @@ enum AccountLocalState {
 
     @MainActor
     static func clearPrivateStores() {
+        // A search history names the people and occasions you shop for.
+        RecentSearchStore.shared.clear()
         PoolsStore.shared.clear()
         GroupGiftStore.shared.clear()
         SwipeListStore.shared.clear()

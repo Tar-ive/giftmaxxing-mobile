@@ -22,6 +22,13 @@ enum E2ESupport {
     @MainActor
     static func autoSignInIfRequested(authManager: AuthManager) async {
         #if DEBUG
+        if UserDefaults.standard.bool(forKey: "curatedScreenshotMode") {
+            authManager.isAuthenticated = true
+            authManager.userId = "curated-screenshot-viewer"
+            authManager.displayName = "Gift Friend"
+            PersonalizationStore.markOnboarded(identity: authManager.userId)
+            return
+        }
         if UserDefaults.standard.bool(forKey: "profilePreview") || UserDefaults.standard.bool(forKey: "publicProfilePreview") {
             authManager.isAuthenticated = true
             authManager.userId = UserDefaults.standard.bool(forKey: "publicProfilePreview")

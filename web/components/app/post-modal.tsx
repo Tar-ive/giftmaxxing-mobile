@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { GRADIENTS } from "@/lib/data";
 import { productAmazonUrl, AFFILIATE_REL } from "@/lib/affiliate";
 import { hiResImage } from "@/lib/images";
@@ -14,10 +14,14 @@ import { useMaxi } from "@/components/app/maxi-provider";
 export function PostModal() {
   const { openPostId, openPost, posts, toggleLike, toggleSave, addComment, replyAsMaxi } = useStore();
   const [draft, setDraft] = useState("");
+  const [mediaIndex, setMediaIndex] = useState(0);
+  const mediaRef = useRef<HTMLDivElement>(null);
   const me = useCurrentUser();
   const { commentReply, addPinToCart } = useMaxi();
   const post = posts.find((p) => p.id === openPostId);
   if (!post) return null;
+  const gallery = [...new Set([post.product.image, ...(post.product.images ?? [])].filter(Boolean) as string[])];
+  const visibleMediaIndex = Math.min(mediaIndex, Math.max(0, gallery.length - 1));
   const u = post.user === "you" ? me : resolveUser(post);
   const commentTotal = commentCountOf(post);
   const asPin: Pin = {
@@ -56,17 +60,54 @@ export function PostModal() {
           className="relative grid flex-1 place-items-center md:min-h-0"
           style={{ background: GRADIENTS[post.product.grad] }}
         >
-          <span className="text-[120px]">{post.product.emoji}</span>
-          {post.product.image && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={hiResImage(post.product.image)}
-              alt={post.product.name}
-              className="absolute inset-0 h-full w-full object-cover"
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
+          {gallery.length ? (
+            <div
+              ref={mediaRef}
+              className="absolute inset-0 flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              onScroll={(event) => {
+                const width = event.currentTarget.clientWidth;
+                if (width) setMediaIndex(Math.round(event.currentTarget.scrollLeft / width));
               }}
-            />
+            >
+              {gallery.map((image, index) => (
+                <div key={image} className="relative min-w-full snap-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={hiResImage(image)}
+                    alt={`${post.product.name} — image ${index + 1}`}
+                    className="h-full w-full object-cover"
+                    onError={(event) => { event.currentTarget.style.display = "none"; }}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <span className="text-[120px]">{post.product.emoji}</span>
+          )}
+          {gallery.length > 1 && (
+            <>
+              <span className="absolute right-4 top-4 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white">
+                {visibleMediaIndex + 1}/{gallery.length}
+              </span>
+              {visibleMediaIndex > 0 && (
+                <button
+                  aria-label="Previous image"
+                  className="absolute left-3 grid h-9 w-9 place-items-center rounded-full bg-black/45 text-2xl text-white"
+                  onClick={() => mediaRef.current?.scrollTo({ left: (visibleMediaIndex - 1) * mediaRef.current.clientWidth, behavior: "smooth" })}
+                >
+                  ‹
+                </button>
+              )}
+              {visibleMediaIndex < gallery.length - 1 && (
+                <button
+                  aria-label="Next image"
+                  className="absolute right-3 grid h-9 w-9 place-items-center rounded-full bg-black/45 text-2xl text-white"
+                  onClick={() => mediaRef.current?.scrollTo({ left: (visibleMediaIndex + 1) * mediaRef.current.clientWidth, behavior: "smooth" })}
+                >
+                  ›
+                </button>
+              )}
+            </>
           )}
           <div className="absolute bottom-4 left-4 rounded-xl bg-black/55 px-4 py-2.5 text-white backdrop-blur">
             <p className="text-sm font-bold">{post.product.name}</p>

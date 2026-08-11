@@ -24,9 +24,16 @@ struct PostDetailView: View {
     @State private var measuredAspect: CGFloat?
 
     private var detailAspectRatio: CGFloat {
-        guard activePost.source == "ugc" else { return MediaAspect.product }
         if activePost.contentType == "ugc_video" { return MediaAspect.vertical }
-        return measuredAspect.map(MediaAspect.snap) ?? MediaAspect.square
+        // Opened full-screen, an image should be the shape it actually is.
+        // Cropping it here is worse than in the grid: this is the view where
+        // someone is deciding whether they like the thing, and a 4:5 crop of a
+        // square flat-lay cuts the gift out of its own photo.
+        if let real = activePost.aspectRatio, real > 0.2, real < 3 {
+            return CGFloat(real)
+        }
+        if let measured = measuredAspect { return MediaAspect.snap(measured) }
+        return activePost.source == "ugc" ? MediaAspect.square : MediaAspect.product
     }
     @State private var comments: [Comment] = []
     @State private var commentDraft = ""
@@ -75,9 +82,12 @@ struct PostDetailView: View {
                                     .font(.system(size: 80))
                                 if let image = gallery.first {
                                     CachedAsyncImage(url: image, width: 900) { ratio in
-                                        if activePost.source == "ugc", measuredAspect == nil {
-                                            measuredAspect = ratio
-                                        }
+                                        // Measure EVERY post, not just UGC.
+                                        // It is the fallback for anything whose
+                                        // source didn't ship dimensions, and
+                                        // gating it on ugc left every scraped
+                                        // image stuck on the 4:5 default.
+                                        if measuredAspect == nil { measuredAspect = ratio }
                                     }
                                 }
                             }

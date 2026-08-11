@@ -10,6 +10,10 @@ struct MaxiMessage: Identifiable, Codable {
     var products: [MaxiProduct]
     var steps: [MaxiStep]
     var chips: [String]
+    /// Was this set of picks any good? nil = not rated yet. Cheap, one-tap
+    /// feedback beats asking a question — and it is a LABEL, which is the thing
+    /// the ranker is starved of.
+    var rating: Int?
     var timestamp: Date
 
     init(
@@ -19,6 +23,7 @@ struct MaxiMessage: Identifiable, Codable {
         products: [MaxiProduct] = [],
         steps: [MaxiStep] = [],
         chips: [String] = [],
+        rating: Int? = nil,
         timestamp: Date = Date()
     ) {
         self.id = id
@@ -27,6 +32,7 @@ struct MaxiMessage: Identifiable, Codable {
         self.products = products
         self.steps = steps
         self.chips = chips
+        self.rating = rating
         self.timestamp = timestamp
     }
 }

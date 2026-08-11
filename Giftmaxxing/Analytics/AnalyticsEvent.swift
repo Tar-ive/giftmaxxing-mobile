@@ -68,6 +68,10 @@ struct AnalyticsEvent: Codable, Identifiable {
         case maxiMessageSent = "maxi_message_sent"
         case maxiResponseReceived = "maxi_response_received"
         case maxiProductTap = "maxi_product_tap"
+        // Thumbs up/down on a set of Maxi picks — a label on what the ranker
+        // actually served, and the only signal that says the ANSWER missed
+        // rather than one item missing.
+        case maxiRating = "maxi_rating"
 
         // Navigation
         case tabSwitch = "tab_switch"

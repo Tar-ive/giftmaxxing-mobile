@@ -68,6 +68,11 @@ struct PostCardView: View {
 
     // Inline gallery position (Instagram-style paging right in the feed).
     @State private var galleryIndex = 0
+    // Auto-advance: a carousel the user never swipes shows one image and the
+    // rest may as well not exist. Starts only once the card has been dwelled
+    // on, and stops the moment they take over.
+    @State private var autoAdvance: Task<Void, Never>?
+    @State private var userTookOver = false
 
     /// The slide currently on screen — what "Find similar" must search.
     private var currentGalleryImage: String? {
@@ -140,7 +145,12 @@ struct PostCardView: View {
                         ForEach(Array(gallery.enumerated()), id: \.offset) { idx, image in
                             ZStack {
                                 Color.gradient(for: post.product.grad)
-                                CachedAsyncImage(url: image, width: 600)
+                                CachedAsyncImage(url: image, width: 600) { ratio in
+                                    // Measure from the FIRST slide only — a
+                                    // carousel resizing per page would make the
+                                    // feed jump under the reader's thumb.
+                                    if isUGC, idx == 0, measuredAspect == nil { measuredAspect = ratio }
+                                }
                             }
                             .clipped()
                             .tag(idx)
@@ -148,6 +158,11 @@ struct PostCardView: View {
                     }
                     .tabViewStyle(.page(indexDisplayMode: .always))
                     .indexViewStyle(.page(backgroundDisplayMode: .interactive))
+                    .onChange(of: galleryIndex) { old, new in
+                        // A jump of more than one page is a manual swipe; the
+                        // timer only ever moves by one.
+                        if abs(new - old) > 1 || autoAdvance == nil { userTookOver = true }
+                    }
                 } else if let image = post.product.image {
                     Color.gradient(for: post.product.grad)
                     CachedAsyncImage(url: image, width: 600) { ratio in
@@ -441,7 +456,45 @@ struct PostCardView: View {
             guard !Task.isCancelled else { return }
             musicPlayback.play(postId: post.id, track: music)
         }
-        .onDisappear { musicPlayback.stop(postId: post.id) }
+        .onDisappear {
+            musicPlayback.stop(postId: post.id)
+            stopAutoAdvance()
+        }
+        // Auto-advance a carousel once the card has held attention for a beat.
+        // Without it most people see slide 1 and never learn the rest exist —
+        // 65% of the catalog has a gallery, so that is a lot of hidden product.
+        //
+        // Gated on REAL visibility, not onAppear: a LazyVStack builds rows well
+        // before they reach the viewport, so onAppear would advance carousels
+        // the user is nowhere near — they'd arrive at slide 4 of a card they had
+        // not yet seen. Only the card actually in frame advances, and it stops
+        // the moment it scrolls away.
+        .onVisibilityChange(threshold: 0.6) { visible in
+            if visible { startAutoAdvance() } else { stopAutoAdvance() }
+        }
+    }
+
+    private func startAutoAdvance() {
+        guard post.product.gallery.count > 1, !userTookOver, autoAdvance == nil else { return }
+        autoAdvance = Task { @MainActor in
+            // The dwell before the first move is what makes it read as
+            // "showing you more" rather than a jittery animation.
+            try? await Task.sleep(for: .seconds(2.5))
+            while !Task.isCancelled && !userTookOver {
+                let count = post.product.gallery.count
+                guard count > 1 else { return }
+                // Stop at the end rather than looping — a carousel that
+                // never settles is impossible to read.
+                if galleryIndex >= count - 1 { return }
+                withAnimation(.easeInOut(duration: 0.45)) { galleryIndex += 1 }
+                try? await Task.sleep(for: .seconds(2.5))
+            }
+        }
+    }
+
+    private func stopAutoAdvance() {
+        autoAdvance?.cancel()
+        autoAdvance = nil
     }
 
     // A reason worth a line of its own ("Similar to your taste"). Merchant

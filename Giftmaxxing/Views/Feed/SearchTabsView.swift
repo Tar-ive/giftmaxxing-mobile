@@ -41,9 +41,18 @@ final class SearchTabsViewModel: ObservableObject {
     private let friendsStore = FriendsStore.shared
 
     // Products — web matches title/category/enriched brand.
+    /// Server results when a query has been run, otherwise the browse catalog.
+    ///
+    /// This used to be a `filter` over a 60-item cached page, which meant the
+    /// search box could only find what the feed happened to have already
+    /// fetched — searching "matcha" against a catalog of thousands returned
+    /// whatever four items were in memory. Real queries now go to the server.
     var products: [Post] {
         let t = query.trimmingCharacters(in: .whitespaces).lowercased()
-        if t.isEmpty { return Array(catalog.prefix(18)) }
+        if t.isEmpty { return catalog }
+        if !serverResults.isEmpty { return serverResults }
+        // Instant local narrowing while the network call is in flight, so the
+        // grid reacts to every keystroke instead of sitting still.
         return catalog.filter { post in
             post.product.name.lowercased().contains(t)
                 || (post.category ?? "").lowercased().contains(t)
@@ -67,13 +76,55 @@ final class SearchTabsViewModel: ObservableObject {
             .map { $0 }
     }
 
+    @Published var serverResults: [Post] = []
+    @Published var isSearching = false
+    private var searchTask: Task<Void, Never>?
+
     func loadCatalog() async {
         guard catalog.isEmpty, !isLoadingCatalog else { return }
         isLoadingCatalog = true
+        if CuratedGiftStore.isPilotEnabled {
+            catalog = CuratedGiftStore.shared.productPosts + CuratedGiftStore.shared.wrapPosts
+            isLoadingCatalog = false
+            return
+        }
         if let page = try? await api.fetchFeed(limit: 60) {
             catalog = page.posts
         }
         isLoadingCatalog = false
+    }
+
+    /// Debounced server search. Cancels the in-flight request on every
+    /// keystroke — without that, a fast typist gets results for a prefix of
+    /// what they typed, arriving after the results for the whole word.
+    func search(debounce: Bool = true) {
+        let term = query.trimmingCharacters(in: .whitespaces)
+        searchTask?.cancel()
+        guard term.count >= 2 else {
+            serverResults = []
+            isSearching = false
+            return
+        }
+        searchTask = Task { @MainActor in
+            if debounce {
+                try? await Task.sleep(for: .milliseconds(280))
+                guard !Task.isCancelled else { return }
+            }
+            isSearching = true
+            defer { isSearching = false }
+            if CuratedGiftStore.isPilotEnabled {
+                serverResults = CuratedGiftStore.shared.search(term)
+                return
+            }
+            let page = try? await api.fetchMixerRecommendations(surface: "search", limit: 60, text: term)
+            guard !Task.isCancelled else { return }
+            serverResults = page?.posts ?? []
+        }
+    }
+
+    func commitSearch() {
+        RecentSearchStore.shared.record(query)
+        search(debounce: false)
     }
 
     func loadPeople(userId: String?) async {
@@ -158,24 +209,27 @@ final class SearchTabsViewModel: ObservableObject {
         // the kNN a lot for photos taken in the wild (screenshots, clutter).
         let labels = await Self.classifyLabels(in: image)
 
+        // The curation pilot deliberately fails closed: visual search must not
+        // fall through to the legacy catalog until its candidates are reviewed.
+        if CuratedGiftStore.isPilotEnabled {
+            guard generation == searchGeneration else { return }
+            visualError = labels.isEmpty
+                ? "Visual matching is paused while this curated catalog is reviewed."
+                : "Found \(labels.prefix(3).joined(separator: ", ")). Visual matching stays paused until reviewed products cover it."
+            visualLoading = false
+            return
+        }
+
         do {
-            let response = try await api.fetchVisualSearch(
+            let items = try await api.fetchMixerVisualSearch(
                 imageBase64: jpeg.base64EncodedString(),
-                text: labels.isEmpty ? nil : labels.joined(separator: ", "),
-                intent: "search"
+                text: labels.isEmpty ? nil : labels.joined(separator: ", ")
             )
             guard generation == searchGeneration else { return }
-            visualResults = response.items ?? []
+            visualResults = items
             // The searched photo IS a taste signal: cache its embedding and
             // seed the centroid with it, so the next feed page already leans
             // toward what they just showed us (research gap G3).
-            if let qv = response.queryVector {
-                let key = "photoseed-\(Int(Date().timeIntervalSince1970 * 1000))"
-                Task {
-                    await VectorStore.shared.upsert(key: key, base64: qv.data, scale: qv.scale)
-                    await TasteProfileStore.shared.addPhotoSeed(key: key)
-                }
-            }
         } catch {
             guard generation == searchGeneration else { return }
             visualError = "Couldn't run visual search. Try a different image."
@@ -261,9 +315,10 @@ struct SearchTabsView: View {
                 HStack(spacing: 8) {
                     SearchBar(
                         text: $viewModel.query,
-                        placeholder: "Search gifts, brands, people...",
-                        onSubmit: {}
+                        placeholder: "Search gifts, brands, people…",
+                        onSubmit: { viewModel.commitSearch() }
                     )
+                    .onChange(of: viewModel.query) { _, _ in viewModel.search() }
 
                     Button {
                         // On a device: choose camera or library. No camera
@@ -566,8 +621,21 @@ struct SearchTabsView: View {
     // MARK: Products
 
     private var productsGrid: some View {
+        VStack(alignment: .leading, spacing: ThemeSpacing.md) {
+            // Empty box → a place to start, not a blank screen.
+            if viewModel.query.trimmingCharacters(in: .whitespaces).isEmpty {
+                SearchDiscoverPanel { term in
+                    viewModel.query = term
+                    viewModel.commitSearch()
+                }
+            }
+            productsResultGrid
+        }
+    }
+
+    private var productsResultGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible())], spacing: 12) {
-            if viewModel.isLoadingCatalog {
+            if viewModel.isLoadingCatalog || viewModel.isSearching {
                 ProgressView().padding(40)
             } else if viewModel.products.isEmpty {
                 emptyNote("No products match \"\(viewModel.query)\".")
