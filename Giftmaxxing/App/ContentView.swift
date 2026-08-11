@@ -326,7 +326,7 @@ struct ContentView: View {
             if UserDefaults.standard.bool(forKey: "curatedScreenshotMode"), CartStore.shared.isEmpty,
                let journey = CuratedGiftStore.shared.catalog.journeys.first {
                 CartStore.shared.addAll(
-                    journey.products.map(\.post) + CuratedGiftStore.shared.wrapPosts,
+                    CuratedGiftStore.shared.products(for: journey).map(\.post) + CuratedGiftStore.shared.wrapPosts,
                     for: nil,
                     source: "curated-screenshot"
                 )

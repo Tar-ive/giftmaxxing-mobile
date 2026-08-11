@@ -34,44 +34,18 @@ final class SwipeViewModel: ObservableObject {
     func loadCards() async {
         guard !isLoading else { return }
         isLoading = true
-
-        do {
-            // Carry the consult's cold-start signals (who they gift for, world
-            // vibes) so the deck leans the right way before any swipes exist.
-            let vibes = PersonalizationStore.consultVibes
-            let page = try await api.fetchRecommendations(
-                limit: 50,
-                vibes: vibes.isEmpty ? nil : vibes,
+        let candidates = CuratedGiftStore.shared.sourcePosts
+        let profile = await TasteProfileStore.shared.snapshot()
+        cards = OnDeviceRanker.rank(
+            candidates: candidates,
+            profile: profile,
+            context: RankingContext(
                 recipient: PersonalizationStore.feedRecipient,
-                userId: userId
+                consultVibes: PersonalizationStore.consultVibes,
+                mindset: GiftMindset.current()
             )
-            let profile = await TasteProfileStore.shared.snapshot()
-            cards = OnDeviceRanker.rank(
-                candidates: page.posts,
-                profile: profile,
-                context: RankingContext(
-                    recipient: PersonalizationStore.feedRecipient,
-                    consultVibes: vibes,
-                    mindset: GiftMindset.current()
-                )
-            ).prefix(30).map(\.post)
-            currentIndex = 0
-            yesCount = 0
-            noCount = 0
-            cardShownAt = Date()
-            prefetchNextImages()
-
-            if let first = cards.first {
-                analytics.trackCardShown(
-                    postId: first.id,
-                    position: 0,
-                    totalCards: cards.count
-                )
-            }
-        } catch {
-            // use empty state
-        }
-
+        ).map(\.post)
+        resetDeck()
         isLoading = false
     }
 
@@ -84,34 +58,21 @@ final class SwipeViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
-        guard let page = try? await api.fetchFeed(
-            limit: 60,
-            cacheBuster: String(Int(Date().timeIntervalSince1970 * 1000))
-        ) else { return }
+        cards = Array(CuratedGiftStore.shared.sourcePosts.shuffled().prefix(14))
+        resetDeck()
+        AnalyticsEngine.shared.trackScreenView(screen: "swipe_surprise")
+    }
 
-        // Similarities to the taste centroid, from device-cached vectors.
-        var similarities: [String: Float] = [:]
-        let profile = await TasteProfileStore.shared.snapshot()
-        if profile.seedKeys.count >= 3 {
-            let missing = await VectorStore.shared.missingKeys(from: profile.seedKeys + page.posts.map(\.id))
-            if !missing.isEmpty, let response = try? await api.fetchVectors(keys: missing) {
-                for item in response.items ?? [] {
-                    await VectorStore.shared.upsert(key: item.key, base64: item.data, scale: item.scale)
-                }
-            }
-            if let centroid = await VectorStore.shared.centroid(of: profile.seedKeys) {
-                similarities = await VectorStore.shared.similarities(keys: page.posts.map(\.id), to: centroid)
-            }
-        }
-
-        cards = GiftGraphRanker.surpriseWalk(page.posts, centroidSimilarities: similarities, count: 14)
+    private func resetDeck() {
         currentIndex = 0
         yesCount = 0
         noCount = 0
         offset = .zero
         cardShownAt = Date()
         prefetchNextImages()
-        AnalyticsEngine.shared.trackScreenView(screen: "swipe_surprise")
+        if let first = cards.first {
+            analytics.trackCardShown(postId: first.id, position: 0, totalCards: cards.count)
+        }
     }
 
     func onDragStart() {
@@ -524,7 +485,11 @@ struct SwipeCardView: View {
                 // don't (catalog items pre-enrichment, services).
                 if let image = post.product.image {
                     Color.gradient(for: post.product.grad)
-                    CachedAsyncImage(url: image, width: 600) { ratio in
+                    CachedAsyncImage(
+                        url: image,
+                        width: 600,
+                        contentMode: post.id.hasPrefix("curated-source-") ? .fit : .fill
+                    ) { ratio in
                         if measuredAspect == nil {
                             withAnimation(.snappy) { measuredAspect = ratio }
                         }
@@ -562,10 +527,12 @@ struct SwipeCardView: View {
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
                     Spacer(minLength: 8)
-                    Text("$\(Int(post.product.price))")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(Color.coral)
-                        .fixedSize()
+                    if post.product.price > 0 {
+                        Text("$\(Int(post.product.price))")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(Color.coral)
+                            .fixedSize()
+                    }
                 }
 
                 Text(post.product.brand)

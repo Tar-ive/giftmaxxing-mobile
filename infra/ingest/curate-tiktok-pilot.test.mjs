@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseJsonl, verifySelection } from "./curate-tiktok-pilot.mjs";
+import { parseJsonl, sourceImages, verifySelection } from "./curate-tiktok-pilot.mjs";
 
 test("parseJsonl reports the broken source line", () => {
   assert.throws(() => parseJsonl('{"id":"1"}\nnope'), /line 2/);
@@ -16,8 +16,8 @@ test("verifySelection keeps only explicitly approved source IDs", () => {
     sourcePostId: "approved",
     sourceUrl: "https://example.com/approved",
     title: "Reviewed",
-    images: ["bundle:///approved-01.jpg"],
-    products: [{ id: "verified-product" }],
+    imageCount: 1,
+    productIds: ["verified-product"],
   }] };
   const result = verifySelection(rows, manifest);
   assert.deepEqual(result.approved.map((item) => item.sourcePostId), ["approved"]);
@@ -26,6 +26,16 @@ test("verifySelection keeps only explicitly approved source IDs", () => {
 
 test("verifySelection fails closed when an approved source is absent", () => {
   assert.throws(() => verifySelection([], { journeys: [{
-    sourcePostId: "missing", title: "Missing", images: [], products: [],
+    sourcePostId: "missing", title: "Missing", imageCount: 1, productIds: [],
   }] }), /missing from JSONL/);
+});
+
+test("sourceImages uses every slide and falls back to the video cover", () => {
+  assert.deepEqual(sourceImages({ slideshowImageLinks: [
+    { downloadLink: "https://example.com/1.jpg" },
+    { tiktokLink: "https://example.com/2.jpg" },
+  ] }), ["https://example.com/1.jpg", "https://example.com/2.jpg"]);
+  assert.deepEqual(sourceImages({ videoMeta: { coverUrl: "https://example.com/cover.jpg" } }), [
+    "https://example.com/cover.jpg",
+  ]);
 });

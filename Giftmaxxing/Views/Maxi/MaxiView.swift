@@ -30,6 +30,14 @@ final class MaxiViewModel: ObservableObject {
     )
 
     private init() {
+        if CuratedGiftStore.isPilotEnabled {
+            let key = "giftmaxxing_maxi_curated_catalog_version"
+            let version = CuratedGiftStore.shared.catalog.version
+            if UserDefaults.standard.string(forKey: key) != version {
+                MaxiConversationStore.shared.reset()
+                UserDefaults.standard.set(version, forKey: key)
+            }
+        }
         let saved = MaxiConversationStore.shared.messages
         messages = saved.isEmpty ? [Self.greeting] : saved
     }
@@ -105,6 +113,7 @@ final class MaxiViewModel: ObservableObject {
     /// identity opens the chat on this device. The local copy is the fast path;
     /// this is what makes a reinstall or a new phone not start from nothing.
     func restoreIfNeeded() async {
+        guard !CuratedGiftStore.isPilotEnabled else { return }
         guard let userId = AuthManager.shared.userId, !userId.isEmpty else { return }
         guard restoredForUserId != userId else { return }
         restoredForUserId = userId
@@ -147,6 +156,10 @@ final class MaxiViewModel: ObservableObject {
     // its bundled pins; we use the live feed and cache it for the session).
     private func loadCatalogIfNeeded() async {
         guard catalog.isEmpty else { return }
+        if CuratedGiftStore.isPilotEnabled {
+            catalog = CuratedGiftStore.shared.productPosts + CuratedGiftStore.shared.wrapPosts
+            return
+        }
         if let page = try? await api.fetchFeed(limit: 60) {
             catalog = page.posts
         }
@@ -161,6 +174,12 @@ final class MaxiViewModel: ObservableObject {
         isThinking = true
 
         let history = MaxiConversationStore.shared.history()
+
+        if CuratedGiftStore.isPilotEnabled {
+            await respondLocally(to: text, note: nil)
+            isThinking = false
+            return
+        }
 
         do {
             // Send the signed-in identity: the agent unlocks memory, events and

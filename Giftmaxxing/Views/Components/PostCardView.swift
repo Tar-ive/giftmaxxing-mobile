@@ -145,7 +145,11 @@ struct PostCardView: View {
                         ForEach(Array(gallery.enumerated()), id: \.offset) { idx, image in
                             ZStack {
                                 Color.gradient(for: post.product.grad)
-                                CachedAsyncImage(url: image, width: 600) { ratio in
+                                CachedAsyncImage(
+                                    url: image,
+                                    width: 600,
+                                    contentMode: isCuratedSource ? .fit : .fill
+                                ) { ratio in
                                     // Measure from the FIRST slide only — a
                                     // carousel resizing per page would make the
                                     // feed jump under the reader's thumb.
@@ -165,7 +169,11 @@ struct PostCardView: View {
                     }
                 } else if let image = post.product.image {
                     Color.gradient(for: post.product.grad)
-                    CachedAsyncImage(url: image, width: 600) { ratio in
+                    CachedAsyncImage(
+                        url: image,
+                        width: 600,
+                        contentMode: isCuratedSource ? .fit : .fill
+                    ) { ratio in
                         if isUGC, measuredAspect == nil { measuredAspect = ratio }
                     }
                 } else {
@@ -524,6 +532,7 @@ struct PostCardView: View {
     }
 
     private var isUGC: Bool { post.source == "ugc" }
+    private var isCuratedSource: Bool { post.id.hasPrefix("curated-source-") }
     private var isPlayingMusic: Bool {
         musicPlayback.activePostId == post.id && musicPlayback.isPlaying
     }
@@ -532,6 +541,7 @@ struct PostCardView: View {
     // image; square until it resolves).
     private var mediaAspectRatio: CGFloat {
         guard isUGC else { return MediaAspect.product }
+        if isCuratedSource { return measuredAspect ?? 3 / 4 }
         if post.contentType == "ugc_video" { return MediaAspect.vertical }
         return measuredAspect.map(MediaAspect.snap) ?? MediaAspect.square
     }

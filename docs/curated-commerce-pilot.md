@@ -3,18 +3,17 @@
 This pilot starts with one supplied TikTok JSONL export. It does not read,
 blend, rank, or backfill the existing product database.
 
-## What was accepted
+## Curated source set
 
-| Source post | Why it earned a place | Product role |
-|---|---|---|
-| `7670641859131100430` | Strongest response in the export and an original personalization rule | Italian charm bracelet and memory-box supplies |
-| `7670641318242077966` | Reusable basket formula: hobby + upgrade + comfort + plan | Three exact Target products visible in the basket |
-| `7672135662056869133` | Named products with a reason for each recommendation | Four products verified against official brand stores |
-| `7670644980880248077` | Completes the gift after purchase with concrete presentation rules | First-party Michaels wrap kit |
+All 21 source records are included: 16 photo carousels and five cover-only
+records, for 127 bundled images. Home and Swipe render the source pieces
+directly. Search and Maxi are fail-closed to products linked from this set and
+the verified wrap kit; neither reads the legacy catalog while the pilot flag is
+enabled.
 
-The remaining export posts were rejected for this pilot. High engagement alone
-does not override generic collage content, duplicated advice, unclear product
-identity, or low-information reaction videos.
+Product identity remains stricter than content inclusion. A source without
+enough visual evidence is labeled `Inspiration guide` and receives no invented
+product match. Cover-only records link back to the original post for context.
 
 The complete evidence and merchant URLs live in
 `Giftmaxxing/Resources/curated-gift-journeys.json`.
@@ -54,6 +53,10 @@ approved post is absent from the JSONL and never writes DynamoDB.
 | Ralph Lauren | Choose the color | Color selection, add to bag, store finder |
 | Nomination | Configure the bracelet | Bracelet configurator and delivery |
 | Arc'teryx | Open the exact official product page | Add to cart and delivery |
+| Chanel | Open the exact official product | Add to bag and shipping |
+| Fjällräven | Choose a backpack color | Color selection, add to cart, shipping |
+| Hydro Flask | Choose a bottle color | Color selection, add to cart, shipping |
+| Aesop | Choose a balm size | Size selection, add to cart, shipping |
 
 The Onitsuka Tiger slide remains useful inspiration, but it is intentionally
 unlisted as a product: no exact, live US purchase page could be verified. The
@@ -69,7 +72,7 @@ and fulfillment.
 ```mermaid
 flowchart LR
     Export["Supplied TikTok JSONL"] --> Review["Manual value review"]
-    Review -->|4 accepted| Evidence["Rekognition labels + OCR"]
+    Review -->|21 included| Evidence["Human review + Rekognition support"]
     Evidence --> Match["Verified merchant matches"]
     Match --> Guide["Curated guide in Home"]
     Guide --> Cart["Per-person Giftmaxxing cart"]

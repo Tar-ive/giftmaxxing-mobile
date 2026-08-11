@@ -7,7 +7,7 @@
 // reviewed IDs exist in the supplied JSONL, then asks Rekognition for object
 // labels and readable text as supporting evidence.
 
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -38,14 +38,39 @@ export function verifySelection(rows, manifest) {
       plays: Number(row.playCount || 0),
       likes: Number(row.diggCount || 0),
       saves: Number(row.collectCount || 0),
-      photos: journey.images,
-      productIds: journey.products.map((product) => product.id),
+      photos: Array.from({ length: Math.max(journey.imageCount || 1, 1) }, (_, index) =>
+        `bundle:///${journey.sourcePostId}-${String(index + 1).padStart(2, "0")}.jpg`),
+      productIds: journey.productIds,
     };
   });
   return {
     approved,
     rejectedSourceIds: rows.map((row) => String(row.id)).filter((id) => !approved.some((item) => item.sourcePostId === id)),
   };
+}
+
+export function sourceImages(row) {
+  const slides = (row.slideshowImageLinks || [])
+    .map((image) => image.downloadLink || image.tiktokLink)
+    .filter(Boolean);
+  if (slides.length) return slides;
+  return [row.videoMeta?.coverUrl].filter(Boolean);
+}
+
+async function syncAssets(rows, imagesDir) {
+  await mkdir(imagesDir, { recursive: true });
+  let downloaded = 0;
+  for (const row of rows) {
+    const images = sourceImages(row);
+    for (const [index, url] of images.entries()) {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Image download failed (${response.status}): ${row.id}`);
+      const path = join(imagesDir, `${row.id}-${String(index + 1).padStart(2, "0")}.jpg`);
+      await writeFile(path, Buffer.from(await response.arrayBuffer()));
+      downloaded += 1;
+    }
+  }
+  return downloaded;
 }
 
 function localImage(asset, imagesDir) {
@@ -86,6 +111,7 @@ function argsOf(argv) {
     imagesDir: join(root, "Giftmaxxing/Resources/Curated"),
     out: join(here, "reports/tiktok-curation-pilot.json"),
     region: process.env.AWS_REGION || "us-east-1",
+    syncAssets: false,
   };
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
@@ -94,6 +120,7 @@ function argsOf(argv) {
     else if (arg === "--images-dir") args.imagesDir = resolve(argv[++index]);
     else if (arg === "--out") args.out = resolve(argv[++index]);
     else if (arg === "--region") args.region = argv[++index];
+    else if (arg === "--sync-assets") args.syncAssets = true;
   }
   if (!args.file) throw new Error("--file <TikTok JSONL> is required");
   return args;
@@ -106,6 +133,7 @@ async function main() {
     readFile(args.manifest, "utf8"),
   ]);
   const rows = parseJsonl(sourceText);
+  const downloadedAssets = args.syncAssets ? await syncAssets(rows, args.imagesDir) : 0;
   const manifest = JSON.parse(manifestText);
   const selection = verifySelection(rows, manifest);
   const client = new RekognitionClient({ region: args.region });
@@ -135,6 +163,7 @@ async function main() {
     approvedPosts: selection.approved.length,
     rejectedPosts: selection.rejectedSourceIds.length,
     inspectedPhotos: evidence.reduce((sum, item) => sum + item.images.length, 0),
+    downloadedAssets,
   }, null, 2));
 }
 

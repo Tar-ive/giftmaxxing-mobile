@@ -5,6 +5,7 @@ struct CuratedGiftCatalog: Codable {
     let sourceFile: String
     let reviewedAt: String
     let journeys: [CuratedGiftJourney]
+    let products: [CuratedGiftProduct]
     let wrapKit: [CuratedGiftProduct]
 }
 
@@ -16,18 +17,24 @@ struct CuratedGiftJourney: Identifiable, Codable, Hashable {
     let subtitle: String
     let whySelected: String
     let labels: [String]
-    let images: [String]
-    let products: [CuratedGiftProduct]
+    let imageCount: Int
+    let productIds: [String]
+
+    var images: [String] {
+        (1...max(imageCount, 1)).map {
+            "bundle:///\(sourcePostId)-\(String(format: "%02d", $0)).jpg"
+        }
+    }
 
     var sourcePost: Post {
         Post(
             id: "curated-source-\(sourcePostId)",
             user: "giftmaxxing",
-            time: "curated",
+            time: "Gift guide",
             product: Product(
                 id: "curated-guide-\(id)",
                 name: title,
-                brand: "Curated guide",
+                brand: "Gift guide",
                 price: 0,
                 was: nil,
                 grad: .peach,
@@ -39,7 +46,7 @@ struct CuratedGiftJourney: Identifiable, Codable, Hashable {
             likes: 0,
             source: "ugc",
             url: sourceUrl,
-            reason: "Manually selected from the supplied TikTok export",
+            reason: nil,
             category: labels.first,
             qualityScore: 1,
             feedEligible: true,
@@ -95,7 +102,7 @@ struct CuratedGiftProduct: Identifiable, Codable, Hashable {
             source: "curated-product",
             productUrl: productUrl,
             rec: true,
-            reason: "Matched to a manually reviewed source slide",
+            reason: "Found in this gift guide",
             category: "curated",
             domain: merchant,
             qualityScore: 1,
@@ -112,12 +119,11 @@ final class CuratedGiftStore {
     let catalog: CuratedGiftCatalog
 
     var sourcePosts: [Post] { catalog.journeys.map(\.sourcePost) }
-    var productPosts: [Post] { catalog.journeys.flatMap(\.products).map(\.post) }
+    var productPosts: [Post] { catalog.products.map(\.post) }
     var wrapPosts: [Post] { catalog.wrapKit.map(\.post) }
 
     var feedPosts: [Post] {
-        catalog.journeys.flatMap { [$0.sourcePost] + $0.products.map(\.post) }
-            + wrapPosts
+        unique(catalog.journeys.flatMap { [$0.sourcePost] + products(for: $0).map(\.post) } + wrapPosts)
     }
 
     private init(bundle: Bundle = .main) {
@@ -133,7 +139,7 @@ final class CuratedGiftStore {
         let terms = query.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
         guard !terms.isEmpty else { return productPosts + wrapPosts }
         return (productPosts + wrapPosts).filter { post in
-            let product = catalog.journeys.flatMap(\.products).first { "curated-product-\($0.id)" == post.id }
+            let product = catalog.products.first { "curated-product-\($0.id)" == post.id }
                 ?? catalog.wrapKit.first { "curated-product-\($0.id)" == post.id }
             let haystack = [post.product.name, post.product.brand, post.caption]
                 + (product?.capabilities ?? [])
@@ -150,9 +156,18 @@ final class CuratedGiftStore {
                 .joined(separator: " ").lowercased()
             return terms.contains { normalized.contains($0) }
         }
-        let matched = journeys.flatMap { [$0.sourcePost] + $0.products.map(\.post) }
-        let products = search(query)
+        let matched = journeys.flatMap { [$0.sourcePost] + products(for: $0).map(\.post) }
+        let queryProducts = search(query)
+        return unique(matched + queryProducts)
+    }
+
+    func products(for journey: CuratedGiftJourney) -> [CuratedGiftProduct] {
+        let byId = Dictionary(uniqueKeysWithValues: catalog.products.map { ($0.id, $0) })
+        return journey.productIds.compactMap { byId[$0] }
+    }
+
+    private func unique(_ posts: [Post]) -> [Post] {
         var seen = Set<String>()
-        return (matched + products).filter { seen.insert($0.id).inserted }
+        return posts.filter { seen.insert($0.id).inserted }
     }
 }

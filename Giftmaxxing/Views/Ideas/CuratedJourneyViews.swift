@@ -49,9 +49,11 @@ struct CuratedJourneyRail: View {
     }
 
     private func journeyCard(_ journey: CuratedGiftJourney) -> some View {
-        VStack(alignment: .leading, spacing: ThemeSpacing.xs) {
-            CachedAsyncImage(url: journey.images.first, width: 600)
-                .aspectRatio(4 / 5, contentMode: .fill)
+        let products = store.products(for: journey)
+        return VStack(alignment: .leading, spacing: ThemeSpacing.xs) {
+            CachedAsyncImage(url: journey.images.first, width: 600, contentMode: .fit)
+                .aspectRatio(3 / 4, contentMode: .fit)
+                .background(Color.surfaceSunken)
                 .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
 
             Text(journey.title)
@@ -59,7 +61,7 @@ struct CuratedJourneyRail: View {
                 .foregroundStyle(Color.ink)
                 .lineLimit(2)
 
-            Text("\(journey.products.count) verified matches")
+            Text(products.isEmpty ? "Inspiration guide" : "\(products.count) verified matches")
                 .font(.footnote)
                 .foregroundStyle(Color.inkTertiary)
         }
@@ -74,11 +76,12 @@ struct CuratedJourneyListView: View {
         ScrollView {
             LazyVStack(spacing: ThemeSpacing.md) {
                 ForEach(store.catalog.journeys) { journey in
+                    let products = store.products(for: journey)
                     NavigationLink(value: journey) {
                         HStack(spacing: ThemeSpacing.md) {
-                            CachedAsyncImage(url: journey.images.first, width: 300)
-                                .aspectRatio(1, contentMode: .fill)
-                                .frame(width: ThemeSpacing.xl * 4)
+                            CachedAsyncImage(url: journey.images.first, width: 300, contentMode: .fit)
+                                .frame(width: ThemeSpacing.xl * 4, height: ThemeSpacing.xl * 4)
+                                .background(Color.surfaceSunken)
                                 .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.md, style: .continuous))
 
                             VStack(alignment: .leading, spacing: ThemeSpacing.xs) {
@@ -89,7 +92,7 @@ struct CuratedJourneyListView: View {
                                     .font(.subheadline)
                                     .foregroundStyle(Color.inkSecondary)
                                     .lineLimit(2)
-                                Text("\(journey.products.count) verified matches")
+                                Text(products.isEmpty ? "Inspiration guide" : "\(products.count) verified matches")
                                     .font(.footnote)
                                     .foregroundStyle(Color.coral)
                             }
@@ -119,6 +122,7 @@ struct CuratedJourneyDetailView: View {
     @State private var selectionFeedback = false
 
     private let store = CuratedGiftStore.shared
+    private var products: [CuratedGiftProduct] { store.products(for: journey) }
 
     var body: some View {
         ScrollView {
@@ -126,7 +130,7 @@ struct CuratedJourneyDetailView: View {
                 sourceGallery
                 editorialNote
 
-                if !journey.products.isEmpty {
+                if !products.isEmpty {
                     productSection
                 }
 
@@ -181,15 +185,15 @@ struct CuratedJourneyDetailView: View {
         VStack(alignment: .leading, spacing: ThemeSpacing.sm) {
             sectionHeader("Products in the idea", detail: "Identity checked against the source slide")
 
-            ForEach(journey.products) { product in
+            ForEach(products) { product in
                 productRow(product)
             }
 
             Button {
-                pickerPosts = PostBundle(posts: journey.products.map(\.post), source: "curated-products")
+                pickerPosts = PostBundle(posts: products.map(\.post), source: "curated-products")
                 selectionFeedback.toggle()
             } label: {
-                Label("Add all \(journey.products.count) to a cart", systemImage: "bag.badge.plus")
+                Label("Add all \(products.count) to a cart", systemImage: "bag.badge.plus")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(PrimaryButtonStyle())

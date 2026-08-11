@@ -4,20 +4,15 @@ import XCTest
 final class CuratedGiftStoreTests: XCTestCase {
     private let store = CuratedGiftStore.shared
 
-    func testPilotContainsOnlyManuallyApprovedSources() {
-        XCTAssertEqual(
-            Set(store.catalog.journeys.map(\.sourcePostId)),
-            Set([
-                "7670641859131100430",
-                "7670641318242077966",
-                "7672135662056869133",
-                "7670644980880248077",
-            ])
-        )
+    func testPilotContainsEverySuppliedSourceOnce() {
+        let ids = store.catalog.journeys.map(\.sourcePostId)
+        XCTAssertEqual(ids.count, 21)
+        XCTAssertEqual(Set(ids).count, 21)
+        XCTAssertEqual(store.sourcePosts.count, 21)
     }
 
     func testEveryRecommendationHasEvidenceAndAValidMerchantURL() {
-        let products = store.catalog.journeys.flatMap(\.products) + store.catalog.wrapKit
+        let products = store.catalog.products + store.catalog.wrapKit
         XCTAssertFalse(products.isEmpty)
         for product in products {
             XCTAssertFalse(product.matchEvidence.isEmpty, product.id)
@@ -36,6 +31,20 @@ final class CuratedGiftStoreTests: XCTestCase {
             let url = Bundle.main.url(forResource: resource, withExtension: ext, subdirectory: "Curated")
                 ?? Bundle.main.url(forResource: resource, withExtension: ext)
             XCTAssertNotNil(url, filename)
+        }
+    }
+
+    func testEveryJourneyProductResolves() {
+        let productIds = Set(store.catalog.products.map(\.id))
+        for journey in store.catalog.journeys {
+            XCTAssertTrue(Set(journey.productIds).isSubset(of: productIds), journey.id)
+        }
+    }
+
+    func testSourceCardsDoNotExposeInternalCurationCopy() {
+        for post in store.sourcePosts {
+            XCTAssertNil(post.reason)
+            XCTAssertFalse(post.caption.localizedCaseInsensitiveContains("supplied TikTok export"))
         }
     }
 
