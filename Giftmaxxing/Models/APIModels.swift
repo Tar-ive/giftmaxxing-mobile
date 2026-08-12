@@ -41,6 +41,7 @@ struct APIPost: Codable {
     // Maker's note / anecdote / craftsmanship detail (Shopify ingests carry
     // the product description; long-press on the feed image reveals it).
     var story: String?
+    var productFeatures: [String]?
 }
 
 struct UGCPost: Identifiable, Codable, Hashable {
@@ -187,6 +188,7 @@ struct MixerCatalogItem: Codable {
     var entityId: String; var kind: String; var title: String; var summary: String?
     var media: [MixerMedia]?; var creator: MixerCreator?; var provenance: MixerProvenance?
     var taxonomy: MixerTaxonomy?; var commerce: MixerCommerce; var quality: MixerQuality?
+    var features: [String]?
     var legacyPost: APIPost?
 }
 struct MixerReason: Codable { var code: String; var label: String }

@@ -1258,7 +1258,8 @@ actor APIClient {
                 track.audioUrl = absoluteMediaURL(track.audioUrl) ?? track.audioUrl
                 return track
             },
-            story: api.story
+            story: api.story,
+            productFeatures: api.productFeatures
         )
         // Assigned rather than passed: this initializer already sits at the
         // type-checker's limit, and one more argument tipped it over.
@@ -1291,7 +1292,7 @@ actor APIClient {
             qualityScore: item.quality?.score, contentType: item.kind,
             mediaUrl: item.media?.first?.url, mediaUrls: item.media?.map(\.url), posterUrl: nil,
             music: nil, feedEligible: item.quality?.giftable, giftType: item.kind == "service" ? "service" : "product",
-            serviceDuration: nil, story: item.summary
+            serviceDuration: nil, story: item.summary, productFeatures: item.features
         ))
     }
 

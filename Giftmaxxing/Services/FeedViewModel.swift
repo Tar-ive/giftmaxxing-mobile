@@ -287,7 +287,6 @@ final class FeedViewModel: ObservableObject {
     }
 
     func loadMore(context: ModelContext? = nil) async {
-        if CuratedGiftStore.isPilotEnabled { return }
         guard !isRefreshing, !isLoadingMore, !isLoading, !(exhausted && rankedBuffer.isEmpty) else { return }
         isLoadingMore = true
 

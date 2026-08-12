@@ -1,5 +1,5 @@
 const CONTENT_KINDS = new Set(["product", "service", "ugc_post", "story", "generated_media"]);
-export const POLICY_VERSION = "mixer-v2.4";
+export const POLICY_VERSION = "mixer-v2.5";
 
 export const SURFACE_WEIGHTS = {
   home: { taste: 0.4, relevance: 0, commerce: 0.25, quality: 0.15, freshness: 0.1, exploration: 0.1 },
@@ -68,7 +68,7 @@ export function mixCandidates(candidates, { surface = "home", limit = 20 } = {})
   const stories = deduped.filter((x) => ["story", "generated_media"].includes(x.item.kind));
   const targets = {
     direct: Math.min(direct.length, Math.ceil(limit * 0.5)),
-    ugc: ugc.length >= 20 ? Math.ceil(limit * 0.15) : Math.min(ugc.length, Math.floor(limit * 0.15)),
+    ugc: Math.min(ugc.length, Math.ceil(limit * 0.25)),
     stories: stories.length >= 10 ? Math.ceil(limit * 0.1) : Math.min(stories.length, Math.floor(limit * 0.1)),
   };
   const selected = [];
@@ -97,7 +97,20 @@ export function mixCandidates(candidates, { surface = "home", limit = 20 } = {})
     inspirationCount = 0;
     take(deduped, limit - selected.length);
   }
-  return diversify(selected.sort((a, b) => b.score - a.score), limit);
+  return scheduleHomeCarousels(diversify(selected.sort((a, b) => b.score - a.score), limit), limit);
+}
+
+function scheduleHomeCarousels(candidates, limit) {
+  const carousels = candidates.filter((x) => x.item.kind === "ugc_post");
+  const cards = candidates.filter((x) => x.item.kind !== "ugc_post");
+  if (!carousels.length) return candidates.slice(0, limit);
+  const output = [];
+  while (output.length < limit && (cards.length || carousels.length)) {
+    output.push(...cards.splice(0, Math.min(3, cards.length)));
+    if (carousels.length && output.length < limit) output.push(carousels.shift());
+    if (!cards.length) output.push(...carousels.splice(0, limit - output.length));
+  }
+  return output.slice(0, limit);
 }
 
 function challengeDeck(candidates, limit) {

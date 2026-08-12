@@ -59,4 +59,12 @@ final class CuratedGiftStoreTests: XCTestCase {
             XCTAssertEqual(MasonryTile.aspect(for: post), MediaAspect.recommendationCard, post.id)
         }
     }
+
+    func testSwipeProductsUseVerifiedListingData() {
+        for post in store.challengeProducts {
+            XCTAssertEqual(post.product.gallery.count, 1, post.id)
+            XCTAssertNotNil(post.productUrl, post.id)
+            XCTAssertFalse(post.productFeatures?.isEmpty ?? true, post.id)
+        }
+    }
 }

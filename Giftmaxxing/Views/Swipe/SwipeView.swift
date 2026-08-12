@@ -403,10 +403,13 @@ struct SwipeCardView: View {
                     Text(post.product.brand).font(.subheadline.weight(.semibold)).opacity(0.82)
                     Text(post.reason ?? post.caption)
                         .font(.subheadline).lineLimit(2).opacity(0.9)
-                    Button(action: onDetails) {
-                        Label("Swipe up for details and why it fits", systemImage: "arrow.up")
-                            .font(.caption.weight(.bold))
+                    HStack(spacing: 14) {
+                        Button(action: onDetails) { Label("Details", systemImage: "arrow.up") }
+                        if post.productUrl != nil {
+                            Button(action: onDetails) { Label("Find product", systemImage: "bag.fill") }
+                        }
                     }
+                    .font(.caption.weight(.bold))
                     .buttonStyle(.plain).padding(.top, 2)
                 }
                 .padding(.horizontal, 18).padding(.bottom, 124)
@@ -461,16 +464,30 @@ private struct SwipeProductDetails: View {
                         if let story = post.story, !story.isEmpty, story != post.reason {
                             detailBlock("The details", story)
                         }
+                        if let features = post.productFeatures, !features.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Product features").font(.headline)
+                                ForEach(features, id: \.self) { feature in
+                                    Label(feature.capitalized, systemImage: "checkmark.circle.fill")
+                                        .font(.subheadline).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
                         Label("Your likes and passes update your private taste profile. Friends can use that profile when choosing a gift for you.", systemImage: "person.2.fill")
                             .font(.footnote).foregroundStyle(.secondary)
                             .padding().background(Color.coralSoft, in: RoundedRectangle(cornerRadius: 16))
-                        if let value = post.productUrl ?? post.url, let url = URL(string: value) {
-                            Link(destination: url) {
-                                Label("View verified product", systemImage: "bag.fill")
+                        if let value = post.productUrl, let url = URL(string: value) {
+                            Button {
+                                OutboundRouter.open(url, postId: post.id, source: "swipe_product") {
+                                    UIApplication.shared.open($0)
+                                }
+                            } label: {
+                                Label("Shop at \(post.domain ?? post.product.brand)", systemImage: "bag.fill")
                                     .font(.headline).foregroundStyle(.white)
                                     .frame(maxWidth: .infinity).padding(.vertical, 15)
                                     .background(Color.coral, in: Capsule())
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, 20).padding(.bottom, 28)

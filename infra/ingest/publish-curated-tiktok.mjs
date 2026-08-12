@@ -93,6 +93,7 @@ for (const product of [...manifest.products, ...manifest.wrapKit]) {
     postId, author: "giftmaxxing", source: "curated-product", kind: "product",
     product: { id: product.id, name: product.name, brand: product.brand, price: product.price, image: publicPath(manifest.version, product.image) },
     productUrl: product.productUrl, merchant: product.merchant, caption: product.matchEvidence,
+    capabilities: product.capabilities,
     story: product.matchEvidence, category: taxonomy.category, vibes: [...new Set([...taxonomy.labels, ...product.capabilities])],
     curationStatus: "approved", moderationStatus: "APPROVED", status: "made",
     curationCollectionId: collectionId, curationCollectionVersion: manifest.version,

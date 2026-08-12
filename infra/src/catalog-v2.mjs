@@ -41,6 +41,7 @@ export function normalizeLegacyPost(post = {}) {
   const origin = inferOrigin(post);
   const title = clean(product.name || post.name || post.caption || "Gift idea", 240);
   const merchant = clean(post.merchant || product.brand || post.domain, 160);
+  const features = list(post.capabilities ?? product.capabilities ?? [], 16);
   return {
     entityId: id,
     entityType: "item",
@@ -49,6 +50,7 @@ export function normalizeLegacyPost(post = {}) {
     status: post.feedEligible === false || post.status === "REJECTED" ? "restricted" : "active",
     title,
     summary: clean(post.story || post.caption, 1000),
+    features,
     media: media.map((url, index) => ({ url, role: index === 0 ? "primary" : "gallery" })),
     creator: { id: clean(post.ownerId || post.author, 160), name: clean(post.authorName || post.author, 160) },
     provenance: {

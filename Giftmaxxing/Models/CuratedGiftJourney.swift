@@ -107,7 +107,8 @@ struct CuratedGiftProduct: Identifiable, Codable, Hashable {
             domain: merchant,
             qualityScore: 1,
             feedEligible: true,
-            story: matchEvidence
+            story: matchEvidence,
+            productFeatures: capabilities
         )
     }
 }
@@ -120,11 +121,9 @@ final class CuratedGiftStore {
 
     var sourcePosts: [Post] { catalog.journeys.map(\.sourcePost) }
     var productPosts: [Post] {
-        catalog.products.map { product in
-            var post = product.post
-            post.product.images = journeys(containingProductId: product.id).flatMap(\.images)
-            return post
-        }
+        // Inspiration slides explain an idea; they are not merchant product
+        // photos. Swipe cards therefore keep only verified listing imagery.
+        catalog.products.map(\.post)
     }
     var wrapPosts: [Post] { catalog.wrapKit.map(\.post) }
     /// Products admitted to taste-learning decks. Every card has a verified

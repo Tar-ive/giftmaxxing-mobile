@@ -34,6 +34,20 @@ test("home mixer deduplicates and keeps a shoppable majority", () => {
   assert.ok(mixed.some((x) => x.item.kind === "story"));
 });
 
+test("home schedules one inspiration carousel per four cards", () => {
+  const items = [
+    ...Array.from({ length: 15 }, (_, i) => post(`p${i}`, "catalog", "product")),
+    ...Array.from({ length: 5 }, (_, i) => {
+      const item = post(`u${i}`, "ugc", "ugc_post");
+      item.commerce = { shoppability: "bridged", offers: [] };
+      return item;
+    }),
+  ];
+  const mixed = mixCandidates(items.map((item) => ({ item, score: 1 })), { surface: "home", limit: 20 });
+  assert.equal(mixed.filter((x) => x.item.kind === "ugc_post").length, 5);
+  assert.deepEqual([3, 7, 11, 15, 19].map((index) => mixed[index].item.kind), Array(5).fill("ugc_post"));
+});
+
 test("search weights query relevance above a conflicting taste", () => {
   const coffee = post("coffee", "Shopify/Test", "product", { category: "coffee", vibes: ["coffee"] });
   const tech = post("tech", "Shopify/Test", "product", { category: "tech", vibes: ["tech"] });
