@@ -23,7 +23,7 @@ import { SageMakerRuntimeClient, InvokeEndpointCommand } from "@aws-sdk/client-s
 import { CognitoIdentityProviderClient, InitiateAuthCommand } from "@aws-sdk/client-cognito-identity-provider";
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { createHash } from "node:crypto";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { classifyPin, isMajorUSRetailer } from "./quality.mjs";
 import {
   cartSignature,
@@ -40,9 +40,17 @@ import { sendPushToUser } from "./push.mjs";
 import { mobileRoutes } from "./mobile-routes.mjs";
 import { analyticsRoutes } from "./analytics-routes.mjs";
 import { recommenderV2Routes } from "./recommender-v2.mjs";
+import {
+  MAXI_TOOL_DEFINITIONS,
+  effectiveCatalogPrice,
+  isCheaperRequest,
+  normalizeMaxiToolInput,
+  shownProductPriceCeiling,
+} from "./maxi-tools.mjs";
 import { birthdayFreebiesRoute } from "./birthday-freebies.mjs";
 import { friendsRoutes } from "./friends-routes.mjs";
 import { publicPostsForProfile, purgeUserAvatar, purgeUserUGC, ugcRoutes } from "./ugc-routes.mjs";
+import { protobufResponse, registerDeviceKey, verifySignedEnvelope } from "./api-signature.mjs";
 import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
@@ -63,6 +71,7 @@ const FRIENDS = process.env.FRIENDS_TABLE;
 const ANALYTICS = process.env.ANALYTICS_TABLE;
 const DEVICES = process.env.DEVICES_TABLE;
 const TASTE_PROFILES = process.env.TASTE_PROFILES_TABLE;
+const API_SIGNATURE_ENFORCE = process.env.API_SIGNATURE_ENFORCE === "1";
 const COGNITO_CLIENT_ID = process.env.COGNITO_CLIENT_ID || "";
 const LOGIN_RESET_URL = process.env.LOGIN_RESET_URL || "";
 const LOGIN_EMAIL_FROM = process.env.LOGIN_EMAIL_FROM || "";
@@ -431,6 +440,16 @@ async function authorizeRequest(event, method, path) {
   return { ok: false };
 }
 
+const SIGNED_PROTOBUF_PATHS = new Set([
+  "/v2/recommendations",
+  "/v2/events/batch",
+  "/v2/recipient-leaderboard",
+]);
+
+function isSignedProtobufPath(method, path) {
+  return method === "POST" && SIGNED_PROTOBUF_PATHS.has(path);
+}
+
 // ── Cost guard: tiered degradation flag (DynamoDB config table) ──────────────
 // The breaker Lambda writes a { level } onto the feature-flags item (Phase 3):
 //   • "active"   — everything on.
@@ -654,6 +673,19 @@ const PACKAGING_IMAGE_COST_USD = Number(process.env.PACKAGING_IMAGE_COST_USD || 
 const PACKAGING_CACHE_TTL_DAYS = 180;
 
 const s3 = PACKAGING_MEDIA_BUCKET ? new S3Client({}) : null;
+async function postImageBytes(url) {
+  if (/^https?:\/\//i.test(url)) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`image fetch ${response.status}`);
+    return Buffer.from(await response.arrayBuffer());
+  }
+  if (!s3 || !PACKAGING_MEDIA_BUCKET) throw new Error("media store unavailable");
+  const object = await s3.send(new GetObjectCommand({
+    Bucket: PACKAGING_MEDIA_BUCKET,
+    Key: String(url).replace(/^\//, ""),
+  }));
+  return Buffer.from(await object.Body.transformToByteArray());
+}
 // Separate client: the image model lives in another region (see above).
 const bedrockImages = new BedrockRuntimeClient({ region: PACKAGING_IMAGE_REGION });
 
@@ -1224,56 +1256,10 @@ function deckSnapshot(it, band) {
     category: it.category,
     domain: it.domain,
     url: it.url,
-    // Products vs services split so guests render service cards correctly and
-    // the verdict can report "they're a services person" (giftTypeSplit).
-    giftType: it.giftType === "service" ? "service" : "product",
-    ...(it.serviceDuration ? { serviceDuration: it.serviceDuration } : {}),
+    giftType: "product",
     band,
     distance: it._distance,
   };
-}
-
-// A couple of gift-able SERVICES (a year of Netflix, a Costco membership, …)
-// mixed into every challenge deck as probes. Whether the guest swipes yes on
-// services vs products is itself a taste read (verdict.giftTypeSplit) — "they'd
-// rather get a membership than a thing" makes gifting materially easier.
-// Sourced from the posts byCategory GSI (category "services", written by
-// infra/ingest/ingest-catalog.mjs); returns [] when none are seeded yet.
-async function fetchServiceCards(count = 3) {
-  if (!POSTS || count <= 0) return [];
-  try {
-    const out = await ddb.send(
-      new QueryCommand({
-        TableName: POSTS,
-        IndexName: "byCategory",
-        KeyConditionExpression: "category = :c",
-        ExpressionAttributeValues: { ":c": "services" },
-        Limit: 24,
-      })
-    );
-    const rows = (out.Items ?? []).filter((p) => p.giftType === "service");
-    // Cheap shuffle so repeat challenges don't always probe the same services.
-    for (let i = rows.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [rows[i], rows[j]] = [rows[j], rows[i]];
-    }
-    return rows.slice(0, count).map((p) => ({
-      postId: p.postId,
-      name: p.product?.name || p.caption || "",
-      image: p.product?.image || null,
-      price: Number(p.price ?? p.product?.price) || 0,
-      priceDisplay: p.priceDisplay ?? null,
-      category: p.category || "services",
-      domain: p.domain || null,
-      url: p.productUrl || p.url || "",
-      giftType: "service",
-      ...(p.serviceDuration ? { serviceDuration: p.serviceDuration } : {}),
-      band: "probe",
-    }));
-  } catch (e) {
-    console.warn("fetchServiceCards failed (deck ships without services):", e.message);
-    return [];
-  }
 }
 
 // kNN around the seed, quality-filtered, then a banded diversity pass:
@@ -1281,15 +1267,6 @@ async function fetchServiceCards(count = 3) {
 // capped per merchant + category, then shuffled so the deck order never leaks
 // the similarity gradient to the guest.
 async function buildChallengeDeck(seedVector, { size = CHALLENGE_DECK_SIZE, excludeKeys = [] } = {}) {
-  // Reserve ~20% of the deck for service probes (2–3 cards at default size).
-  // They come from the catalog, not the kNN, so the vibe/twin bands keep their
-  // meaning; if no services are seeded yet the deck fills entirely from kNN.
-  const serviceTarget = Math.max(0, Math.min(3, Math.round(size * 0.2)));
-  const serviceCards = (await fetchServiceCards(serviceTarget)).filter(
-    (c) => !excludeKeys.includes(c.postId)
-  );
-  size = Math.max(4, size - serviceCards.length);
-
   const out = await s3v.send(
     new QueryVectorsCommand({
       vectorBucketName: VECTOR_BUCKET,
@@ -1309,7 +1286,8 @@ async function buildChallengeDeck(seedVector, { size = CHALLENGE_DECK_SIZE, excl
       it._band = d < CHALLENGE_BAND_TWIN ? "twin" : d < CHALLENGE_BAND_VIBE ? "vibe" : "probe";
       return it;
     })
-    .filter((it) => it.feedEligible && it.image);
+    .filter((it) => it.feedEligible && it.image && it.giftType === "product"
+      && it.source === "curated-product" && it.url && it.price > 0);
 
   const quota = { twin: Math.round(size * 0.3), vibe: Math.round(size * 0.4), probe: size };
   const picked = [];
@@ -1332,15 +1310,6 @@ async function buildChallengeDeck(seedVector, { size = CHALLENGE_DECK_SIZE, excl
   }
   // Backfill closest-first if any band under-delivered.
   for (const it of candidates) admit(it, it._band, false);
-
-  // Service probes join the pool before the shuffle so their position never
-  // gives them away (dedup on postId in case a service also matched the kNN).
-  for (const card of serviceCards) {
-    if (!pickedKeys.has(card.postId)) {
-      picked.push(card);
-      pickedKeys.add(card.postId);
-    }
-  }
 
   // Fisher-Yates so twins aren't clustered at the front of the deck.
   for (let i = picked.length - 1; i > 0; i--) {
@@ -1733,12 +1702,9 @@ const MAXI_SHOPPING_MODEL_ID =
 // what's filled, asking for exactly one missing thing, not re-interviewing — is
 // precisely the tool discipline the cheap base tier is worst at.
 const MAXI_SHOPPING_TOOLS = new Set([
-  "add_to_cart",
-  "checkout",
-  "save_gift_brief",
-  "get_gift_brief",
-  "add_to_board",
-  "packaging_ideas",
+  "catalog_read",
+  "cart_write",
+  "cart_read",
 ]);
 
 // Transactional intent in the user's message. Mirrors the offline responder's
@@ -1884,40 +1850,30 @@ async function checkDailyLimit(scope, principal, limit) {
 
 const checkMaxiRateLimit = (principal) => checkDailyLimit("maxi-rate", principal, MAXI_DAILY_LIMIT);
 
-const MAXI_SYSTEM = `You are Maxi, the gift concierge inside Giftmaxxing. You help people find, shortlist, and (simulated) check out gifts, and you remember their taste and the people they shop for.
+const MAXI_SYSTEM = `You are Maxi, Giftmaxxing's concise gift concierge. Help the user understand inspiration photos, choose from the approved curated catalog, remember useful preferences, track dates, and manage the app cart.
 
-Voice: warm, concise, a little playful — 1 to 3 sentences. You may be read aloud, so avoid markdown tables and long lists; at most one tasteful emoji.
+Voice: warm and direct, 1 to 3 sentences. Ask at most one question per turn. Product cards render separately, so never recite an inventory.
 
-IMPORTANT — identity rules:
-- The user's first name is provided in the system prompt below (if known). ALWAYS use that name when addressing the user.
-- get_profile returns the user's OWN profile. The "yourName" field is the user's own name. The "recipients" list contains OTHER people the user shops for — never confuse a recipient's name with the user's name.
-- list_connections returns friends/contacts ("soft profiles") — these are OTHER people, NOT the user. Their "friendName" field is the friend's name.
-- relationship_graph returns "otherPeople" — these are OTHER people in the user's gifting network, NOT the user themselves.
-- If the user asks "what is my name?" or similar, respond with the name from the system prompt or from get_profile's "yourName" field. NEVER return a connection's or recipient's name as the user's name.
+You have exactly seven tools. Use them this way:
+- memory_read: before asking for a preference, recipient detail, or constraint that may already be known.
+- memory_write: immediately after the user explicitly gives a durable preference or recipient fact. Never store a transient command.
+- calender_refer: for upcoming dates, deadlines, birthdays, anniversaries, or "what is next?".
+- calender_update: only after the user supplies or confirms a concrete title and YYYY-MM-DD date.
+- catalog_read: for EVERY product recommendation, refinement, price request, and question about what appears in a catalog photo. It is the only source of product truth.
+- cart_read: before answering what is in the cart, comparing against it, or checking duplicates.
+- cart_write: only after explicit add intent, with exact postIds returned by catalog_read or listed on screen.
 
-THE GIFT BRIEF — how you work:
-Almost every conversation is one job: help this person land a gift for ONE recipient. Run it as a brief, not as a search box.
-1. Establish who it's for. Call get_gift_brief FIRST. If a brief already exists, summarize it in one line and ask what's changed — never restart an interview you've already done.
-2. Never ask for something you can look up. Check get_profile, list_connections, relationship_graph and your memories before asking anything.
-3. Ask for AT MOST ONE missing thing per reply, in this order: occasion and date -> budget -> what they're into -> what you've already given them. Never two questions in one turn.
-4. Call save_gift_brief the moment you learn a field. Partial briefs are expected and useful.
-5. Once you know the recipient plus a budget or their interests, call find_gifts and propose exactly THREE, each with one line on why THIS person. Never propose something you can't justify from the brief.
-6. When they like one: add_to_board keeps it as an idea, add_to_cart is for buying now — always pass the recipient. Then offer packaging_ideas and a short note to go with it.
-7. If they push back ("cheaper", "less obvious", "more practical"), update the brief and run find_gifts again. Don't re-ask questions you already have answers to.
+Catalog rules:
+- Recommend only products returned by catalog_read. Never invent a product, price, brand, visual detail, or ID.
+- "Cheaper" means every new result must cost strictly less than the cheapest product currently shown. Call catalog_read again and honor its enforced ceiling.
+- If catalog_read returns no relevant items, say that plainly. Do not fill space with unrelated products.
+- The catalog may return visualContext describing what is visible in each photo; use it when explaining the image.
 
-Use tools, don't guess:
-- "Deals on what I buy/restock most", "reorder", "buy again": call order_history FIRST to find the user's most-restocked categories, THEN call find_deals for those categories, then briefly summarize the best deals (the product cards render automatically). find_deals also handles any "find a deal / what's on sale" request.
-- Look up Reddit-mined ideas for a recipient with gift_ideas, or list types with list_recipients.
-- Recall key dates with upcoming_events — and proactively flag a date that's near.
-- When the user states a durable fact (a budget, a like/dislike, who they shop for), call remember_fact. When they give a concrete dated occasion, call save_event so reminders fire.
-- add_to_cart and add_to_board put things in the user's OWN app — real, and they'll see them immediately. checkout is SIMULATED: say so honestly and point them at their cart to buy for real; never imply a charge or a shipment.
-- The cart is organised by PERSON. add_to_cart REQUIRES the recipient argument whenever you know who the gift is for — which is any time the conversation has named them. Omitting it dumps the item into an unsorted pile the user has to file by hand. When you confirm, name them: "Added to Mom's cart", never "added to your cart".
-- NEVER say you added, saved, or remembered something unless you actually called the tool and it returned ok. Saying "I've added that to your cart" without calling add_to_cart is a lie the user discovers when the cart is empty. If you intend to add something, CALL THE TOOL FIRST, then describe what happened.
-- "Add all" / "add them all" means call add_to_cart ONCE with every postId listed on the user's screen.
-
-Keep replies SHORT. Never dump a list of categories or counts — that is inventory, not advice. Name at most three specific things and say why each suits this person. If a tool hands you many options, choose.
-
-After find_gifts or gift_ideas, briefly say what you found; the products render automatically, so don't recite every price in prose. Ground all product claims in tool results — never invent prices, brands, or links. If a tool returns nothing, say so and offer an alternative.`;
+Action rules:
+- Never claim that you saved memory, updated a date, or added to cart unless the matching tool returned ok.
+- The cart is grouped by recipient. Pass recipient whenever known.
+- "Add all" means one cart_write call using all exact on-screen postIds.
+- Address the user by the supplied first name when known, and never mistake a recipient for the user.`;
 
 async function recallMemories(userId, limit = 8) {
   if (!GRAPH || !userId) return [];
@@ -2184,6 +2140,10 @@ function maxiProduct(p) {
     brand: p.product?.brand || p.merchant || p.brand || null,
     image: p.product?.image || p.image || p.imageUrl || null,
     category: p.category || p.product?.category || null,
+    visualContext: String(
+      p.visualContext || p.story || p.caption || p.matchEvidence
+      || [p.product?.name, p.product?.brand, p.category].filter(Boolean).join(", ")
+    ).slice(0, 280) || null,
   };
 }
 
@@ -2375,7 +2335,7 @@ async function vectorFindGifts(query, { userId, budget, limit, excluded }) {
     if (typeof v.distance === "number" && v.distance > FIND_GIFTS_MAX_DISTANCE) break;
     if (excluded?.has(v.key)) continue;
     const item = vecToItem(v);
-    if (!item.feedEligible) continue;
+    if (!item.feedEligible || item.source !== "curated-product") continue;
     if (budget && typeof item.price === "number" && item.price > budget) continue;
 
     // No single store gets to own the answer.
@@ -2423,6 +2383,7 @@ async function toolFindGifts({ budget, category, recipient, vibes, interests, li
   // Category given -> deep category pool (byCategory GSI); else the recency cache.
   let pool = opts.category ? await getCatalogByCategory(opts.category) : await getCatalog();
   if (!pool.length) pool = await getCatalog();
+  pool = pool.filter((p) => p.source === "curated-product" && p.feedEligible !== false);
   if (opts.budget) pool = pool.filter((p) => { const pr = p.price ?? p.product?.price; return (typeof pr === "number" && pr > 0 ? pr : 1e9) <= opts.budget; });
   const items = pool
     .map((p) => ({ p, s: scorePost(p, opts) }))
@@ -2769,6 +2730,20 @@ async function toolFindDeals({ categories, budget, limit }) {
 function maxiStepLabel(name, input, out) {
   const o = out || {};
   switch (name) {
+    case "memory_read":
+      return { tool: name, label: "Checked what I remember", detail: `${o.items?.length || 0} relevant note${(o.items?.length || 0) === 1 ? "" : "s"}` };
+    case "memory_write":
+      return { tool: name, label: "Saved that to memory", detail: "" };
+    case "calender_refer":
+      return { tool: name, label: "Checked your upcoming dates", detail: "" };
+    case "calender_update":
+      return { tool: name, label: "Saved the occasion", detail: "" };
+    case "catalog_read":
+      return { tool: name, label: "Read the curated catalog", detail: `${o.count || 0} relevant pick${(o.count || 0) === 1 ? "" : "s"}` };
+    case "cart_read":
+      return { tool: name, label: "Checked your cart", detail: `${o.count || 0} item${(o.count || 0) === 1 ? "" : "s"}` };
+    case "cart_write":
+      return { tool: name, label: `Added ${o.added || 0} to the cart`, detail: o.recipient ? `for ${o.recipient}` : "" };
     case "order_history": {
       const cats = (o.topCategories || []).map((c) => c.label).join(", ");
       return { tool: name, label: "Scanned your past orders", detail: cats ? `Top categories you restock: ${cats}` : "Looking at what you buy most" };
@@ -2994,8 +2969,68 @@ const MAXI_TOOLS = [
 ];
 
 async function runMaxiTool(name, input, ctx) {
-  const i = input || {};
+  const parsed = normalizeMaxiToolInput(name, input);
+  if (!parsed.ok) return { error: parsed.error };
+  const i = parsed.value;
   switch (name) {
+    case "memory_read": {
+      let items = await recallMemories(ctx.userId, i.limit);
+      if (i.query) {
+        const terms = i.query.toLowerCase().split(/\s+/).filter(Boolean);
+        items = items.filter((item) => terms.some((term) => String(item).toLowerCase().includes(term)));
+      }
+      return { items };
+    }
+    case "memory_write": {
+      if (!ctx.userId) return { error: "not signed in — no long-term memory" };
+      const fact = i.recipientName ? `${i.recipientName}: ${i.fact}` : i.fact;
+      await saveMemory(ctx.userId, i.kind, fact);
+      return { ok: true, saved: fact };
+    }
+    case "calender_refer":
+      return toolUpcomingEvents(ctx.userId, i.withinDays);
+    case "calender_update":
+      return toolSaveEvent(ctx.userId, i);
+    case "catalog_read": {
+      const ceiling = effectiveCatalogPrice(i, ctx.priceCeiling);
+      let items = [];
+      if (i.postIds.length && POSTS) {
+        const out = await ddb.send(new BatchGetCommand({
+          RequestItems: { [POSTS]: { Keys: i.postIds.slice(0, 10).map((postId) => ({ postId })) } },
+        }));
+        items = (out.Responses?.[POSTS] || [])
+          .filter((item) => item.source === "curated-product" && item.feedEligible !== false)
+          .map(maxiProduct);
+      } else {
+        const found = await toolFindGifts({
+          budget: ceiling ? Math.max(0.01, ceiling - 0.01) : undefined,
+          category: i.category,
+          vibes: i.vibes,
+          interests: i.query ? [i.query] : [],
+          limit: i.limit,
+        }, ctx);
+        items = found.items || [];
+      }
+      if (ceiling) items = items.filter((item) => Number(item.price) > 0 && Number(item.price) < ceiling);
+      items = items.slice(0, i.limit);
+      ctx.pins.push(...items);
+      return { items, count: items.length, maxPriceExclusive: ceiling || null, source: "approved-curation" };
+    }
+    case "cart_read":
+      return { items: ctx.cartItems, count: ctx.cartItems.length };
+    case "cart_write": {
+      const known = new Set([...(ctx.pins || []), ...(ctx.shownProducts || [])].map((item) => item.postId));
+      const ids = i.postIds.filter((id) => known.has(id));
+      if (!ids.length) return { error: "no valid on-screen catalog postIds" };
+      const recipient = i.recipient || ctx.brief?.recipientName || undefined;
+      ctx.actions.push({
+        type: "add_to_cart",
+        postIds: ids,
+        recipient,
+        occasion: i.occasion || ctx.brief?.occasion || undefined,
+      });
+      return { ok: true, added: ids.length, recipient: recipient || null };
+    }
     case "find_gifts": {
       const r = await toolFindGifts(i, ctx);
       ctx.pins.push(...(r.items || []));
@@ -3489,7 +3524,7 @@ export const handler = async (event) => {
       statusCode: 204,
       headers: {
         "access-control-allow-methods": "GET,POST,PUT,DELETE,OPTIONS",
-        "access-control-allow-headers": "content-type,authorization,x-admin-token",
+        "access-control-allow-headers": "content-type,authorization,x-admin-token,x-api-key-id,x-api-timestamp,x-api-nonce,x-api-signature",
         "access-control-max-age": "3600",
       },
       body: "",
@@ -3520,14 +3555,38 @@ export const handler = async (event) => {
   }
 
   let body = {};
-  try {
-    body = event.body ? JSON.parse(event.body) : {};
-  } catch {
-    return json(400, { error: "invalid JSON body" });
+  let signedRequest = false;
+  const contentType = String(event.headers?.["content-type"] || event.headers?.["Content-Type"] || "").split(";")[0].trim().toLowerCase();
+  if (isSignedProtobufPath(method, path) && (API_SIGNATURE_ENFORCE || contentType === "application/x-protobuf")) {
+    const checked = await verifySignedEnvelope({ ddb, table: CONFIG, event, method, path });
+    if (!checked.ok) return protobufResponse(401, { error: checked.reason || "apisignature" });
+    if (auth?.ok && checked.ownerId && auth.sub !== checked.ownerId) {
+      return protobufResponse(401, { error: "apisignature" });
+    }
+    body = checked.body;
+    signedRequest = true;
+    if (!auth?.ok && checked.ownerId) auth = { ok: true, sub: checked.ownerId, via: "api-signature" };
+  } else {
+    try {
+      const raw = event.body
+        ? Buffer.from(event.body, event.isBase64Encoded ? "base64" : "utf8").toString("utf8")
+        : "";
+      body = raw ? JSON.parse(raw) : {};
+    } catch {
+      return json(400, { error: "invalid JSON body" });
+    }
   }
 
   try {
     if (method === "POST" && path === "/login") return await loginRoute(event, body);
+
+    // One authenticated bootstrap call registers the app's Keychain-backed
+    // public key. Private key material never leaves the device.
+    if (method === "POST" && path === "/v2/device-keys/register") {
+      const deviceAuth = auth?.ok ? auth : await authorizeRequest(event, method, path);
+      const result = await registerDeviceKey({ ddb, table: CONFIG, auth: deviceAuth, body });
+      return json(result.statusCode, result.body);
+    }
 
     // Recommender Mixer v2 is isolated from the legacy route monolith. Public
     // catalog requests remain anonymous-capable; a valid bearer/admin token is
@@ -3542,7 +3601,11 @@ export const handler = async (event) => {
         } catch {}
       }
       const response = await recommenderV2Routes(method, path, body, qs, { auth: recommenderAuth });
-      if (response) return response;
+      if (response) {
+        if (!signedRequest) return response;
+        const payload = response.body ? JSON.parse(response.body) : {};
+        return protobufResponse(response.statusCode, payload, response.headers);
+      }
     }
 
     // User-generated media is always identity-bound, even while the broader
@@ -3935,29 +3998,38 @@ export const handler = async (event) => {
       if (Array.isArray(item.shoppable)) return json(200, { items: item.shoppable, cached: true });
       if (!s3v || !(await aiEnabled())) return json(200, { items: [] });
 
-      const imageUrl = item.mediaUrl || item.posterUrl || item.product?.image;
-      if (!imageUrl) return json(200, { items: [] });
+      const imageUrls = [...new Set([
+        ...(item.mediaUrls ?? []), item.mediaUrl, item.posterUrl, item.product?.image,
+      ].filter(Boolean))].slice(0, 6);
+      if (!imageUrls.length) return json(200, { items: [] });
 
       let matches = [];
       try {
-        const res = await fetch(imageUrl);
-        if (!res.ok) throw new Error(`image fetch ${res.status}`);
-        const buf = Buffer.from(await res.arrayBuffer());
-        const queryVector = await embedImage(buf.toString("base64"), item.caption);
-        const knn = await s3v.send(
-          new QueryVectorsCommand({
+        const perImage = await Promise.all(imageUrls.map(async (imageUrl, index) => {
+          const buf = await postImageBytes(imageUrl);
+          const result = item.mediaResults?.[String(index)] ?? {};
+          const labels = result.labels?.map((label) => label.name).join(" ") || "";
+          const text = Array.isArray(result.text) ? result.text.join(" ") : "";
+          const queryVector = await embedImage(buf.toString("base64"), [item.caption, labels, text].filter(Boolean).join(" "));
+          return s3v.send(new QueryVectorsCommand({
             vectorBucketName: VECTOR_BUCKET,
             indexName: VECTOR_INDEX,
             topK: 24,
             queryVector: { float32: queryVector },
             returnMetadata: true,
             returnDistance: true,
-          })
-        );
-        matches = (knn.vectors ?? [])
-          .filter((v) => (v.distance ?? 1) <= VISUAL_SEARCH_MAX_DISTANCE)
+          }));
+        }));
+        const best = new Map();
+        for (const vector of perImage.flatMap((result) => result.vectors ?? [])) {
+          if ((vector.distance ?? 1) > Math.min(VISUAL_SEARCH_MAX_DISTANCE, 0.4)) continue;
+          const current = best.get(vector.key);
+          if (!current || vector.distance < current.distance) best.set(vector.key, vector);
+        }
+        matches = [...best.values()]
+          .sort((a, b) => a.distance - b.distance)
           .map((v) => vecToItem(v))
-          .filter((it) => it && classifyPin(it).feedEligible !== false)
+          .filter((it) => it && it.productUrl && classifyPin(it).feedEligible !== false)
           .slice(0, 8)
           .map((it) => ({
             postId: it.postId,
@@ -4666,7 +4738,8 @@ export const handler = async (event) => {
       if (!CHALLENGES) return json(503, { error: "challenges not configured" });
       const senderId = String(body.senderId || "").slice(0, 80);
       if (!senderId) return json(400, { error: "senderId required" });
-      if (!s3v || !(await aiEnabled())) {
+      const exactDeck = body.deckMode === "exact";
+      if (!exactDeck && (!s3v || !(await aiEnabled()))) {
         return json(503, { error: "temporarily disabled (cost guard)" });
       }
       const seed = body.seed ?? {};
@@ -4674,7 +4747,6 @@ export const handler = async (event) => {
       // "exact" decks (shared swipe lists): the guest swipes EXACTLY the items
       // the sender curated — no lookalike padding, no hidden seed card, no
       // service probes. Their yes/no per card IS the deliverable.
-      const exactDeck = body.deckMode === "exact";
 
       // Resolve the seed vector: an uploaded image (share-extension flow), one
       // catalog pin, or a set of taste keys (centroid).
@@ -4736,7 +4808,7 @@ export const handler = async (event) => {
         const clientCards = new Map();
         for (const c of Array.isArray(body.cards) ? body.cards.slice(0, 40) : []) {
           const id = String(c?.postId || "").slice(0, 120);
-          if (!id) continue;
+          if (!id.startsWith("curated-product-") || c?.giftType === "service") continue;
           const price = Number(c.price) || 0;
           clientCards.set(id, {
             postId: id,
@@ -4747,8 +4819,7 @@ export const handler = async (event) => {
             category: String(c.category || "").slice(0, 40),
             domain: String(c.domain || "").slice(0, 120),
             url: sanitizeUrl(c.url) ?? "",
-            giftType: c.giftType === "service" ? "service" : "product",
-            ...(c.serviceDuration ? { serviceDuration: String(c.serviceDuration).slice(0, 40) } : {}),
+            giftType: "product",
             // "list" (not "seed"): every card is the ask, so no single card may
             // trigger the directSeedSwipe verdict override.
             band: "list",
@@ -6182,7 +6253,7 @@ export const handler = async (event) => {
       const nameLine = typeof body.name === "string" && body.name ? `\n\nThe user's first name is ${body.name}. Always address them by this name. Do NOT confuse this with names from connections, recipients, or the relationship graph — those are other people.` : "";
       const signedOut = userId
         ? ""
-        : "\n\nThe user is signed out: get_profile, upcoming_events, list_connections, relationship_graph, save_event, remember_fact and the gift-brief tools are unavailable — help with catalog search only and gently suggest signing in to unlock memory.";
+        : "\n\nThe user is signed out: memory_read, memory_write, calender_refer, and calender_update cannot persist account data. catalog_read and the client cart still work; gently suggest signing in only when memory or dates are needed.";
 
       // Inject the open brief rather than trusting the model to fetch it. The
       // cheap base tier drops tool calls under pressure, and a forgotten brief
@@ -6195,12 +6266,29 @@ export const handler = async (event) => {
       const shownProducts = (Array.isArray(body.shownProducts) ? body.shownProducts : [])
         .filter((p) => p && p.postId)
         .slice(-12)
-        .map((p) => ({ postId: String(p.postId), title: String(p.title || "").slice(0, 80) }));
+        .map((p) => ({
+          postId: String(p.postId),
+          title: String(p.title || "").slice(0, 80),
+          price: Number(p.price) > 0 ? Number(p.price) : null,
+          brand: String(p.brand || "").slice(0, 80) || null,
+          category: String(p.category || "").slice(0, 80) || null,
+          visualContext: String(p.visualContext || "").slice(0, 280) || null,
+        }));
       const shownBlock = shownProducts.length
-        ? `\n\nProducts currently on the user's screen (use these exact postIds with add_to_cart / add_to_board — never invent one):\n${shownProducts
-            .map((p, i) => `${i + 1}. ${p.title} [${p.postId}]`)
+        ? `\n\nProducts currently on screen (use these exact IDs with cart_write; catalog_read can explain their photos):\n${shownProducts
+            .map((p, i) => `${i + 1}. ${p.title}${p.price ? ` — $${p.price}` : ""} [${p.postId}]${p.visualContext ? `; photo: ${p.visualContext}` : ""}`)
             .join("\n")}`
         : "";
+
+      const cartItems = (Array.isArray(body.cartItems) ? body.cartItems : [])
+        .filter((item) => item && item.postId)
+        .slice(0, 40)
+        .map((item) => ({
+          postId: String(item.postId), title: String(item.title || "").slice(0, 90),
+          price: Number(item.price) > 0 ? Number(item.price) : null,
+          recipient: String(item.recipient || "").slice(0, 60) || null,
+          quantity: Math.max(1, Math.min(Number(item.quantity) || 1, 25)),
+        }));
 
       const openBrief = await latestBrief(userId);
       const briefBlock = openBrief
@@ -6210,7 +6298,7 @@ export const handler = async (event) => {
       const sys = MAXI_SYSTEM + nameLine + signedOut + memBlock + briefBlock + shownBlock;
 
       const toolConfig = {
-        tools: MAXI_TOOLS.map((t) => ({
+        tools: MAXI_TOOL_DEFINITIONS.map((t) => ({
           toolSpec: { name: t.name, description: t.description, inputSchema: { json: t.schema } },
         })),
       };
@@ -6218,7 +6306,9 @@ export const handler = async (event) => {
         userId,
         pins: [],
         actions: [],
-        cartItems: [],
+        cartItems,
+        shownProducts,
+        priceCeiling: isCheaperRequest(userText) ? shownProductPriceCeiling(shownProducts) : undefined,
         steps: [],
         brief: openBrief,
         // Things the user has already interacted with — kept out of find_gifts
@@ -6306,39 +6396,13 @@ export const handler = async (event) => {
       // so only the final, user-facing reply shows (Claude doesn't emit these).
       say = say.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "").replace(/<\/?thinking>/gi, "").trim();
 
-      // Claim/action reconciliation.
-      //
-      // The smaller model routinely WRITES that it added something to the cart
-      // without ever calling add_to_cart — the user is told "I've added all the
-      // gift ideas to your cart", the cart stays empty, and nothing in the UI
-      // reveals the gap. A confident false claim is worse than a refusal, so
-      // when the reply asserts a cart add and no tool call backs it up, make it
-      // true: add exactly the products the client had on screen (or surfaced
-      // this turn), which is what the user was looking at when they asked.
-      let reconciled = false;
+      // Fail closed on action claims. A model sentence never mutates the cart;
+      // only a validated cart_write call can do that.
+      const reconciled = false;
       const claimsCartAdd = /\b(added|adding|put|added them|i've added)\b[^.!?]{0,60}\b(to )?(your |the |their |her |his )?(cart|basket)\b/i.test(say);
       const alreadyAdded = tctx.actions.some((a) => a.type === "add_to_cart");
       if (claimsCartAdd && !alreadyAdded) {
-        const pool = (tctx.pins.length ? tctx.pins : shownProducts).filter((p) => p?.postId);
-        const ids = [...new Set(pool.map((p) => p.postId))].slice(0, 10);
-        if (ids.length) {
-          tctx.actions.push({
-            type: "add_to_cart",
-            postIds: ids,
-            recipient: tctx.brief?.recipientName || undefined,
-            occasion: tctx.brief?.occasion || undefined,
-          });
-          tctx.steps.push({
-            tool: "add_to_cart",
-            label: `Added ${ids.length} to the cart`,
-            detail: tctx.brief?.recipientName ? `for ${tctx.brief.recipientName}` : "",
-          });
-          reconciled = true;
-          console.log("maxi reconciled a cart claim with no tool call", JSON.stringify({ userId, ids: ids.length }));
-        } else {
-          // Nothing to add — don't leave a false claim standing.
-          say = "I couldn't add those just yet — tell me which one you mean and I'll put it in the right person's cart.";
-        }
+        say = "I didn't change your cart yet. Tell me which exact item to add, and I'll put it in the right person's cart.";
       }
 
       const seen = new Set();

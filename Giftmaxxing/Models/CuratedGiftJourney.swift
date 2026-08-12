@@ -119,8 +119,22 @@ final class CuratedGiftStore {
     let catalog: CuratedGiftCatalog
 
     var sourcePosts: [Post] { catalog.journeys.map(\.sourcePost) }
-    var productPosts: [Post] { catalog.products.map(\.post) }
+    var productPosts: [Post] {
+        catalog.products.map { product in
+            var post = product.post
+            post.product.images = journeys(containingProductId: product.id).flatMap(\.images)
+            return post
+        }
+    }
     var wrapPosts: [Post] { catalog.wrapKit.map(\.post) }
+    /// Products admitted to taste-learning decks. Every card has a verified
+    /// retailer destination and came through the reviewed curation manifest.
+    var challengeProducts: [Post] {
+        productPosts.filter { post in
+            guard let raw = post.productUrl, let url = URL(string: raw) else { return false }
+            return post.product.price > 0 && ["http", "https"].contains(url.scheme?.lowercased() ?? "")
+        }
+    }
 
     var feedPosts: [Post] {
         unique(catalog.journeys.flatMap { [$0.sourcePost] + products(for: $0).map(\.post) } + wrapPosts)
@@ -164,6 +178,16 @@ final class CuratedGiftStore {
     func products(for journey: CuratedGiftJourney) -> [CuratedGiftProduct] {
         let byId = Dictionary(uniqueKeysWithValues: catalog.products.map { ($0.id, $0) })
         return journey.productIds.compactMap { byId[$0] }
+    }
+
+    func journey(containing postId: String) -> CuratedGiftJourney? {
+        if let journey = catalog.journeys.first(where: { $0.sourcePost.id == postId }) { return journey }
+        let productId = postId.replacingOccurrences(of: "curated-product-", with: "")
+        return catalog.journeys.first { $0.productIds.contains(productId) }
+    }
+
+    func journeys(containingProductId productId: String) -> [CuratedGiftJourney] {
+        catalog.journeys.filter { $0.productIds.contains(productId) }
     }
 
     private func unique(_ posts: [Post]) -> [Post] {

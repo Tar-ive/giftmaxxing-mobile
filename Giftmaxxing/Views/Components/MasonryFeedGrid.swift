@@ -15,77 +15,61 @@ import SwiftUI
 // the classic ragged-Pinterest-column artefact.
 struct MasonryFeedGrid: View {
     let posts: [Post]
+    var repeatCount = 1
     var savedIds: Set<String> = []
     var onTap: (Post) -> Void
     var onSave: (Post) -> Void
 
-    private let spacing: CGFloat = 10
-
     var body: some View {
-        HStack(alignment: .top, spacing: spacing) {
-            ForEach(Array(columns.enumerated()), id: \.offset) { _, column in
-                LazyVStack(spacing: spacing) {
-                    ForEach(column) { post in
-                        MasonryTile(
-                            post: post,
-                            isSaved: savedIds.contains(post.id),
-                            onTap: { onTap(post) },
-                            onSave: { onSave(post) }
-                        )
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .top)
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: ThemeSpacing.xs, alignment: .top), count: 2),
+            alignment: .leading,
+            spacing: ThemeSpacing.sm
+        ) {
+            ForEach(Array(displayPosts.enumerated()), id: \.offset) { index, post in
+                MasonryTile(
+                    post: post,
+                    isSaved: savedIds.contains(post.id),
+                    autoplaysGallery: index % 4 == 3,
+                    onTap: { onTap(post) },
+                    onSave: { onSave(post) }
+                )
             }
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, ThemeSpacing.md)
     }
 
-    /// Deal each item to whichever column is currently shorter, estimating tile
-    /// height from its aspect ratio.
-    private var columns: [[Post]] {
-        var result: [[Post]] = [[], []]
-        var heights: [CGFloat] = [0, 0]
-        for post in posts {
-            let index = heights[0] <= heights[1] ? 0 : 1
-            result[index].append(post)
-            heights[index] += MasonryTile.estimatedHeight(for: post)
+    /// Three static cards, then one curated source carousel. Repeated cycles
+    /// use index identity so the same approved catalog can extend indefinitely.
+    private var displayPosts: [Post] {
+        guard !posts.isEmpty else { return [] }
+        let galleries = posts.filter { $0.product.gallery.count > 1 }
+        let cards = posts.filter { $0.product.gallery.count <= 1 }
+        guard !galleries.isEmpty, !cards.isEmpty else {
+            return (0..<max(1, repeatCount)).flatMap { _ in posts }
         }
-        return result
+        let total = max(posts.count, 4) * max(1, repeatCount)
+        var cardIndex = 0
+        var galleryIndex = 0
+        return (0..<total).map { index in
+            if index % 4 == 3 {
+                defer { galleryIndex += 1 }
+                return galleries[galleryIndex % galleries.count]
+            }
+            defer { cardIndex += 1 }
+            return cards[cardIndex % cards.count]
+        }
     }
 }
 
 struct MasonryTile: View {
     let post: Post
     var isSaved: Bool
+    var autoplaysGallery = false
     var onTap: () -> Void
     var onSave: () -> Void
 
-    /// Deterministic per post, so a tile keeps its shape between reloads — a
-    /// grid whose tiles resize on refresh feels broken.
-    ///
-    /// No 1:1. A square is what makes a masonry grid look like a plain grid:
-    /// every row lines up and the stagger disappears. Two portrait ratios far
-    /// enough apart (4:5 and 2:3) give the columns a visible offset while
-    /// staying tall enough that product photography is not letterboxed.
-    static func aspect(for post: Post) -> CGFloat {
-        // The REAL shape wins whenever the source told us. Instagram posts
-        // carry true dimensions, and forcing a 1:1 keepsake photo into 2:3
-        // crops away the composition the poster framed — which is the whole
-        // value of using their photography.
-        if let real = post.aspectRatio, real > 0.2, real < 3 {
-            // Clamped so one extreme panorama or a 9:16 story cover cannot
-            // blow a grid column's height out.
-            return CGFloat(min(max(real, 0.62), 1.25))
-        }
-        // Unknown shape → a stable pseudo-random portrait so the stagger still
-        // reads. Hashed on id, so a tile keeps its shape between reloads.
-        return AvatarPalette.stableHash(post.id) % 2 == 0 ? 4.0 / 5.0 : 2.0 / 3.0
-    }
-
-    static func estimatedHeight(for post: Post) -> CGFloat {
-        // Unit width; the text block is roughly constant.
-        1 / aspect(for: post) + 0.42
-    }
+    static func aspect(for post: Post) -> CGFloat { MediaAspect.recommendationCard }
 
     var body: some View {
         // The IMAGE is the card. There is no container behind it: a rounded
@@ -94,10 +78,7 @@ struct MasonryTile: View {
         // boxes with pictures inside rather than as products.
         VStack(alignment: .leading, spacing: 6) {
             ZStack(alignment: .topTrailing) {
-                CachedAsyncImage(url: post.product.image, width: 800)
-                    .aspectRatio(Self.aspect(for: post), contentMode: .fill)
-                    .frame(maxWidth: .infinity)
-                    .clipped()
+                galleryImage
 
                 Button(action: onSave) {
                     Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
@@ -124,7 +105,7 @@ struct MasonryTile: View {
                         .padding(8)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
 
             Text(post.product.name)
                 .font(.system(size: 13, weight: .semibold))
@@ -138,5 +119,24 @@ struct MasonryTile: View {
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
+    }
+
+    @ViewBuilder
+    private var galleryImage: some View {
+        Group {
+            if autoplaysGallery, post.product.gallery.count > 1 {
+                TimelineView(.periodic(from: .now, by: 3)) { timeline in
+                    let tick = Int(timeline.date.timeIntervalSinceReferenceDate / 3)
+                    let gallery = post.product.gallery
+                    CachedAsyncImage(url: gallery[tick % gallery.count], width: 800)
+                }
+                .accessibilityLabel("Autoplay carousel for \(post.product.name)")
+            } else {
+                CachedAsyncImage(url: post.product.image, width: 800)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .aspectRatio(Self.aspect(for: post), contentMode: .fit)
+        .clipped()
     }
 }

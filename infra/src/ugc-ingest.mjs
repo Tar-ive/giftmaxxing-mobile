@@ -4,6 +4,7 @@ import { CopyObjectCommand, DeleteObjectCommand, S3Client } from "@aws-sdk/clien
 import {
   DetectLabelsCommand,
   DetectModerationLabelsCommand,
+  DetectTextCommand,
   RekognitionClient,
   StartContentModerationCommand,
   StartLabelDetectionCommand,
@@ -35,7 +36,7 @@ const feedPk = (postId) => {
   return `all#${parseInt(createHash("sha256").update(postId).digest("hex").slice(0, 8), 16) % count}`;
 };
 
-async function publish(item, labels) {
+async function publish(item, labels, detectedText = []) {
   const extension = item.rawKey.split(".").pop();
   const publicKey = `ugc/public/${item.postId}.${extension}`;
   const posterPublicKey = item.mediaType === "video" ? `ugc/public/${item.postId}-poster.jpg` : publicKey;
@@ -46,10 +47,16 @@ async function publish(item, labels) {
   const category = recommendationCategory(labels);
   const labelNames = labels.map((label) => label.name.toLowerCase());
   const image = `/${posterPublicKey}`;
+  const shoppable = (item.productLinks ?? []).map((link, index) => ({
+    postId: `${item.postId}-declared-${index}`,
+    name: link.name,
+    productUrl: link.url,
+    merchant: (() => { try { return new URL(link.url).hostname.replace(/^www\./, ""); } catch { return null; } })(),
+  }));
   await ddb.send(new UpdateCommand({
     TableName: POSTS,
     Key: { postId: item.postId },
-    UpdateExpression: "SET moderationStatus = :approved, processingStatus = :ready, #status = :made, feedEligible = :yes, feedPk = :feed, publicKey = :publicKey, posterPublicKey = :posterPublicKey, mediaUrl = :mediaUrl, posterUrl = :posterUrl, product = :product, recommendationLabels = :labels, vibes = :vibes, category = :category, updatedAt = :now REMOVE moderationReason",
+    UpdateExpression: "SET moderationStatus = :approved, processingStatus = :ready, #status = :made, feedEligible = :yes, feedPk = :feed, publicKey = :publicKey, posterPublicKey = :posterPublicKey, mediaUrl = :mediaUrl, posterUrl = :posterUrl, product = :product, recommendationLabels = :labels, detectedText = :text, vibes = :vibes, category = :category, shoppable = :shoppable, updatedAt = :now REMOVE moderationReason",
     ExpressionAttributeNames: { "#status": "status" },
     ExpressionAttributeValues: {
       ":approved": "APPROVED",
@@ -63,8 +70,10 @@ async function publish(item, labels) {
       ":posterUrl": `/${posterPublicKey}`,
       ":product": { id: item.postId, name: item.caption.slice(0, 120), brand: item.authorName, price: 0, image },
       ":labels": labels,
+      ":text": detectedText,
       ":vibes": labelNames.slice(0, 12),
       ":category": category,
+      ":shoppable": shoppable,
       ":now": Date.now(),
     },
   }));
@@ -86,10 +95,16 @@ async function publishCarousel(item, results) {
   const mediaUrls = publicKeys.map((key) => `/${key}`);
   const category = recommendationCategory(labels);
   const labelNames = labels.map((label) => label.name.toLowerCase());
+  const shoppable = (item.productLinks ?? []).map((link, index) => ({
+    postId: `${item.postId}-declared-${index}`,
+    name: link.name,
+    productUrl: link.url,
+    merchant: (() => { try { return new URL(link.url).hostname.replace(/^www\./, ""); } catch { return null; } })(),
+  }));
   await ddb.send(new UpdateCommand({
     TableName: POSTS,
     Key: { postId: item.postId },
-    UpdateExpression: "SET moderationStatus = :approved, processingStatus = :ready, #status = :made, feedEligible = :yes, feedPk = :feed, publicKeys = :keys, mediaUrls = :urls, mediaUrl = :cover, posterUrl = :cover, product = :product, recommendationLabels = :labels, vibes = :vibes, category = :category, updatedAt = :now REMOVE moderationReason",
+    UpdateExpression: "SET moderationStatus = :approved, processingStatus = :ready, #status = :made, feedEligible = :yes, feedPk = :feed, publicKeys = :keys, mediaUrls = :urls, mediaUrl = :cover, posterUrl = :cover, product = :product, recommendationLabels = :labels, vibes = :vibes, category = :category, shoppable = :shoppable, updatedAt = :now REMOVE moderationReason",
     ExpressionAttributeNames: { "#status": "status" },
     ExpressionAttributeValues: {
       ":approved": "APPROVED",
@@ -104,6 +119,7 @@ async function publishCarousel(item, results) {
       ":labels": labels,
       ":vibes": labelNames.slice(0, 12),
       ":category": category,
+      ":shoppable": shoppable,
       ":now": Date.now(),
     },
   }));
@@ -134,9 +150,10 @@ async function processCarouselImage(item, key) {
   const descriptor = item.mediaItems.find((value) => value.rawKey === key);
   if (!descriptor) return;
   const image = { S3Object: { Bucket: MEDIA_BUCKET, Name: key } };
-  const [moderation, detected] = await Promise.all([
+  const [moderation, detected, text] = await Promise.all([
     rekognition.send(new DetectModerationLabelsCommand({ Image: image, MinConfidence: 50 })),
     rekognition.send(new DetectLabelsCommand({ Image: image, MaxLabels: 40, MinConfidence: 70 })),
+    rekognition.send(new DetectTextCommand({ Image: image })),
   ]);
   const blocked = blockedModerationLabels(moderation.ModerationLabels);
   if (blocked.length) return reject(item, blocked);
@@ -148,7 +165,11 @@ async function processCarouselImage(item, key) {
       ConditionExpression: "processingStatus <> :rejected",
       ExpressionAttributeNames: { "#index": String(descriptor.index) },
       ExpressionAttributeValues: {
-        ":result": { labels: detected.Labels ?? [], moderatedAt: Date.now() },
+        ":result": {
+          labels: detected.Labels ?? [],
+          text: (text.TextDetections ?? []).filter((value) => value.Type === "LINE" && value.Confidence >= 75).map((value) => value.DetectedText).slice(0, 30),
+          moderatedAt: Date.now(),
+        },
         ":processing": "MODERATING",
         ":rejected": "REJECTED",
         ":now": Date.now(),
@@ -167,13 +188,15 @@ async function processCarouselImage(item, key) {
 
 async function processImage(item) {
   const image = { S3Object: { Bucket: MEDIA_BUCKET, Name: item.rawKey } };
-  const [moderation, detected] = await Promise.all([
+  const [moderation, detected, text] = await Promise.all([
     rekognition.send(new DetectModerationLabelsCommand({ Image: image, MinConfidence: 50 })),
     rekognition.send(new DetectLabelsCommand({ Image: image, MaxLabels: 40, MinConfidence: 70 })),
+    rekognition.send(new DetectTextCommand({ Image: image })),
   ]);
   const blocked = blockedModerationLabels(moderation.ModerationLabels);
   if (blocked.length) return reject(item, blocked);
-  return publish(item, recommendationLabels(detected.Labels));
+  const lines = (text.TextDetections ?? []).filter((value) => value.Type === "LINE" && value.Confidence >= 75).map((value) => value.DetectedText).slice(0, 30);
+  return publish(item, recommendationLabels(detected.Labels), lines);
 }
 
 async function processVideo(item) {

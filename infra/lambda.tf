@@ -62,6 +62,9 @@ resource "aws_lambda_function" "api" {
       ADMIN_API_SECRET   = var.admin_api_secret
       CLERK_ISSUER       = var.clerk_issuer
       SESSION_JWT_SECRET = var.session_jwt_secret
+      # Mobile v2 body integrity. Keep dark until the signed-client build is
+      # installed, then flip in one Terraform apply; 0 is the rollback.
+      API_SIGNATURE_ENFORCE = var.api_signature_enforce ? "1" : "0"
       # iOS-app identities (handler verifies alongside Clerk): Cognito pool JWTs
       # (Sign in with Apple) + Google ID tokens (empty client id = dark).
       COGNITO_ISSUER         = "https://${aws_cognito_user_pool.mobile.endpoint}"

@@ -116,7 +116,10 @@ final class SearchTabsViewModel: ObservableObject {
                 serverResults = CuratedGiftStore.shared.search(term)
                 return
             }
-            let page = try? await api.fetchMixerRecommendations(surface: "search", limit: 60, text: term)
+            let page = try? await api.fetchMixerRecommendations(
+                surface: "search", limit: 60, text: term,
+                curatedOnly: CuratedGiftStore.isPilotEnabled
+            )
             guard !Task.isCancelled else { return }
             serverResults = page?.posts ?? []
         }

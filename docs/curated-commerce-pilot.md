@@ -1,15 +1,16 @@
 # Curated commerce pilot
 
-This pilot starts with one supplied TikTok JSONL export. It does not read,
-blend, rank, or backfill the existing product database.
+This pilot serves one reviewed collection built from the supplied TikTok JSONL
+and approved editorial gift-guide carousels. It does not blend or backfill the
+legacy product database.
 
 ## Curated source set
 
-All 21 source records are included: 16 photo carousels and five cover-only
-records, for 127 bundled images. Home and Swipe render the source pieces
-directly. Search and Maxi are fail-closed to products linked from this set and
-the verified wrap kit; neither reads the legacy catalog while the pilot flag is
-enabled.
+The current manifest contains 35 source guides, 86 matched products, three wrap
+items, and 211 images. Home, Search, Maxi, and both challenge surfaces fail
+closed to its active collection version. Swipe contains only approved, directly
+purchasable products—not inspiration posts or services. The bundle is the
+offline fallback.
 
 Product identity remains stricter than content inclusion. A source without
 enough visual evidence is labeled `Inspiration guide` and receives no invented
@@ -41,6 +42,17 @@ npm --prefix infra/ingest run curate:tiktok -- \
 The report is written to
 `infra/ingest/reports/tiktok-curation-pilot.json`. The script fails closed if an
 approved post is absent from the JSONL and never writes DynamoDB.
+
+Publish the already-reviewed manifest after the API deployment. The active
+pointer changes only after every media, post, entity, and edge write succeeds:
+
+```bash
+AWS_PROFILE=dev_sso_giftmaxxing AWS_REGION=us-east-1 \
+npm --prefix infra/ingest run publish:editorial-curation -- --apply
+```
+
+Dry run is the default. Publishing uploads immutable media and writes the exact
+source guides/products to `posts`, `catalog_entities`, and `catalog_edges`.
 
 ## Purchase behavior
 
@@ -87,3 +99,12 @@ retailer check-offs, wrap-kit adds, and hides. Expand the source set only after
 the four guides show useful downstream behavior. At scale, keep the same gates:
 human approval, immutable source evidence, product-page availability checks,
 and a hard separation between inspiration and verified commerce.
+
+Attributed Mixer impressions, dwell, likes, comments, saves, hides, offer
+clicks, and purchases make good/bad content observable. Generate the operator
+report with:
+
+```bash
+AWS_PROFILE=giftmaxxing_dev_cursor_cloud AWS_REGION=us-east-1 \
+npm --prefix infra/ingest run report:content -- --days 30 --out content-performance.json
+```

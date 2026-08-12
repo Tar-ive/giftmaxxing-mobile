@@ -1,24 +1,26 @@
 import SwiftUI
-import Contacts
 
-// Purpose-driven onboarding — six steps that end in a HABIT, not a sign-up:
-//   1. "What brings you here?"      — pick a persona
-//   2. Import contacts (optional)   — birthdays become calendar events
-//   3. Quick preferences            — relationships, budget, gift style
-//   4. First micro-action           — "[Name]'s birthday is in 2 weeks…"
-//   5. Sample curation              — save one real idea + write a why-note
-//   6. Dashboard tour               — CoachMarksView, queued by ContentView
-// Steps 1/3 seed the feed's vibes immediately; steps 2/4/5 create real
-// events, a real Gift Board, and the first Thoughtfulness Points.
-
-// The choices steps 1 + 3 collect, persisted for the feed and future flows.
+// Two decisions, then value. Taste learning belongs in the Swipe tab where the
+// action has context; onboarding only establishes who the user shops for and a
+// useful price prior before showing community-backed picks.
 enum GiftingPrefs {
     private static let personaKey = "onboarding.persona"
     private static let relationshipsKey = "onboarding.relationships"
     private static let budgetKey = "onboarding.budget"
     private static let stylesKey = "onboarding.giftStyles"
     private static let contactRelKey = "onboarding.contactRelationships"
+    private static let nameKey = "onboarding.preferredName"
+    private static let inviteCountKey = "onboarding.inviteCount"
+    private static let recipientSegmentKey = "onboarding.recipientSegment"
 
+    static var preferredName: String? {
+        get { UserDefaults.standard.string(forKey: nameKey) }
+        set { UserDefaults.standard.set(newValue, forKey: nameKey) }
+    }
+    static var recipientSegment: String? {
+        get { UserDefaults.standard.string(forKey: recipientSegmentKey) }
+        set { UserDefaults.standard.set(newValue, forKey: recipientSegmentKey) }
+    }
     static var persona: String? {
         get { UserDefaults.standard.string(forKey: personaKey) }
         set { UserDefaults.standard.set(newValue, forKey: personaKey) }
@@ -35,760 +37,246 @@ enum GiftingPrefs {
         get { UserDefaults.standard.stringArray(forKey: stylesKey) ?? [] }
         set { UserDefaults.standard.set(newValue, forKey: stylesKey) }
     }
-    /// Relationships tagged on individual contacts ("Mom", "Sibling", …).
-    /// More specific than `relationships`, which is an aggregate self-report:
-    /// this is who they ACTUALLY put in their calendar.
     static var contactRelationships: [String] {
         get { UserDefaults.standard.stringArray(forKey: contactRelKey) ?? [] }
         set { UserDefaults.standard.set(newValue, forKey: contactRelKey) }
     }
+    static var inviteCount: Int {
+        get { UserDefaults.standard.integer(forKey: inviteCountKey) }
+        set { UserDefaults.standard.set(min(max(newValue, 0), 5), forKey: inviteCountKey) }
+    }
 
-    // Account deletion — forget the onboarding answers.
     static func clear() {
-        for k in [personaKey, relationshipsKey, budgetKey, stylesKey, contactRelKey] {
-            UserDefaults.standard.removeObject(forKey: k)
-        }
+        [personaKey, relationshipsKey, budgetKey, stylesKey, contactRelKey, nameKey,
+         inviteCountKey, recipientSegmentKey].forEach { UserDefaults.standard.removeObject(forKey: $0) }
     }
 }
 
 struct PurposeOnboardingView: View {
     var onDone: () -> Void
 
-    @EnvironmentObject private var authManager: AuthManager
-    @Environment(\.modelContext) private var modelContext
-    @StateObject private var eventsModel = EventsViewModel()
-
     @State private var step = 0
-    private let stepCount = 5
+    @State private var preferredName = GiftingPrefs.preferredName ?? ""
+    @State private var segment = GiftingPrefs.recipientSegment
+    @State private var budget = GiftingPrefs.budget
+    @State private var leaderboard: [RecipientLeaderboardItem] = []
+    @State private var isLoading = false
 
-    // Step 1
-    @State private var persona: String?
-    // Step 2
-    @State private var contacts: [ImportableContact] = []
-    @State private var selectedContacts = Set<String>()
-    @State private var contactsDenied = false
-    @State private var contactsLoaded = false
-    @State private var importedEvents: [GiftEvent] = []
-    // Step 3
-    @State private var relationships = Set<String>()
-    @State private var budget: String?
-    @State private var styles = Set<String>()
-    // Step 5
-    @State private var samplePicks: [Post] = []
-    @State private var savedPick: Post?
-    @State private var picksFailed = false
-    // Taste calibration (step 3). `calibrationFailed` is the escape hatch: a
-    // deck that never loaded must not trap anyone in onboarding.
-    // contactId -> "Sister" / "Mom" / … The name never leaves the device; only
-    // the RELATIONSHIP is used as a signal.
-    @State private var contactRelationships: [String: String] = [:]
-    @State private var calibrationSwipes = 0
-    @State private var calibrationFailed = false
-    @State private var note = ""
-
-    struct ImportableContact: Identifiable {
+    private struct Recipient: Identifiable {
         let id: String
-        let name: String
-        let nextBirthday: Date
-        var daysUntil: Int {
-            Calendar.current.dateComponents(
-                [.day],
-                from: Calendar.current.startOfDay(for: Date()),
-                to: Calendar.current.startOfDay(for: nextBirthday)
-            ).day ?? 0
-        }
+        let title: String
+        let subtitle: String
+        let symbol: String
     }
 
-    private static let personas: [(id: String, icon: String, label: String)] = [
-        ("thoughtful", "heart.text.square.fill", "I always want to give more thoughtful gifts"),
-        ("fast", "bolt.fill", "I need gift ideas fast"),
-        ("special", "sparkles", "I love making others feel special"),
+    private static let recipients = [
+        Recipient(id: "women", title: "Her", subtitle: "Women & girls", symbol: "person.fill"),
+        Recipient(id: "men", title: "Him", subtitle: "Men & boys", symbol: "figure.stand"),
+        Recipient(id: "partner", title: "Partner", subtitle: "Someone special", symbol: "heart.fill"),
+        Recipient(id: "kids", title: "Kids", subtitle: "Little people", symbol: "figure.2.and.child.holdinghands"),
+        Recipient(id: "friend", title: "Friend", subtitle: "Friends & coworkers", symbol: "person.2.fill"),
+        Recipient(id: "anyone", title: "Not sure", subtitle: "Show broad ideas", symbol: "sparkles"),
     ]
-    private static let relationshipOptions = ["Partner", "Parent", "Best friend", "Sibling", "Grandparent", "Coworker", "My kids"]
-    // Per-CONTACT tags. Shorter than the aggregate list above because it is
-    // read at a glance while scanning a contact list.
-    private static let contactRelationOptions = ["Partner", "Mom", "Dad", "Sibling", "Friend", "Kid", "Grandparent", "Coworker"]
-    private static let contactTarget = 5
-    private static let budgetOptions = ["Under $25", "$25–75", "$75–200", "$200+"]
-    private static let styleOptions: [(id: String, label: String)] = [
-        ("handmade", "Handmade"), ("experiences", "Experiences"), ("personalized", "Personalized"),
-    ]
-
-    // The step-4 hook: the soonest imported birthday, if any.
-    private var nextOccasion: ImportableContact? {
-        contacts
-            .filter { selectedContacts.contains($0.id) }
-            .min(by: { $0.daysUntil < $1.daysUntil })
-    }
+    private static let budgets = ["Under $25", "$25–75", "$75–200", "$200+"]
 
     var body: some View {
         VStack(spacing: 0) {
-            // Progress dots
             HStack(spacing: 6) {
-                ForEach(0..<stepCount, id: \.self) { i in
+                ForEach(0..<2, id: \.self) { index in
                     Capsule()
-                        .fill(i == step ? Color.coral : Color.line)
-                        .frame(width: i == step ? 20 : 6, height: 6)
+                        .fill(index == step ? Color.coral : Color.line)
+                        .frame(width: index == step ? 28 : 8, height: 7)
                 }
                 Spacer()
-                if step > 0 && step < 4 {
-                    Button("Skip") { advance() }
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                }
+                Text("\(step + 1) of 2")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
             }
-            .animation(.spring(response: 0.3), value: step)
             .padding(.horizontal, 24)
-            .padding(.top, 16)
+            .padding(.top, 18)
 
-            ScrollView {
-                Group {
-                    switch step {
-                    case 0: personaStep
-                    case 1: contactsStep
-                    case 2: preferencesStep
-                    case 3: calibrationStep
-                    case 4: microActionStep
-                    default: curationStep
-                    }
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 24)
-                .padding(.bottom, 32)
+            Group {
+                if step == 0 { recipientStep } else { leaderboardStep }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            footer
-        }
-        .background(Color.surface)
-    }
-
-    // ── Step 1: persona ───────────────────────────────────────────────────
-
-    private var personaStep: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            stepTitle("What brings you here?", subtitle: "This shapes what Giftmaxxing shows you first.")
-            ForEach(Self.personas, id: \.id) { option in
-                Button {
-                    persona = option.id
-                } label: {
-                    HStack(spacing: 14) {
-                        Image(systemName: option.icon)
-                            .font(.system(size: 20))
-                            .foregroundStyle(persona == option.id ? .white : Color.coral)
-                            .frame(width: 44, height: 44)
-                            .background(persona == option.id ? Color.coral : Color.coralSoft)
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
-                        Text(option.label)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Color.ink)
-                            .multilineTextAlignment(.leading)
-                        Spacer()
-                        if persona == option.id {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(Color.coral)
-                        }
-                    }
-                    .padding(14)
-                    .background(Color.cream)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(persona == option.id ? Color.coral : .clear, lineWidth: 1.5)
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    // ── Step 2: contacts import (optional) ────────────────────────────────
-
-    private var contactsStep: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            stepTitle(
-                "Never miss their day",
-                subtitle: "Import birthdays from your contacts — optional, stays on your device."
-            )
-
-            if !contactsLoaded && !contactsDenied {
-                Button {
-                    Task { await loadContacts() }
-                } label: {
-                    HStack {
-                        Spacer()
-                        Image(systemName: "person.crop.circle.badge.plus")
-                        Text("Find birthdays in my contacts").font(.labelBold)
-                        Spacer()
-                    }
-                    .padding(.vertical, 15)
-                    .background(Color.coral)
+            Button(action: advance) {
+                Text(step == 0 ? "Show me what people love" : "Start exploring")
+                    .font(.headline)
                     .foregroundStyle(.white)
-                    .clipShape(Capsule())
-                }
-            } else if contactsDenied {
-                Text("No problem — you can add dates any time in Circles.")
-                    .font(.bodyMedium)
-                    .foregroundStyle(.secondary)
-            } else if contacts.isEmpty {
-                Text("No contacts with birthdays found — you can add dates any time in Circles.")
-                    .font(.bodyMedium)
-                    .foregroundStyle(.secondary)
-            }
-
-            if contactsLoaded && !contacts.isEmpty {
-                // Soft target, never a gate: Contacts permission can be denied
-                // outright, so a hard minimum here would make onboarding
-                // impossible to finish rather than merely annoying.
-                Text(selectedContacts.count >= Self.contactTarget
-                     ? "That's a good start — tag anyone you buy for."
-                     : "Pick \(Self.contactTarget) or so, and say who they are to you.")
-                    .font(.footnote)
-                    .foregroundStyle(selectedContacts.count >= Self.contactTarget ? Color.success : Color.inkTertiary)
-            }
-
-            ForEach(contacts) { contact in
-                VStack(alignment: .leading, spacing: 8) {
-                    Button {
-                        if selectedContacts.contains(contact.id) {
-                            selectedContacts.remove(contact.id)
-                            contactRelationships[contact.id] = nil
-                        } else {
-                            selectedContacts.insert(contact.id)
-                        }
-                    } label: {
-                        HStack(spacing: 12) {
-                            AvatarView(name: contact.name, grad: .sky, size: 40)
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(contact.name)
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(Color.ink)
-                                Text("🎂 in \(contact.daysUntil) day\(contact.daysUntil == 1 ? "" : "s")")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Image(systemName: selectedContacts.contains(contact.id) ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 22))
-                                .foregroundStyle(selectedContacts.contains(contact.id) ? Color.coral : Color.line)
-                        }
-                        .padding(.vertical, 6)
-                    }
-                    .buttonStyle(.plain)
-
-                    // "Sarah's birthday" alone can't shape a gift. "Sarah is my
-                    // sister" can — it is the strongest prior we have when
-                    // building a deck FOR her, and the only one available before
-                    // she has swiped anything.
-                    if selectedContacts.contains(contact.id) {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 6) {
-                                ForEach(Self.contactRelationOptions, id: \.self) { rel in
-                                    let on = contactRelationships[contact.id] == rel
-                                    Button {
-                                        contactRelationships[contact.id] = on ? nil : rel
-                                    } label: {
-                                        Text(rel)
-                                            .font(.caption.weight(.semibold))
-                                            .foregroundStyle(on ? Color.coral : Color.inkSecondary)
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 7)
-                                            .background(on ? Color.coralSoft : Color.cream, in: Capsule())
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                            .padding(.leading, 52)
-                        }
-                        .scrollClipDisabled()
-                    }
-                }
-                .animation(.snappy, value: selectedContacts.contains(contact.id))
-            }
-        }
-    }
-
-    // ── Step 3: quick preferences ─────────────────────────────────────────
-
-    private var preferencesStep: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            stepTitle("Who do you gift for most?", subtitle: "Pick up to 4 — plus your usual budget and style.")
-
-            chipGrid(Self.relationshipOptions, selection: $relationships, max: 4)
-
-            Text("TYPICAL BUDGET")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(.secondary)
-            HStack(spacing: 8) {
-                ForEach(Self.budgetOptions, id: \.self) { option in
-                    Button {
-                        budget = option
-                    } label: {
-                        Text(option)
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(budget == option ? .white : Color.ink)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 9)
-                            .frame(maxWidth: .infinity)
-                            .background(budget == option ? Color.ink : Color.cream)
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            Text("YOU LEAN TOWARD")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(.secondary)
-            HStack(spacing: 8) {
-                ForEach(Self.styleOptions, id: \.id) { option in
-                    Button {
-                        if styles.contains(option.id) { styles.remove(option.id) } else { styles.insert(option.id) }
-                    } label: {
-                        Text(option.label)
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(styles.contains(option.id) ? .white : Color.coral)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 9)
-                            .background(styles.contains(option.id) ? Color.coral : Color.coralSoft)
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-                Spacer()
-            }
-        }
-    }
-
-    // ── Step 4: first micro-action ────────────────────────────────────────
-
-
-    // Teaches the app who they are before the feed's first page, and produces
-    // the preference labels the ranker is starved of — see TasteCalibrationStep.
-    private var calibrationStep: some View {
-        TasteCalibrationStep { count in
-            calibrationSwipes = count
-        }
-        .task {
-            // Release the gate after a while if the deck never appeared.
-            try? await Task.sleep(for: .seconds(12))
-            if calibrationSwipes == 0 { calibrationFailed = true }
-        }
-    }
-
-    private var microActionStep: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if let occasion = nextOccasion {
-                stepTitle("Great — let's put this to work", subtitle: nil)
-                VStack(alignment: .leading, spacing: 10) {
-                    Image(systemName: "birthday.cake.fill").foregroundStyle(Color.coral)
-                        .font(.system(size: 40))
-                    Text("\(occasion.name) has a birthday in \(occasion.daysUntil) days.")
-                        .font(.system(size: 20, weight: .heavy, design: .rounded))
-                        .foregroundStyle(Color.ink)
-                    Text("Save one idea now and their Gift Board is started.")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
-                }
-                .padding(18)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.coralSoft.opacity(0.6))
-                .clipShape(RoundedRectangle(cornerRadius: 18))
-            } else {
-                // No imported birthday to anchor on — this step used to render
-                // a bare heading (a blank screen). Show what the app actually
-                // does for them instead: dates, friends' profiles, taste.
-                stepTitle("Here's how gifting gets easy", subtitle: nil)
-                VStack(spacing: 10) {
-                    ForEach(Self.valueProps, id: \.title) { prop in
-                        valuePropRow(prop)
-                    }
-                }
-            }
-        }
-    }
-
-    private struct ValueProp {
-        let icon: String
-        let title: String
-        let line: String
-    }
-
-    // The real product story — log the dates, connect the people, let their
-    // profile answer the awkward questions, and the taste model does the rest.
-    private static let valueProps: [ValueProp] = [
-        ValueProp(
-            icon: "calendar",
-            title: "Log the dates that matter",
-            line: "Birthdays, graduations, anniversaries — we remind you in time to actually shop."
-        ),
-        ValueProp(
-            icon: "person.2.fill",
-            title: "Connect your people",
-            line: "Friends on Giftmaxxing keep a profile you can gift from."
-        ),
-        ValueProp(
-            icon: "ruler.fill",
-            title: "No more awkward questions",
-            line: "Their sizes and what to avoid live on their profile — the surprise stays a surprise."
-        ),
-        ValueProp(
-            icon: "sparkles",
-            title: "Ideas that fit them",
-            line: "A few swipes from them and we rank what they'd actually love."
-        ),
-    ]
-
-    private func valuePropRow(_ prop: ValueProp) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: prop.icon)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(Color.coral)
-                .frame(width: 44, height: 44)
-                .background(Color.coralSoft)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            VStack(alignment: .leading, spacing: 3) {
-                Text(prop.title)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(Color.ink)
-                Text(prop.line)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-
-    // ── Step 5: sample curation ───────────────────────────────────────────
-
-    private var curationStep: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            stepTitle(
-                savedPick == nil ? "Pick one that feels right" : "Why does it fit?",
-                subtitle: savedPick == nil
-                    ? (nextOccasion.map { "Thinking of \($0.name) —" } ?? "") + " tap the one you'd actually consider."
-                    : "One line is plenty."
-            )
-
-            if samplePicks.isEmpty {
-                if picksFailed {
-                    // Offline / empty feed used to leave a spinner forever with
-                    // no way forward (no Skip on this step) — give them both a
-                    // retry and an exit.
-                    VStack(spacing: 12) {
-                        Image(systemName: "wifi.exclamationmark")
-                            .font(.system(size: 32))
-                            .foregroundStyle(.secondary)
-                        Text("Couldn't load ideas right now")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(Color.ink)
-                        Text("You can do this any time from Home.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
-                        Button("Try again") {
-                            Task { await loadSamplePicks() }
-                        }
-                        .buttonStyle(SecondaryButtonStyle())
-                    }
                     .frame(maxWidth: .infinity)
-                    .padding(24)
-                } else {
-                    ProgressView("Finding ideas…")
-                        .font(.bodyMedium)
-                        .frame(maxWidth: .infinity)
-                        .padding(30)
-                        .task { await loadSamplePicks() }
-                }
-            } else if let saved = savedPick {
-                // The saved idea + the why-note (the habit lock-in).
-                HStack(spacing: 12) {
-                    ZStack {
-                        Color.gradient(for: saved.product.grad)
-                        if let image = saved.product.image {
-                            CachedAsyncImage(url: image, width: 300)
-                        }
-                    }
-                    .frame(width: 72, height: 72)
-                    .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(saved.product.name)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Color.ink)
-                            .lineLimit(2)
-                        Label("Saved to \(nextOccasion.map { "\($0.name)'s board" } ?? "your first Gift Board")", systemImage: "checkmark.circle.fill")
-                            .font(.caption)
-                            .foregroundStyle(Color.coral)
-                    }
-                    Spacer()
-                }
-                .padding(12)
-                .background(Color.cream)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .padding(.vertical, 16)
+                    .background(canContinue ? Color.coral : Color.coral.opacity(0.35), in: Capsule())
+            }
+            .disabled(!canContinue)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 14)
+            .background(Color.surface)
+        }
+        .background(Color.surface.ignoresSafeArea())
+        .onAppear { seedScreenshotStateIfNeeded() }
+    }
 
-                TextField("e.g. She's been talking about this for months…", text: $note, axis: .vertical)
-                    .lineLimit(2...4)
-                    .padding(12)
-                    .background(Color.cream)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            } else {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible())], spacing: 12) {
-                    ForEach(samplePicks) { post in
-                        Button {
-                            savePick(post)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 5) {
-                                ZStack {
-                                    Color.gradient(for: post.product.grad)
-                                    if let image = post.product.image {
-                                        CachedAsyncImage(url: image, width: 400)
-                                    }
-                                }
-                                .aspectRatio(1, contentMode: .fit)
-                                .clipped()
-                                .clipShape(RoundedRectangle(cornerRadius: 14))
-                                Text(post.product.name)
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(Color.ink)
-                                    .lineLimit(1)
-                                if post.product.price > 0 {
-                                    Text("$\(Int(post.product.price))")
-                                        .font(.system(size: 13, weight: .bold))
-                                        .foregroundStyle(Color.coral)
-                                }
+    private var recipientStep: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                title("Who are you gifting?", "This gives your first recommendations a useful starting point.")
+
+                TextField("What should we call you?", text: $preferredName)
+                    .textContentType(.name)
+                    .font(.body)
+                    .padding()
+                    .background(Color.cream, in: RoundedRectangle(cornerRadius: ThemeRadius.md))
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    ForEach(Self.recipients) { recipient in
+                        Button { segment = recipient.id } label: {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Image(systemName: recipient.symbol)
+                                    .font(.title2.weight(.semibold))
+                                    .foregroundStyle(segment == recipient.id ? .white : Color.coral)
+                                Text(recipient.title).font(.headline)
+                                Text(recipient.subtitle).font(.caption).opacity(0.75)
                             }
+                            .foregroundStyle(segment == recipient.id ? .white : Color.ink)
+                            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+                            .padding(12)
+                            .background(segment == recipient.id ? Color.coral : Color.cream,
+                                        in: RoundedRectangle(cornerRadius: ThemeRadius.lg))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityAddTraits(segment == recipient.id ? .isSelected : [])
                     }
                 }
+
+                Text("USUAL BUDGET").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(Self.budgets, id: \.self) { option in
+                            Button { budget = option } label: {
+                                Text(option)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(budget == option ? .white : Color.ink)
+                                    .padding(.horizontal, 16).padding(.vertical, 10)
+                                    .background(budget == option ? Color.ink : Color.cream, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .scrollClipDisabled()
             }
+            .padding(24)
         }
     }
 
-    // ── Chrome ────────────────────────────────────────────────────────────
+    private var leaderboardStep: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                title("Popular for \(recipientTitle.lowercased())", "Ranked from recent positive swipes. As more people swipe, this list gets smarter.")
 
-    private func stepTitle(_ title: String, subtitle: String?) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.system(size: 26, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color.ink)
-            if let subtitle, !subtitle.isEmpty {
-                Text(subtitle)
-                    .font(.system(size: 14))
+                if isLoading && leaderboard.isEmpty {
+                    ProgressView("Checking recent favorites…")
+                        .frame(maxWidth: .infinity, minHeight: 260)
+                } else {
+                    ForEach(Array(leaderboard.prefix(6).enumerated()), id: \.element.id) { index, result in
+                        HStack(spacing: 14) {
+                            Text("\(index + 1)")
+                                .font(.title2.weight(.heavy))
+                                .foregroundStyle(index < 3 ? Color.coral : Color.inkTertiary)
+                                .frame(width: 28)
+                            CachedAsyncImage(url: result.post.product.image, width: 220)
+                                .aspectRatio(1, contentMode: .fill)
+                                .frame(width: 76, height: 76)
+                                .clipped()
+                                .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.md))
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(result.post.product.name).font(.headline).lineLimit(2)
+                                Text(result.post.product.brand).font(.caption).foregroundStyle(.secondary)
+                                Text(result.voterCount > 0 ? "Loved by \(result.voterCount) people" : "Curated starting pick")
+                                    .font(.caption.weight(.semibold)).foregroundStyle(Color.coral)
+                            }
+                            Spacer()
+                        }
+                        .padding(12)
+                        .background(Color.cream, in: RoundedRectangle(cornerRadius: ThemeRadius.lg))
+                    }
+                }
+
+                Label("Keep swiping after setup to teach your own taste—or share a deck so a friend can teach you theirs.", systemImage: "hand.draw.fill")
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .padding()
+                    .background(Color.coralSoft, in: RoundedRectangle(cornerRadius: ThemeRadius.md))
             }
+            .padding(24)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .task(id: segment) { await loadLeaderboard() }
     }
 
-    private var footer: some View {
-        Button {
-            advance()
-        } label: {
-            Text(footerLabel)
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 15)
-                .background(footerEnabled ? Color.coral : Color.coral.opacity(0.4))
-                .clipShape(Capsule())
-        }
-        .disabled(!footerEnabled)
-        .padding(.horizontal, 24)
-        .padding(.vertical, 14)
-        .background(Color.surface)
+    private var canContinue: Bool {
+        step == 1 || (!preferredName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && segment != nil)
     }
 
-    private var footerLabel: String {
-        switch step {
-        case 1: return selectedContacts.isEmpty ? "Continue" : "Import \(selectedContacts.count) & continue"
-        case 3:
-            let left = TasteCalibrationStep.minimumSwipes - calibrationSwipes
-            return left > 0 ? "\(left) more to go" : "Continue"
-        case 4: return nextOccasion == nil ? "Let's go" : "Show me ideas"
-        case 5:
-            if savedPick != nil { return "Finish — show me around" }
-            return picksFailed ? "Show me around" : "Pick one to continue"
-        default: return "Continue"
-        }
+    private var recipientTitle: String {
+        Self.recipients.first(where: { $0.id == segment })?.title ?? "everyone"
     }
 
-    private var footerEnabled: Bool {
-        switch step {
-        case 0: return persona != nil
-        // The whole point of the step is the labels — don't let it be skipped
-        // past. `calibrationFailed` still releases them if the deck never
-        // loaded, so a network problem can't trap anyone in onboarding.
-        case 3: return calibrationSwipes >= TasteCalibrationStep.minimumSwipes || calibrationFailed
-        // Ideas that never loaded must not trap them on the last step.
-        case 5: return savedPick != nil || picksFailed
-        default: return true
+    private func title(_ heading: String, _ subheading: String) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(heading).font(.largeTitle.weight(.heavy)).fontDesign(.rounded).foregroundStyle(Color.ink)
+            Text(subheading).font(.body).foregroundStyle(.secondary)
         }
     }
 
     private func advance() {
-        switch step {
-        case 0:
-            GiftingPrefs.persona = persona
-            step = 1
-        case 1:
-            importSelectedContacts()
-            step = 2
-        case 2:
-            GiftingPrefs.relationships = Array(relationships)
+        if step == 0 {
+            GiftingPrefs.preferredName = preferredName.trimmingCharacters(in: .whitespacesAndNewlines)
+            GiftingPrefs.recipientSegment = segment
+            GiftingPrefs.relationships = segment.map { [$0] } ?? []
             GiftingPrefs.budget = budget
-            GiftingPrefs.giftStyles = Array(styles)
-            // Styles + persona seed the feed's vibes immediately — the very
-            // first Home page already leans the right way.
-            var vibes = Array(styles)
-            if persona == "thoughtful" { vibes.append("thoughtful") }
-            if !vibes.isEmpty { PersonalizationStore.consultVibes = vibes }
-            step = 3
-        case 3:
-            step = 4
-        case 4:
-            step = 5
-        default:
-            if let saved = savedPick { finishCuration(saved) }
+            PersonalizationStore.genderPref = segment == "women" ? "her" : segment == "men" ? "him" : nil
+            step = 1
+        } else {
             onDone()
         }
     }
 
-    private func chipGrid(_ options: [String], selection: Binding<Set<String>>, max: Int) -> some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-            ForEach(options, id: \.self) { option in
-                let isOn = selection.wrappedValue.contains(option)
-                Button {
-                    if isOn {
-                        selection.wrappedValue.remove(option)
-                    } else if selection.wrappedValue.count < max {
-                        selection.wrappedValue.insert(option)
-                    }
-                } label: {
-                    Text(option)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(isOn ? .white : Color.ink)
-                        .padding(.vertical, 9)
-                        .frame(maxWidth: .infinity)
-                        .background(isOn ? Color.coral : Color.cream)
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-        }
+    private func loadLeaderboard() async {
+        guard let segment else { return }
+        isLoading = true
+        leaderboard = (try? await APIClient.shared.fetchRecipientLeaderboard(segment: segment)) ?? fallbackLeaderboard(segment)
+        if leaderboard.isEmpty { leaderboard = fallbackLeaderboard("anyone") }
+        isLoading = false
     }
 
-    // ── Work ──────────────────────────────────────────────────────────────
-
-    private func loadContacts() async {
-        let store = CNContactStore()
-        let granted = (try? await store.requestAccess(for: .contacts)) ?? false
-        guard granted else {
-            contactsDenied = true
-            return
+    private func fallbackLeaderboard(_ segment: String) -> [RecipientLeaderboardItem] {
+        let aliases: [String: [String]] = [
+            "women": ["women", "girl", "beauty", "jewelry"],
+            "men": ["men", "boy", "tech", "practical"],
+            "partner": ["anniversary", "romantic", "partner"],
+            "kids": ["kid", "girl", "boy", "creative"],
+            "friend": ["friend", "birthday", "under-50"],
+        ]
+        let terms = aliases[segment] ?? []
+        let products = CuratedGiftStore.shared.challengeProducts
+        let ranked = products.sorted { left, right in
+            let l = terms.filter { "\(left.product.name) \(left.caption) \(left.category ?? "")".lowercased().contains($0) }.count
+            let r = terms.filter { "\(right.product.name) \(right.caption) \(right.category ?? "")".lowercased().contains($0) }.count
+            return l == r ? left.product.price < right.product.price : l > r
         }
-        let found: [ImportableContact] = await Task.detached(priority: .userInitiated) {
-            let keys = [
-                CNContactGivenNameKey, CNContactFamilyNameKey, CNContactBirthdayKey,
-            ] as [CNKeyDescriptor]
-            let request = CNContactFetchRequest(keysToFetch: keys)
-            var result: [ImportableContact] = []
-            try? store.enumerateContacts(with: request) { contact, _ in
-                guard let birthday = contact.birthday,
-                      let month = birthday.month, let day = birthday.day else { return }
-                let name = [contact.givenName, contact.familyName]
-                    .filter { !$0.isEmpty }.joined(separator: " ")
-                guard !name.isEmpty else { return }
-                let calendar = Calendar.current
-                var next = DateComponents(month: month, day: day)
-                next.year = calendar.component(.year, from: Date())
-                guard var date = calendar.date(from: next) else { return }
-                if date < calendar.startOfDay(for: Date()) {
-                    date = calendar.date(byAdding: .year, value: 1, to: date) ?? date
-                }
-                result.append(ImportableContact(id: contact.identifier, name: name, nextBirthday: date))
-            }
-            return result.sorted { $0.nextBirthday < $1.nextBirthday }
-        }.value
-        contacts = Array(found.prefix(30))
-        contactsLoaded = true
-        // Pre-select the soonest few — one tap keeps them all.
-        selectedContacts = Set(contacts.prefix(5).map(\.id))
+        return ranked.prefix(8).enumerated().map { RecipientLeaderboardItem(rank: $0.offset + 1, voterCount: 0, post: $0.element) }
     }
 
-    private func importSelectedContacts() {
-        // The relationship mix is a real taste signal — "shops for a sibling
-        // and two friends" shapes a deck in a way "has 3 birthdays" cannot.
-        // Names stay on device; only the relationship words are kept.
-        let tagged = selectedContacts.compactMap { contactRelationships[$0] }
-        if !tagged.isEmpty {
-            GiftingPrefs.contactRelationships = tagged
-        }
-        for contact in contacts where selectedContacts.contains(contact.id) {
-            let relation = contactRelationships[contact.id]
-            let event = GiftEvent(
-                id: "evt_\(UUID().uuidString.prefix(8))",
-                userId: authManager.userId,
-                recipientId: nil,
-                type: "birthday",
-                title: "\(contact.name)'s birthday",
-                date: contact.nextBirthday,
-                recipientName: contact.name,
-                recurrence: "yearly",
-                reminderLeadDays: 14,
-                budget: nil,
-                // Carries the relationship forward so any deck built for this
-                // person later starts with the strongest prior we have.
-                notes: relation.map { "relationship:\($0)" },
-                scope: "personal",
-                createdAt: Date()
-            )
-            eventsModel.addEvent(event, context: modelContext)
-            importedEvents.append(event)
-        }
-    }
-
-    private func loadSamplePicks() async {
-        guard samplePicks.isEmpty else { return }
-        picksFailed = false
-        var page = try? await APIClient.shared.fetchFeed(
-            limit: 24,
-            vibes: PersonalizationStore.consultVibes.isEmpty ? nil : PersonalizationStore.consultVibes,
-            cacheBuster: String(Int(Date().timeIntervalSince1970 * 1000))
-        )
-        // The vibe filter can legitimately return nothing — fall back to the
-        // unfiltered feed before declaring failure.
-        if (page?.posts ?? []).isEmpty, !PersonalizationStore.consultVibes.isEmpty {
-            page = try? await APIClient.shared.fetchFeed(limit: 24)
-        }
-        samplePicks = (page?.posts ?? [])
-            .filter { $0.product.image != nil && $0.feedEligible != false }
-            .prefix(6)
-            .map { $0 }
-        picksFailed = samplePicks.isEmpty
-    }
-
-    private func savePick(_ post: Post) {
-        let boardName = nextOccasion.map { "\($0.name)'s birthday" } ?? "My first Gift Board"
-        let board = SwipeListStore.shared.createList(
-            name: boardName,
-            recipientName: nextOccasion?.name,
-            occasion: nextOccasion != nil ? "birthday" : nil
-        )
-        SwipeListStore.shared.toggle(post, in: board.id)
-        savedPick = post
-    }
-
-    private func finishCuration(_ post: Post) {
-        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty,
-              let board = SwipeListStore.shared.lists.first(where: { list in
-                  list.posts.contains(where: { $0.id == post.id })
-              }) else { return }
-        SwipeListStore.shared.setNote(trimmed, for: post.id, in: board.id)
+    private func seedScreenshotStateIfNeeded() {
+        #if DEBUG
+        let defaults = UserDefaults.standard
+        guard defaults.bool(forKey: "onboardingScreenshotMode") else { return }
+        step = min(max(defaults.integer(forKey: "onboardingScreenshotStep"), 0), 1)
+        preferredName = "Alex"
+        segment = "partner"
+        budget = "$25–75"
+        if step == 1 { leaderboard = fallbackLeaderboard("partner") }
+        #endif
     }
 }

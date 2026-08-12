@@ -256,10 +256,11 @@ struct ContentView: View {
                 set: { complete in
                     guard complete else { return }
                     PersonalizationStore.markOnboarded(identity: authManager.userId)
+                    CoachMarks.seen = true
                     showOnboarding = false
-                    // Fresh account, first landing on the main chrome — run the
-                    // navigation tour once.
-                    if !CoachMarks.seen { showCoachMarks = true }
+                    if let userId = authManager.userId {
+                        Task { await syncOnboardingProfile(userId: userId) }
+                    }
                 }
             ))
             .interactiveDismissDisabled()
@@ -300,8 +301,13 @@ struct ContentView: View {
             drainCaptureInbox()
             PersonalizationStore.migrateLegacyFlagIfNeeded()
             #if DEBUG
-            if UserDefaults.standard.bool(forKey: "curatedScreenshotMode") {
+            if UserDefaults.standard.bool(forKey: "swipeScreenshotMode") {
+                appState.selectedTab = .swipe
+            } else if UserDefaults.standard.bool(forKey: "curatedScreenshotMode") {
                 appState.selectedTab = .feed
+            } else if UserDefaults.standard.bool(forKey: "coachMarksScreenshotMode") {
+                appState.selectedTab = .feed
+                showCoachMarks = true
             } else if UserDefaults.standard.bool(forKey: "profilePreview") || UserDefaults.standard.bool(forKey: "publicProfilePreview") {
                 appState.selectedTab = .you
             }
@@ -335,6 +341,7 @@ struct ContentView: View {
             DebugSessionManager.shared.handleIdentityChange(email: authManager.email)
         }
         .onChange(of: authManager.userId) { _, newUserId in
+            let claimedGuest = newUserId.map { PersonalizationStore.claimGuestOnboarding(identity: $0) } ?? false
             // Privacy boundary: a different account (or a sign-out) on this
             // device must never see the previous account's pools, boards,
             // points, or persona texts.
@@ -350,10 +357,18 @@ struct ContentView: View {
             // A fresh sign-in lands on Home, not wherever sign-in happened.
             if newUserId != nil {
                 #if DEBUG
-                appState.selectedTab = (UserDefaults.standard.bool(forKey: "profilePreview") || UserDefaults.standard.bool(forKey: "publicProfilePreview")) ? .you : .feed
+                if UserDefaults.standard.bool(forKey: "swipeScreenshotMode") {
+                    appState.selectedTab = .swipe
+                } else {
+                    appState.selectedTab = (UserDefaults.standard.bool(forKey: "profilePreview") || UserDefaults.standard.bool(forKey: "publicProfilePreview")) ? .you : .feed
+                }
                 #else
                 appState.selectedTab = .feed
                 #endif
+            }
+            if let newUserId, claimedGuest {
+                Task { await syncOnboardingProfile(userId: newUserId) }
+                if !CoachMarks.seen { showCoachMarks = true }
             }
             guard !showSplash else { return }
             Task { await resolveAppGate(userId: newUserId) }
@@ -423,6 +438,13 @@ struct ContentView: View {
         gateResolved = false
         defer { gateResolved = true }
 
+        #if DEBUG
+        if UserDefaults.standard.bool(forKey: "signInScreenshotMode") {
+            showOnboarding = false
+            return
+        }
+        #endif
+
         if PersonalizationStore.hasOnboarded(identity: userId) {
             // Grandfather accounts that onboarded before the tour shipped —
             // the coach marks are a NEW-user ritual, not a changelog.
@@ -431,9 +453,10 @@ struct ContentView: View {
             return
         }
 
-        // Accounts are required — onboarding only runs for a signed-in identity.
+        // Collect taste before login. The stable guest profile is claimed by
+        // the first account that signs in, so these answers are never lost.
         guard authManager.isAuthenticated, let userId else {
-            showOnboarding = false
+            showOnboarding = true
             return
         }
 
@@ -446,6 +469,20 @@ struct ContentView: View {
         } else {
             showOnboarding = true
         }
+    }
+
+    private func syncOnboardingProfile(userId: String) async {
+        var profile: [String: Any] = [
+            "completedAt": Date().timeIntervalSince1970 * 1000,
+            "interests": Array(Set(GiftingPrefs.giftStyles + PersonalizationStore.consultVibes)),
+            "onboardingPersona": GiftingPrefs.persona ?? "",
+            "onboardingRelationships": GiftingPrefs.relationships,
+            "onboardingBudget": GiftingPrefs.budget ?? "",
+            "recipientSegment": GiftingPrefs.recipientSegment ?? "",
+            "inviteCount": GiftingPrefs.inviteCount,
+        ]
+        if let name = GiftingPrefs.preferredName, !name.isEmpty { profile["name"] = name }
+        try? await APIClient.shared.saveMeRaw(userId: userId, profile: profile)
     }
 
     private func drainCaptureInbox() {

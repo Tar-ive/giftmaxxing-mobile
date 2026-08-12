@@ -151,36 +151,40 @@ struct ChallengeView: View {
         isCreating = true
         defer { isCreating = false }
 
-        var imageBase64: String?
-        if let seedImage {
-            imageBase64 = seedImage.resized(maxDimension: 512)
-                .jpegData(compressionQuality: 0.8)?
-                .base64EncodedString()
+        let profile = await TasteProfileStore.shared.snapshot()
+        let remote = try? await APIClient.shared.fetchChallengeLearningDeck(
+            profileIds: authManager.userId.map { ["taste:\($0)"] } ?? []
+        )
+        let candidates = (remote?.posts.count ?? 0) >= 2
+            ? remote!.posts
+            : CuratedGiftStore.shared.challengeProducts
+        let deck = Array(OnDeviceRanker.rank(
+            candidates: candidates,
+            profile: profile,
+            context: RankingContext(recipient: nil, consultVibes: PersonalizationStore.consultVibes, mindset: GiftMindset.current())
+        ).map(\.post).prefix(14))
+        guard deck.count >= 2 else { serverUnavailable = true; return }
+        let cards: [[String: Any]] = deck.map { post in
+            var card: [String: Any] = [
+                "postId": post.id, "name": post.product.name, "price": post.product.price,
+                "giftType": "product", "url": post.productUrl ?? "",
+            ]
+            if let image = post.product.image { card["image"] = image }
+            if let category = post.category { card["category"] = category }
+            if let domain = post.domain { card["domain"] = domain }
+            return card
         }
-        // Seed priority: chosen gift > captured photo > taste-key centroid >
-        // a text seed. A brand-new account has no swipes yet, so the taste
-        // keys are empty — that used to short-circuit into "deck builder
-        // unreachable" without ever calling the server. The text seed keeps
-        // the real deck builder in play for first-time senders.
-        var seedKeys: [String] = []
-        if imageBase64 == nil && seedPostId == nil {
-            seedKeys = await TasteProfileStore.shared.snapshot().seedKeys
-        }
-        let seedText: String? = (imageBase64 == nil && seedPostId == nil && seedKeys.isEmpty)
-            ? fallbackSeedText
-            : nil
 
         do {
             let response = try await APIClient.shared.createChallenge(
                 senderId: senderId,
-                seedImageBase64: seedPostId == nil ? imageBase64 : nil,
-                seedPostId: seedPostId,
-                seedKeys: seedKeys.isEmpty ? nil : seedKeys,
-                seedText: seedText,
+                seedKeys: deck.map(\.id),
                 inviterName: inviterName,
                 to: theirName,
                 occasion: occasion == "other" ? nil : occasion,
                 date: dateString,
+                deckMode: "exact",
+                cards: cards,
                 intent: intentPayload.isEmpty ? nil : intentPayload
             )
             challengeId = response.challengeId

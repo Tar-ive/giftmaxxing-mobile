@@ -12,6 +12,7 @@ actor APIClient {
     private let decoder: JSONDecoder
 
     private var authToken: String?
+    private var registeredSigningToken: String?
 
     private init() {
         let config = URLSessionConfiguration.default
@@ -30,13 +31,22 @@ actor APIClient {
 
     func setAuthToken(_ token: String?) {
         authToken = token
+        if token != registeredSigningToken { registeredSigningToken = nil }
     }
 
     // MARK: - User-generated posts
 
-    func createUGCUpload(media: [[String: Any]], caption: String, musicTrackId: String?) async throws -> UGCUploadResponse {
+    func createUGCUpload(
+        media: [[String: Any]],
+        caption: String,
+        musicTrackId: String?,
+        productLinks: [UGCProductLink]
+    ) async throws -> UGCUploadResponse {
         var body: [String: Any] = ["media": media, "caption": caption]
         if let musicTrackId { body["musicTrackId"] = musicTrackId }
+        if !productLinks.isEmpty {
+            body["productLinks"] = productLinks.map { ["name": $0.name, "url": $0.url] }
+        }
         return try await post("/ugc/uploads", body: body)
     }
 
@@ -197,6 +207,7 @@ actor APIClient {
         imageBase64: String? = nil,
         profileIds: [String] = [],
         maxPrice: Double? = nil,
+        curatedOnly: Bool = false,
         excludeItemIds: [String] = []
     ) async throws -> MixerFeedPage {
         var query: [String: Any] = [:]
@@ -206,6 +217,7 @@ actor APIClient {
         if let cursor { page["cursor"] = cursor }
         var constraints: [String: Any] = [:]
         if let maxPrice { constraints["price"] = ["max": maxPrice, "currency": "USD"] }
+        if curatedOnly { constraints["curatedOnly"] = true }
         var context: [String: Any] = ["themeId": themeId]
         if let tagId { context["tagId"] = tagId }
         let response: MixerResponse = try await post("/v2/recommendations", body: [
@@ -222,7 +234,8 @@ actor APIClient {
             recommendationId: response.recommendationId, policyVersion: response.policyVersion,
             modelVersion: response.modelVersion, taxonomyVersion: response.taxonomyVersion,
             profileVersion: response.profileVersion,
-            attributions: Dictionary(uniqueKeysWithValues: response.items.map { ($0.item.entityId, $0.attributionToken) })
+            attributions: Dictionary(uniqueKeysWithValues: response.items.map { ($0.item.entityId, $0.attributionToken) }),
+            ranks: Dictionary(uniqueKeysWithValues: response.items.map { ($0.item.entityId, $0.rank) })
         )
     }
 
@@ -247,6 +260,7 @@ actor APIClient {
             "surface": "search", "subject": ["profileIds": []],
             "context": ["themeId": "for-you"],
             "query": ["imageBase64": imageBase64, "text": text ?? ""],
+            "constraints": ["curatedOnly": true],
             "page": ["limit": limit], "session": ["id": UUID().uuidString],
         ])
         return response.items.map { result in
@@ -261,19 +275,39 @@ actor APIClient {
         }
     }
 
-    func fetchChallengeLearningDeck(profileIds: [String], seedItemIds: [String] = []) async throws -> MixerFeedPage {
+    func fetchChallengeLearningDeck(
+        profileIds: [String], seedItemIds: [String] = [], cursor: String? = nil,
+        limit: Int = 14, excludeItemIds: [String] = []
+    ) async throws -> MixerFeedPage {
+        var page: [String: Any] = ["limit": limit]
+        if let cursor { page["cursor"] = cursor }
         let response: MixerResponse = try await post("/v2/recommendations", body: [
             "surface": "challenge_learn", "subject": ["profileIds": profileIds],
             "context": ["themeId": "for-you"], "query": ["seedItemIds": seedItemIds],
-            "page": ["limit": 14], "session": ["id": UUID().uuidString],
+            "constraints": ["curatedOnly": true, "kinds": ["product"]],
+            "page": page, "session": ["id": UUID().uuidString, "excludeItemIds": excludeItemIds],
         ])
         return mixerPage(response)
+    }
+
+    func fetchRecipientLeaderboard(segment: String, limit: Int = 10) async throws -> [RecipientLeaderboardItem] {
+        let response: RecipientLeaderboardResponse = try await post(
+            "/v2/recipient-leaderboard", body: ["segment": segment, "limit": limit]
+        )
+        return response.items.map { row in
+            RecipientLeaderboardItem(
+                rank: row.rank,
+                voterCount: row.voterCount,
+                post: mapMixerCatalogItem(row.item, reason: "Popular with this group")
+            )
+        }
     }
 
     func fetchChallengeRecommendations(profileIds: [String], seedItemIds: [String] = [], limit: Int = 20) async throws -> MixerFeedPage {
         let response: MixerResponse = try await post("/v2/recommendations", body: [
             "surface": "challenge_recommend", "subject": ["profileIds": profileIds],
             "context": ["themeId": "for-you"], "query": ["seedItemIds": seedItemIds],
+            "constraints": ["curatedOnly": true, "kinds": ["product"]],
             "page": ["limit": limit], "session": ["id": UUID().uuidString],
         ])
         return mixerPage(response)
@@ -285,7 +319,8 @@ actor APIClient {
             recommendationId: response.recommendationId, policyVersion: response.policyVersion,
             modelVersion: response.modelVersion, taxonomyVersion: response.taxonomyVersion,
             profileVersion: response.profileVersion,
-            attributions: Dictionary(uniqueKeysWithValues: response.items.map { ($0.item.entityId, $0.attributionToken) })
+            attributions: Dictionary(uniqueKeysWithValues: response.items.map { ($0.item.entityId, $0.attributionToken) }),
+            ranks: Dictionary(uniqueKeysWithValues: response.items.map { ($0.item.entityId, $0.rank) })
         )
     }
 
@@ -641,7 +676,8 @@ actor APIClient {
         name: String?,
         message: String,
         history: [(role: String, text: String)],
-        shownProducts: [MaxiProduct] = []
+        shownProducts: [MaxiProduct] = [],
+        cartSections: [CartSection] = []
     ) async throws -> MaxiAgentReply? {
         var body: [String: Any] = ["message": message]
         if let userId { body["userId"] = userId }
@@ -654,8 +690,26 @@ actor APIClient {
         // "add all to cart" or "the second one" refers to. Send the postIds
         // still on screen so it can act on them instead of describing them.
         if !shownProducts.isEmpty {
-            body["shownProducts"] = shownProducts.suffix(12).map {
-                ["postId": $0.postId, "title": $0.title]
+            body["shownProducts"] = shownProducts.suffix(12).map { product -> [String: Any] in
+                var item: [String: Any] = ["postId": product.postId, "title": product.title]
+                if let price = product.price { item["price"] = price }
+                if let brand = product.brand { item["brand"] = brand }
+                if let category = product.category { item["category"] = category }
+                if let visualContext = product.visualContext { item["visualContext"] = visualContext }
+                return item
+            }
+        }
+        if !cartSections.isEmpty {
+            body["cartItems"] = cartSections.flatMap { section in
+                section.items.map { item -> [String: Any] in
+                    [
+                        "postId": item.post.id,
+                        "title": item.post.product.name,
+                        "price": item.post.product.price,
+                        "recipient": section.recipientName,
+                        "quantity": item.qty
+                    ]
+                }
             }
         }
 
@@ -1054,15 +1108,23 @@ actor APIClient {
     ) async throws -> T {
         var request = URLRequest(url: URL(string: baseURL + path)!)
         request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let jsonBody = try JSONSerialization.data(withJSONObject: body)
+        if path == "/v2/recommendations" || path == "/v2/events/batch" || path == "/v2/recipient-leaderboard" {
+            try await applySignedProtobuf(to: &request, path: path, json: jsonBody)
+        } else {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.httpBody = jsonBody
+        }
         if let timeout { request.timeoutInterval = timeout }
         applyAuth(&request)
 
         let (data, response) = try await session.data(for: request)
         try validateResponse(response)
-        return try decoder.decode(T.self, from: data)
+        let responseData = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type")?.contains("application/x-protobuf") == true
+            ? try ProtobufEnvelope.decodeJSON(data)
+            : data
+        return try decoder.decode(T.self, from: responseData)
     }
 
     private func put<T: Decodable>(_ path: String, body: [String: Any]) async throws -> T {
@@ -1099,6 +1161,32 @@ actor APIClient {
         if let authToken {
             request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
         }
+    }
+
+    private func applySignedProtobuf(to request: inout URLRequest, path: String, json: Data) async throws {
+        guard let token = authToken else {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.httpBody = json
+            return
+        }
+        let signer = try APIRequestSigner()
+        if registeredSigningToken != token {
+            var registration = URLRequest(url: URL(string: baseURL + "/v2/device-keys/register")!)
+            registration.httpMethod = "POST"
+            registration.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            registration.setValue("application/json", forHTTPHeaderField: "Accept")
+            registration.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            registration.httpBody = try JSONSerialization.data(withJSONObject: [
+                "keyId": signer.keyId, "publicKey": signer.publicKeyBase64,
+            ])
+            let (_, response) = try await session.data(for: registration)
+            try validateResponse(response)
+            registeredSigningToken = token
+        }
+        let signed = try signer.sign(method: "POST", path: path, json: json)
+        signed.headers.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
+        request.httpBody = signed.data
     }
 
     private func validateResponse(_ response: URLResponse) throws {
@@ -1179,9 +1267,12 @@ actor APIClient {
     }
 
     private func mapMixerItem(_ result: MixerResult) -> Post {
-        let item = result.item
+        mapMixerCatalogItem(result.item, reason: result.reason.label)
+    }
+
+    private func mapMixerCatalogItem(_ item: MixerCatalogItem, reason: String) -> Post {
         if var legacy = item.legacyPost {
-            legacy.reason = result.reason.label
+            legacy.reason = reason
             legacy.contentType = item.kind
             legacy.qualityScore = item.quality?.score ?? legacy.qualityScore
             return mapAPIPost(legacy)
@@ -1191,7 +1282,7 @@ actor APIClient {
             postId: item.entityId, author: item.creator?.name, authorName: item.creator?.name,
             authorImageUrl: nil, ownerId: item.creator?.id, createdAt: nil, likes: 0, comments: 0,
             caption: item.summary, source: item.provenance?.type, url: item.provenance?.sourceUrl,
-            productUrl: offer?.url, rec: true, reason: result.reason.label, recipient: nil,
+            productUrl: offer?.url, rec: true, reason: reason, recipient: nil,
             occasion: nil, category: item.taxonomy?.primaryCategoryId, status: "active",
             product: APIProduct(id: item.entityId, name: item.title, brand: offer?.merchant,
                 price: offer?.price, grad: nil, emoji: nil, image: item.media?.first?.url,
@@ -1262,6 +1353,7 @@ struct MixerFeedPage {
     let taxonomyVersion: String
     let profileVersion: Int
     let attributions: [String: String]
+    let ranks: [String: Int]
 }
 
 struct EmptyResponse: Decodable {}

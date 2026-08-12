@@ -49,6 +49,9 @@ struct MaxiProduct: Identifiable, Codable {
     var brand: String?
     var image: String?
     var category: String?
+    /// Catalog-authored description of what is visible in the product photo.
+    /// Maxi receives this automatically; no separate image upload is required.
+    var visualContext: String? = nil
 
     var id: String { postId }
 }
@@ -72,7 +75,7 @@ extension Post {
                 emoji: "🎁",
                 image: product.image
             ),
-            caption: "",
+            caption: product.visualContext ?? "",
             likes: 0,
             reason: "Maxi picked this",
             category: product.category

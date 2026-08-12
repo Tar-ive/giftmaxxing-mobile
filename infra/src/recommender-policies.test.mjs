@@ -43,7 +43,7 @@ test("search weights query relevance above a conflicting taste", () => {
 
 test("challenge learning builds a unique, category-balanced 14-card deck", () => {
   const candidates = Array.from({ length: 24 }, (_, index) => {
-    const item = post(`deck-${index}`, "Shopify/Test", index % 5 === 0 ? "service" : "product", { url: `https://shop/deck-${index}` });
+    const item = post(`deck-${index}`, "Shopify/Test", "product", { url: `https://shop/deck-${index}` });
     item.taxonomy.primaryCategoryId = `category-${index % 7}`;
     item.commerce.offers[0].merchant = `merchant-${index % 9}`;
     item.commerce.offers[0].price = [25, 85, 220][index % 3];
@@ -55,4 +55,5 @@ test("challenge learning builds a unique, category-balanced 14-card deck", () =>
   assert.ok(new Set(deck.map((x) => x.item.taxonomy.primaryCategoryId)).size >= 4);
   const counts = deck.reduce((all, x) => ({ ...all, [x.item.taxonomy.primaryCategoryId]: (all[x.item.taxonomy.primaryCategoryId] || 0) + 1 }), {});
   assert.ok(Math.max(...Object.values(counts)) <= 2);
+  assert.ok(deck.every((x) => x.item.kind === "product"));
 });

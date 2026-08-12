@@ -30,17 +30,9 @@ struct FeedView: View {
     @State private var themes = FeedTheme.all
     @State private var tagId: String?
     @State private var showFilterSheet = false
-    // Tier-2 hides on down-scroll and returns on up-scroll. Tier 1 never hides:
-    // it is navigation, and losing it mid-scroll strands you in a category with
-    // no way back.
-    @State private var tagBarHidden = false
-    @State private var lastScrollY: CGFloat = .greatestFiniteMagnitude
-    @State private var scrollOrigin: CGFloat = .greatestFiniteMagnitude
-    @State private var atTop = true
-    // Which feed layout to draw. Locked to A for everyone but an allowlisted
-    // operator account (DebugSessionManager).
-    @ObservedObject private var debugSession = DebugSessionManager.shared
-    private var variant: DesignVariant { DebugSessionManager.active }
+    // For You repeats the approved curation in unique render cycles. Two cycles
+    // paint immediately; the sentinel extends it without duplicating model IDs.
+    @State private var forYouCycles = 2
 
     private var activeTheme: FeedTheme {
         themes.first { $0.id == themeId } ?? themes[0]
@@ -172,220 +164,90 @@ struct FeedView: View {
         .padding(.bottom, 8)
     }
 
-    /// The identity row is only earned by an unfiltered feed at the top.
-    ///
-    /// Once you pick a category — or a sub-filter, or scroll — you are browsing,
-    /// and the row that identifies the app is the least useful thing on screen.
-    /// Giving its height back to the grid is worth more than the branding.
-    private var showsIdentityRow: Bool {
-        #if DEBUG
-        if UserDefaults.standard.bool(forKey: "curatedScreenshotMode") { return true }
-        #endif
-        return themeId == themes.first?.id && tagId == nil && atTop
-    }
-
-    // Pinned header: identity row (conditional) THEN the category pills, THEN
-    // the sub-filters. Order matters — pills sat above the wordmark before,
-    // which read as the categories belonging to the status bar.
-    @ViewBuilder
-    private var stickyHeader: some View {
+    private var taxonomyHeader: some View {
         VStack(spacing: 0) {
-            if showsIdentityRow {
-                identityRow
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
-
             FeedThemeBar(themes: themes, selection: $themeId)
 
-            if !activeTheme.tags.isEmpty && !tagBarHidden {
+            if !activeTheme.tags.isEmpty {
                 FeedTagBar(
                     tags: activeTheme.tags,
                     selection: $tagId,
                     onOpenFilter: { showFilterSheet = true }
                 )
-                .padding(.bottom, 4)
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .padding(.bottom, ThemeSpacing.xs)
             }
         }
         .background(.regularMaterial)
-        .animation(.snappy(duration: 0.22), value: showsIdentityRow)
     }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                LazyVStack(spacing: 1) {
-                    // This pilot starts from four manually reviewed source
-                    // posts. Nothing from the legacy catalog is mixed in until
-                    // the curation proves useful.
-                    CuratedJourneyRail(
-                        onSelect: { selectedJourney = $0 },
-                        onSeeAll: { showIdeas = true }
-                    )
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                        identityRow
+                            .id("feed-top")
 
-                    ForEach(postingStore.items) { item in
-                        PendingUGCFeedCard(item: item)
-                        Divider().padding(.horizontal, 14)
-                    }
-
-                    if viewModel.isLoading && viewModel.posts.isEmpty {
-                        ForEach(0..<3, id: \.self) { _ in
-                            PostCardSkeleton()
-                        }
-                    } else if let error = viewModel.error, viewModel.posts.isEmpty {
-                        VStack(spacing: 16) {
-                            Image(systemName: "wifi.exclamationmark")
-                                .font(.system(size: 40))
-                                .foregroundStyle(.secondary)
-                            Text(error)
-                                .font(.bodyMedium)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                            Button("Retry") {
-                                Task { await viewModel.loadFeed(context: modelContext) }
-                            }
-                            .font(.labelBold)
-                            .foregroundStyle(Color.coral)
-                        }
-                        .padding(40)
-                    } else {
-                        // Feed layout is LOCKED to the masonry grid — the
-                        // variant experiment settled on it. Variants still
-                        // differ elsewhere (Create, Circles, accent).
-                        //
-                        // Products go in the grid; UGC does NOT. A grid tile
-                        // cannot carry a video, a music track or a carousel, so
-                        // community posts keep the full-width card and the feed
-                        // renders as alternating runs: grid, grid, grid, UGC
-                        // card, grid… Ranked order is preserved exactly.
-                        ForEach(feedSegments) { segment in
-                            switch segment.kind {
-                            case .products(let posts):
-                                MasonryFeedGrid(
-                                    posts: posts,
-                                    savedIds: Set(posts.filter { swipeList.containsInMyGiftIdeas($0) }.map(\.id)),
-                                    onTap: { post in
-                                        selectedPost = post
-                                        AnalyticsEngine.shared.trackContentAction(.contentTap, postId: post.id)
-                                    },
-                                    onSave: { post in
-                                        swipeList.toggleMyGiftIdea(post)
-                                        viewModel.toggleSave(for: post, context: modelContext)
-                                        AnalyticsEngine.shared.trackContentAction(.contentSave, postId: post.id)
-                                    }
+                        Section {
+                            if themeId == "for-you" {
+                                CuratedJourneyRail(
+                                    onSelect: { selectedJourney = $0 },
+                                    onSeeAll: { showIdeas = true }
                                 )
-                                .onAppear {
-                                    for post in posts { viewModel.recordImpression(for: post) }
-                                }
-                                .padding(.bottom, 10)
-
-                            case .ugc(let post):
-                                fullWidthCard(for: post, at: segment.startIndex)
                             }
-                        }
 
-                        if viewModel.isLoadingMore {
-                            ProgressView()
-                                .padding(20)
-                        } else {
-                            Color.clear
-                                .frame(height: 1)
-                                .onAppear {
-                                    Task { await viewModel.loadMore() }
-                                }
+                            ForEach(postingStore.items) { item in
+                                PendingUGCFeedCard(item: item)
+                                Divider().padding(.horizontal, ThemeSpacing.md)
+                            }
+
+                            feedContent
+                        } header: {
+                            taxonomyHeader
                         }
                     }
+                    .background(Color.surface)
                 }
-                .background(Color.surface)
-                // Sticky browse header. safeAreaInset rather than an overlay so
-                // the grid's own content inset accounts for it — an overlay
-                // would hide the first row behind the bars.
-                // Collapsing two-tier header.
-                //
-                //   At rest      → Tier 1 (search + cart) and Tier 2 (category
-                //                  capsules) are both visible.
-                //   Scrolled     → Tier 1 collapses away entirely and Tier 2
-                //                  locks to the top edge.
-                //   Back at top  → Tier 1 returns.
-                //
-                // Search is deliberately unreachable mid-scroll: the row is
-                // worth its height only when you have stopped browsing, and
-                // reclaiming it gives the grid a full extra row of product.
-                .safeAreaInset(edge: .top, spacing: 0) { stickyHeader }
+                .refreshable {
+                    await viewModel.refreshFeed(context: modelContext)
+                    forYouCycles = 2
+                    refreshed.toggle()
+                }
                 .onChange(of: themeId) { _, _ in
-                    // A new macro theme drops the old micro tag — "Pour-over
-                    // kits" is meaningless under Beauty.
                     tagId = nil
-                    withAnimation(.snappy) { tagBarHidden = false }
+                    forYouCycles = 2
+                    proxy.scrollTo("feed-top", anchor: .top)
                     Task { await viewModel.setBrowse(theme: activeTheme, tag: nil, context: modelContext) }
                 }
                 .onChange(of: tagId) { _, _ in
+                    forYouCycles = 2
+                    proxy.scrollTo("feed-top", anchor: .top)
                     Task { await viewModel.setBrowse(theme: activeTheme, tag: activeTag, context: modelContext) }
                 }
-                .sheet(isPresented: $showFilterSheet) {
-                    FeedFilterSheet(theme: activeTheme, selection: $tagId)
-                }
-                // Fade the Maxi FAB out while the feed moves. It shares the
-                // bottom-right corner with each card's Pool / Gift-board
-                // buttons, and those scroll — so "get out of the way while
-                // scrolling" is the only rule that actually clears them.
                 .onScrollActivityChange { moving in
                     guard moving != appState.isScrolling else { return }
                     withAnimation(.easeOut(duration: 0.18)) { appState.isScrolling = moving }
                 }
-                // Direction, not just motion: down hides the tag bar, up brings
-                // it straight back. The 12pt threshold keeps a jittery finger
-                // from flapping it open and shut.
-                .onScrollOffsetChange { y in
-                    if scrollOrigin == .greatestFiniteMagnitude { scrollOrigin = y }
-                    let scrolled = scrollOrigin - y
-
-                    // The identity row comes back only at the very top.
-                    let top = scrolled <= 8
-                    if top != atTop { atTop = top }
-                    // The capsules hide once you are properly into the grid and
-                    // come back the moment you scroll up.
-                    defer { lastScrollY = y }
-                    guard lastScrollY != .greatestFiniteMagnitude else { return }
-                    let delta = y - lastScrollY
-                    guard abs(delta) > 12 else { return }
-                    let hide = delta < 0 && scrolled > 120
-                    guard hide != tagBarHidden else { return }
-                    withAnimation(.snappy(duration: 0.22)) { tagBarHidden = hide }
-                }
-                .toolbar(.hidden, for: .navigationBar)
-                .overlay(alignment: .top) {
-                    if syncEngine.isSyncing {
-                        HStack(spacing: 4) {
-                            ProgressView()
-                                .scaleEffect(0.7)
-                            Text("Syncing...")
-                                .font(.caption2)
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Capsule())
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                    }
-                }
-                // Programmatic pushes for the header controls. These must live
-                // INSIDE the NavigationStack to resolve.
-                .navigationDestination(isPresented: $showCart) { CartView() }
-                .navigationDestination(isPresented: $showIdeas) { CuratedJourneyListView() }
-                .navigationDestination(item: $selectedJourney) { journey in
-                    CuratedJourneyDetailView(journey: journey)
-                }
-                .navigationDestination(item: $selectedAuthor) { person in
-                    PublicProfileView(person: person)
+            }
+            .sheet(isPresented: $showFilterSheet) {
+                FeedFilterSheet(theme: activeTheme, selection: $tagId)
+            }
+            .overlay(alignment: .top) {
+                if syncEngine.isSyncing {
+                    ProgressView()
+                        .padding(ThemeSpacing.xs)
+                        .background(.ultraThinMaterial, in: Capsule())
                 }
             }
-            .refreshable {
-                // Pull-to-refresh = a genuinely fresh page (CDN bust +
-                // new server random-seek), not a replay of the cache.
-                await viewModel.refreshFeed(context: modelContext)
-                refreshed.toggle()
+            .navigationDestination(isPresented: $showCart) { CartView() }
+            .navigationDestination(isPresented: $showIdeas) { CuratedJourneyListView() }
+            .navigationDestination(item: $selectedJourney) { journey in
+                CuratedJourneyDetailView(journey: journey)
             }
+            .navigationDestination(item: $selectedAuthor) { person in
+                PublicProfileView(person: person)
+            }
+            .toolbar(.hidden, for: .navigationBar)
         }
         .sheet(item: $selectedPost) { post in
             // Read live state so like/save toggles reflect immediately.
@@ -456,6 +318,56 @@ struct FeedView: View {
         .onChange(of: scenePhase) { _, phase in
             // Push any locally queued interaction events before we lose runtime.
             if phase == .background { viewModel.flushInteractions() }
+        }
+    }
+
+    @ViewBuilder
+    private var feedContent: some View {
+        if viewModel.isLoading && viewModel.posts.isEmpty {
+            ForEach(0..<3, id: \.self) { _ in PostCardSkeleton() }
+        } else if let error = viewModel.error, viewModel.posts.isEmpty {
+            ContentUnavailableView {
+                Label("Couldn’t load gifts", systemImage: "wifi.exclamationmark")
+            } description: {
+                Text(error)
+            } actions: {
+                Button("Retry") { Task { await viewModel.loadFeed(context: modelContext) } }
+                    .buttonStyle(SecondaryButtonStyle())
+            }
+            .padding(ThemeSpacing.xl)
+        } else {
+            MasonryFeedGrid(
+                posts: viewModel.posts,
+                repeatCount: themeId == "for-you" ? forYouCycles : 1,
+                savedIds: Set(viewModel.posts.filter { swipeList.containsInMyGiftIdeas($0) }.map(\.id)),
+                onTap: { post in
+                    selectedPost = post
+                    AnalyticsEngine.shared.trackContentAction(.contentTap, postId: post.id)
+                },
+                onSave: { post in
+                    swipeList.toggleMyGiftIdea(post)
+                    viewModel.toggleSave(for: post, context: modelContext)
+                    AnalyticsEngine.shared.trackContentAction(.contentSave, postId: post.id)
+                }
+            )
+            .onAppear {
+                for post in viewModel.posts { viewModel.recordImpression(for: post) }
+            }
+            .padding(.bottom, ThemeSpacing.sm)
+
+            if viewModel.isLoadingMore {
+                ProgressView().padding(ThemeSpacing.lg)
+            } else {
+                Color.clear
+                    .frame(height: 1)
+                    .onAppear {
+                        if themeId == "for-you" {
+                            if forYouCycles < 200 { forYouCycles += 2 }
+                        } else {
+                            Task { await viewModel.loadMore(context: modelContext) }
+                        }
+                    }
+            }
         }
     }
 

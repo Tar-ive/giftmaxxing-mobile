@@ -113,7 +113,6 @@ final class MaxiViewModel: ObservableObject {
     /// identity opens the chat on this device. The local copy is the fast path;
     /// this is what makes a reinstall or a new phone not start from nothing.
     func restoreIfNeeded() async {
-        guard !CuratedGiftStore.isPilotEnabled else { return }
         guard let userId = AuthManager.shared.userId, !userId.isEmpty else { return }
         guard restoredForUserId != userId else { return }
         restoredForUserId = userId
@@ -175,12 +174,6 @@ final class MaxiViewModel: ObservableObject {
 
         let history = MaxiConversationStore.shared.history()
 
-        if CuratedGiftStore.isPilotEnabled {
-            await respondLocally(to: text, note: nil)
-            isThinking = false
-            return
-        }
-
         do {
             // Send the signed-in identity: the agent unlocks memory, events and
             // connection tools server-side only when it knows who's asking.
@@ -189,7 +182,8 @@ final class MaxiViewModel: ObservableObject {
                 name: AuthManager.shared.displayName,
                 message: text,
                 history: history,
-                shownProducts: productsOnScreen
+                shownProducts: productsOnScreen,
+                cartSections: CartStore.shared.sortedSections
             )
             if let reply, !reply.say.isEmpty {
                 record(MaxiMessage(
@@ -236,7 +230,17 @@ final class MaxiViewModel: ObservableObject {
 
     private func respondLocally(to text: String, note: String?) async {
         await loadCatalogIfNeeded()
-        let local = MaxiLocalEngine.respond(to: text, catalog: catalog)
+        let lower = text.lowercased()
+        let asksForCheaper = lower.contains("cheaper")
+            || lower.contains("less expensive")
+            || lower.contains("more affordable")
+            || lower.contains("lower price")
+        let visiblePrices = productsOnScreen.compactMap(\.price).filter { $0 > 0 }
+        let ceiling = asksForCheaper ? visiblePrices.min() : nil
+        let eligibleCatalog = ceiling.map { limit in
+            catalog.filter { $0.product.price > 0 && $0.product.price < limit }
+        } ?? catalog
+        let local = MaxiLocalEngine.respond(to: text, catalog: eligibleCatalog)
         var say = local.say
         if let note, !shownFallbackNote {
             shownFallbackNote = true

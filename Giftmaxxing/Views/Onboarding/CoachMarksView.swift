@@ -130,6 +130,11 @@ struct CoachMarksView: View {
             .ignoresSafeArea()
         }
         .onAppear {
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "coachMarksScreenshotMode") {
+                index = min(max(UserDefaults.standard.integer(forKey: "coachMarksScreenshotStep"), 0), Self.steps.count - 1)
+            }
+            #endif
             pulse = true
             AnalyticsEngine.shared.trackScreenView(screen: "coach_marks")
         }

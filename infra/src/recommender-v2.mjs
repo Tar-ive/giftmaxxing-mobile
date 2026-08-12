@@ -20,13 +20,16 @@ import { activeRecommenderModel, modelProbability } from "./recommender-model.mj
 
 const SURFACES = new Set(["home", "search", "challenge_learn", "challenge_recommend"]);
 const EVENT_TYPES = new Set([
-  "impression", "dwell", "search_tap", "like", "save", "hide", "offer_click", "purchase",
+  "impression", "dwell", "search_tap", "like", "comment", "save", "hide", "offer_click", "purchase",
   "challenge_yes", "challenge_no", "challenge_uncertain",
 ]);
 const VECTOR_DIM = Number(process.env.VECTOR_DIM || 1024);
 const EMBED_MODEL = process.env.BEDROCK_EMBED_MODEL_ID || "amazon.titan-embed-image-v1";
 const VECTOR_BUCKET = process.env.VECTOR_BUCKET || "";
 const VECTOR_INDEX = process.env.VECTOR_INDEX || "pins";
+const CURATED_RECOMMENDER_ONLY = process.env.CURATED_RECOMMENDER_ONLY !== "0";
+const CURATION_COLLECTION_ID = "giftmaxxing-reviewed";
+const CURATION_POINTER_ID = `curation_collection:${CURATION_COLLECTION_ID}`;
 const TABLES = {
   entities: process.env.CATALOG_ENTITIES_TABLE,
   edges: process.env.CATALOG_EDGES_TABLE,
@@ -80,6 +83,7 @@ export function validateMixerRequest(body = {}) {
       categoryIds: [...new Set((body.constraints?.categoryIds ?? []).map((x) => boundedString(x, 100).toLowerCase()).filter(Boolean))],
       labelIds: [...new Set((body.constraints?.labelIds ?? []).map((x) => boundedString(x, 100).toLowerCase()).filter(Boolean))],
       kinds: [...new Set((body.constraints?.kinds ?? []).map((x) => boundedString(x, 40)).filter(Boolean))],
+      curatedOnly: body.constraints?.curatedOnly === true,
       minPrice: Number(body.constraints?.price?.min) || null,
       maxPrice: Number(body.constraints?.price?.max) || null,
       currency: boundedString(body.constraints?.price?.currency || "USD", 8),
@@ -117,6 +121,18 @@ async function loadProfiles(deps, profileIds, auth) {
   const allowed = profiles.filter((profile) => auth?.via === "admin" || profile.ownerId === actor || (profile.authorizedViewerIds ?? []).includes(actor));
   if (allowed.length !== profileIds.length) return { ok: false, statusCode: actor ? 403 : 401 };
   return { ok: true, profile: mergeProfiles(allowed), ids: profileIds };
+}
+
+async function loadActiveCuration(deps) {
+  if (!deps.tables.entities) return null;
+  const result = await deps.ddb.send(new GetCommand({
+    TableName: deps.tables.entities,
+    Key: { entityId: CURATION_POINTER_ID },
+    ConsistentRead: true,
+  }));
+  const version = boundedString(result.Item?.activeVersion, 80);
+  const itemIds = [...new Set((result.Item?.itemIds ?? []).map((id) => boundedString(id, 160)).filter(Boolean))];
+  return version && itemIds.length ? { collectionId: CURATION_COLLECTION_ID, version, itemIds } : null;
 }
 
 async function embed(deps, { text, imageBase64 }) {
@@ -267,6 +283,12 @@ async function catalogCandidates(deps, limit = 600) {
   });
 }
 
+async function curatedCandidates(deps, activeCuration) {
+  if (!activeCuration) return [];
+  const items = await loadEntityMap(deps, activeCuration.itemIds);
+  return activeCuration.itemIds.flatMap((id) => items.has(id) ? [{ item: items.get(id), source: "curated-catalog" }] : []);
+}
+
 function informationGain(item, profile) {
   const labels = item.taxonomy?.labelIds ?? [];
   if (!labels.length) return 0.5;
@@ -278,10 +300,19 @@ function informationGain(item, profile) {
   }, 0) / labels.length;
 }
 
-function passesConstraints(item, constraints, feedContext) {
+function passesCuratedBoundary(item, activeCuration) {
+  return Boolean(activeCuration)
+    && item.quality?.curationStatus === "approved"
+    && item.quality?.curationCollectionId === activeCuration.collectionId
+    && item.quality?.curationCollectionVersion === activeCuration.version
+    && item.provenance?.provider === "giftmaxxing-curation";
+}
+
+function passesConstraints(item, constraints, feedContext, activeCuration, curatedRequired) {
   const offer = item.commerce?.offers?.[0];
   const price = Number(offer?.price);
   if (constraints.kinds.length && !constraints.kinds.includes(item.kind)) return false;
+  if (curatedRequired && !passesCuratedBoundary(item, activeCuration)) return false;
   if (constraints.categoryIds.length && !constraints.categoryIds.includes(item.taxonomy?.primaryCategoryId)) return false;
   if (constraints.labelIds.length && !constraints.labelIds.some((label) => item.taxonomy?.labelIds?.includes(label))) return false;
   const minPrice = constraints.minPrice ?? feedContext.minPrice;
@@ -289,6 +320,12 @@ function passesConstraints(item, constraints, feedContext) {
   if (minPrice != null && (!Number.isFinite(price) || price < minPrice)) return false;
   if (maxPrice != null && (!Number.isFinite(price) || price > maxPrice)) return false;
   return item.status === "active" && item.quality?.giftable !== false;
+}
+
+function passesSurfacePolicy(item, surface) {
+  if (!["challenge_learn", "challenge_recommend"].includes(surface)) return true;
+  return item.kind === "product"
+    && item.commerce?.shoppability === "direct";
 }
 
 function signedAttribution(recommendationId, entityId, rank) {
@@ -319,14 +356,22 @@ async function recommend(deps, body, auth) {
 
   const feedContext = resolveFeedContext(request.context.themeId, request.context.tagId);
   const terms = [...new Set([...feedContext.terms, ...request.query.text.toLowerCase().split(/\s+/).filter(Boolean)])];
+  const curatedRequired = CURATED_RECOMMENDER_ONLY
+    || request.constraints.curatedOnly
+    || ["challenge_learn", "challenge_recommend"].includes(request.surface);
+  const activeCuration = curatedRequired
+    ? await loadActiveCuration(deps).catch((error) => { console.warn("active curation lookup failed", error.message); return null; })
+    : null;
   const [vectors, catalog, activeModel] = await Promise.all([
     vectorCandidates(deps, request, loaded.profile, terms).catch((error) => { console.warn("v2 vector retrieval failed", error.message); return []; }),
-    catalogCandidates(deps),
+    curatedRequired ? curatedCandidates(deps, activeCuration) : catalogCandidates(deps),
     activeRecommenderModel(deps),
   ]);
   const excluded = request.session.excludeItemIds;
   const scored = [...vectors, ...catalog]
-    .filter(({ item }) => !excluded.has(item.entityId) && passesConstraints(item, request.constraints, feedContext))
+    .filter(({ item }) => !excluded.has(item.entityId)
+      && passesConstraints(item, request.constraints, feedContext, activeCuration, curatedRequired)
+      && passesSurfacePolicy(item, request.surface))
     .map((candidate) => scoreCandidate({
       ...candidate,
       informationGain: request.surface === "challenge_learn" ? informationGain(candidate.item, loaded.profile) : candidate.informationGain,
@@ -355,10 +400,11 @@ async function recommend(deps, body, auth) {
     policyVersion: POLICY_VERSION,
     modelVersion: activeModel?.model && activeModel?.version ? `registry:${activeModel.version}` : "deterministic-cosine-v1",
     taxonomyVersion: TAXONOMY_VERSION,
+    curationVersion: activeCuration?.version ?? null,
     profileVersion: loaded.profile.profileVersion,
     items,
     nextCursor: page.length === request.page.limit ? encodeCursor(request.page.offset + page.length) : null,
-    cache: { key: createHmac("sha256", POLICY_VERSION).update(JSON.stringify({ ...body, page: undefined })).digest("hex").slice(0, 24), staleAfterSeconds: 900 },
+    cache: { key: createHmac("sha256", POLICY_VERSION).update(JSON.stringify({ ...body, page: undefined, curationVersion: activeCuration?.version })).digest("hex").slice(0, 24), staleAfterSeconds: 900 },
     ...(body.debug && auth?.via === "admin" ? { supply: supplyMetrics(scored), candidateCount: scored.length } : {}),
   }, { "cache-control": request.profileIds.length ? "private, no-store" : "public, max-age=60" });
 }
@@ -432,6 +478,61 @@ async function recordEvents(deps, body, auth) {
   return json(202, { ok: true, accepted: rows.length });
 }
 
+const RECIPIENT_ALIASES = {
+  women: ["women", "woman", "girls", "girl", "her", "wife", "girlfriend", "mom", "mother", "sister", "daughter"],
+  men: ["men", "man", "boys", "boy", "him", "husband", "boyfriend", "dad", "father", "brother", "son"],
+  kids: ["kids", "kid", "child", "children", "daughter", "son", "girl", "boy"],
+  partner: ["partner", "wife", "husband", "girlfriend", "boyfriend"],
+  friend: ["friend", "best friend", "coworker"],
+};
+
+function recipientMatches(context, segment) {
+  const value = String(context?.recipientSegment || context?.recipient || "").toLowerCase();
+  return (RECIPIENT_ALIASES[segment] || [segment]).some((alias) => value.includes(alias));
+}
+
+async function recipientLeaderboard(deps, body) {
+  const segment = boundedString(body.segment || "women", 40).toLowerCase();
+  const limit = clamp(body.limit || 10, 1, 20);
+  if (!Object.hasOwn(RECIPIENT_ALIASES, segment)) return json(400, { error: "unsupported recipient segment" });
+  let rows = [];
+  if (deps.tables.analytics) {
+    const after = Date.now() - 90 * 86400_000;
+    for (const type of ["recommender_challenge_yes", "recommender_like", "swipe_right"]) {
+      try {
+        const result = await deps.ddb.send(new QueryCommand({
+          TableName: deps.tables.analytics, IndexName: "byType",
+          KeyConditionExpression: "#type = :type AND #timestamp >= :after",
+          ExpressionAttributeNames: { "#type": "type", "#timestamp": "timestamp" },
+          ExpressionAttributeValues: { ":type": type, ":after": after }, Limit: 1000,
+        }));
+        rows.push(...(result.Items || []));
+      } catch (error) { console.warn("recipient leaderboard query failed", error.message); }
+    }
+  }
+  const counts = new Map();
+  for (const row of rows) {
+    if (!row.postId || !recipientMatches(row.context, segment)) continue;
+    const current = counts.get(row.postId) || { itemId: row.postId, likes: 0, users: new Set() };
+    current.likes += 1; current.users.add(row.userId); counts.set(row.postId, current);
+  }
+  const ranked = [...counts.values()].sort((a, b) => b.likes - a.likes).slice(0, limit);
+  const entities = await loadEntityMap(deps, ranked.map((row) => row.itemId));
+  let items = ranked.map((row, index) => ({
+    rank: index + 1, score: row.likes, voterCount: row.users.size,
+    item: entities.has(row.itemId) ? publicItem(entities.get(row.itemId)) : null,
+  })).filter((row) => row.item);
+  if (!items.length) {
+    const active = await loadActiveCuration(deps).catch(() => null);
+    const fallback = await curatedCandidates(deps, active);
+    items = fallback
+      .filter(({ item }) => (RECIPIENT_ALIASES[segment] || []).some((term) => `${item.title} ${(item.taxonomy?.labelIds || []).join(" ")}`.toLowerCase().includes(term)))
+      .slice(0, limit)
+      .map(({ item }, index) => ({ rank: index + 1, score: 0, voterCount: 0, item: publicItem(item) }));
+  }
+  return json(200, { segment, windowDays: 90, sampleSize: rows.length, items });
+}
+
 async function ingestCatalog(deps, body, auth) {
   if (auth?.via !== "admin") return json(403, { error: "admin required" });
   if (!deps.tables.entities || !deps.tables.edges) return json(503, { error: "catalog v2 not configured" });
@@ -471,6 +572,7 @@ export function createRecommenderV2(deps = defaultDeps) {
     if (method === "GET" && /^\/v2\/items\/[^/]+$/.test(path)) return getItem(deps, path);
     if (method === "POST" && path === "/v2/recommendations") return recommend(deps, body, context.auth);
     if (method === "POST" && path === "/v2/events/batch") return recordEvents(deps, body, context.auth);
+    if (method === "POST" && path === "/v2/recipient-leaderboard") return recipientLeaderboard(deps, body);
     if (method === "POST" && path === "/internal/v2/catalog/records/batch") return ingestCatalog(deps, body, context.auth);
     return null;
   };

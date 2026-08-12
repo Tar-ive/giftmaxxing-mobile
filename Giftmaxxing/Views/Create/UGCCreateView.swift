@@ -35,6 +35,7 @@ struct UGCCreateView: View {
                         preview
                         musicPicker
                         caption
+                        productLinks
                         publishButton
                     } else if model.isPreparing {
                         preparingCard
@@ -313,6 +314,44 @@ struct UGCCreateView: View {
         }
     }
 
+    private var productLinks: some View {
+        VStack(alignment: .leading, spacing: ThemeSpacing.sm) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Products in this post")
+                        .font(.headline)
+                        .foregroundStyle(Color.ink)
+                    Text("Optional, but strongly recommended so people can shop the exact items.")
+                        .font(.caption)
+                        .foregroundStyle(Color.inkSecondary)
+                }
+                Spacer()
+                Button {
+                    model.productLinks.append(UGCProductLink(name: "", url: ""))
+                } label: {
+                    Image(systemName: "plus.circle.fill").frame(minWidth: 44, minHeight: 44)
+                }
+                .disabled(model.productLinks.count >= 8)
+                .accessibilityLabel("Add product link")
+            }
+
+            ForEach(model.productLinks.indices, id: \.self) { index in
+                VStack(spacing: ThemeSpacing.xs) {
+                    TextField("Product name", text: $model.productLinks[index].name)
+                    TextField("https://store.com/product", text: $model.productLinks[index].url)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.URL)
+                    Button("Remove", role: .destructive) { model.productLinks.remove(at: index) }
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .textFieldStyle(.roundedBorder)
+                .padding(ThemeSpacing.sm)
+                .background(Color.surface)
+                .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.md, style: .continuous))
+            }
+        }
+    }
+
     private var posts: some View {
         VStack(alignment: .leading, spacing: ThemeSpacing.sm) {
             HStack {
@@ -500,6 +539,7 @@ final class UGCCreateViewModel: ObservableObject {
     @Published var media: [SelectedUGCMedia] = []
     @Published var music: UGCMusicTrack?
     @Published var caption = ""
+    @Published var productLinks: [UGCProductLink] = []
     @Published var posts: [UGCPost] = []
     @Published var isPreparing = false
     @Published var isPublishing = false
@@ -620,6 +660,7 @@ final class UGCCreateViewModel: ObservableObject {
         media = []
         music = nil
         caption = ""
+        productLinks = []
     }
 
     func refreshPosts() async {
@@ -641,7 +682,8 @@ final class UGCCreateViewModel: ObservableObject {
             let upload = try await APIClient.shared.createUGCUpload(
                 media: descriptors,
                 caption: cleanCaption,
-                musicTrackId: music?.trackId
+                musicTrackId: music?.trackId,
+                productLinks: validProductLinks
             )
             let targets = upload.uploads ?? [UGCUploadTarget(index: 0, uploadUrl: upload.uploadUrl, uploadHeaders: upload.uploadHeaders)]
             if let posterURL = upload.posterUploadUrl,
@@ -672,6 +714,15 @@ final class UGCCreateViewModel: ObservableObject {
         } catch {
             self.error = error.localizedDescription
             return false
+        }
+    }
+
+    private var validProductLinks: [UGCProductLink] {
+        productLinks.compactMap { link in
+            let name = link.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            let raw = link.url.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty, let url = URL(string: raw), ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return nil }
+            return UGCProductLink(name: name, url: raw)
         }
     }
 

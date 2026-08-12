@@ -26,6 +26,8 @@ final class FeedViewModel: ObservableObject {
     private var browseThemeId = "for-you"
     private var browseTagId: String?
     private var mixerAttribution: [String: String] = [:]
+    private var mixerRecommendation: [String: String] = [:]
+    private var mixerRank: [String: Int] = [:]
     private var staleCachedPosts: [Post] = []
     private let api = APIClient.shared
 
@@ -109,14 +111,9 @@ final class FeedViewModel: ObservableObject {
         servedIds = []
         usingMixer = false
         mixerAttribution = [:]
+        mixerRecommendation = [:]
+        mixerRank = [:]
         cacheBuster = forceFresh ? UUID().uuidString : nil
-
-        if CuratedGiftStore.isPilotEnabled {
-            posts = CuratedGiftStore.shared.feed(query: browseQuery.joined(separator: " "))
-            exhausted = true
-            isLoading = false
-            return
-        }
 
         // Instant paint from the SwiftData cache while network + ranking run.
         if let context, posts.isEmpty {
@@ -125,6 +122,15 @@ final class FeedViewModel: ObservableObject {
 
         await refreshTasteCentroid()
         do {
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "curatedScreenshotMode") {
+                let curated = CuratedGiftStore.shared.feed(query: browseQuery.joined(separator: " "))
+                posts = Array(curated.prefix(uiPageSize))
+                exhausted = true
+                isLoading = false
+                return
+            }
+            #endif
             try await fetchAndRankNextPage()
             posts = drain(uiPageSize)
             if !usingMixer {
@@ -146,6 +152,10 @@ final class FeedViewModel: ObservableObject {
                 refineTask = Task { [weak self] in await self?.refinePersonalizedPicks() }
             }
         } catch {
+            if CuratedGiftStore.isPilotEnabled {
+                posts = CuratedGiftStore.shared.feed(query: browseQuery.joined(separator: " "))
+                exhausted = true
+            }
             if posts.isEmpty, !staleCachedPosts.isEmpty { posts = staleCachedPosts }
             if posts.isEmpty { self.error = error.localizedDescription }
         }
@@ -303,11 +313,14 @@ final class FeedViewModel: ObservableObject {
         if let page = try? await api.fetchMixerRecommendations(
             surface: "home", cursor: cursor, limit: networkPageSize,
             themeId: browseThemeId, tagId: browseTagId, maxPrice: browseMaxPrice,
+            curatedOnly: CuratedGiftStore.isPilotEnabled,
             excludeItemIds: Array(servedIds)
         ), !page.posts.isEmpty {
             usingMixer = true
             cursor = page.cursor
             mixerAttribution.merge(page.attributions) { _, new in new }
+            mixerRank.merge(page.ranks) { _, new in new }
+            for post in page.posts { mixerRecommendation[post.id] = page.recommendationId }
             if page.cursor == nil { exhausted = true }
             let fresh = page.posts.filter { !servedIds.contains($0.id) }
             for (index, post) in fresh.enumerated() {
@@ -317,6 +330,15 @@ final class FeedViewModel: ObservableObject {
             rankedBuffer.append(contentsOf: fresh.enumerated().map {
                 RankedCandidate(post: $0.element, score: Double(fresh.count - $0.offset), reason: $0.element.reason)
             })
+            return
+        }
+        if CuratedGiftStore.isPilotEnabled {
+            let curated = CuratedGiftStore.shared.feed(query: browseQuery.joined(separator: " "))
+            exhausted = true
+            rankedBuffer = curated.enumerated().map {
+                servingSource[$0.element.id] = "bundled-curation:\(CuratedGiftStore.shared.catalog.version)"
+                return RankedCandidate(post: $0.element, score: Double(curated.count - $0.offset), reason: $0.element.reason)
+            }
             return
         }
         usingMixer = false
@@ -448,8 +470,7 @@ final class FeedViewModel: ObservableObject {
         impressedIds.insert(post.id)
         Task {
             await TasteProfileStore.shared.record(tasteEvent(.impression, post))
-            // Impressions stay device-only (they exist for de-dup + taste decay);
-            // uploading them would just buy DynamoDB writes for no ranking gain.
+            await enqueueMixerEvent(type: "impression", post: post)
         }
     }
 
@@ -464,6 +485,7 @@ final class FeedViewModel: ObservableObject {
             var event = tasteEvent(.dwell, post)
             event.weightScale = scale
             await TasteProfileStore.shared.record(event)
+            await enqueueMixerEvent(type: "dwell", post: post, dwellMs: dwellMs)
         }
     }
 
@@ -509,7 +531,10 @@ final class FeedViewModel: ObservableObject {
                 await InteractionQueue.shared.enqueue(
                     userId: userId,
                     targetId: post.id,
-                    type: requested ? "like" : "unlike"
+                    type: requested ? "like" : "unlike",
+                    recommendationId: requested ? mixerRecommendation[post.id] : nil,
+                    attributionToken: requested ? mixerAttribution[post.id] : nil,
+                    position: requested ? mixerRank[post.id] : nil
                 )
                 if requested { await seedVector(for: post) }
             } catch {
@@ -540,9 +565,24 @@ final class FeedViewModel: ObservableObject {
         }
         Task {
             await TasteProfileStore.shared.record(tasteEvent(saved ? .save : .unsave, post))
-            await InteractionQueue.shared.enqueue(userId: userId, targetId: post.id, type: saved ? "save" : "unsave")
+            await InteractionQueue.shared.enqueue(
+                userId: userId, targetId: post.id, type: saved ? "save" : "unsave",
+                recommendationId: saved ? mixerRecommendation[post.id] : nil,
+                attributionToken: saved ? mixerAttribution[post.id] : nil,
+                position: saved ? mixerRank[post.id] : nil
+            )
             if saved { await seedVector(for: post) }
         }
+    }
+
+    private func enqueueMixerEvent(type: String, post: Post, dwellMs: Double? = nil) async {
+        guard let recommendationId = mixerRecommendation[post.id] else { return }
+        await InteractionQueue.shared.enqueue(
+            userId: userId, targetId: post.id, type: type,
+            recommendationId: recommendationId,
+            attributionToken: mixerAttribution[post.id],
+            position: mixerRank[post.id], dwellMs: dwellMs
+        )
     }
 
     private func loadFromCache(context: ModelContext) {

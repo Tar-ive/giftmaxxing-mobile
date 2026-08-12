@@ -769,25 +769,32 @@ struct SwipeListDetailView: View {
         shareFailed = false
 
         let inviterName = authManager.displayName ?? "A friend"
-        let cards: [[String: Any]] = list.posts.map { post in
+        let approvedIds = Set(CuratedGiftStore.shared.challengeProducts.map(\.id))
+        var deck = list.posts.filter { approvedIds.contains($0.id) }
+        if deck.count < 2 {
+            let remote = try? await APIClient.shared.fetchChallengeLearningDeck(
+                profileIds: authManager.userId.map { ["taste:\($0)"] } ?? []
+            )
+            deck = (remote?.posts.count ?? 0) >= 2 ? remote!.posts : CuratedGiftStore.shared.challengeProducts
+        }
+        let cards: [[String: Any]] = deck.prefix(14).map { post in
             var card: [String: Any] = [
                 "postId": post.id,
                 "name": post.product.name,
                 "price": post.product.price,
+                "giftType": "product",
             ]
             if let image = post.product.image { card["image"] = image }
             if let url = post.productUrl ?? post.url { card["url"] = url }
             if let category = post.category { card["category"] = category }
             if let domain = post.domain { card["domain"] = domain }
-            if let giftType = post.giftType { card["giftType"] = giftType }
-            if let duration = post.serviceDuration { card["serviceDuration"] = duration }
             return card
         }
 
         do {
             let response = try await APIClient.shared.createChallenge(
                 senderId: senderId,
-                seedKeys: list.posts.map(\.id),
+                seedKeys: deck.prefix(14).map(\.id),
                 inviterName: inviterName,
                 to: list.recipientName,
                 occasion: list.occasion,

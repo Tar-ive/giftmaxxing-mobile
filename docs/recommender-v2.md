@@ -1,5 +1,21 @@
 # Recommender Mixer v2
 
+## Signed mobile transport
+
+The Swift app sends recommender writes as `application/x-protobuf` using
+`docs/proto/api-envelope.proto`. Each installation owns a P-256 private key in
+the device-only Keychain and registers only its public key after authentication.
+The signature covers method, path, timestamp, nonce, and SHA-256 of the exact
+protobuf bytes. The server rejects missing/invalid signatures with
+`{"error":"apisignature"}`, rejects timestamps outside five minutes, and stores
+nonces for ten minutes to prevent replay. Set Terraform variable
+Deploy the server in compatibility mode first (`api_signature_enforce=false`),
+then release the signed client. Enable enforcement only after adoption data
+shows old JSON-only clients are no longer active. The same flag is the emergency
+transport kill switch and does not change the production recommendation model.
+
+Protected writes: recommendations, behavior events, and recipient leaderboards.
+
 Mixer v2 is the server-authoritative ranking path for Home, pills, search, challenge learning, and recipient recommendations. The deterministic/cosine policy is the initial production champion. A learned candidate is used only after every gate passes and an operator promotes it.
 
 ## API map
@@ -32,6 +48,14 @@ flowchart LR
 ```
 
 `surface` is one of `home`, `search`, `challenge_learn`, or `challenge_recommend`. Actor identity always comes from authentication. A caller may use only owned or explicitly shared `profileIds`.
+
+During the curated pilot every surface fails closed to the active reviewed
+collection, even if an older client omits `constraints.curatedOnly`. The item
+must be approved, use `provenance.provider = giftmaxxing-curation`, and match the
+collection ID and version stored by the publisher's active pointer. Challenge
+surfaces additionally require a direct product. Services, UGC, stories,
+generated media, stale manifests, and other catalog rows cannot enter a swipe
+deck. Set `CURATED_RECOMMENDER_ONLY=0` only when the wider catalog is reviewed.
 
 Home first-page policy targets 50–70% products/services, at least 15% UGC and 10% story/generated supply when available, at least 85% direct/bridged shoppability, no duplicates, and no run longer than two from one kind, merchant, or creator. Admin `debug: true` responses include supply counts so shortage and ranking failures can be separated.
 

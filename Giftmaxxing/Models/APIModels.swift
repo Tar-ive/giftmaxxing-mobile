@@ -61,10 +61,17 @@ struct UGCPost: Identifiable, Codable, Hashable {
     var moderationStatus: String
     var moderationReason: [String]?
     var recommendationLabels: [UGCLabel]?
+    var productLinks: [UGCProductLink]?
     var createdAt: Double
 
     var id: String { postId }
     var isTerminal: Bool { ["READY", "REJECTED", "FAILED"].contains(processingStatus) }
+}
+
+struct UGCProductLink: Identifiable, Codable, Hashable {
+    var name: String
+    var url: String
+    var id: String { url }
 }
 
 struct UGCMusicTrack: Identifiable, Codable, Hashable {
@@ -195,6 +202,23 @@ struct MixerResponse: Codable {
 struct RemoteFeedTag: Codable { var id: String; var title: String; var terms: [String]; var maxPrice: Double? }
 struct RemoteFeedTheme: Codable { var id: String; var title: String; var terms: [String]; var tags: [RemoteFeedTag] }
 struct FeedTaxonomyResponse: Codable { var version: String; var themes: [RemoteFeedTheme] }
+
+struct RecipientLeaderboardItem: Identifiable {
+    let rank: Int
+    let voterCount: Int
+    let post: Post
+    var id: String { post.id }
+}
+
+struct RecipientLeaderboardRow: Codable {
+    var rank: Int
+    var voterCount: Int
+    var item: MixerCatalogItem
+}
+
+struct RecipientLeaderboardResponse: Codable {
+    var items: [RecipientLeaderboardRow]
+}
 
 struct VectorItem: Identifiable, Codable {
     var postId: String

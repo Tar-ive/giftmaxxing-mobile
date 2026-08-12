@@ -1,5 +1,5 @@
 const CONTENT_KINDS = new Set(["product", "service", "ugc_post", "story", "generated_media"]);
-export const POLICY_VERSION = "mixer-v2.1";
+export const POLICY_VERSION = "mixer-v2.4";
 
 export const SURFACE_WEIGHTS = {
   home: { taste: 0.4, relevance: 0, commerce: 0.25, quality: 0.15, freshness: 0.1, exploration: 0.1 },
@@ -118,10 +118,6 @@ function challengeDeck(candidates, limit) {
   };
   for (const band of ["low", "mid", "high"]) {
     const candidate = candidates.find((x) => priceBand(x) === band && !chosen.has(x.item.entityId));
-    if (candidate) add(candidate);
-  }
-  for (const kind of ["product", "service"]) {
-    const candidate = candidates.find((x) => x.item.kind === kind && !chosen.has(x.item.entityId));
     if (candidate) add(candidate);
   }
   for (const candidate of candidates) {

@@ -6,9 +6,9 @@ final class CuratedGiftStoreTests: XCTestCase {
 
     func testPilotContainsEverySuppliedSourceOnce() {
         let ids = store.catalog.journeys.map(\.sourcePostId)
-        XCTAssertEqual(ids.count, 21)
-        XCTAssertEqual(Set(ids).count, 21)
-        XCTAssertEqual(store.sourcePosts.count, 21)
+        XCTAssertEqual(ids.count, 35)
+        XCTAssertEqual(Set(ids).count, 35)
+        XCTAssertEqual(store.sourcePosts.count, 35)
     }
 
     func testEveryRecommendationHasEvidenceAndAValidMerchantURL() {
@@ -51,5 +51,12 @@ final class CuratedGiftStoreTests: XCTestCase {
     func testSearchNeverReturnsLegacyCatalogItems() {
         XCTAssertTrue(CuratedGiftStore.isPilotEnabled)
         XCTAssertTrue(store.search("cashmere").allSatisfy { $0.id.hasPrefix("curated-product-") })
+    }
+
+    func testTwoColumnCardsShareOnePortraitAspectRatio() {
+        XCTAssertEqual(MediaAspect.recommendationCard, 3.0 / 4.0)
+        for post in store.feedPosts {
+            XCTAssertEqual(MasonryTile.aspect(for: post), MediaAspect.recommendationCard, post.id)
+        }
     }
 }

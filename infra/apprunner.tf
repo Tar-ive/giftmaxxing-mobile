@@ -145,10 +145,11 @@ resource "aws_apprunner_service" "api" {
           # ever been delivered (0 SNS endpoints against 9 registered tokens).
           SNS_PLATFORM_APP_ARN = join("", aws_sns_platform_application.ios_push[*].arn)
 
-          AUTH_ENFORCE       = var.auth_enforce ? "1" : "0"
-          ADMIN_API_SECRET   = var.admin_api_secret
-          CLERK_ISSUER       = var.clerk_issuer
-          SESSION_JWT_SECRET = var.session_jwt_secret
+          AUTH_ENFORCE          = var.auth_enforce ? "1" : "0"
+          API_SIGNATURE_ENFORCE = var.api_signature_enforce ? "1" : "0"
+          ADMIN_API_SECRET      = var.admin_api_secret
+          CLERK_ISSUER          = var.clerk_issuer
+          SESSION_JWT_SECRET    = var.session_jwt_secret
           # iOS-app identities (mirrors lambda.tf — see handler.mjs verifiers).
           COGNITO_ISSUER         = "https://${aws_cognito_user_pool.mobile.endpoint}"
           COGNITO_CLIENT_ID      = aws_cognito_user_pool_client.ios.id

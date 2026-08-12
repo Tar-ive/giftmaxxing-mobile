@@ -265,6 +265,12 @@ variable "auth_enforce" {
   default     = false
 }
 
+variable "api_signature_enforce" {
+  description = "Require signed application/x-protobuf envelopes on the mobile v2 POST API. Enable only after the signed iOS build is broadly installed; false keeps older App Store clients compatible."
+  type        = bool
+  default     = false
+}
+
 variable "admin_api_secret" {
   description = "Shared secret for the admin/ingest path (x-admin-token header) — the admin 'password'. Used by the local admin-dev bypass + ingest scripts; real users authenticate via Clerk JWT instead. Set in terraform.tfvars (gitignored). Empty disables the admin path."
   type        = string

@@ -6,7 +6,7 @@
   "description": "Giftmaxxing API. Runs on Lambda (handler.handler) AND as a container on App Runner (server.mjs -> handler). The nodejs20.x Lambda runtime provides client-dynamodb + lib-dynamodb, but a plain Node container does NOT, so they are listed here too; harmless on Lambda (bundled copy used).",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test quality.test.mjs feed-diversity.test.mjs featured-feed.test.mjs ugc-policy.test.mjs auth/password-service.test.mjs packaging.test.mjs recommender-policies.test.mjs recommender-v2.test.mjs taste-profile-stream.test.mjs"
+    "test": "node --test quality.test.mjs feed-diversity.test.mjs featured-feed.test.mjs ugc-policy.test.mjs auth/password-service.test.mjs packaging.test.mjs recommender-policies.test.mjs recommender-v2.test.mjs taste-profile-stream.test.mjs maxi-tools.test.mjs api-signature.test.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.700.0",
