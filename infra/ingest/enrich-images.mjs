@@ -301,7 +301,7 @@ export function providerFor(link, keys = { ebay: !!(EBAY_CLIENT_ID && EBAY_CLIEN
 }
 
 // One link → { images } | { error } | { skipped: reason }, via the right provider.
-async function fetchGallery(link) {
+export async function fetchGallery(link) {
   switch (providerFor(link)) {
     case "ebay-api":
       return fetchEbayGallery(link);

@@ -1,70 +1,63 @@
-export const TAXONOMY_VERSION = "2026-08-v1";
+export const TAXONOMY_VERSION = "2026-08-v2";
 
+const tag = (id, title, terms, price = {}) => ({ id, title, terms, ...price });
+
+// API-owned navigation. These are gift intents backed by the reviewed carousel
+// map; interests such as tech and beauty remain ranking signals, not tabs.
 export const FEED_TAXONOMY = [
-  { id: "for-you", title: "For you", query: [], tags: [] },
-  { id: "cozy", title: "Cozy", query: ["cozy"], tags: [
-    { id: "candles", title: "Candles", query: ["candle"] },
-    { id: "blankets", title: "Blankets", query: ["blanket", "throw"] },
-    { id: "mugs", title: "Mugs", query: ["mug"] },
-    { id: "under-30", title: "Under $30", query: ["cozy"], maxPrice: 30 },
+  { id: "for-you", title: "For you", terms: [], tags: [] },
+  { id: "school-and-next-chapter", title: "School & Next Chapter", terms: ["school-and-next-chapter"], tags: [
+    tag("back-to-school-her", "Back to School — Her", ["back-to-school", "woman", "college-student"]),
+    tag("back-to-school-teacher", "Back to School — Teacher", ["back-to-school", "teacher", "educator"]),
+    tag("graduation-daughter", "Graduation — Daughter", ["graduation", "daughter", "student"]),
   ] },
-  { id: "beauty", title: "Beauty", query: ["makeup", "glam", "clean-beauty"], tags: [
-    { id: "skincare", title: "Skincare", query: ["serum", "moisturizer", "skincare"] },
-    { id: "lips", title: "Lips", query: ["lipstick", "gloss"] },
-    { id: "fragrance", title: "Fragrance", query: ["perfume", "fragrance"] },
-    { id: "brushes", title: "Brushes", query: ["brush", "palette"] },
-    { id: "under-25", title: "Under $25", query: ["makeup"], maxPrice: 25 },
+  { id: "romantic-partner", title: "For Your Person", terms: ["romantic-partner", "relationships-and-memory"], tags: [
+    tag("anniversary-him", "Anniversary — Him", ["anniversary", "boyfriend", "man", "partner"]),
+    tag("shared-memory", "Shared Memories", ["shared-memories", "keepsakes", "partner"]),
+    tag("just-because", "Just Because", ["just-because", "partner"]),
   ] },
-  { id: "tech", title: "Tech", query: ["tech", "gadget", "edc"], tags: [
-    { id: "audio", title: "Audio", query: ["headphones", "earbuds", "speaker"] },
-    { id: "charging", title: "Charging", query: ["charger", "cable", "power"] },
-    { id: "desk", title: "Desk", query: ["keyboard", "stand", "desk"] },
-    { id: "carry", title: "Carry", query: ["wallet", "keychain", "organizer"] },
+  { id: "friend-birthday", title: "Best Friend Energy", terms: ["friend-birthday", "gift-baskets"], tags: [
+    tag("best-friend-birthday", "Best Friend Birthday", ["best-friend", "birthday"]),
+    tag("care-package", "Care Package", ["care-package", "friend"]),
+    tag("under-25", "Under $25", ["friend", "birthday"], { maxPrice: 25 }),
   ] },
-  { id: "foodie", title: "Foodie", query: ["foodie", "coffee"], tags: [
-    { id: "coffee", title: "Coffee", query: ["coffee", "espresso"] },
-    { id: "tea", title: "Tea", query: ["tea", "matcha"] },
-    { id: "kitchen", title: "Kitchen", query: ["kitchen", "cookware"] },
-    { id: "sweets", title: "Sweets", query: ["chocolate", "cake", "dessert"] },
+  { id: "appreciation-at-work", title: "Thank-You Gifts", terms: ["appreciation-at-work"], tags: [
+    tag("nurse", "Thank You — Nurse", ["nurse", "thank-you"]),
+    tag("teacher", "Teacher Appreciation", ["teacher", "teacher-appreciation"]),
   ] },
-  { id: "minimalist", title: "Minimalist", query: ["minimalist", "classic"], tags: [
-    { id: "jewelry", title: "Jewelry", query: ["jewelry", "necklace", "ring"] },
-    { id: "leather", title: "Leather", query: ["leather", "wallet"] },
-    { id: "stationery", title: "Stationery", query: ["notebook", "pen", "stationery"] },
+  { id: "home-and-hosting", title: "New Home & Hosting", terms: ["home-and-hosting"], tags: [
+    tag("housewarming", "New Home — Useful", ["housewarming", "new-homeowner"]),
+    tag("small-brands", "Small Brands", ["independent-makers", "home-design"]),
+    tag("host", "For the Host", ["host-gift", "hosting"]),
   ] },
-  { id: "mens", title: "For him", query: ["mens", "grooming"], tags: [
-    { id: "grooming", title: "Grooming", query: ["grooming", "beard", "shave"] },
-    { id: "edc", title: "Everyday carry", query: ["edc", "knife", "multitool"] },
-    { id: "apparel", title: "Apparel", query: ["shirt", "hoodie"] },
+  { id: "hobbies-and-passions", title: "Deeply Into It", terms: ["hobbies-and-passions"], tags: [
+    tag("artist", "For the Artist", ["artist", "creative"]),
+    tag("coffee", "For the Coffee Person", ["coffee-lover", "home-barista"]),
+    tag("beer", "For the Beer Lover", ["beer-lover", "tasting"]),
   ] },
-  { id: "fitness", title: "Fitness", query: ["fitness", "sporty"], tags: [
-    { id: "gym", title: "Gym", query: ["gym", "training"] },
-    { id: "bottles", title: "Bottles", query: ["bottle", "flask", "hydration"] },
-    { id: "shoes", title: "Shoes", query: ["shoes", "sneaker", "running"] },
+  { id: "outdoors-and-active", title: "Outside & Active", terms: ["outdoors-and-active"], tags: [
+    tag("hiker", "For the Hiker", ["hiker", "trail-gear"]),
+    tag("runner", "For the Runner", ["runner", "running"]),
+    tag("birdwatcher", "For the Birdwatcher", ["birdwatcher", "birding"]),
   ] },
-  { id: "outdoorsy", title: "Outdoors", query: ["outdoorsy", "rugged", "waterproof"], tags: [
-    { id: "camp", title: "Camping", query: ["camping", "tent"] },
-    { id: "trail", title: "Trail", query: ["hiking", "backpack"] },
+  { id: "pet-people", title: "Pet People", terms: ["pet-people"], tags: [
+    tag("dog-person", "For the Dog Person", ["dog-owner", "dogs"]),
   ] },
-  { id: "sustainable", title: "Sustainable", query: ["sustainable", "natural", "handmade"], tags: [
-    { id: "handmade", title: "Handmade", query: ["handmade"] },
-    { id: "refill", title: "Refillable", query: ["refill", "reusable"] },
-  ] },
-  { id: "luxury", title: "Luxury", query: ["luxury", "premium"], tags: [
-    { id: "jewelry", title: "Jewelry", query: ["jewelry"] },
-    { id: "fragrance", title: "Fragrance", query: ["perfume", "fragrance"] },
-    { id: "over-100", title: "Splurge", query: ["luxury"], minPrice: 100 },
+  { id: "budget-and-values", title: "Thoughtful by Budget", terms: ["budget-and-values"], tags: [
+    tag("under-25", "Under $25", ["budget-and-values"], { maxPrice: 25 }),
+    tag("under-50", "Under $50", ["sustainable", "small-brands"], { maxPrice: 50 }),
+    tag("sustainable", "Sustainable", ["sustainability", "eco-conscious"]),
   ] },
 ];
 
 export function resolveFeedContext(themeId, tagId) {
   const theme = FEED_TAXONOMY.find((item) => item.id === themeId) ?? FEED_TAXONOMY[0];
-  const tag = tagId ? theme.tags.find((item) => item.id === tagId) : null;
+  const selectedTag = tagId ? theme.tags.find((item) => item.id === tagId) : null;
   return {
     theme,
-    tag,
-    terms: [...new Set([...(theme.query ?? []), ...(tag?.query ?? [])])],
-    minPrice: tag?.minPrice,
-    maxPrice: tag?.maxPrice,
+    tag: selectedTag,
+    terms: [...new Set([...(theme.terms ?? []), ...(selectedTag?.terms ?? [])])],
+    minPrice: selectedTag?.minPrice,
+    maxPrice: selectedTag?.maxPrice,
   };
 }

@@ -1,6 +1,14 @@
 import SwiftUI
 import SwiftData
 
+enum ProductReliabilityVote: String, Codable, CaseIterable {
+    case reliable = "reliability_reliable"
+    case questionable = "reliability_questionable"
+
+    var title: String { self == .reliable ? "Reliable" : "Questionable" }
+    var symbol: String { self == .reliable ? "checkmark.shield.fill" : "questionmark.diamond.fill" }
+}
+
 @MainActor
 final class SwipeViewModel: ObservableObject {
     @Published var cards: [Post] = []
@@ -10,6 +18,8 @@ final class SwipeViewModel: ObservableObject {
     @Published var noCount = 0
     @Published var offset: CGSize = .zero
     @Published var isSwiping = false
+    @Published private(set) var lifetimeSwipeCount: Int
+    @Published private(set) var reliabilityVotes: [String: ProductReliabilityVote]
 
     private let api = APIClient.shared
     private let analytics = AnalyticsEngine.shared
@@ -22,8 +32,20 @@ final class SwipeViewModel: ObservableObject {
     var userId: String?
     var recipientSegment = "self"
 
+    private static let swipeCountKey = "gm.swipeLifetimeCount"
+    private static let reliabilityVotesKey = "gm.productReliabilityVotes"
+
+    init(defaults: UserDefaults = .standard) {
+        lifetimeSwipeCount = defaults.integer(forKey: Self.swipeCountKey)
+        reliabilityVotes = (try? defaults.data(forKey: Self.reliabilityVotesKey)
+            .map { try JSONDecoder().decode([String: ProductReliabilityVote].self, from: $0) }) ?? [:]
+    }
+
     var currentCard: Post? { cards.indices.contains(currentIndex) ? cards[currentIndex] : nil }
     var choices: Int { yesCount + noCount }
+    func shouldRequestReliability(for card: Post) -> Bool {
+        lifetimeSwipeCount >= 15 && reliabilityVotes[card.id] == nil
+    }
 
     func loadCards(reset: Bool = true) async {
         guard !isLoading else { return }
@@ -123,6 +145,7 @@ final class SwipeViewModel: ObservableObject {
         guard !isSwiping, let card = currentCard else { return }
         isSwiping = true
         yesCount += 1
+        recordSwipeDecision()
         SwipeListStore.shared.addToMyGiftIdeas(card)
         record(.like, card: card, type: "like")
         analytics.trackSwipeRight(postId: card.id, velocity: abs(velocity), position: currentIndex)
@@ -134,6 +157,7 @@ final class SwipeViewModel: ObservableObject {
         guard !isSwiping, let card = currentCard else { return }
         isSwiping = true
         noCount += 1
+        recordSwipeDecision()
         record(.hide, card: card, type: "hide")
         analytics.trackSwipeLeft(postId: card.id, velocity: abs(velocity), position: currentIndex)
         withAnimation(.spring(response: 0.38)) { offset = CGSize(width: -520, height: 0) }
@@ -172,6 +196,40 @@ final class SwipeViewModel: ObservableObject {
                 position: ranks[card.id]
             )
         }
+    }
+
+    func recordReliability(_ vote: ProductReliabilityVote, card: Post) {
+        guard reliabilityVotes[card.id] == nil else { return }
+        reliabilityVotes[card.id] = vote
+        if let data = try? JSONEncoder().encode(reliabilityVotes) {
+            UserDefaults.standard.set(data, forKey: Self.reliabilityVotesKey)
+        }
+        analytics.trackProductReliabilityVote(
+            postId: card.id,
+            vote: vote.title.lowercased(),
+            swipeCount: lifetimeSwipeCount
+        )
+        Task {
+            await InteractionQueue.shared.enqueue(
+                userId: userId,
+                targetId: card.id,
+                type: vote.rawValue,
+                data: [
+                    "label": vote.title.lowercased(),
+                    "swipeCount": String(lifetimeSwipeCount),
+                    "labelSource": "post_15_swipe_poll",
+                ],
+                recommendationId: recommendationIds[card.id],
+                attributionToken: attributions[card.id],
+                position: ranks[card.id],
+                forceMixer: true
+            )
+        }
+    }
+
+    private func recordSwipeDecision() {
+        lifetimeSwipeCount += 1
+        UserDefaults.standard.set(lifetimeSwipeCount, forKey: Self.swipeCountKey)
     }
 
     private func advance() {
@@ -287,14 +345,21 @@ struct SwipeView: View {
             VStack(spacing: 8) {
                 learningBanner
                 GeometryReader { proxy in
-                    SwipeCardView(post: card, onDetails: { details = card })
+                    VStack(spacing: ThemeSpacing.sm) {
+                        SwipeCardView(
+                            post: card,
+                            requestsReliability: viewModel.shouldRequestReliability(for: card),
+                            onReliabilityVote: { viewModel.recordReliability($0, card: card) },
+                            onDetails: { details = card }
+                        )
                         .id(card.id)
-                        .frame(width: proxy.size.width - 24, height: proxy.size.height - 86)
-                        .position(x: proxy.size.width / 2, y: (proxy.size.height - 86) / 2)
+                        .frame(height: max(0, proxy.size.height - 94))
                         .offset(viewModel.offset)
                         .rotationEffect(.degrees(Double(viewModel.offset.width) / 22))
                         .gesture(cardGesture)
-                        .overlay(alignment: .bottom) { actions.padding(.bottom, 48) }
+                        actions
+                    }
+                    .padding(.horizontal, ThemeSpacing.sm)
                 }
             }
             .padding(.bottom, 2)
@@ -363,73 +428,132 @@ struct SwipeView: View {
 
 struct SwipeCardView: View {
     let post: Post
+    let requestsReliability: Bool
+    var onReliabilityVote: (ProductReliabilityVote) -> Void
     var onDetails: () -> Void
     @State private var photoIndex = 0
 
     private var photos: [String] { post.product.gallery }
 
     var body: some View {
+        ZStack(alignment: .bottom) {
+            photo
+            bottomScrim
+            metadata
+        }
+        .background(Color.gradient(for: post.product.grad))
+        .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.xl, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: ThemeRadius.xl).stroke(Color.white.opacity(0.12)))
+        .shadow(color: ThemeElevation.floating.color, radius: ThemeElevation.floating.radius, y: ThemeElevation.floating.y)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(post.product.name), \(photos.count) photos")
+    }
+
+    private var photo: some View {
         ZStack {
             Color.gradient(for: post.product.grad)
-            if let photo = photos[safe: photoIndex] {
-                CachedAsyncImage(url: photo, width: 900, contentMode: .fill)
+            if let currentPhoto = photos[safe: photoIndex] {
+                CachedAsyncImage(url: currentPhoto, width: 900, contentMode: .fill)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipped()
             } else {
                 ProductArtworkView(post: post)
             }
-            LinearGradient(colors: [.clear, .black.opacity(0.08), .black.opacity(0.94)], startPoint: .top, endPoint: .bottom)
             VStack(spacing: 0) {
                 photoProgress
                 HStack(spacing: 0) {
                     Color.clear.contentShape(Rectangle()).onTapGesture { previousPhoto() }
                     Color.clear.contentShape(Rectangle()).onTapGesture { nextPhoto() }
                 }
-                VStack(alignment: .leading, spacing: 7) {
-                    HStack {
-                        Label("Curated product", systemImage: "checkmark.seal.fill")
-                            .font(.caption.weight(.bold))
-                            .padding(.horizontal, 10).padding(.vertical, 6)
-                            .background(.ultraThinMaterial, in: Capsule())
-                        Spacer()
-                        if post.product.price > 0 {
-                            Text("$\(Int(post.product.price))").font(.title2.weight(.heavy))
-                        }
-                    }
+            }
+        }
+        .accessibilityAdjustableAction { direction in
+            direction == .increment ? nextPhoto() : previousPhoto()
+        }
+    }
+
+    private var bottomScrim: some View {
+        LinearGradient(
+            colors: [.clear, Color.ink.opacity(0.18), Color.ink.opacity(0.88)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(maxWidth: .infinity)
+        .frame(height: requestsReliability ? 250 : 210)
+        .allowsHitTesting(false)
+    }
+
+    private var metadata: some View {
+        VStack(alignment: .leading, spacing: ThemeSpacing.xs) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: ThemeSpacing.xxs) {
                     Text(post.product.name)
-                        .font(.system(size: 26, weight: .heavy, design: .rounded))
+                        .font(.title2.weight(.heavy))
+                        .fontDesign(.rounded)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(post.product.brand).font(.subheadline.weight(.semibold)).opacity(0.82)
-                    Text(post.reason ?? post.caption)
-                        .font(.subheadline).lineLimit(2).opacity(0.9)
-                    HStack(spacing: 14) {
-                        Button(action: onDetails) { Label("Details", systemImage: "arrow.up") }
-                        if post.productUrl != nil {
-                            Button(action: onDetails) { Label("Find product", systemImage: "bag.fill") }
-                        }
-                    }
-                    .font(.caption.weight(.bold))
-                    .buttonStyle(.plain).padding(.top, 2)
+                        .layoutPriority(1)
+                    Text(post.product.brand)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.white.opacity(0.76))
                 }
-                .padding(.horizontal, 18).padding(.bottom, 124)
+                Spacer(minLength: ThemeSpacing.sm)
+                if post.product.price > 0 {
+                    Text("$\(Int(post.product.price))")
+                        .font(.title3.weight(.heavy))
+                        .fixedSize()
+                }
             }
-            .foregroundStyle(.white)
+            if requestsReliability {
+                reliabilityPoll
+            } else {
+                Button(action: onDetails) {
+                    Label("Swipe up for details", systemImage: "arrow.up")
+                }
+                .buttonStyle(.plain)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.white.opacity(0.82))
+                    .frame(minHeight: 44, alignment: .leading)
+                    .accessibilityLabel("Product details")
+            }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 30).stroke(.white.opacity(0.12)))
-        .shadow(color: .black.opacity(0.35), radius: 18, y: 10)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(post.product.name), \(photos.count) photos")
+        .padding(ThemeSpacing.md)
+        .foregroundStyle(Color.white)
+        .shadow(color: Color.ink.opacity(0.35), radius: 2, y: 1)
+    }
+
+    private var reliabilityPoll: some View {
+        VStack(alignment: .leading, spacing: ThemeSpacing.xs) {
+            Text("Is this gift reliable?")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(Color.white.opacity(0.9))
+            HStack(spacing: ThemeSpacing.xs) {
+                ForEach(ProductReliabilityVote.allCases, id: \.self) { vote in
+                    Button { onReliabilityVote(vote) } label: {
+                        Label(vote.title, systemImage: vote.symbol)
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(Color.white)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .background(Color.ink.opacity(0.38), in: Capsule())
+                            .overlay(Capsule().stroke(Color.white.opacity(0.18)))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Adds a quality label after your swipe training")
+                }
+            }
+        }
     }
 
     private var photoProgress: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: ThemeSpacing.xxs) {
             ForEach(0..<max(photos.count, 1), id: \.self) { index in
                 Capsule().fill(index == photoIndex ? Color.white : Color.white.opacity(0.35)).frame(height: 3)
             }
         }
-        .padding(.horizontal, 12).padding(.top, 10)
+        .padding(.horizontal, ThemeSpacing.sm)
+        .padding(.horizontal, ThemeSpacing.xxs)
+        .padding(.top, ThemeSpacing.xs)
+        .shadow(color: Color.ink.opacity(0.45), radius: 2, y: 1)
     }
 
     private func previousPhoto() { photoIndex = max(0, photoIndex - 1) }

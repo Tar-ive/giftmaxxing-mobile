@@ -21,6 +21,9 @@ const WEIGHTS = {
   recommender_challenge_yes: 1.8,
   recommender_challenge_no: -1.5,
   recommender_challenge_uncertain: 0,
+  // Quality labels belong to the item, not the person's taste profile.
+  recommender_reliability_reliable: 0,
+  recommender_reliability_questionable: 0,
 };
 
 const positive = (type) => ["recommender_like", "recommender_save", "recommender_offer_click", "recommender_purchase", "recommender_challenge_yes"].includes(type);

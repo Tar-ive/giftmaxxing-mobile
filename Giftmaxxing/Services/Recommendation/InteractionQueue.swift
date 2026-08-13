@@ -22,6 +22,7 @@ actor InteractionQueue {
         var attributionToken: String?
         var position: Int?
         var dwellMs: Double?
+        var forceMixer: Bool?
     }
 
     private var pending: [PendingInteraction] = []
@@ -46,7 +47,7 @@ actor InteractionQueue {
     func enqueue(
         userId: String?, targetId: String, type: String, data: [String: String]? = nil,
         recommendationId: String? = nil, attributionToken: String? = nil,
-        position: Int? = nil, dwellMs: Double? = nil
+        position: Int? = nil, dwellMs: Double? = nil, forceMixer: Bool = false
     ) {
         loadIfNeeded()
         let uid = userId ?? Self.anonymousUserId
@@ -59,7 +60,8 @@ actor InteractionQueue {
             recommendationId: recommendationId,
             attributionToken: attributionToken,
             position: position,
-            dwellMs: dwellMs
+            dwellMs: dwellMs,
+            forceMixer: forceMixer
         ))
         if pending.count > Self.queueCap {
             pending.removeFirst(pending.count - Self.queueCap)
@@ -82,8 +84,8 @@ actor InteractionQueue {
 
         let batch = Array(pending.prefix(100))
         do {
-            let mixer = batch.filter { $0.recommendationId != nil }
-            let legacy = batch.filter { $0.recommendationId == nil }
+            let mixer = batch.filter { $0.recommendationId != nil || $0.forceMixer == true }
+            let legacy = batch.filter { $0.recommendationId == nil && $0.forceMixer != true }
             if !legacy.isEmpty { try await APIClient.shared.sendInteractionsBatch(legacy) }
             if !mixer.isEmpty {
                 try await APIClient.shared.submitMixerEvents(mixer.map { event in

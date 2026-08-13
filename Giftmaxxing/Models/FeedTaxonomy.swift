@@ -1,145 +1,56 @@
 import Foundation
 
-// Two-tier browse taxonomy for the Home feed.
-//
-//   Tier 1 — macro theme ("Occasions", "Cozy Desk", "Coffee Snob"). Swipe or tap
-//            between them; each is a different feed query.
-//   Tier 2 — micro tags scoped to the active theme ("Pour-over kits", "Under
-//            $50"). Tapping one narrows the SAME grid in place; it never pushes
-//            a new screen, because the whole point is to keep browsing.
-//
-// The tags are declared here rather than mined from the catalog on purpose: a
-// tag that returns nothing is worse than no tag, and the catalog's own vibe
-// labels are store-level junk (measured: 'romantic' = 0 posts, 'golf' = 0).
-// These are phrased as retrieval queries and go through the same text→vector
-// path the shelves use.
+/// Bundled offline fallback. Online navigation is owned by `/v2/feed-taxonomy`.
 struct FeedTheme: Identifiable, Hashable {
     let id: String
     let title: String
-    /// Free-text sent to the feed as `vibes` — what actually selects candidates.
     let query: String
     let tags: [FeedTag]
 
-    // MEASURED: `vibes` matches a CLOSED vocabulary of ~40 tags, counted live
-    // across 4,045 posts — aesthetic(1402), curated(1396), minimalist(871),
-    // glam(522), makeup(432), classic(360), mens(343), sustainable(322),
-    // luxury(225), trendy(217), tech(186), gadget(172), cozy(141),
-    // fitness(130), sporty(126), outdoorsy(118), foodie(105), coffee(65)…
-    //
-    // The first version of this file invented free text ("matcha", "dripper",
-    // "kettle"). None of those are tags, so every query scored zero on the
-    // taste term and the grid fell back to social proof — which is why the same
-    // Gymshark t-shirt appeared under every pill and `vibes=matcha` returned
-    // zero matcha items out of 22.
-    //
-    // Themes now use REAL tags. Sub-tags may use free words too: the server
-    // falls back to matching them against product titles and Rekognition image
-    // labels when no vibe tag hits.
     static let all: [FeedTheme] = [
-        FeedTheme(id: "for-you", title: "For you", query: "", tags: []),
-
-        FeedTheme(
-            id: "cozy", title: "Cozy",
-            query: "cozy",
-            tags: [
-                .init(id: "candles", title: "Candles", query: "candle"),
-                .init(id: "blankets", title: "Blankets", query: "blanket throw"),
-                .init(id: "mugs", title: "Mugs", query: "mug"),
-                .init(id: "under-30", title: "Under $30", query: "cozy", maxPrice: 30),
-            ]
-        ),
-
-        FeedTheme(
-            id: "beauty", title: "Beauty",
-            query: "makeup glam clean-beauty",
-            tags: [
-                .init(id: "skincare", title: "Skincare", query: "serum moisturizer skincare"),
-                .init(id: "lips", title: "Lips", query: "lipstick gloss"),
-                .init(id: "fragrance", title: "Fragrance", query: "perfume fragrance"),
-                .init(id: "brushes", title: "Brushes", query: "brush palette"),
-                .init(id: "under-25", title: "Under $25", query: "makeup", maxPrice: 25),
-            ]
-        ),
-
-        FeedTheme(
-            id: "tech", title: "Tech",
-            query: "tech gadget edc",
-            tags: [
-                .init(id: "audio", title: "Audio", query: "headphones earbuds speaker"),
-                .init(id: "charging", title: "Charging", query: "charger cable power"),
-                .init(id: "desk", title: "Desk", query: "keyboard stand desk"),
-                .init(id: "carry", title: "Carry", query: "wallet keychain organizer"),
-            ]
-        ),
-
-        FeedTheme(
-            id: "foodie", title: "Foodie",
-            query: "foodie coffee",
-            tags: [
-                .init(id: "coffee", title: "Coffee", query: "coffee espresso"),
-                .init(id: "tea", title: "Tea", query: "tea matcha"),
-                .init(id: "kitchen", title: "Kitchen", query: "kitchen cookware"),
-                .init(id: "sweets", title: "Sweets", query: "chocolate cake dessert"),
-            ]
-        ),
-
-        FeedTheme(
-            id: "minimalist", title: "Minimalist",
-            query: "minimalist classic",
-            tags: [
-                .init(id: "jewelry", title: "Jewelry", query: "jewelry necklace ring"),
-                .init(id: "leather", title: "Leather", query: "leather wallet"),
-                .init(id: "stationery", title: "Stationery", query: "notebook pen stationery"),
-            ]
-        ),
-
-        FeedTheme(
-            id: "mens", title: "For him",
-            query: "mens grooming",
-            tags: [
-                .init(id: "grooming", title: "Grooming", query: "grooming beard shave"),
-                .init(id: "edc", title: "Everyday carry", query: "edc knife multitool"),
-                .init(id: "apparel", title: "Apparel", query: "shirt hoodie"),
-            ]
-        ),
-
-        FeedTheme(
-            id: "fitness", title: "Fitness",
-            query: "fitness sporty",
-            tags: [
-                .init(id: "gym", title: "Gym", query: "gym training"),
-                .init(id: "bottles", title: "Bottles", query: "bottle flask hydration"),
-                .init(id: "shoes", title: "Shoes", query: "shoes sneaker running"),
-            ]
-        ),
-
-        FeedTheme(
-            id: "outdoorsy", title: "Outdoors",
-            query: "outdoorsy rugged waterproof",
-            tags: [
-                .init(id: "camp", title: "Camping", query: "camping tent"),
-                .init(id: "trail", title: "Trail", query: "hiking backpack"),
-            ]
-        ),
-
-        FeedTheme(
-            id: "sustainable", title: "Sustainable",
-            query: "sustainable natural handmade",
-            tags: [
-                .init(id: "handmade", title: "Handmade", query: "handmade"),
-                .init(id: "refill", title: "Refillable", query: "refill reusable"),
-            ]
-        ),
-
-        FeedTheme(
-            id: "luxury", title: "Luxury",
-            query: "luxury premium",
-            tags: [
-                .init(id: "jewelry", title: "Jewelry", query: "jewelry"),
-                .init(id: "fragrance", title: "Fragrance", query: "perfume fragrance"),
-                .init(id: "over-100", title: "Splurge", query: "luxury"),
-            ]
-        ),
+        .init(id: "for-you", title: "For you", query: "", tags: []),
+        .init(id: "school-and-next-chapter", title: "School & Next Chapter", query: "school-and-next-chapter", tags: [
+            .init(id: "back-to-school-her", title: "Back to School — Her", query: "back-to-school woman college-student"),
+            .init(id: "back-to-school-teacher", title: "Back to School — Teacher", query: "back-to-school teacher educator"),
+            .init(id: "graduation-daughter", title: "Graduation — Daughter", query: "graduation daughter student"),
+        ]),
+        .init(id: "romantic-partner", title: "For Your Person", query: "romantic-partner relationships-and-memory", tags: [
+            .init(id: "anniversary-him", title: "Anniversary — Him", query: "anniversary boyfriend man partner"),
+            .init(id: "shared-memory", title: "Shared Memories", query: "shared-memories keepsakes partner"),
+            .init(id: "just-because", title: "Just Because", query: "just-because partner"),
+        ]),
+        .init(id: "friend-birthday", title: "Best Friend Energy", query: "friend-birthday gift-baskets", tags: [
+            .init(id: "best-friend-birthday", title: "Best Friend Birthday", query: "best-friend birthday"),
+            .init(id: "care-package", title: "Care Package", query: "care-package friend"),
+            .init(id: "under-25", title: "Under $25", query: "friend birthday", maxPrice: 25),
+        ]),
+        .init(id: "appreciation-at-work", title: "Thank-You Gifts", query: "appreciation-at-work", tags: [
+            .init(id: "nurse", title: "Thank You — Nurse", query: "nurse thank-you"),
+            .init(id: "teacher", title: "Teacher Appreciation", query: "teacher teacher-appreciation"),
+        ]),
+        .init(id: "home-and-hosting", title: "New Home & Hosting", query: "home-and-hosting", tags: [
+            .init(id: "housewarming", title: "New Home — Useful", query: "housewarming new-homeowner"),
+            .init(id: "small-brands", title: "Small Brands", query: "independent-makers home-design"),
+            .init(id: "host", title: "For the Host", query: "host-gift hosting"),
+        ]),
+        .init(id: "hobbies-and-passions", title: "Deeply Into It", query: "hobbies-and-passions", tags: [
+            .init(id: "artist", title: "For the Artist", query: "artist creative"),
+            .init(id: "coffee", title: "For the Coffee Person", query: "coffee-lover home-barista"),
+            .init(id: "beer", title: "For the Beer Lover", query: "beer-lover tasting"),
+        ]),
+        .init(id: "outdoors-and-active", title: "Outside & Active", query: "outdoors-and-active", tags: [
+            .init(id: "hiker", title: "For the Hiker", query: "hiker trail-gear"),
+            .init(id: "runner", title: "For the Runner", query: "runner running"),
+            .init(id: "birdwatcher", title: "For the Birdwatcher", query: "birdwatcher birding"),
+        ]),
+        .init(id: "pet-people", title: "Pet People", query: "pet-people", tags: [
+            .init(id: "dog-person", title: "For the Dog Person", query: "dog-owner dogs"),
+        ]),
+        .init(id: "budget-and-values", title: "Thoughtful by Budget", query: "budget-and-values", tags: [
+            .init(id: "under-25", title: "Under $25", query: "budget-and-values", maxPrice: 25),
+            .init(id: "under-50", title: "Under $50", query: "sustainable small-brands", maxPrice: 50),
+            .init(id: "sustainable", title: "Sustainable", query: "sustainability eco-conscious"),
+        ]),
     ]
 }
 
@@ -147,7 +58,5 @@ struct FeedTag: Identifiable, Hashable {
     let id: String
     let title: String
     let query: String
-    /// Client-side price ceiling for "Under $N" tags. The feed endpoint has no
-    /// price filter, so this is enforced on the returned page.
     var maxPrice: Double?
 }

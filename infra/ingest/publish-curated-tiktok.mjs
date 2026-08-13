@@ -18,6 +18,8 @@ const tables = {
 };
 const bucket = process.env.MEDIA_BUCKET || `${prefix}-media`;
 const manifestPath = resolve(root, "Giftmaxxing/Resources/curated-gift-journeys.json");
+const themeMapPath = resolve(root, "docs/audits/carousel-theme-audit-2026-08-13/carousel-theme-map.json");
+const enrichmentPath = resolve(here, "curated-product-enrichment.json");
 const imagesDir = resolve(root, "Giftmaxxing/Resources/Curated");
 const region = process.env.AWS_REGION || "us-east-1";
 const collectionId = "giftmaxxing-reviewed";
@@ -44,23 +46,35 @@ async function batch(table, items) {
 }
 
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+const themeMap = JSON.parse(await readFile(themeMapPath, "utf8"));
+const enrichment = await readFile(enrichmentPath, "utf8").then(JSON.parse).catch(() => ({ products: [] }));
+const themeByCarousel = new Map(themeMap.carousels.map((item) => [item.id, item]));
+const galleryByProduct = new Map(enrichment.products.map((item) => [item.id, item.images ?? []]));
 const products = new Map(manifest.products.map((product) => [product.id, product]));
 const productTaxonomy = new Map();
 for (const journey of manifest.journeys) {
+  const theme = themeByCarousel.get(journey.id);
+  const themeLabels = theme ? [theme.themeId, theme.filterLabel, ...theme.recipients, ...theme.occasions, ...theme.interests]
+    .map((value) => value.toLowerCase()) : [];
   for (const productId of journey.productIds) {
     const current = productTaxonomy.get(productId) ?? { category: labelsFor(journey)[0] || "curated", labels: [] };
-    current.labels = [...new Set([...current.labels, ...labelsFor(journey)])];
+    current.labels = [...new Set([...current.labels, ...labelsFor(journey), ...themeLabels])];
     productTaxonomy.set(productId, current);
   }
 }
 const posts = [], entities = [], edges = [];
 
 for (const journey of manifest.journeys) {
+  const theme = themeByCarousel.get(journey.id);
+  const curatedLabels = [...new Set([
+    ...labelsFor(journey), theme?.themeId, theme?.filterLabel,
+    ...(theme?.recipients ?? []), ...(theme?.occasions ?? []), ...(theme?.interests ?? []),
+  ].filter(Boolean).map((value) => value.toLowerCase()))];
   const postId = `curated-source-${journey.sourcePostId}`;
   const mediaUrls = Array.from({ length: Math.max(1, journey.imageCount) }, (_, index) =>
     publicPath(manifest.version, `${journey.sourcePostId}-${String(index + 1).padStart(2, "0")}.jpg`));
   const shoppable = journey.productIds.map((id) => products.get(id)).filter(Boolean).map((product) => ({
-    postId: `curated-product-${product.id}`, name: product.name, image: publicPath(manifest.version, product.image),
+    postId: `curated-product-${product.id}`, name: product.name, image: galleryByProduct.get(product.id)?.[0] ?? publicPath(manifest.version, product.image),
     price: product.price, productUrl: product.productUrl, merchant: product.merchant,
   }));
   const row = {
@@ -68,7 +82,7 @@ for (const journey of manifest.journeys) {
     story: journey.whySelected, source: "ugc", contentType: "ugc_carousel", mediaType: "carousel",
     mediaUrl: mediaUrls[0], mediaUrls, posterUrl: mediaUrls[0], url: journey.sourceUrl,
     product: { id: `curated-guide-${journey.id}`, name: journey.title, brand: "Gift guide", price: 0, image: mediaUrls[0], images: mediaUrls },
-    category: labelsFor(journey)[0] || "curated", vibes: labelsFor(journey), shoppable,
+    category: theme?.themeId ?? labelsFor(journey)[0] ?? "curated", vibes: curatedLabels, shoppable,
     curationStatus: "approved", moderationStatus: "APPROVED", processingStatus: "READY",
     curationCollectionId: collectionId, curationCollectionVersion: manifest.version,
     status: "made", feedEligible: true, feedPk: "all", qualityScore: 1,
@@ -89,9 +103,11 @@ for (const journey of manifest.journeys) {
 for (const product of [...manifest.products, ...manifest.wrapKit]) {
   const postId = `curated-product-${product.id}`;
   const taxonomy = productTaxonomy.get(product.id) ?? { category: "wrapping", labels: ["wrapping", "presentation"] };
+  const gallery = galleryByProduct.get(product.id) ?? [];
+  const cover = gallery[0] ?? publicPath(manifest.version, product.image);
   const row = {
     postId, author: "giftmaxxing", source: "curated-product", kind: "product",
-    product: { id: product.id, name: product.name, brand: product.brand, price: product.price, image: publicPath(manifest.version, product.image) },
+    product: { id: product.id, name: product.name, brand: product.brand, price: product.price, image: cover, images: gallery },
     productUrl: product.productUrl, merchant: product.merchant, caption: product.matchEvidence,
     capabilities: product.capabilities,
     story: product.matchEvidence, category: taxonomy.category, vibes: [...new Set([...taxonomy.labels, ...product.capabilities])],

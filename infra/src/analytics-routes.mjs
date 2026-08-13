@@ -23,6 +23,7 @@ const VALID_EVENT_TYPES = new Set([
   "content_share", "content_tap", "content_comment", "custom_message",
   "swipe_card_shown", "swipe_right", "swipe_left",
   "swipe_decision_time", "swipe_velocity", "swipe_hesitation", "swipe_deck_complete", "swipe_undo",
+  "product_reliability_vote",
   "tab_switch", "screen_view",
   "product_view", "product_affiliate_click",
   "search_query", "search_result_tap",

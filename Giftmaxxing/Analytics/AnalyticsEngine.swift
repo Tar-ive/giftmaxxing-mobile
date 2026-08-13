@@ -340,6 +340,16 @@ final class AnalyticsEngine: ObservableObject {
         ])
     }
 
+    func trackProductReliabilityVote(postId: String, vote: String, swipeCount: Int) {
+        track(.productReliabilityVote, properties: [
+            "postId": .string(postId),
+            "vote": .string(vote),
+            "swipeCount": .int(swipeCount),
+            "source": .string("swipe"),
+            "sessionId": .string(sessionId),
+        ])
+    }
+
     // MARK: - Content interactions
 
     func trackContentAction(_ action: AnalyticsEvent.EventType, postId: String, source: String = "feed") {

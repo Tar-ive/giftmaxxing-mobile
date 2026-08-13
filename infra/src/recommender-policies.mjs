@@ -1,5 +1,5 @@
 const CONTENT_KINDS = new Set(["product", "service", "ugc_post", "story", "generated_media"]);
-export const POLICY_VERSION = "mixer-v2.5";
+export const POLICY_VERSION = "mixer-v2.6";
 
 export const SURFACE_WEIGHTS = {
   home: { taste: 0.4, relevance: 0, commerce: 0.25, quality: 0.15, freshness: 0.1, exploration: 0.1 },
@@ -63,46 +63,22 @@ export function mixCandidates(candidates, { surface = "home", limit = 20 } = {})
   if (surface === "challenge_learn") return challengeDeck(deduped, limit);
   if (surface !== "home") return diversify(deduped, limit);
 
-  const direct = deduped.filter((x) => x.item.commerce?.shoppability === "direct");
-  const ugc = deduped.filter((x) => x.item.kind === "ugc_post");
-  const stories = deduped.filter((x) => ["story", "generated_media"].includes(x.item.kind));
-  const targets = {
-    direct: Math.min(direct.length, Math.ceil(limit * 0.5)),
-    ugc: Math.min(ugc.length, Math.ceil(limit * 0.25)),
-    stories: stories.length >= 10 ? Math.ceil(limit * 0.1) : Math.min(stories.length, Math.floor(limit * 0.1)),
-  };
-  const selected = [];
-  const chosen = new Set();
-  const inspirationLimit = Math.floor(limit * 0.15);
-  let inspirationCount = 0;
-  const take = (pool, count) => {
-    for (const candidate of pool) {
-      if (selected.length >= limit || count <= 0 || chosen.has(candidate.item.entityId)) continue;
-      const inspiration = candidate.item.commerce?.shoppability === "inspiration_only";
-      if (inspiration && inspirationCount >= inspirationLimit) continue;
-      selected.push(candidate); chosen.add(candidate.item.entityId); count--;
-      if (inspiration) inspirationCount++;
-    }
-  };
-  take(direct, targets.direct);
-  let ugcLeft = targets.ugc, storiesLeft = targets.stories;
-  while (ugcLeft > 0 || storiesLeft > 0) {
-    const before = selected.length;
-    if (ugcLeft > 0) { take(ugc, 1); ugcLeft--; }
-    if (storiesLeft > 0) { take(stories, 1); storiesLeft--; }
-    if (selected.length === before || inspirationCount >= inspirationLimit) break;
-  }
-  take(deduped, limit - selected.length);
-  if (selected.length < limit) {
-    inspirationCount = 0;
-    take(deduped, limit - selected.length);
-  }
-  return scheduleHomeCarousels(diversify(selected.sort((a, b) => b.score - a.score), limit), limit);
+  return scheduleHomeCarousels(deduped, limit);
 }
 
 function scheduleHomeCarousels(candidates, limit) {
-  const carousels = candidates.filter((x) => x.item.kind === "ugc_post");
-  const cards = candidates.filter((x) => x.item.kind !== "ugc_post");
+  const allCarousels = diversify(candidates.filter((x) => x.item.kind === "ugc_post"), candidates.length);
+  const bridged = allCarousels.filter((x) => x.item.commerce?.shoppability !== "inspiration_only");
+  const inspiration = allCarousels.filter((x) => x.item.commerce?.shoppability === "inspiration_only")
+    .slice(0, Math.floor(limit * 0.15));
+  const carousels = [...bridged, ...inspiration];
+  const stories = candidates.filter((x) => ["story", "generated_media"].includes(x.item.kind));
+  const products = candidates.filter((x) => !["ugc_post", "story", "generated_media"].includes(x.item.kind));
+  const cards = [];
+  while (products.length || stories.length) {
+    cards.push(...products.splice(0, Math.min(8, products.length)));
+    if (stories.length) cards.push(stories.shift());
+  }
   if (!carousels.length) return candidates.slice(0, limit);
   const output = [];
   while (output.length < limit && (cards.length || carousels.length)) {

@@ -62,6 +62,7 @@ struct AnalyticsEvent: Codable, Identifiable {
         case swipeDeckComplete = "swipe_deck_complete"
         case challengeAbandoned = "challenge_abandoned"
         case swipeUndo = "swipe_undo"
+        case productReliabilityVote = "product_reliability_vote"
 
         // Maxi AI
         case maxiConversationStart = "maxi_conversation_start"

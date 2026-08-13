@@ -34,3 +34,18 @@ test("a negative challenge answer moves the item to negative history", () => {
   assert.deepEqual(profile.negativeItemIds, ["p1"]);
   assert.ok(profile.labelWeights.cozy < 0);
 });
+
+test("reliability labels never distort personal taste", () => {
+  const original = {
+    version: 4, labelWeights: { cozy: 2 }, kindWeights: { product: 1 },
+    priceSum: 100, priceWeight: 2, positiveItemIds: ["p0"], negativeItemIds: [],
+  };
+  const profile = applyTasteEvent(original, {
+    eventId: "quality-1", type: "recommender_reliability_questionable", itemId: "p1",
+    actorId: "u1", subjectProfileId: "taste:u1", timestamp: 2000,
+  }, item);
+  assert.equal(profile.labelWeights.cozy, 2);
+  assert.equal(profile.kindWeights.product, 1);
+  assert.deepEqual(profile.positiveItemIds, ["p0"]);
+  assert.deepEqual(profile.negativeItemIds, []);
+});

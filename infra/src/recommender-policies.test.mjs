@@ -48,6 +48,22 @@ test("home schedules one inspiration carousel per four cards", () => {
   assert.deepEqual([3, 7, 11, 15, 19].map((index) => mixed[index].item.kind), Array(5).fill("ugc_post"));
 });
 
+test("home pagination keeps unique carousels across pages", () => {
+  const items = [
+    ...Array.from({ length: 60 }, (_, i) => post(`page-product-${i}`, "catalog", "product")),
+    ...Array.from({ length: 20 }, (_, i) => {
+      const item = post(`page-carousel-${i}`, "ugc", "ugc_post");
+      item.commerce = { shoppability: "bridged", offers: [] };
+      return item;
+    }),
+  ];
+  const ranked = mixCandidates(items.map((item, index) => ({ item, score: 1 - index / 1000 })), { surface: "home", limit: 40 });
+  const first = ranked.slice(0, 20), second = ranked.slice(20, 40);
+  assert.equal(new Set(ranked.map((x) => x.item.entityId)).size, 40);
+  assert.equal(first.filter((x) => x.item.kind === "ugc_post").length, 5);
+  assert.equal(second.filter((x) => x.item.kind === "ugc_post").length, 5);
+});
+
 test("search weights query relevance above a conflicting taste", () => {
   const coffee = post("coffee", "Shopify/Test", "product", { category: "coffee", vibes: ["coffee"] });
   const tech = post("tech", "Shopify/Test", "product", { category: "tech", vibes: ["tech"] });

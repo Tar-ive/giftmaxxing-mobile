@@ -102,3 +102,19 @@ test("recipient leaderboard falls back to approved catalog when analytics is spa
   assert.equal(body.items[0].item.entityId, "women-pick");
   assert.equal(body.items[0].score, 0);
 });
+
+test("reliability votes are accepted as item-quality labels", async () => {
+  const writes = [];
+  const handler = createRecommenderV2({
+    ddb: { send: async (command) => { writes.push(command.input); return {}; } },
+    s3v: null, bedrock: null, s3: null,
+    tables: { entities: "entities", edges: "edges", profiles: null, posts: null, analytics: "analytics" },
+  });
+  const response = await handler("POST", "/v2/events/batch", {
+    anonymousId: "anon-test",
+    events: [{ eventId: "quality-1", type: "reliability_reliable", itemId: "p1", context: { labelSource: "post_15_swipe_poll" } }],
+  });
+  assert.equal(response.statusCode, 202);
+  assert.equal(JSON.parse(response.body).accepted, 1);
+  assert.equal(writes[0].RequestItems.analytics[0].PutRequest.Item.type, "recommender_reliability_reliable");
+});

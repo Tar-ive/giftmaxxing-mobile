@@ -22,6 +22,7 @@ const SURFACES = new Set(["home", "search", "challenge_learn", "challenge_recomm
 const EVENT_TYPES = new Set([
   "impression", "dwell", "search_tap", "like", "comment", "save", "hide", "offer_click", "purchase",
   "challenge_yes", "challenge_no", "challenge_uncertain",
+  "reliability_reliable", "reliability_questionable",
 ]);
 const VECTOR_DIM = Number(process.env.VECTOR_DIM || 1024);
 const EMBED_MODEL = process.env.BEDROCK_EMBED_MODEL_ID || "amazon.titan-embed-image-v1";
