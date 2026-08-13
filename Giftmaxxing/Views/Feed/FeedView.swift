@@ -30,9 +30,6 @@ struct FeedView: View {
     @State private var themes = FeedTheme.all
     @State private var tagId: String?
     @State private var showFilterSheet = false
-    // For You repeats the approved curation in unique render cycles. Two cycles
-    // paint immediately; the sentinel extends it without duplicating model IDs.
-    @State private var forYouCycles = 2
 
     private var activeTheme: FeedTheme {
         themes.first { $0.id == themeId } ?? themes[0]
@@ -210,17 +207,14 @@ struct FeedView: View {
                 }
                 .refreshable {
                     await viewModel.refreshFeed(context: modelContext)
-                    forYouCycles = 2
                     refreshed.toggle()
                 }
                 .onChange(of: themeId) { _, _ in
                     tagId = nil
-                    forYouCycles = 2
                     proxy.scrollTo("feed-top", anchor: .top)
                     Task { await viewModel.setBrowse(theme: activeTheme, tag: nil, context: modelContext) }
                 }
                 .onChange(of: tagId) { _, _ in
-                    forYouCycles = 2
                     proxy.scrollTo("feed-top", anchor: .top)
                     Task { await viewModel.setBrowse(theme: activeTheme, tag: activeTag, context: modelContext) }
                 }
@@ -338,7 +332,6 @@ struct FeedView: View {
         } else {
             MasonryFeedGrid(
                 posts: viewModel.posts,
-                repeatCount: themeId == "for-you" ? forYouCycles : 1,
                 savedIds: Set(viewModel.posts.filter { swipeList.containsInMyGiftIdeas($0) }.map(\.id)),
                 onTap: { post in
                     selectedPost = post
@@ -361,11 +354,7 @@ struct FeedView: View {
                 Color.clear
                     .frame(height: 1)
                     .onAppear {
-                        if themeId == "for-you" {
-                            if forYouCycles < 200 { forYouCycles += 2 }
-                        } else {
-                            Task { await viewModel.loadMore(context: modelContext) }
-                        }
+                        Task { await viewModel.loadMore(context: modelContext) }
                     }
             }
         }

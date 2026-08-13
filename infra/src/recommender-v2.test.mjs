@@ -6,7 +6,8 @@ const product = (id, kind = "product") => ({
   entityId: id, entityType: "item", status: "active", kind, title: `Cozy gift ${id}`,
   taxonomy: { primaryCategoryId: "cozy", labelIds: ["cozy"] },
   commerce: { shoppability: "direct", offers: [{ price: 25, merchant: `store-${id}`, url: `https://example.com/${id}` }] },
-  quality: { score: 0.8, giftable: true }, media: [{ url: `https://example.com/${id}.jpg`, role: "primary" }],
+  quality: { score: 0.8, giftable: true, mediaVerified: true, mediaSource: "retailer_listing" },
+  media: [{ url: `https://example.com/${id}.jpg`, role: "primary" }],
   legacyPost: { postId: id, privateSourcePayload: true },
 });
 
@@ -77,6 +78,32 @@ test("challenge surfaces admit only approved curated products", async () => {
   assert.ok(body.items.every(({ item }) => item.kind === "product"
     && item.provenance.provider === "giftmaxxing-curation"
     && item.quality.curationCollectionVersion === "test-v1"));
+});
+
+test("challenge surfaces reject editorial images and unverified product media", async () => {
+  const verified = curate(product("verified"));
+  const editorial = curate(product("editorial"));
+  editorial.quality.mediaVerified = false;
+  editorial.quality.mediaSource = "curated_inspiration";
+  const response = await route([verified, editorial])(
+    "POST", "/v2/recommendations", { surface: "challenge_learn", page: { limit: 10 } }
+  );
+  assert.deepEqual(JSON.parse(response.body).items.map(({ item }) => item.entityId), ["verified"]);
+});
+
+test("theme All returns the union of child-tag inventory", async () => {
+  const hiker = curate(product("hiker"));
+  hiker.taxonomy.labelIds = ["hiker", "trail-gear"];
+  const runner = curate(product("runner"));
+  runner.taxonomy.labelIds = ["runner", "running"];
+  const unrelated = curate(product("unrelated"));
+  unrelated.taxonomy.labelIds = ["fragrance"];
+  const response = await route([hiker, runner, unrelated])(
+    "POST", "/v2/recommendations", {
+      surface: "home", context: { themeId: "outdoors-and-active" }, page: { limit: 10 },
+    }
+  );
+  assert.deepEqual(new Set(JSON.parse(response.body).items.map(({ item }) => item.entityId)), new Set(["hiker", "runner"]));
 });
 
 test("all mixer requests fail closed to the active reviewed collection", async () => {

@@ -316,6 +316,10 @@ function passesConstraints(item, constraints, feedContext, activeCuration, curat
   if (curatedRequired && !passesCuratedBoundary(item, activeCuration)) return false;
   if (constraints.categoryIds.length && !constraints.categoryIds.includes(item.taxonomy?.primaryCategoryId)) return false;
   if (constraints.labelIds.length && !constraints.labelIds.some((label) => item.taxonomy?.labelIds?.includes(label))) return false;
+  if (feedContext.theme.id !== "for-you") {
+    const haystack = `${item.title ?? ""} ${item.summary ?? ""} ${item.taxonomy?.primaryCategoryId ?? ""} ${(item.taxonomy?.labelIds ?? []).join(" ")}`.toLowerCase();
+    if (!feedContext.matchTerms.some((term) => haystack.includes(String(term).toLowerCase()))) return false;
+  }
   const minPrice = constraints.minPrice ?? feedContext.minPrice;
   const maxPrice = constraints.maxPrice ?? feedContext.maxPrice;
   if (minPrice != null && (!Number.isFinite(price) || price < minPrice)) return false;
@@ -326,7 +330,10 @@ function passesConstraints(item, constraints, feedContext, activeCuration, curat
 function passesSurfacePolicy(item, surface) {
   if (!["challenge_learn", "challenge_recommend"].includes(surface)) return true;
   return item.kind === "product"
-    && item.commerce?.shoppability === "direct";
+    && item.commerce?.shoppability === "direct"
+    && item.quality?.mediaVerified === true
+    && item.quality?.mediaSource === "retailer_listing"
+    && item.media?.some(({ url }) => /^https?:\/\//i.test(url) || url.startsWith("/curated/"));
 }
 
 function signedAttribution(recommendationId, entityId, rank) {

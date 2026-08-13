@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0.0",
+  "products": {
+    "ralph-lauren-chino-cap": {
+      "source": "https://www.ralphlauren.com/men-accessories-hats-scarves-gloves/the-iconic-cotton-chino-ball-cap/0070142070.html",
+      "observedText": "Ralph Lauren's baseball caps have an amazing shape. They are flattering and versatile for daily outfits.",
+      "images": [
+        "https://dtcralphlauren.scene7.com/is/image/PoloGSI/s7-1388941_alternate1?$rl_4x5_pdp_mob$=",
+        "https://dtcralphlauren.scene7.com/is/image/PoloGSI/s7-1388941_alternate2?$rl_4x5_pdp_mob$=",
+        "https://dtcralphlauren.scene7.com/is/image/PoloGSI/s7-1388941_lifestyle?$rl_4x5_pdp$="
+      ],
+      "features": [
+        "cotton chino twill",
+        "signature embroidered Pony",
+        "adjustable buckled strap",
+        "embroidered Polo back logo"
+      ]
+    },
+    "hydro-flask-32": {
+      "source": "https://www.hydroflask.com/32-oz-wide-mouth",
+      "observedText": "32 oz Wide Mouth bottle",
+      "images": [
+        "https://www.hydroflask.com/media/catalog/product/cache/b2f1ce2dfe10d3d31bf2056bf6e0d10f/w/3/w32cts114_32ozwideflexcap_oat_straighton_1.jpg",
+        "https://www.hydroflask.com/media/catalog/product/w/3/w32bts464-indigo-straighton-compprod.png"
+      ],
+      "features": [
+        "24 hours cold and 12 hours hot",
+        "TempShield double-wall vacuum insulation",
+        "leakproof when closed",
+        "durable stainless steel",
+        "ice-cube friendly Wide Mouth opening"
+      ]
+    }
+  }
+}

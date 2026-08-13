@@ -1,4 +1,4 @@
-export const TAXONOMY_VERSION = "2026-08-v2";
+export const TAXONOMY_VERSION = "2026-08-v3";
 
 const tag = (id, title, terms, price = {}) => ({ id, title, terms, ...price });
 
@@ -53,10 +53,15 @@ export const FEED_TAXONOMY = [
 export function resolveFeedContext(themeId, tagId) {
   const theme = FEED_TAXONOMY.find((item) => item.id === themeId) ?? FEED_TAXONOMY[0];
   const selectedTag = tagId ? theme.tags.find((item) => item.id === tagId) : null;
+  const childTerms = selectedTag
+    ? selectedTag.terms ?? []
+    : theme.tags.flatMap((item) => item.terms ?? []);
   return {
     theme,
     tag: selectedTag,
-    terms: [...new Set([...(theme.terms ?? []), ...(selectedTag?.terms ?? [])])],
+    // "All" is the union of every child filter, not a separate empty shelf.
+    terms: [...new Set([...(theme.terms ?? []), ...childTerms])],
+    matchTerms: [...new Set(childTerms.length ? childTerms : theme.terms ?? [])],
     minPrice: selectedTag?.minPrice,
     maxPrice: selectedTag?.maxPrice,
   };

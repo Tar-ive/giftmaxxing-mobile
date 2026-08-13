@@ -1,5 +1,5 @@
 const CONTENT_KINDS = new Set(["product", "service", "ugc_post", "story", "generated_media"]);
-export const POLICY_VERSION = "mixer-v2.6";
+export const POLICY_VERSION = "mixer-v2.7";
 
 export const SURFACE_WEIGHTS = {
   home: { taste: 0.4, relevance: 0, commerce: 0.25, quality: 0.15, freshness: 0.1, exploration: 0.1 },

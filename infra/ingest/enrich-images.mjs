@@ -148,6 +148,14 @@ function extractOgImages(html) {
   return out;
 }
 
+function extractImageLinks(html) {
+  const out = [];
+  for (const m of html.matchAll(/<(?:a|img|source)[^>]+(?:href|src|data-src|data-zoom-image)=["']([^"']+)["']/gi)) {
+    if (/\.(?:jpe?g|png|webp)(?:\?|$)/i.test(m[1]) || /scene7\.com\/is\/image/i.test(m[1])) out.push(m[1]);
+  }
+  return out;
+}
+
 export function extractGallery(html, pageUrl) {
   const host = (() => {
     try {
@@ -160,6 +168,7 @@ export function extractGallery(html, pageUrl) {
     ...extractJsonLdImages(html),
     ...extractCdnImages(html, host),
     ...extractOgImages(html),
+    ...extractImageLinks(html),
   ];
   const seen = new Set();
   const images = [];

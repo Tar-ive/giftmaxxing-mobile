@@ -9,10 +9,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../..");
 const manifestPath = resolve(root, "Giftmaxxing/Resources/curated-gift-journeys.json");
 const outputPath = resolve(here, "curated-product-enrichment.json");
+const overridesPath = resolve(here, "curated-product-overrides.json");
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
 const force = args.includes("--force");
 const value = (flag, fallback) => args.includes(flag) ? args[args.indexOf(flag) + 1] : fallback;
+const onlyIds = new Set(String(value("--ids", "")).split(",").filter(Boolean));
 const limit = Number(value("--limit", 0)) || Infinity;
 const concurrency = Math.max(1, Math.min(8, Number(value("--concurrency", 4)) || 4));
 const region = process.env.AWS_REGION || "us-east-1";
@@ -20,8 +22,11 @@ const bucket = process.env.MEDIA_BUCKET || `${process.env.ENV_PREFIX || "giftmax
 const s3 = new S3Client({ region });
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 const previous = await readFile(outputPath, "utf8").then(JSON.parse).catch(() => ({ products: [] }));
+const overrides = await readFile(overridesPath, "utf8").then(JSON.parse).catch(() => ({ products: {} }));
 const results = new Map(previous.products.map((item) => [item.id, item]));
-const targets = manifest.products.filter((item) => force || !results.has(item.id)).slice(0, limit);
+const targets = manifest.products
+  .filter((item) => (!onlyIds.size || onlyIds.has(item.id)) && (force || !results.has(item.id)))
+  .slice(0, limit);
 
 async function archiveImage(product, url, index) {
   const response = await fetch(url, { headers: { "user-agent": "Mozilla/5.0 GiftmaxxingGallery/1.0", accept: "image/*" } });
@@ -40,7 +45,10 @@ let cursor = 0;
 async function worker() {
   while (cursor < targets.length) {
     const product = targets[cursor++];
-    const fetched = await fetchGallery(product.productUrl).catch((error) => ({ error: error.message }));
+    const override = overrides.products?.[product.id];
+    const fetched = override
+      ? { images: override.images ?? [], features: override.features, provider: "manual-official" }
+      : await fetchGallery(product.productUrl).catch((error) => ({ error: error.message }));
     let images = fetched.images ?? [];
     let archiveError;
     if (apply && images.length) {
@@ -51,10 +59,12 @@ async function worker() {
     results.set(product.id, {
       id: product.id,
       listingUrl: product.productUrl,
-      provider: providerFor(product.productUrl),
+      provider: fetched.provider ?? providerFor(product.productUrl),
       status: images.length > 1 ? "gallery_verified" : images.length ? "single_image" : "no_gallery",
       images,
-      features: product.capabilities,
+      features: fetched.features ?? product.capabilities,
+      observedText: override?.observedText,
+      mediaSource: images.length ? "retailer_listing" : null,
       verifiedAt: new Date().toISOString(),
       error: fetched.error ?? fetched.skipped ?? archiveError,
     });

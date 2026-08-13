@@ -49,6 +49,7 @@ const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 const themeMap = JSON.parse(await readFile(themeMapPath, "utf8"));
 const enrichment = await readFile(enrichmentPath, "utf8").then(JSON.parse).catch(() => ({ products: [] }));
 const themeByCarousel = new Map(themeMap.carousels.map((item) => [item.id, item]));
+const enrichmentByProduct = new Map(enrichment.products.map((item) => [item.id, item]));
 const galleryByProduct = new Map(enrichment.products.map((item) => [item.id, item.images ?? []]));
 const products = new Map(manifest.products.map((product) => [product.id, product]));
 const productTaxonomy = new Map();
@@ -103,13 +104,18 @@ for (const journey of manifest.journeys) {
 for (const product of [...manifest.products, ...manifest.wrapKit]) {
   const postId = `curated-product-${product.id}`;
   const taxonomy = productTaxonomy.get(product.id) ?? { category: "wrapping", labels: ["wrapping", "presentation"] };
-  const gallery = galleryByProduct.get(product.id) ?? [];
+  const productEnrichment = enrichmentByProduct.get(product.id);
+  const gallery = productEnrichment?.images ?? [];
   const cover = gallery[0] ?? publicPath(manifest.version, product.image);
   const row = {
     postId, author: "giftmaxxing", source: "curated-product", kind: "product",
     product: { id: product.id, name: product.name, brand: product.brand, price: product.price, image: cover, images: gallery },
     productUrl: product.productUrl, merchant: product.merchant, caption: product.matchEvidence,
-    capabilities: product.capabilities,
+    capabilities: productEnrichment?.features ?? product.capabilities,
+    mediaVerified: gallery.length > 0,
+    mediaSource: gallery.length > 0 ? "retailer_listing" : "curated_inspiration",
+    mediaVerifiedAt: gallery.length > 0 ? productEnrichment?.verifiedAt : undefined,
+    sourceEvidenceText: productEnrichment?.observedText,
     story: product.matchEvidence, category: taxonomy.category, vibes: [...new Set([...taxonomy.labels, ...product.capabilities])],
     curationStatus: "approved", moderationStatus: "APPROVED", status: "made",
     curationCollectionId: collectionId, curationCollectionVersion: manifest.version,

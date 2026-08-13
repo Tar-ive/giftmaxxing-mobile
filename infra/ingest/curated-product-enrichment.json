@@ -1,12 +1,12 @@
 {
   "schemaVersion": "1.0.0",
   "catalogVersion": "2026-08-11.3",
-  "generatedAt": "2026-08-13T17:01:35.891Z",
+  "generatedAt": "2026-08-13T17:56:37.705Z",
   "storage": "s3://giftmaxxing-dev-media/curated/2026-08-11.3/products",
   "summary": {
     "products": 86,
-    "galleries": 57,
-    "images": 219
+    "galleries": 59,
+    "images": 224
   },
   "products": [
     {
@@ -1217,16 +1217,22 @@
     {
       "id": "hydro-flask-32",
       "listingUrl": "https://www.hydroflask.com/32-oz-wide-mouth",
-      "provider": "html",
-      "status": "no_gallery",
-      "images": [],
-      "features": [
-        "color selection",
-        "add to cart",
-        "shipping"
+      "provider": "manual-official",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/hydro-flask-32/01.jpg",
+        "/curated/2026-08-11.3/products/hydro-flask-32/02.png"
       ],
-      "verifiedAt": "2026-08-13T17:01:03.072Z",
-      "error": "HTTP 403"
+      "features": [
+        "24 hours cold and 12 hours hot",
+        "TempShield double-wall vacuum insulation",
+        "leakproof when closed",
+        "durable stainless steel",
+        "ice-cube friendly Wide Mouth opening"
+      ],
+      "observedText": "32 oz Wide Mouth bottle",
+      "mediaSource": "retailer_listing",
+      "verifiedAt": "2026-08-13T17:56:37.672Z"
     },
     {
       "id": "michaels-front-opening-shadow-box",
@@ -1257,16 +1263,22 @@
     {
       "id": "ralph-lauren-chino-cap",
       "listingUrl": "https://www.ralphlauren.com/men-accessories-hats-scarves-gloves/the-iconic-cotton-chino-ball-cap/0070142070.html",
-      "provider": "html",
-      "status": "no_gallery",
-      "images": [],
-      "features": [
-        "color selection",
-        "add to bag",
-        "store finder"
+      "provider": "manual-official",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/ralph-lauren-chino-cap/01.jpg",
+        "/curated/2026-08-11.3/products/ralph-lauren-chino-cap/02.jpg",
+        "/curated/2026-08-11.3/products/ralph-lauren-chino-cap/03.jpg"
       ],
-      "verifiedAt": "2026-08-13T17:01:00.831Z",
-      "error": "HTTP 307"
+      "features": [
+        "cotton chino twill",
+        "signature embroidered Pony",
+        "adjustable buckled strap",
+        "embroidered Polo back logo"
+      ],
+      "observedText": "Ralph Lauren's baseball caps have an amazing shape. They are flattering and versatile for daily outfits.",
+      "mediaSource": "retailer_listing",
+      "verifiedAt": "2026-08-13T17:56:37.705Z"
     },
     {
       "id": "target-bubble-slam-dunk",

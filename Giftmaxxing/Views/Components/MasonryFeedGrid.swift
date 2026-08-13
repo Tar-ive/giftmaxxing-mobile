@@ -15,7 +15,6 @@ import SwiftUI
 // the classic ragged-Pinterest-column artefact.
 struct MasonryFeedGrid: View {
     let posts: [Post]
-    var repeatCount = 1
     var savedIds: Set<String> = []
     var onTap: (Post) -> Void
     var onSave: (Post) -> Void
@@ -26,7 +25,7 @@ struct MasonryFeedGrid: View {
             alignment: .leading,
             spacing: ThemeSpacing.sm
         ) {
-            ForEach(Array(displayPosts.enumerated()), id: \.offset) { index, post in
+            ForEach(Array(posts.enumerated()), id: \.element.id) { index, post in
                 MasonryTile(
                     post: post,
                     isSaved: savedIds.contains(post.id),
@@ -39,27 +38,6 @@ struct MasonryFeedGrid: View {
         .padding(.horizontal, ThemeSpacing.md)
     }
 
-    /// Three static cards, then one curated source carousel. Repeated cycles
-    /// use index identity so the same approved catalog can extend indefinitely.
-    private var displayPosts: [Post] {
-        guard !posts.isEmpty else { return [] }
-        let galleries = posts.filter { $0.product.gallery.count > 1 }
-        let cards = posts.filter { $0.product.gallery.count <= 1 }
-        guard !galleries.isEmpty, !cards.isEmpty else {
-            return (0..<max(1, repeatCount)).flatMap { _ in posts }
-        }
-        let total = max(posts.count, 4) * max(1, repeatCount)
-        var cardIndex = 0
-        var galleryIndex = 0
-        return (0..<total).map { index in
-            if index % 4 == 3 {
-                defer { galleryIndex += 1 }
-                return galleries[galleryIndex % galleries.count]
-            }
-            defer { cardIndex += 1 }
-            return cards[cardIndex % cards.count]
-        }
-    }
 }
 
 struct MasonryTile: View {
