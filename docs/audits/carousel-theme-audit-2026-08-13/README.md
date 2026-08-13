@@ -2,9 +2,9 @@
 
 ## Result
 
-The current bundled source of truth has **35 carousels, 211 slides and 86
-products**: 21 TikTok, 9 Wishwave and 5 Gift Off List guides. Every carousel is
-mapped in `carousel-theme-map.json`; 30 assignments are high confidence, five
+The active bundled source of truth has **30 carousels, 206 slides and 86
+products**: 16 TikTok, 9 Wishwave and 5 Gift Off List guides. Every carousel is
+mapped in `carousel-theme-map.json`; 28 assignments are high confidence, two
 are medium confidence and none are unmapped.
 
 Replace generic media/department pills such as Tech and Beauty with **gift
@@ -56,11 +56,11 @@ a sample-view UI. Applied here:
 Primary sources: [OpenAI overview](https://openai.com/index/scaling-social-science-research/)
 and [GPT as a measurement tool](https://cdn.openai.com/pdf/7517a586-5bfa-4b87-bd3d-6ea0e9e844c7/GPT-as-a-measurement-tool.pdf).
 
-## Low-confidence and navigation exclusions
+## Retired video covers
 
-There are no low-confidence or unmapped entries. Five single-slide,
-product-free principles are intentionally excluded from filter navigation but
-remain valid For You inspiration:
+Five TikTok records were one-frame exports from videos, not carousels. They are
+retained only in the local source archive and removed from the active manifest,
+taxonomy, recommendation collection and catalog rows:
 
 - `happy-wife`
 - `different-kind-of-pain`
@@ -68,19 +68,16 @@ remain valid For You inspiration:
 - `stop-guessing`
 - `stay-thoughtful`
 
-The five medium-confidence entries are broad instructional content whose
-recipient or occasion is intentionally nonspecific:
+The two remaining medium-confidence entries are broad instructional content
+whose recipient or occasion is intentionally nonspecific:
 
 - `gift-giving-diary`
 - `seven-gifting-mistakes`
-- `different-kind-of-pain`
-- `best-feeling`
-- `stop-guessing`
 
 ## Coverage gaps
 
 The requested **Back to School — Him** cannot be honestly generated from the
-current 35 carousels. Current evidence supports Back to School — Her and Back
+current 30 carousels. Current evidence supports Back to School — Her and Back
 to School — Teacher. Source a male student/campus guide before enabling the Him
 pill. Other material gaps: baby/young child, grandparents, coworkers/boss,
 wedding, new parents and experience-first gifts.
@@ -90,8 +87,7 @@ wedding, new parents and experience-first gifts.
 - Exactly one `themeId` and one `intent` per carousel.
 - At least one recipient, occasion, interest and evidence string.
 - `confidence=low` cannot publish without manual approval.
-- `navigationExcluded=true` for product-free principle cards unless editorially
-  approved as a navigable learning collection.
+- `imageCount >= 2`; video covers and one-frame exports cannot publish as carousels.
 - Generated filter labels must correspond to explicit recipient/occasion
   evidence; no inferred gender.
 - Catalog and map versions are promoted together.

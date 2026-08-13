@@ -1,7 +1,14 @@
 {
-  "version": "2026-08-11.3",
+  "version": "2026-08-11.4",
   "sourceFile": "human-reviewed editorial discovery: supplied TikTok export, Wishwave, and GiftOffList",
   "reviewedAt": "2026-08-12T04:40:01.258Z",
+  "retiredJourneySourceIds": [
+    "7670588155153665293",
+    "7670786931785026830",
+    "7670581868282219789",
+    "7670580687371586829",
+    "7670035064398335246"
+  ],
   "journeys": [
     {
       "id": "practical-gifts-for-him",
@@ -268,36 +275,6 @@
       ]
     },
     {
-      "id": "happy-wife",
-      "sourcePostId": "7670588155153665293",
-      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670588155153665293",
-      "title": "Make care visible",
-      "subtitle": "A relationship reminder, kept as inspiration rather than a product claim.",
-      "whySelected": "The available export contains a cover image; the original post remains linked for its full context.",
-      "labels": [
-        "relationship",
-        "partner",
-        "thoughtful"
-      ],
-      "imageCount": 1,
-      "productIds": []
-    },
-    {
-      "id": "stay-thoughtful",
-      "sourcePostId": "7670786931785026830",
-      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670786931785026830",
-      "title": "Stay thoughtful",
-      "subtitle": "A compact prompt to notice before buying.",
-      "whySelected": "The available export contains a cover image; the original post remains linked for its full context.",
-      "labels": [
-        "men",
-        "relationship",
-        "thoughtful"
-      ],
-      "imageCount": 1,
-      "productIds": []
-    },
-    {
       "id": "sentimental-keepsakes",
       "sourcePostId": "7670641859131100430",
       "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670641859131100430",
@@ -318,21 +295,6 @@
       ]
     },
     {
-      "id": "different-kind-of-pain",
-      "sourcePostId": "7670581868282219789",
-      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670581868282219789",
-      "title": "When guessing misses",
-      "subtitle": "A reminder that emotional context belongs in the recommendation.",
-      "whySelected": "The available export contains a cover image; the original post remains linked for its full context.",
-      "labels": [
-        "emotion",
-        "relationship",
-        "learning"
-      ],
-      "imageCount": 1,
-      "productIds": []
-    },
-    {
       "id": "attention-over-price",
       "sourcePostId": "7670644980880248077",
       "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670644980880248077",
@@ -347,21 +309,6 @@
         "personalized"
       ],
       "imageCount": 6,
-      "productIds": []
-    },
-    {
-      "id": "best-feeling",
-      "sourcePostId": "7670580687371586829",
-      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670580687371586829",
-      "title": "The feeling is the feature",
-      "subtitle": "Keep the emotional outcome in view.",
-      "whySelected": "The available export contains a cover image; the original post remains linked for its full context.",
-      "labels": [
-        "thoughtful",
-        "partner",
-        "emotion"
-      ],
-      "imageCount": 1,
       "productIds": []
     },
     {
@@ -383,21 +330,6 @@
         "nomination-composable-bracelet",
         "michaels-front-opening-shadow-box"
       ]
-    },
-    {
-      "id": "stop-guessing",
-      "sourcePostId": "7670035064398335246",
-      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670035064398335246",
-      "title": "Stop guessing what they want",
-      "subtitle": "Use their reactions to learn, then recommend.",
-      "whySelected": "The available export contains a cover image and captures the core problem the swipe experience solves.",
-      "labels": [
-        "learning",
-        "personalization",
-        "guide"
-      ],
-      "imageCount": 1,
-      "productIds": []
     },
     {
       "id": "editorial-anniversary-boyfriend",

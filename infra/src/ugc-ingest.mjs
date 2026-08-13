@@ -15,6 +15,7 @@ import {
   recommendationCategory,
   recommendationLabels,
 } from "./ugc-policy.mjs";
+import { productPipelineStatus, verifyProductLinks } from "./ugc-product-verification.mjs";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), { marshallOptions: { removeUndefinedValues: true } });
 const s3 = new S3Client({});
@@ -53,14 +54,17 @@ async function publish(item, labels, detectedText = []) {
     productUrl: link.url,
     merchant: (() => { try { return new URL(link.url).hostname.replace(/^www\./, ""); } catch { return null; } })(),
   }));
+  const productCandidates = await verifyProductLinks(item.productLinks);
+  const pipelineStatus = productPipelineStatus(productCandidates, shoppable.length > 0);
   await ddb.send(new UpdateCommand({
     TableName: POSTS,
     Key: { postId: item.postId },
-    UpdateExpression: "SET moderationStatus = :approved, processingStatus = :ready, #status = :made, feedEligible = :yes, feedPk = :feed, publicKey = :publicKey, posterPublicKey = :posterPublicKey, mediaUrl = :mediaUrl, posterUrl = :posterUrl, product = :product, recommendationLabels = :labels, detectedText = :text, vibes = :vibes, category = :category, shoppable = :shoppable, updatedAt = :now REMOVE moderationReason",
+    UpdateExpression: "SET moderationStatus = :approved, processingStatus = :ready, productPipelineStatus = :pipeline, #status = :made, feedEligible = :yes, feedPk = :feed, publicKey = :publicKey, posterPublicKey = :posterPublicKey, mediaUrl = :mediaUrl, posterUrl = :posterUrl, product = :product, recommendationLabels = :labels, detectedText = :text, productObservations = :observations, vibes = :vibes, category = :category, shoppable = :shoppable, updatedAt = :now REMOVE moderationReason",
     ExpressionAttributeNames: { "#status": "status" },
     ExpressionAttributeValues: {
       ":approved": "APPROVED",
       ":ready": "READY",
+      ":pipeline": pipelineStatus,
       ":made": "made",
       ":yes": true,
       ":feed": feedPk(item.postId),
@@ -71,6 +75,7 @@ async function publish(item, labels, detectedText = []) {
       ":product": { id: item.postId, name: item.caption.slice(0, 120), brand: item.authorName, price: 0, image },
       ":labels": labels,
       ":text": detectedText,
+      ":observations": { labels, detectedText, productCandidates, capturedAt: Date.now() },
       ":vibes": labelNames.slice(0, 12),
       ":category": category,
       ":shoppable": shoppable,
@@ -101,14 +106,18 @@ async function publishCarousel(item, results) {
     productUrl: link.url,
     merchant: (() => { try { return new URL(link.url).hostname.replace(/^www\./, ""); } catch { return null; } })(),
   }));
+  const detectedText = Object.values(results).flatMap((value) => value.text ?? []).slice(0, 60);
+  const productCandidates = await verifyProductLinks(item.productLinks);
+  const pipelineStatus = productPipelineStatus(productCandidates, shoppable.length > 0);
   await ddb.send(new UpdateCommand({
     TableName: POSTS,
     Key: { postId: item.postId },
-    UpdateExpression: "SET moderationStatus = :approved, processingStatus = :ready, #status = :made, feedEligible = :yes, feedPk = :feed, publicKeys = :keys, mediaUrls = :urls, mediaUrl = :cover, posterUrl = :cover, product = :product, recommendationLabels = :labels, vibes = :vibes, category = :category, shoppable = :shoppable, updatedAt = :now REMOVE moderationReason",
+    UpdateExpression: "SET moderationStatus = :approved, processingStatus = :ready, productPipelineStatus = :pipeline, #status = :made, feedEligible = :yes, feedPk = :feed, publicKeys = :keys, mediaUrls = :urls, mediaUrl = :cover, posterUrl = :cover, product = :product, recommendationLabels = :labels, detectedText = :text, productObservations = :observations, vibes = :vibes, category = :category, shoppable = :shoppable, updatedAt = :now REMOVE moderationReason",
     ExpressionAttributeNames: { "#status": "status" },
     ExpressionAttributeValues: {
       ":approved": "APPROVED",
       ":ready": "READY",
+      ":pipeline": pipelineStatus,
       ":made": "made",
       ":yes": true,
       ":feed": feedPk(item.postId),
@@ -117,6 +126,8 @@ async function publishCarousel(item, results) {
       ":cover": mediaUrls[0],
       ":product": { id: item.postId, name: item.caption.slice(0, 120), brand: item.authorName, price: 0, image: mediaUrls[0], images: mediaUrls },
       ":labels": labels,
+      ":text": detectedText,
+      ":observations": { labels, detectedText, productCandidates, capturedAt: Date.now() },
       ":vibes": labelNames.slice(0, 12),
       ":category": category,
       ":shoppable": shoppable,

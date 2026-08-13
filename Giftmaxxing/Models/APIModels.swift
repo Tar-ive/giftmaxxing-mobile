@@ -59,6 +59,7 @@ struct UGCPost: Identifiable, Codable, Hashable {
     var posterUrl: String?
     var music: UGCMusicTrack? = nil
     var processingStatus: String
+    var productPipelineStatus: String? = nil
     var moderationStatus: String
     var moderationReason: [String]?
     var recommendationLabels: [UGCLabel]?

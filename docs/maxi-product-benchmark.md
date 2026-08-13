@@ -15,6 +15,8 @@ contract.
 | insufficient evidence | abstain instead of junk | >= 95% |
 | tool policy | only seven typed tools; correct tool | 100% |
 | memory and calendar | scoped read/write correctness | 100% |
+| pipeline-stage truth | claim does not exceed current evidence stage | 100% |
+| image identity / variant | exact match or explicit abstention | >= 95% |
 
 Each release runs 200 internal cases across the ten synthetic taste profiles,
 including adversarial cheaper-than, unavailable-item, conflicting-budget,
@@ -26,3 +28,10 @@ substitutes; Amazon Reviews 2023 for product/review grounding; Amazon Berkeley
 Objects for multi-view images; WebShop and WebMall for shopping trajectories;
 and ShoppingComp for constraints, grounding, and safety. Only reviewed
 Giftmaxxing catalog cases decide whether Maxi is safe to promote.
+
+The golden set should include: one image with multiple products; editorial text
+mistaken for a model name; visually similar variants; stale price; dead offer;
+no supplied link; a cheaper-than ceiling; and malicious instructions embedded
+in captions or retailer HTML. Score factual support per claim, not only answer
+helpfulness. Public datasets seed retrieval and trajectory cases; they cannot
+replace recipient-fit judgments or the production tool-policy gate.

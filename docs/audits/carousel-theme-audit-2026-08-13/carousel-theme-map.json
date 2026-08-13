@@ -1,16 +1,16 @@
 {
   "schemaVersion": "1.0.0",
-  "catalogVersion": "2026-08-11.3",
+  "catalogVersion": "2026-08-11.4",
   "generatedAt": "2026-08-13",
   "source": "Giftmaxxing/Resources/curated-gift-journeys.json",
   "summary": {
-    "carousels": 35,
-    "slides": 211,
+    "carousels": 30,
+    "slides": 206,
     "products": 86,
-    "sources": { "tiktok": 21, "wishwave": 9, "giftofflist": 5 },
-    "confidence": { "high": 30, "medium": 5, "low": 0 },
+    "sources": { "tiktok": 16, "wishwave": 9, "giftofflist": 5 },
+    "confidence": { "high": 28, "medium": 2, "low": 0 },
     "unmapped": 0,
-    "navigationExcluded": 5
+    "navigationExcluded": 0
   },
   "themes": [
     { "id": "school-and-next-chapter", "title": "School & Next Chapter" },
@@ -187,32 +187,6 @@
       "evidence": ["title and formula in subtitle", "labels: basket,comfort,experience"]
     },
     {
-      "id": "happy-wife",
-      "filterLabel": "Make Care Visible — Wife",
-      "themeId": "romantic-partner",
-      "recipients": ["wife", "partner"],
-      "occasions": ["just-because", "anniversary"],
-      "interests": ["relationship-care"],
-      "budget": "any",
-      "intent": "inspire",
-      "confidence": "high",
-      "navigationExcluded": true,
-      "evidence": ["id and labels: relationship,partner,thoughtful", "single-slide inspiration with no products"]
-    },
-    {
-      "id": "stay-thoughtful",
-      "filterLabel": "Stay Thoughtful — Him",
-      "themeId": "better-gifting",
-      "recipients": ["man", "partner"],
-      "occasions": ["just-because"],
-      "interests": ["relationship-care"],
-      "budget": "any",
-      "intent": "inspire",
-      "confidence": "high",
-      "navigationExcluded": true,
-      "evidence": ["labels: men,relationship,thoughtful", "single-slide inspiration with no products"]
-    },
-    {
       "id": "sentimental-keepsakes",
       "filterLabel": "Anniversary — Shared Memory",
       "themeId": "relationships-and-memory",
@@ -223,19 +197,6 @@
       "intent": "make",
       "confidence": "high",
       "evidence": ["title", "labels: sentimental,partner,anniversary,photo"]
-    },
-    {
-      "id": "different-kind-of-pain",
-      "filterLabel": "When Guessing Misses",
-      "themeId": "better-gifting",
-      "recipients": ["anyone"],
-      "occasions": ["any"],
-      "interests": ["gift-feedback", "relationship-context"],
-      "budget": "any",
-      "intent": "learn",
-      "confidence": "medium",
-      "navigationExcluded": true,
-      "evidence": ["title and subtitle", "labels: emotion,relationship,learning", "single slide and no products"]
     },
     {
       "id": "attention-over-price",
@@ -250,19 +211,6 @@
       "evidence": ["title and subtitle", "labels: wrapping,presentation,diy,budget"]
     },
     {
-      "id": "best-feeling",
-      "filterLabel": "Design for the Feeling",
-      "themeId": "better-gifting",
-      "recipients": ["partner", "anyone"],
-      "occasions": ["any"],
-      "interests": ["emotional-outcome"],
-      "budget": "any",
-      "intent": "inspire",
-      "confidence": "medium",
-      "navigationExcluded": true,
-      "evidence": ["title and subtitle", "single-slide principle with no products"]
-    },
-    {
       "id": "best-friend-gifts",
       "filterLabel": "Birthday — Best Friend",
       "themeId": "friend-birthday",
@@ -273,19 +221,6 @@
       "intent": "make",
       "confidence": "high",
       "evidence": ["title", "labels: best-friend,birthday,photo,experience"]
-    },
-    {
-      "id": "stop-guessing",
-      "filterLabel": "Learn What They Want",
-      "themeId": "better-gifting",
-      "recipients": ["anyone"],
-      "occasions": ["any"],
-      "interests": ["personalization", "gift-feedback"],
-      "budget": "any",
-      "intent": "learn",
-      "confidence": "medium",
-      "navigationExcluded": true,
-      "evidence": ["title and subtitle", "labels: learning,personalization,guide", "single slide and no products"]
     },
     {
       "id": "editorial-anniversary-boyfriend",

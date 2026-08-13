@@ -71,7 +71,7 @@ Sorted by size. `PK` = partition key, `SK` = sort key.
 |---|---:|---:|
 | **Shopify** (22 stores, real product feeds) | 2,553 | **58%** |
 | **Pinterest** (RSS scrape) | 1,819 | 41% |
-| Giftmaxxing curated catalog | 35 | 1% |
+| Giftmaxxing curated carousels | 30 | 1% |
 | Apify editorial carousels | 6 | <1% |
 | UGC | 4 | <1% |
 

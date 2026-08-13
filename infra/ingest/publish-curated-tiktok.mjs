@@ -3,7 +3,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { BatchWriteCommand, DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { BatchWriteCommand, DeleteCommand, DynamoDBDocumentClient, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { normalizeLegacyPost } from "../src/catalog-v2.mjs";
 
@@ -27,6 +27,9 @@ const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region }), { marsha
 const s3 = new S3Client({ region });
 
 const publicPath = (version, asset) => `/curated/${version}/${basename(asset)}`;
+const fallbackImage = (version, asset) => String(asset).startsWith("bundle:///")
+  ? publicPath(version, String(asset).slice("bundle:///".length))
+  : asset;
 const labelsFor = (journey) => [...new Set(journey.labels.map((value) => value.toLowerCase()))];
 
 async function batch(table, items) {
@@ -47,6 +50,11 @@ async function batch(table, items) {
 
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 const themeMap = JSON.parse(await readFile(themeMapPath, "utf8"));
+for (const journey of manifest.journeys) {
+  if (!Number.isInteger(journey.imageCount) || journey.imageCount < 2) {
+    throw new Error(`${journey.id} is not a carousel: imageCount must be at least 2`);
+  }
+}
 const enrichment = await readFile(enrichmentPath, "utf8").then(JSON.parse).catch(() => ({ products: [] }));
 const themeByCarousel = new Map(themeMap.carousels.map((item) => [item.id, item]));
 const enrichmentByProduct = new Map(enrichment.products.map((item) => [item.id, item]));
@@ -75,7 +83,8 @@ for (const journey of manifest.journeys) {
   const mediaUrls = Array.from({ length: Math.max(1, journey.imageCount) }, (_, index) =>
     publicPath(manifest.version, `${journey.sourcePostId}-${String(index + 1).padStart(2, "0")}.jpg`));
   const shoppable = journey.productIds.map((id) => products.get(id)).filter(Boolean).map((product) => ({
-    postId: `curated-product-${product.id}`, name: product.name, image: galleryByProduct.get(product.id)?.[0] ?? publicPath(manifest.version, product.image),
+    postId: `curated-product-${product.id}`, name: product.name,
+    image: galleryByProduct.get(product.id)?.[0] ?? fallbackImage(manifest.version, product.image),
     price: product.price, productUrl: product.productUrl, merchant: product.merchant,
   }));
   const row = {
@@ -106,17 +115,20 @@ for (const product of [...manifest.products, ...manifest.wrapKit]) {
   const taxonomy = productTaxonomy.get(product.id) ?? { category: "wrapping", labels: ["wrapping", "presentation"] };
   const productEnrichment = enrichmentByProduct.get(product.id);
   const gallery = productEnrichment?.images ?? [];
-  const cover = gallery[0] ?? publicPath(manifest.version, product.image);
+  const cover = gallery[0] ?? fallbackImage(manifest.version, product.image);
   const row = {
     postId, author: "giftmaxxing", source: "curated-product", kind: "product",
     product: { id: product.id, name: product.name, brand: product.brand, price: product.price, image: cover, images: gallery },
     productUrl: product.productUrl, merchant: product.merchant, caption: product.matchEvidence,
     capabilities: productEnrichment?.features ?? product.capabilities,
+    shortDescription: productEnrichment?.description,
+    descriptionSource: productEnrichment?.descriptionSource,
     mediaVerified: gallery.length > 0,
     mediaSource: gallery.length > 0 ? "retailer_listing" : "curated_inspiration",
     mediaVerifiedAt: gallery.length > 0 ? productEnrichment?.verifiedAt : undefined,
     sourceEvidenceText: productEnrichment?.observedText,
-    story: product.matchEvidence, category: taxonomy.category, vibes: [...new Set([...taxonomy.labels, ...product.capabilities])],
+    story: productEnrichment?.description ?? product.matchEvidence,
+    category: taxonomy.category, vibes: [...new Set([...taxonomy.labels, ...product.capabilities])],
     curationStatus: "approved", moderationStatus: "APPROVED", status: "made",
     curationCollectionId: collectionId, curationCollectionVersion: manifest.version,
     feedEligible: true, feedPk: "all", qualityScore: 1, likes: 0, comments: 0,
@@ -140,7 +152,9 @@ for (const entity of [...entities]) {
   }
 }
 
-const files = (await readdir(imagesDir)).filter((name) => /\.(jpe?g|png)$/i.test(name));
+const activeSourceIds = new Set(manifest.journeys.map(({ sourcePostId }) => String(sourcePostId)));
+const files = (await readdir(imagesDir)).filter((name) =>
+  /\.(jpe?g|png)$/i.test(name) && [...activeSourceIds].some((id) => name.startsWith(`${id}-`)));
 if (apply) await Promise.all(files.map(async (name) => s3.send(new PutObjectCommand({
   Bucket: bucket, Key: `curated/${manifest.version}/${name}`, Body: await readFile(join(imagesDir, name)),
   ContentType: name.endsWith(".png") ? "image/png" : "image/jpeg", CacheControl: "public,max-age=31536000,immutable",
@@ -148,6 +162,23 @@ if (apply) await Promise.all(files.map(async (name) => s3.send(new PutObjectComm
 await batch(tables.posts, posts);
 await batch(tables.entities, entities);
 await batch(tables.edges, edges);
+if (apply) for (const sourceId of manifest.retiredJourneySourceIds ?? []) {
+  const postId = `curated-source-${sourceId}`;
+  const relatedEdges = await ddb.send(new QueryCommand({
+    TableName: tables.edges,
+    KeyConditionExpression: "fromId = :fromId",
+    ExpressionAttributeValues: { ":fromId": postId },
+  }));
+  if (relatedEdges.Items?.length) {
+    await ddb.send(new BatchWriteCommand({
+      RequestItems: { [tables.edges]: relatedEdges.Items.map(({ fromId, edgeKey }) => ({ DeleteRequest: { Key: { fromId, edgeKey } } })) },
+    }));
+  }
+  await Promise.all([
+    ddb.send(new DeleteCommand({ TableName: tables.posts, Key: { postId } })),
+    ddb.send(new DeleteCommand({ TableName: tables.entities, Key: { entityId: postId } })),
+  ]);
+}
 if (apply) await ddb.send(new PutCommand({
   TableName: tables.entities,
   Item: {
@@ -160,4 +191,8 @@ if (apply) await ddb.send(new PutCommand({
     activatedAt: Date.now(),
   },
 }));
-console.log(JSON.stringify({ mode: apply ? "apply" : "dry-run", version: manifest.version, assets: files.length, posts: posts.length, entities: entities.length, edges: edges.length }));
+console.log(JSON.stringify({
+  mode: apply ? "apply" : "dry-run", version: manifest.version, assets: files.length,
+  carousels: manifest.journeys.length, retired: manifest.retiredJourneySourceIds?.length ?? 0,
+  posts: posts.length, entities: entities.length, edges: edges.length,
+}));

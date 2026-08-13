@@ -3,6 +3,9 @@
   "products": {
     "ralph-lauren-chino-cap": {
       "source": "https://www.ralphlauren.com/men-accessories-hats-scarves-gloves/the-iconic-cotton-chino-ball-cap/0070142070.html",
+      "title": "The Iconic Cotton Chino Ball Cap",
+      "brand": "Polo Ralph Lauren",
+      "description": "A classic cotton-chino cap with Ralph Lauren's embroidered Pony and an adjustable back strap.",
       "observedText": "Ralph Lauren's baseball caps have an amazing shape. They are flattering and versatile for daily outfits.",
       "images": [
         "https://dtcralphlauren.scene7.com/is/image/PoloGSI/s7-1388941_alternate1?$rl_4x5_pdp_mob$=",
@@ -18,6 +21,9 @@
     },
     "hydro-flask-32": {
       "source": "https://www.hydroflask.com/32-oz-wide-mouth",
+      "title": "32 oz Wide Mouth Bottle",
+      "brand": "Hydro Flask",
+      "description": "A leakproof insulated stainless-steel bottle with a wide opening for ice and all-day temperature control.",
       "observedText": "32 oz Wide Mouth bottle",
       "images": [
         "https://www.hydroflask.com/media/catalog/product/cache/b2f1ce2dfe10d3d31bf2056bf6e0d10f/w/3/w32cts114_32ozwideflexcap_oat_straighton_1.jpg",

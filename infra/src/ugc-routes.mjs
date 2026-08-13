@@ -165,6 +165,7 @@ async function createUpload(body, ownerId) {
     visibility: user.Item?.visibility ?? "public",
     status: "processing",
     processingStatus: "UPLOAD_PENDING",
+    productPipelineStatus: "AWAITING_MEDIA",
     moderationStatus: "PENDING",
     likes: 0,
     comments: 0,

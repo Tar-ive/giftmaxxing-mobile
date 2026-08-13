@@ -10,6 +10,10 @@ S3, and publishes the gallery in typed `media[]`. A product remains outside
 Swipe until at least one retailer-owned image is verified. Header/listicle
 slides are inspiration-only and can never enter the product deck.
 
+An active carousel must declare at least two slides. A single exported frame
+from a video is archived but rejected by the publisher; it is neither Home
+inspiration nor a Swipe product.
+
 ```mermaid
 flowchart LR
   Guide["Reviewed inspiration carousel"] --> Classify["Header, editorial, or product evidence"]
@@ -28,11 +32,53 @@ flowchart LR
   Detail --> Shop["Open exact retailer listing"]
 ```
 
+## Processing and storage contract
+
+| Stage | Processing | Output and storage | Maxi truth boundary |
+|---|---|---|---|
+| 0. Upload | `+` creates an identity-bound post and presigned media upload | Raw object: `s3://giftmaxxing-dev-media/ugc/raw/...`; DynamoDB `posts`: `UPLOAD_PENDING`, `AWAITING_MEDIA` | May say only “uploaded” |
+| 1. Safety + observation | Rekognition moderation, labels, OCR; observations are not product identity | Approved media: `ugc/public/...`; labels/OCR in `posts.productObservations` | May describe visible evidence with “appears to” |
+| 2. Source evidence | Read supplied links; extract retailer title, short description, features, price and gallery | Evidence snapshot in `posts.productObservations.productCandidates`; CloudWatch logs | May quote evidence and source; cannot call it an exact match yet |
+| 3. Entity resolution | Compare OCR, brand/model/variant and visual evidence; dedupe to canonical item | Candidate `catalog_entities` + typed `catalog_edges`; ambiguity stays `MANUAL_REVIEW_REQUIRED` | Must abstain on identity conflicts |
+| 4. Approval | Human or deterministic high-confidence gate approves exact product and offer | Approval, provenance, review time and offer in DynamoDB | Consumer Maxi reads only approved records |
+| 5. Media archive | Validate retailer-owned gallery, dimensions, dedupe and cap at eight | `curated/{version}/products/{id}/...` in S3; typed `media[]` on entity | Describes only archived, provenance-bound media |
+| 6. Retrieval | Embed approved title + short description + representative image | 1024-d vector in S3 Vectors; behavior/profile in DynamoDB | Explains retrieval reason, never invents listing facts |
+| 7. Serving | Mixer applies eligibility, taxonomy, personalization and availability | Active collection pointer in DynamoDB; signed `/v2/recommendations` | Recommends only IDs returned by tools |
+
+Upload begins stages 0–2 automatically. It does not auto-promote an image-only
+guess into Swipe: missing links or ambiguous evidence stop at manual review.
+
+## Proposed Maxi evidence views
+
+Keep Maxi's public surface at the existing seven typed tools. Do not add a
+general database or web tool. Extend `catalog_read` internally with a typed,
+read-only view chosen by the server:
+
+- `approved`: exact item, offer, archived gallery, short description and source
+  timestamp; usable for recommendations and factual answers.
+- `observation`: OCR and visible labels only; the prompt requires uncertainty
+  language and forbids retailer/price claims.
+- `candidate`: curator-only evidence comparison; the prompt lists supporting
+  and conflicting fields and returns `abstain` when identity is weak.
+
+Maxi never writes catalog status, promotes candidates or accesses raw URLs.
+`memory_write` stores user preferences, not product “facts.”
+
+## Platform comparison
+
+| Platform | Strong primitive | Giftmaxxing difference |
+|---|---|---|
+| TikTok / Instagram | Creator media, captions, engagement and multi-image publishing | A post image is not canonical retailer evidence |
+| RedNote | Product/variant/item hierarchy with shared imagery and descriptions | Gift-recipient fit remains a separate problem |
+| Pinterest | Inspiration plus catalog-backed Product Pins and landing-page metadata | Product connection depends on merchant evidence, not visual similarity alone |
+| ShopMy | Creator-curated outbound product links and conversion attribution | Link curation alone does not establish multi-angle image identity |
+| Giftmaxxing | Inspiration + product resolution + recipient taste + exact offer | Evidence first; abstain instead of padding with junk |
+
 ## API-authoritative feed
 
 ```mermaid
 flowchart TD
-  Curated["35 reviewed carousels + 86 verified products"] --> Catalog["Typed catalog graph"]
+  Curated["30 reviewed carousels + 86 products"] --> Catalog["Typed catalog graph"]
   Events["Views, dwell, saves, swipes, reliability votes"] --> Profile["Taste and quality signals"]
   Catalog --> Mixer["Recommender Mixer v2.7"]
   Profile --> Mixer

@@ -47,7 +47,11 @@ async function worker() {
     const product = targets[cursor++];
     const override = overrides.products?.[product.id];
     const fetched = override
-      ? { images: override.images ?? [], features: override.features, provider: "manual-official" }
+      ? {
+          images: override.images ?? [], features: override.features,
+          description: override.description, title: override.title, brand: override.brand,
+          provider: "manual-official",
+        }
       : await fetchGallery(product.productUrl).catch((error) => ({ error: error.message }));
     let images = fetched.images ?? [];
     let archiveError;
@@ -62,6 +66,10 @@ async function worker() {
       provider: fetched.provider ?? providerFor(product.productUrl),
       status: images.length > 1 ? "gallery_verified" : images.length ? "single_image" : "no_gallery",
       images,
+      title: fetched.title ?? product.name,
+      brand: fetched.brand ?? product.brand,
+      description: fetched.description,
+      descriptionSource: fetched.description ? "retailer_listing" : null,
       features: fetched.features ?? product.capabilities,
       observedText: override?.observedText,
       mediaSource: images.length ? "retailer_listing" : null,
