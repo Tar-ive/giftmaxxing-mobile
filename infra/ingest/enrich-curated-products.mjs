@@ -3,7 +3,9 @@ import { readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DetectTextCommand, RekognitionClient } from "@aws-sdk/client-rekognition";
 import { fetchGallery, providerFor } from "./enrich-images.mjs";
+import { evaluateMediaQuality, imageDimensions } from "./media-quality.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../..");
@@ -20,6 +22,7 @@ const concurrency = Math.max(1, Math.min(8, Number(value("--concurrency", 4)) ||
 const region = process.env.AWS_REGION || "us-east-1";
 const bucket = process.env.MEDIA_BUCKET || `${process.env.ENV_PREFIX || "giftmaxxing-dev"}-media`;
 const s3 = new S3Client({ region });
+const rekognition = new RekognitionClient({ region });
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 const previous = await readFile(outputPath, "utf8").then(JSON.parse).catch(() => ({ products: [] }));
 const overrides = await readFile(overridesPath, "utf8").then(JSON.parse).catch(() => ({ products: {} }));
@@ -35,10 +38,19 @@ async function archiveImage(product, url, index) {
   if (!type.startsWith("image/")) throw new Error(`not image (${type})`);
   const body = Buffer.from(await response.arrayBuffer());
   if (!body.length || body.length > 15_000_000) throw new Error("invalid image size");
+  const dimensions = imageDimensions(body, type) ?? {};
+  const textOutput = body.length <= 5_000_000
+    ? await rekognition.send(new DetectTextCommand({ Image: { Bytes: body } }))
+    : { TextDetections: [] };
+  const detectedText = (textOutput.TextDetections ?? [])
+    .filter((item) => item.Type === "LINE" && (item.Confidence ?? 0) >= 80)
+    .map((item) => item.DetectedText).filter(Boolean);
+  const quality = evaluateMediaQuality({ url, ...dimensions, detectedText });
+  if (!quality.galleryEligible) return { sourceUrl: url, quality };
   const suffix = type.includes("png") ? "png" : type.includes("webp") ? "webp" : "jpg";
   const key = `curated/${manifest.version}/products/${product.id}/${String(index + 1).padStart(2, "0")}.${suffix}`;
   await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: type, CacheControl: "public,max-age=31536000,immutable" }));
-  return `/${key}`;
+  return { sourceUrl: url, url: `/${key}`, quality };
 }
 
 let cursor = 0;
@@ -54,10 +66,17 @@ async function worker() {
         }
       : await fetchGallery(product.productUrl).catch((error) => ({ error: error.message }));
     let images = fetched.images ?? [];
+    let mediaQuality = [];
+    let primaryImage;
     let archiveError;
     if (apply && images.length) {
       const settled = await Promise.allSettled(images.map((url, index) => archiveImage(product, url, index)));
-      images = settled.filter((item) => item.status === "fulfilled").map((item) => item.value);
+      const inspected = settled.filter((item) => item.status === "fulfilled").map((item) => item.value);
+      mediaQuality = inspected.map(({ sourceUrl, url, quality }) => ({ sourceUrl, archivedUrl: url, ...quality }));
+      const included = inspected.filter((item) => item.url);
+      included.sort((a, b) => Number(b.quality.primaryEligible) - Number(a.quality.primaryEligible) || b.quality.score - a.quality.score);
+      images = included.map((item) => item.url);
+      primaryImage = included.find((item) => item.quality.primaryEligible)?.url;
       archiveError = settled.find((item) => item.status === "rejected")?.reason?.message;
     }
     results.set(product.id, {
@@ -66,6 +85,8 @@ async function worker() {
       provider: fetched.provider ?? providerFor(product.productUrl),
       status: images.length > 1 ? "gallery_verified" : images.length ? "single_image" : "no_gallery",
       images,
+      primaryImage,
+      mediaQuality,
       title: fetched.title ?? product.name,
       brand: fetched.brand ?? product.brand,
       description: fetched.description,

@@ -58,7 +58,10 @@ for (const journey of manifest.journeys) {
 const enrichment = await readFile(enrichmentPath, "utf8").then(JSON.parse).catch(() => ({ products: [] }));
 const themeByCarousel = new Map(themeMap.carousels.map((item) => [item.id, item]));
 const enrichmentByProduct = new Map(enrichment.products.map((item) => [item.id, item]));
-const galleryByProduct = new Map(enrichment.products.map((item) => [item.id, item.images ?? []]));
+const coverForProduct = (id, fallback) => {
+  const item = enrichmentByProduct.get(id);
+  return item?.primaryImage ?? (item?.mediaQuality == null ? item?.images?.[0] : undefined) ?? fallback;
+};
 const products = new Map(manifest.products.map((product) => [product.id, product]));
 const productTaxonomy = new Map();
 for (const journey of manifest.journeys) {
@@ -84,7 +87,7 @@ for (const journey of manifest.journeys) {
     publicPath(manifest.version, `${journey.sourcePostId}-${String(index + 1).padStart(2, "0")}.jpg`));
   const shoppable = journey.productIds.map((id) => products.get(id)).filter(Boolean).map((product) => ({
     postId: `curated-product-${product.id}`, name: product.name,
-    image: galleryByProduct.get(product.id)?.[0] ?? fallbackImage(manifest.version, product.image),
+    image: coverForProduct(product.id, fallbackImage(manifest.version, product.image)),
     price: product.price, productUrl: product.productUrl, merchant: product.merchant,
   }));
   const row = {
@@ -115,7 +118,9 @@ for (const product of [...manifest.products, ...manifest.wrapKit]) {
   const taxonomy = productTaxonomy.get(product.id) ?? { category: "wrapping", labels: ["wrapping", "presentation"] };
   const productEnrichment = enrichmentByProduct.get(product.id);
   const gallery = productEnrichment?.images ?? [];
-  const cover = gallery[0] ?? fallbackImage(manifest.version, product.image);
+  const verifiedCover = productEnrichment?.primaryImage
+    ?? (productEnrichment?.mediaQuality == null ? gallery[0] : undefined);
+  const cover = verifiedCover ?? fallbackImage(manifest.version, product.image);
   const row = {
     postId, author: "giftmaxxing", source: "curated-product", kind: "product",
     product: { id: product.id, name: product.name, brand: product.brand, price: product.price, image: cover, images: gallery },
@@ -123,15 +128,16 @@ for (const product of [...manifest.products, ...manifest.wrapKit]) {
     capabilities: productEnrichment?.features ?? product.capabilities,
     shortDescription: productEnrichment?.description,
     descriptionSource: productEnrichment?.descriptionSource,
-    mediaVerified: gallery.length > 0,
-    mediaSource: gallery.length > 0 ? "retailer_listing" : "curated_inspiration",
-    mediaVerifiedAt: gallery.length > 0 ? productEnrichment?.verifiedAt : undefined,
+    mediaVerified: Boolean(verifiedCover),
+    mediaQuality: productEnrichment?.mediaQuality,
+    mediaSource: verifiedCover ? "retailer_listing" : "curated_inspiration",
+    mediaVerifiedAt: verifiedCover ? productEnrichment?.verifiedAt : undefined,
     sourceEvidenceText: productEnrichment?.observedText,
     story: productEnrichment?.description ?? product.matchEvidence,
     category: taxonomy.category, vibes: [...new Set([...taxonomy.labels, ...product.capabilities])],
     curationStatus: "approved", moderationStatus: "APPROVED", status: "made",
     curationCollectionId: collectionId, curationCollectionVersion: manifest.version,
-    feedEligible: true, feedPk: "all", qualityScore: 1, likes: 0, comments: 0,
+    feedEligible: true, feedPk: "all", qualityScore: verifiedCover ? 1 : 0.65, likes: 0, comments: 0,
     createdAt: Date.parse(manifest.reviewedAt), updatedAt: Date.now(),
   };
   posts.push(row);

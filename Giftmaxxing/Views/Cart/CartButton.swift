@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Home-header cart entry with a live count of what's still to buy.
+// Home-header entry to the per-person surprise plan.
 // Mirrors the notification bell's badge treatment beside it so the header
 // reads as one row of controls rather than two competing systems.
 struct CartButton: View {
@@ -33,8 +33,8 @@ struct CartButton: View {
         .buttonStyle(.plain)
         .accessibilityLabel(
             cart.pendingCount > 0
-                ? "Cart, \(cart.pendingCount) to buy"
-                : "Cart"
+                ? "Surprise plan, \(cart.pendingCount) gifts left to prepare"
+                : "Surprise plan"
         )
         .sensoryFeedback(.selection, trigger: cart.pendingCount)
     }

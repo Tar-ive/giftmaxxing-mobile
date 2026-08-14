@@ -45,6 +45,9 @@ struct PostDetailView: View {
 
     // The sheet can swap to a similar product in place (swipe-right-for-similar).
     private var activePost: Post { displayedPost ?? post }
+    private var detailContentMode: ContentMode {
+        activePost.source == "ugc" ? .fill : .fit
+    }
 
     var body: some View {
         NavigationStack {
@@ -61,7 +64,7 @@ struct PostDetailView: View {
                                     ForEach(Array(gallery.enumerated()), id: \.offset) { idx, image in
                                         ZStack {
                                             Color.gradient(for: activePost.product.grad)
-                                            CachedAsyncImage(url: image, width: 900)
+                                            CachedAsyncImage(url: image, width: 900, contentMode: detailContentMode)
                                         }
                                         .clipped()
                                         .tag(idx)
@@ -85,7 +88,7 @@ struct PostDetailView: View {
                                 Text(activePost.product.emoji)
                                     .font(.system(size: 80))
                                 if let image = gallery.first {
-                                    CachedAsyncImage(url: image, width: 900) { ratio in
+                                    CachedAsyncImage(url: image, width: 900, contentMode: detailContentMode) { ratio in
                                         // Measure EVERY post, not just UGC.
                                         // It is the fallback for anything whose
                                         // source didn't ship dimensions, and

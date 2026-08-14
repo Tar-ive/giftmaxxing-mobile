@@ -20,6 +20,7 @@ final class SwipeViewModel: ObservableObject {
     @Published var isSwiping = false
     @Published private(set) var lifetimeSwipeCount: Int
     @Published private(set) var reliabilityVotes: [String: ProductReliabilityVote]
+    @Published private(set) var reliabilityPromptCardId: String?
 
     private let api = APIClient.shared
     private let analytics = AnalyticsEngine.shared
@@ -29,22 +30,39 @@ final class SwipeViewModel: ObservableObject {
     private var ranks: [String: Int] = [:]
     private var cardShownAt = Date()
     private(set) var dragStartTime: Date?
-    var userId: String?
+    private(set) var userId: String?
     var recipientSegment = "self"
 
-    private static let swipeCountKey = "gm.swipeLifetimeCount"
-    private static let reliabilityVotesKey = "gm.productReliabilityVotes"
+    private let defaults: UserDefaults
+    private var identity = InteractionQueue.anonymousUserId
+    private var lastReliabilityPromptAt: Date?
+    private static let legacySwipeCountKey = "gm.swipeLifetimeCount"
+    private static let legacyReliabilityVotesKey = "gm.productReliabilityVotes"
 
     init(defaults: UserDefaults = .standard) {
-        lifetimeSwipeCount = defaults.integer(forKey: Self.swipeCountKey)
-        reliabilityVotes = (try? defaults.data(forKey: Self.reliabilityVotesKey)
+        self.defaults = defaults
+        lifetimeSwipeCount = defaults.integer(forKey: Self.legacySwipeCountKey)
+        reliabilityVotes = (try? defaults.data(forKey: Self.legacyReliabilityVotesKey)
             .map { try JSONDecoder().decode([String: ProductReliabilityVote].self, from: $0) }) ?? [:]
     }
 
     var currentCard: Post? { cards.indices.contains(currentIndex) ? cards[currentIndex] : nil }
     var choices: Int { yesCount + noCount }
     func shouldRequestReliability(for card: Post) -> Bool {
-        lifetimeSwipeCount >= 15 && reliabilityVotes[card.id] == nil
+        reliabilityPromptCardId == card.id
+    }
+
+    func configure(userId: String?) {
+        self.userId = userId
+        identity = userId ?? InteractionQueue.anonymousUserId
+        let scopedCount = defaults.object(forKey: swipeCountKey) as? Int
+        lifetimeSwipeCount = scopedCount ?? defaults.integer(forKey: Self.legacySwipeCountKey)
+        reliabilityVotes = decodeVotes(forKey: reliabilityVotesKey)
+        if reliabilityVotes.isEmpty {
+            reliabilityVotes = decodeVotes(forKey: Self.legacyReliabilityVotesKey)
+        }
+        lastReliabilityPromptAt = defaults.object(forKey: reliabilityPromptKey) as? Date
+        reliabilityPromptCardId = nil
     }
 
     func loadCards(reset: Bool = true) async {
@@ -193,7 +211,8 @@ final class SwipeViewModel: ObservableObject {
                 ],
                 recommendationId: recommendationId,
                 attributionToken: attributions[card.id],
-                position: ranks[card.id]
+                position: ranks[card.id],
+                forceMixer: true
             )
         }
     }
@@ -202,8 +221,9 @@ final class SwipeViewModel: ObservableObject {
         guard reliabilityVotes[card.id] == nil else { return }
         reliabilityVotes[card.id] = vote
         if let data = try? JSONEncoder().encode(reliabilityVotes) {
-            UserDefaults.standard.set(data, forKey: Self.reliabilityVotesKey)
+            defaults.set(data, forKey: reliabilityVotesKey)
         }
+        reliabilityPromptCardId = nil
         analytics.trackProductReliabilityVote(
             postId: card.id,
             vote: vote.title.lowercased(),
@@ -217,7 +237,7 @@ final class SwipeViewModel: ObservableObject {
                 data: [
                     "label": vote.title.lowercased(),
                     "swipeCount": String(lifetimeSwipeCount),
-                    "labelSource": "post_15_swipe_poll",
+                    "labelSource": "post_5_swipe_poll",
                 ],
                 recommendationId: recommendationIds[card.id],
                 attributionToken: attributions[card.id],
@@ -229,7 +249,7 @@ final class SwipeViewModel: ObservableObject {
 
     private func recordSwipeDecision() {
         lifetimeSwipeCount += 1
-        UserDefaults.standard.set(lifetimeSwipeCount, forKey: Self.swipeCountKey)
+        defaults.set(lifetimeSwipeCount, forKey: swipeCountKey)
     }
 
     private func advance() {
@@ -248,9 +268,30 @@ final class SwipeViewModel: ObservableObject {
     private func showCurrentCard() {
         cardShownAt = Date()
         guard let card = currentCard else { return }
+        reliabilityPromptCardId = nil
+        if ReliabilityPromptPolicy.canPrompt(
+            completedSwipes: lifetimeSwipeCount,
+            lastPromptAt: lastReliabilityPromptAt,
+            hasVote: reliabilityVotes[card.id] != nil
+        ) {
+            let now = Date()
+            lastReliabilityPromptAt = now
+            defaults.set(now, forKey: reliabilityPromptKey)
+            reliabilityPromptCardId = card.id
+        }
         analytics.trackCardShown(postId: card.id, position: currentIndex, totalCards: cards.count)
         let urls = cards[currentIndex..<min(cards.count, currentIndex + 5)].compactMap { $0.product.image }
         Task { await ImageLoader.shared.prefetch(urls: urls, width: 800) }
+    }
+
+    private var storageSuffix: String { identity }
+    private var swipeCountKey: String { "gm.swipeLifetimeCount.\(storageSuffix)" }
+    private var reliabilityVotesKey: String { "gm.productReliabilityVotes.\(storageSuffix)" }
+    private var reliabilityPromptKey: String { "gm.reliabilityPromptAt.\(storageSuffix)" }
+
+    private func decodeVotes(forKey key: String) -> [String: ProductReliabilityVote] {
+        guard let data = defaults.data(forKey: key) else { return [:] }
+        return (try? JSONDecoder().decode([String: ProductReliabilityVote].self, from: data)) ?? [:]
     }
 }
 
@@ -302,8 +343,8 @@ struct SwipeView: View {
             if value == .me { Task { await viewModel.loadCards() } }
             else { AnalyticsEngine.shared.trackScreenView(screen: "swipe_people") }
         }
-        .task {
-            viewModel.userId = authManager.userId
+        .task(id: authManager.userId) {
+            viewModel.configure(userId: authManager.userId)
             viewModel.recipientSegment = "self"
             if viewModel.cards.isEmpty {
                 AnalyticsEngine.shared.trackScreenView(screen: "swipe")
@@ -453,9 +494,8 @@ struct SwipeCardView: View {
         ZStack {
             Color.gradient(for: post.product.grad)
             if let currentPhoto = photos[safe: photoIndex] {
-                CachedAsyncImage(url: currentPhoto, width: 900, contentMode: .fill)
+                CachedAsyncImage(url: currentPhoto, width: 900, contentMode: .fit)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipped()
             } else {
                 ProductArtworkView(post: post)
             }

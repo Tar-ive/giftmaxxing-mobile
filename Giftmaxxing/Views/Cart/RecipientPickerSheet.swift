@@ -27,7 +27,7 @@ struct RecipientPickerSheet: View {
     @FocusState private var nameFocused: Bool
 
     private var title: String {
-        posts.count == 1 ? "Add to cart" : "Add \(posts.count) to cart"
+        posts.count == 1 ? "Prepare for someone" : "Prepare \(posts.count) gifts"
     }
 
     // Everyone we already know they shop for, cart sections first, deduped.
@@ -41,7 +41,7 @@ struct RecipientPickerSheet: View {
            seen.insert(preset.lowercased()).inserted {
             out.append(Suggestion(
                 name: preset,
-                detail: "who you're shopping for",
+                detail: "your current surprise",
                 relationship: nil,
                 occasion: occasion
             ))
@@ -53,8 +53,8 @@ struct RecipientPickerSheet: View {
             out.append(Suggestion(
                 name: section.recipientName,
                 detail: section.items.isEmpty
-                    ? "in your cart"
-                    : "\(section.items.count) in cart",
+                    ? "in your surprise plan"
+                    : "\(section.items.count) gifts planned",
                 relationship: section.relationship,
                 occasion: section.occasion
             ))
@@ -84,7 +84,7 @@ struct RecipientPickerSheet: View {
                     newPersonField
 
                     if !suggestions.isEmpty {
-                        Text("SHOPPING FOR")
+                        Text("PREPARING FOR")
                             .font(.caption.weight(.medium))
                             .tracking(0.5)
                             .foregroundStyle(Color.inkTertiary)
@@ -198,7 +198,7 @@ struct RecipientPickerSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Add to \(suggestion.name)'s cart")
+        .accessibilityLabel("Prepare this gift for \(suggestion.name)")
     }
 
     private func commitNewName() {

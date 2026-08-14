@@ -33,6 +33,7 @@
     "enrich:images:dry": "node enrich-images.mjs --dry-run --limit 20",
     "enrich:images": "node enrich-images.mjs",
     "enrich:curated": "node enrich-curated-products.mjs",
+    "test:media-quality": "node --test media-quality.test.mjs",
     "ingest:shopify:dry": "node ingest-shopify.mjs --dry-run --limit 10",
     "ingest:shopify": "node ingest-shopify.mjs --seed",
     "maxi:sessions": "node maxi-sessions.mjs",

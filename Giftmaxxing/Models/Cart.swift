@@ -60,3 +60,19 @@ extension CartSection {
     static let unassignedName = "Not assigned yet"
     var isUnassigned: Bool { recipientName == Self.unassignedName }
 }
+
+struct CartPreparationProgress: Equatable {
+    let preparedPeople: Int
+    let totalPeople: Int
+
+    init(sections: [CartSection]) {
+        let people = sections.filter { !$0.isUnassigned && !$0.items.isEmpty }
+        preparedPeople = people.filter(\.isComplete).count
+        totalPeople = people.count
+    }
+
+    var fraction: Double {
+        guard totalPeople > 0 else { return 0 }
+        return Double(preparedPeople) / Double(totalPeople)
+    }
+}

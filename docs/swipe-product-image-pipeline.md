@@ -22,7 +22,7 @@ flowchart LR
   OCR --> Match["Exact product and variant match"]
   Match --> URL["Official retailer listing URL"]
   URL --> Extract["Official API, JSON-LD, or merchant CDN"]
-  Extract --> Validate["Identity, image type, size, dedupe, max 8"]
+  Extract --> Validate["Identity, OCR density, dimensions, aspect, dedupe, max 8"]
   Validate -->|"Unverified"| Hold["Hold outside Swipe"]
   Validate --> Archive["Versioned S3 media archive"]
   Archive --> Catalog["Catalog item: verified media[], features[], offer"]
@@ -41,12 +41,14 @@ flowchart LR
 | 2. Source evidence | Read supplied links; extract retailer title, short description, features, price and gallery | Evidence snapshot in `posts.productObservations.productCandidates`; CloudWatch logs | May quote evidence and source; cannot call it an exact match yet |
 | 3. Entity resolution | Compare OCR, brand/model/variant and visual evidence; dedupe to canonical item | Candidate `catalog_entities` + typed `catalog_edges`; ambiguity stays `MANUAL_REVIEW_REQUIRED` | Must abstain on identity conflicts |
 | 4. Approval | Human or deterministic high-confidence gate approves exact product and offer | Approval, provenance, review time and offer in DynamoDB | Consumer Maxi reads only approved records |
-| 5. Media archive | Validate retailer-owned gallery, dimensions, dedupe and cap at eight | `curated/{version}/products/{id}/...` in S3; typed `media[]` on entity | Describes only archived, provenance-bound media |
+| 5. Media archive | Reject text-heavy/social banners, images under 0.75 MP or 800 px on the short edge, extreme aspect ratios; rank valid retailer media and cap at eight | `curated/{version}/products/{id}/...` in S3; `mediaQuality[]`, `primaryImage` and typed `media[]` on entity | Describes only archived, provenance-bound media |
 | 6. Retrieval | Embed approved title + short description + representative image | 1024-d vector in S3 Vectors; behavior/profile in DynamoDB | Explains retrieval reason, never invents listing facts |
 | 7. Serving | Mixer applies eligibility, taxonomy, personalization and availability | Active collection pointer in DynamoDB; signed `/v2/recommendations` | Recommends only IDs returned by tools |
 
 Upload begins stages 0–2 automatically. It does not auto-promote an image-only
 guess into Swipe: missing links or ambiguous evidence stop at manual review.
+Passing moderation is not the same as passing presentation quality. Safety,
+product identity and primary-image eligibility are three separate gates.
 
 ## Proposed Maxi evidence views
 
@@ -78,7 +80,7 @@ Maxi never writes catalog status, promotes candidates or accesses raw URLs.
 
 ```mermaid
 flowchart TD
-  Curated["30 reviewed carousels + 86 products"] --> Catalog["Typed catalog graph"]
+  Curated["30 active reviewed carousels + 86 products; 5 video frames retired"] --> Catalog["Typed catalog graph"]
   Events["Views, dwell, saves, swipes, reliability votes"] --> Profile["Taste and quality signals"]
   Catalog --> Mixer["Recommender Mixer v2.7"]
   Profile --> Mixer
@@ -122,3 +124,15 @@ flowchart TD
   Maxi --> Cart["Cart, dates, memory, and wrapping"]
   Community --> Events
 ```
+
+## Swipe learning and reliability labels
+
+Every right/left decision updates the private on-device taste profile first and
+is also forced through `/v2/events/batch`, including offline fallback cards.
+The server stream updates positive/negative label, category, price and kind
+weights. Reliability labels are quality supervision only and carry zero taste
+weight.
+
+The first reliability prompt is eligible on card six, after five completed
+swipes. Showing the prompt starts a per-user 48-hour cooldown whether or not
+the user answers; an already rated product is never prompted again.

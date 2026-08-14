@@ -36,6 +36,63 @@
         "durable stainless steel",
         "ice-cube friendly Wide Mouth opening"
       ]
+    },
+    "editorial-graduation-daughter-birdie-personal-alarm": {
+      "source": "https://www.shesbirdie.com/products/birdie-personal-safety-alarm-3-0",
+      "title": "Birdie Personal Safety Alarm 3.0",
+      "brand": "Birdie",
+      "description": "A rechargeable personal alarm with a loud siren, flashing strobe and built-in flashlight.",
+      "images": [
+        "https://www.shesbirdie.com/cdn/shop/files/birdie_3.0_metallic_rose_gold_short_keychain_3df80161-68b1-4dd4-8104-bed8e647570d.png?v=1773255098&width=1400",
+        "https://www.shesbirdie.com/cdn/shop/files/birdie_3.0_aqua_short_keychain_copy_75cbb191-1f74-46bc-af6d-29759604a465.png?v=1770659065&width=1400"
+      ],
+      "features": ["rechargeable", "loud siren", "flashing strobe", "built-in flashlight"]
+    },
+    "editorial-hiker-gifts-actik-core-headlamp": {
+      "source": "https://www.petzl.com/US/en/Sport/Headlamps/ACTIK-CORE",
+      "title": "ACTIK CORE Headlamp",
+      "brand": "Petzl",
+      "description": "A rechargeable 625-lumen headlamp with a mixed beam and red lighting for active nights outdoors.",
+      "images": [
+        "https://www.petzl.com/sfc/servlet.shepherd/version/download/068Tx000006KwpDIAS",
+        "https://www.petzl.com/sfc/servlet.shepherd/version/download/068Tx000006KqISIA0",
+        "https://www.petzl.com/sfc/servlet.shepherd/version/download/068Tx000006KyizIAC"
+      ],
+      "features": ["625 lumens", "CORE rechargeable battery", "mixed beam", "red lighting"]
+    },
+    "editorial-runner-gifts-openrun-pro-2": {
+      "source": "https://shokz.com/products/openrunpro2",
+      "title": "OpenRun Pro 2",
+      "brand": "Shokz",
+      "description": "Open-ear sport headphones that keep music clear while leaving the surroundings audible.",
+      "images": [
+        "https://shokz.com/cdn/shop/files/OpenRun_Pro_2-OG-1.webp?v=1772616674&width=1400",
+        "https://shokz.com/cdn/shop/files/OpenRun_Pro_2-OG-2.webp?v=1772616674&width=1400",
+        "https://shokz.com/cdn/shop/files/OpenRun_Pro_2-OG-3.webp?v=1772616674&width=1400"
+      ],
+      "features": ["open-ear design", "sport fit", "surroundings remain audible"]
+    },
+    "editorial-housewarming-gifts-little-green-cleaner": {
+      "source": "https://www.bissell.com/en-us/product/little-green-portable-carpet-upholstery-cleaner-1400B.html",
+      "title": "Little Green Portable Cleaner",
+      "brand": "Bissell",
+      "description": "A compact portable cleaner for spots and spills on rugs, upholstery and car interiors.",
+      "images": [
+        "https://www.bissell.com/dw/image/v2/BDKV_PRD/on/demandware.static/-/Sites-master-catalog-bissell/default/dw2cf2ad67/pwa-hi-res/Product-Images/1400B/1400B_LittleGreen_Packin_1300x1300_9_24.png?sw=1400&sh=1400&sm=fit",
+        "https://d3fhbhbdc81n2i.cloudfront.net/v3/assets/blt34d3d525a62e8995/blt013af36e754dfb44/68d494afc7ef4314a91ddefb/06_Little-Green-Classic_POC1A_72dpi.jpg?auto=webp&quality=90&width=1400"
+      ],
+      "features": ["portable design", "carpet and upholstery cleaning", "spot and spill cleanup"]
+    },
+    "editorial-housewarming-gifts-clean-essentials-kit": {
+      "source": "https://www.blueland.com/products/the-clean-essentials",
+      "title": "The Clean Essentials",
+      "brand": "Blueland",
+      "description": "A refillable starter set for everyday home cleaning with reusable bottles and tablet refills.",
+      "images": [
+        "https://cdn.shopify.com/s/files/1/0057/9158/0227/files/Carousel_DTC_Clean_Essentials_Final_2026_01.jpg?crop=center&height=1400&v=1769808426&width=1400",
+        "https://cdn.shopify.com/s/files/1/0057/9158/0227/files/Site_PDP_CleanEssentials_Kit_5.jpg?v=1743109160&width=1400"
+      ],
+      "features": ["reusable bottles", "tablet refills", "multi-surface cleaning"]
     }
   }
 }

@@ -22,6 +22,7 @@ struct CartView: View {
                 if cart.isEmpty {
                     emptyState
                 } else {
+                    preparationProgress
                     ForEach(cart.sortedSections) { section in
                         if !section.items.isEmpty {
                             sectionCard(section)
@@ -35,7 +36,7 @@ struct CartView: View {
             .padding(.bottom, 100) // tab bar + FAB clearance
         }
         .background(Color.cream)
-        .navigationTitle("Cart")
+        .navigationTitle("Prepare a surprise")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $packagingSection) { section in
             PackagingSheet(section: section)
@@ -62,18 +63,41 @@ struct CartView: View {
             Image(systemName: "bag")
                 .font(.largeTitle)
                 .foregroundStyle(Color.inkTertiary)
-            Text("Nothing picked out yet.")
+            Text("Start a surprise for someone.")
                 .font(.body)
                 .foregroundStyle(Color.inkSecondary)
             Button {
                 appState.showMaxi = true
             } label: {
-                Label("Ask Maxi for ideas", systemImage: "sparkles")
+                Label("Ask Maxi to start", systemImage: "sparkles")
             }
             .buttonStyle(SecondaryButtonStyle())
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 64)
+    }
+
+    private var preparationProgress: some View {
+        let progress = CartPreparationProgress(sections: cart.sections)
+        return VStack(alignment: .leading, spacing: ThemeSpacing.sm) {
+            Label("SURPRISE PLAN", systemImage: "gift.fill")
+                .font(.caption.weight(.semibold))
+                .tracking(0.5)
+                .foregroundStyle(Color.coral)
+            Text(progress.totalPeople == 0
+                 ? "Choose who these gifts are for"
+                 : "Gifts prepared for \(progress.preparedPeople) of \(progress.totalPeople) people")
+                .font(.headline)
+                .fontDesign(.rounded)
+                .foregroundStyle(Color.ink)
+            ProgressView(value: progress.fraction)
+                .tint(Color.coral)
+                .accessibilityLabel("Surprise preparation progress")
+                .accessibilityValue("\(progress.preparedPeople) of \(progress.totalPeople) people prepared")
+        }
+        .padding(ThemeSpacing.md)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
     }
 
     // MARK: - Section
@@ -150,14 +174,14 @@ struct CartView: View {
         }
     }
 
-    // "3 to buy · birthday in 12 days" — only what's true, joined with a dot.
+    // "3 left to prepare · birthday in 12 days" — only what's true.
     private func sectionDetail(_ section: CartSection) -> String? {
         var parts: [String] = []
         let toBuy = section.items.filter { !$0.bought }.count
         if section.isComplete {
-            parts.append("all bought")
+            parts.append("surprise ready")
         } else if toBuy > 0 {
-            parts.append("\(toBuy) to buy")
+            parts.append("\(toBuy) left to prepare")
         }
         if let occasion = section.occasion, !occasion.isEmpty { parts.append(occasion) }
         if let relationship = section.relationship, !relationship.isEmpty { parts.append(relationship) }
@@ -169,7 +193,7 @@ struct CartView: View {
             Button {
                 packagingSection = section
             } label: {
-                Label("Ready to buy", systemImage: "shippingbox")
+                Label("Prepare the surprise", systemImage: "shippingbox")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(PrimaryButtonStyle())
@@ -200,7 +224,7 @@ struct CartView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(item.bought ? "Mark as not bought" : "Mark as bought")
+            .accessibilityLabel(item.bought ? "Mark as still preparing" : "Mark as prepared")
             .sensoryFeedback(.selection, trigger: item.bought)
 
             thumbnail(item.post)
@@ -233,7 +257,7 @@ struct CartView: View {
                 Button {
                     openProduct(item.post)
                 } label: {
-                    Label("Buy", systemImage: "bag")
+                    Label("Open product page", systemImage: "safari")
                 }
                 Button {
                     selectedPost = item.post
@@ -278,7 +302,7 @@ struct CartView: View {
 
     private var grandTotal: some View {
         HStack {
-            Text("Total left to buy")
+            Text("Estimated gift total")
                 .font(.subheadline)
                 .foregroundStyle(Color.inkSecondary)
             Spacer()

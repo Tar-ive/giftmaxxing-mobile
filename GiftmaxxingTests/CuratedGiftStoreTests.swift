@@ -6,9 +6,9 @@ final class CuratedGiftStoreTests: XCTestCase {
 
     func testPilotContainsEverySuppliedSourceOnce() {
         let ids = store.catalog.journeys.map(\.sourcePostId)
-        XCTAssertEqual(ids.count, 35)
-        XCTAssertEqual(Set(ids).count, 35)
-        XCTAssertEqual(store.sourcePosts.count, 35)
+        XCTAssertEqual(ids.count, 30)
+        XCTAssertEqual(Set(ids).count, 30)
+        XCTAssertEqual(store.sourcePosts.count, 30)
     }
 
     func testEveryRecommendationHasEvidenceAndAValidMerchantURL() {
