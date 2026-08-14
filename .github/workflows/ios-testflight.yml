@@ -1,9 +1,8 @@
 # GitHub → TestFlight, no human in the loop.
 #
-# Every push to main that touches the app (plus the Run-workflow button for
-# ad-hoc releases) archives a signed Release build and uploads it straight to
-# App Store Connect. Internal testers get it the moment Apple finishes
-# processing — no laptop, no Xcode Organizer.
+# The weekly release train archives main every Tuesday morning. Manual runs are
+# reserved for an explicit hotfix or release-candidate rebuild. Merging code no
+# longer uploads a new TestFlight build by itself.
 #
 # How signing works here (the no-fastlane, Apple-blessed path):
 #   • An App Store Connect API key (secrets, below) authenticates xcodebuild.
@@ -29,17 +28,12 @@
 #   P12_PASSWORD            password chosen when exporting that .p12
 # See docs/testflight-deployment.md for the step-by-step on creating each.
 
-name: TestFlight
+name: Weekly TestFlight candidate
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'Giftmaxxing/**'
-      - 'GiftmaxxingShare/**'
-      - 'project.yml'
-      - '.github/workflows/ios-testflight.yml'
-      - '.github/ExportOptions.plist'
+  # 15:00 UTC = 10:00 America/Chicago during daylight time, 09:00 otherwise.
+  schedule:
+    - cron: '0 15 * * 2'
   workflow_dispatch:
 
 concurrency:

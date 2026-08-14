@@ -1,9 +1,10 @@
 # GitHub → TestFlight: how it's automated
 
-Pushing to `main` (any change under `Giftmaxxing/`, `GiftmaxxingShare/`, or
-`project.yml`) builds a signed Release archive and uploads it to TestFlight
-automatically via `.github/workflows/ios-testflight.yml`. There's also a
-manual **Run workflow** button (workflow_dispatch) for ad-hoc uploads.
+The Tuesday release train builds `main` and uploads one weekly TestFlight
+candidate through `.github/workflows/ios-testflight.yml`. There's also a manual
+**Run workflow** button for an explicit hotfix or candidate rebuild. Merging to
+`main` no longer creates a TestFlight build by itself. See
+`docs/release-cadence.md` for the review and public-release gates.
 
 To ship from a `production` branch instead of `main`, change one line
 (`branches: [main]`) in the workflow.
@@ -94,7 +95,7 @@ Connect as usual; this pipeline only automates *getting builds to TestFlight*.
 
 ## Watch it work
 
-- Push to `main` → Actions tab → **TestFlight** workflow (~15–25 min).
+- Tuesday schedule → Actions tab → **Weekly TestFlight candidate** (~15–25 min).
 - First run on a fresh setup fails fast with a named list of any missing
   secrets.
 - When it's green: App Store Connect → TestFlight shows the build in
