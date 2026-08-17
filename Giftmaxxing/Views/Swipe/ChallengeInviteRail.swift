@@ -2,7 +2,7 @@ import SwiftUI
 
 // Swipe lists a friend sent you IN the app. Before this, an invite only
 // existed as a link in a DM — easy to miss and easy to lose. Now it waits at
-// the top of Circles (the invite-only social hub) until you answer it.
+// the top of the Swipe tab until you answer it.
 struct ChallengeInviteRail: View {
     @EnvironmentObject private var authManager: AuthManager
 

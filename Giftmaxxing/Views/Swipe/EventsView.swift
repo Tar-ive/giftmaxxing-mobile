@@ -191,13 +191,9 @@ final class EventsViewModel: ObservableObject {
     }
 }
 
-// The personal gift calendar — birthdays, anniversaries, occasions, and the
-// reminders that pace them. Reached from You → Settings → Gift calendar
-// (it used to live on the Circles tab, which is now invite-only).
 struct EventsView: View {
     @StateObject private var viewModel = EventsViewModel()
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
@@ -261,12 +257,9 @@ struct EventsView: View {
                 .padding(16)
             }
             .background(Color.surface)
-            .navigationTitle("Gift calendar")
+            .navigationTitle("Events")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Done") { dismiss() }
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: { viewModel.showAddEvent = true }) {
                         Image(systemName: "plus")

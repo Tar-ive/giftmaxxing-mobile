@@ -31,10 +31,6 @@ final class AppState: ObservableObject {
     // the inline join card handles new arrivals (web parity).
     @Published var pendingCircleId: String?
 
-    // Circles (and the rest of the social layer) is invite-only — a locked
-    // user who taps a circle link or the You-tab row gets the code sheet.
-    @Published var showInviteCode = false
-
     // Birthday-freebies notification tap — ContentView presents the perks
     // sheet at root (works from any tab).
     @Published var showBirthdayPerks = false
@@ -82,13 +78,6 @@ final class AppState: ObservableObject {
     }
 
     func openCircle(_ circleId: String) {
-        guard InviteAccess.shared.isUnlocked else {
-            // Locked: the link is real, the door isn't open yet — ask for the
-            // invite code instead of dropping the user on a missing tab.
-            pendingCircleId = circleId
-            showInviteCode = true
-            return
-        }
         selectedTab = .circles
         pendingCircleId = circleId
     }
@@ -111,15 +100,13 @@ final class AppState: ObservableObject {
     // Route a capture (shared image/URL or tapped screenshot) by intent.
     func handleCapture(image: UIImage?, url: String? = nil, intent: CaptureInbox.Intent = .search) {
         switch intent {
-        case .pool where InviteAccess.shared.isUnlocked:
+        case .pool:
             poolCaptureImage = image
             poolCaptureURL = url
             selectedTab = .feed
             showCreatePoolFromCapture = true
 
-        // Gift pools are part of the invite-only social layer — a locked user
-        // sharing into the app still gets the thing they came for: search.
-        case .pool, .search:
+        case .search:
             if let image {
                 pendingCaptureImage = image
                 pendingCaptureNote = nil
@@ -159,35 +146,31 @@ struct AppUser: Identifiable, Codable {
     var grad: String
 }
 
-// The tab bar IS the product statement — and the statement is "a useful gift
-// SEARCH tool", not a social network:
+// The tab bar IS the product statement (HIG: 3–5 tabs, every core journey
+// visible — nothing important behind a "More" screen):
 //   Home      — the personalized feed (always the landing tab: cold launch,
-//               return from background, and sign-in all reset here), with
-//               Search and Maxi one tap away in its header
-//   Swipe     — taste training, the engine behind every recommendation
-//   Circles   — INVITE-ONLY (InviteAccess): your people + their dates,
-//               pools, group gifts, swipe challenges. Absent from the tab bar
-//               until a code is redeemed, so nobody lands in an empty room.
-//   You       — the gifting profile, Gift Boards, Shop, settings
-// Posting (UGC) is gone: creating content was a social-network job, not a
-// gift-finding one. Maxi (the AI concierge) is not a tab — the Home search
-// bar's mic opens the full conversation.
+//               return from background, and sign-in all reset here)
+//   Swipe     — taste training + Gift Boards (feeds personalization)
+//   Post      — photo/video gift finds, safety-screened before publication
+//   Circles   — your people + their dates: circles, events & reminders,
+//               collaborative boards, pools, swipe challenges
+//   You       — the public gifting profile + settings (Shop and Intentional
+//               Discover live here as rows, not tabs)
+// Maxi (the AI concierge) is NOT a tab and no longer a floating button — its
+// nudges arrive through the Gift Journey (GiftJourneyEngine) and the Home
+// search bar's mic still opens the full conversation.
 enum Tab: String, CaseIterable {
     case feed = "Home"
     case swipe = "Swipe"
+    case create = "Post"
     case circles = "Circles"
     case you = "You"
-
-    // What the tab bar actually renders. Circles only exists for invitees;
-    // anything measuring tab slots (CoachMarks) must use this, not allCases.
-    static func visible(inviteUnlocked: Bool) -> [Tab] {
-        inviteUnlocked ? [.feed, .swipe, .circles, .you] : [.feed, .swipe, .you]
-    }
 
     var icon: String {
         switch self {
         case .feed: return "house.fill"
         case .swipe: return "rectangle.portrait.on.rectangle.portrait.angled.fill"
+        case .create: return "plus.circle.fill"
         case .circles: return "person.2.fill"
         case .you: return "person.crop.circle"
         }

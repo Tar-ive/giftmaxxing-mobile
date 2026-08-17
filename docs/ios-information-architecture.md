@@ -1,37 +1,5 @@
 # iOS Information Architecture
 
-> **August 2026 — streamlined to a gift-search tool.** The app now leads with
-> the thing it does well for one person alone: find gifts. Everything that
-> only pays off once your friends are also here moved behind an invite.
->
-> **Tab bar:** Home · Swipe · You. **Search** and **Maxi** stay one tap away
-> in the Home header (search bar, camera, mic); the cart/board rails are
-> unchanged.
->
-> - **Posting (UGC) is gone.** `UGCCreateView` and the Post tab were deleted,
->   the profile's posts grid with them, and `source: "ugc"` rows are filtered
->   out of the feed client-side. Creating content is a social-network job.
-> - **Circles is invite-only** (`Giftmaxxing/Services/InviteAccess.swift`).
->   Without a redeemed code the tab isn't rendered at all; You → Settings →
->   *Circles* opens the code sheet. Codes come from `CirclesInviteCodes` in
->   `project.yml` (comma separated, case/space/dash insensitive). The unlock
->   is device-local and cleared on sign-out / account switch by
->   `AccountLocalState`, because an invite belongs to a person.
-> - **Gated with it:** gift pools + pledges (Home rail, feed card "Pool"
->   button, Shop detail, share-extension "Start a gift pool"), group gifts,
->   swipe challenges (Swipe "People" hub, deck-complete CTA, visual-search
->   CTAs, the consult's verify-by-swipe panel), friends/DMs (Home paperplane,
->   You → Friends, Search → People), and sending/co-owning a Gift Board.
-> - **Kept open:** the feed, Swipe decks + Surprise me, Search (Products /
->   Brands / Visual), Maxi, Shop, Discover, Gift Boards (save, notes, letters,
->   add-by-link, buy), and the **gift calendar** — birthdays and reminders are
->   personal planning, so `EventsView` moved to You → Settings → Gift calendar
->   rather than staying stranded on the invite-only Circles tab.
->
-> The section below describes the July 2026 five-tab layout and remains the
-> reference for how the gated surfaces work once a code is redeemed.
-
-
 The July 2026 restructure. Problem it solves: the app's best features (group
 gifting, challenges, the concierge) were invisible — buried two taps deep in a
 "More" screen — while the tab bar spent slots on modes (Search) instead of

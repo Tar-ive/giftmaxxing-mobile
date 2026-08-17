@@ -283,10 +283,7 @@ final class FeedViewModel: ObservableObject {
         let similarities = await vectorSimilarities(for: page.posts)
         let negSimilarities = await negVectorSimilarities(for: page.posts)
 
-        // User-generated posts are out of the product: the app is a gift
-        // search tool, not a place to post. The server may still serve legacy
-        // `ugc` rows, so they're dropped here rather than rendered.
-        let fresh = page.posts.filter { !servedIds.contains($0.id) && $0.source != "ugc" }
+        let fresh = page.posts.filter { !servedIds.contains($0.id) }
         let ranked = OnDeviceRanker.rank(
             candidates: fresh,
             profile: profile,
@@ -307,8 +304,17 @@ final class FeedViewModel: ObservableObject {
 
     private func drain(_ n: Int) -> [Post] {
         let count = min(n, rankedBuffer.count)
-        let batch = Array(rankedBuffer.prefix(count))
+        var batch = Array(rankedBuffer.prefix(count))
         rankedBuffer.removeFirst(count)
+        let slot = min(2, max(0, batch.count - 1))
+        if let index = batch.firstIndex(where: { $0.post.source == "ugc" }), index > slot {
+            batch.insert(batch.remove(at: index), at: slot)
+        } else if !batch.contains(where: { $0.post.source == "ugc" }),
+                  let index = rankedBuffer.firstIndex(where: { $0.post.source == "ugc" }) {
+            let ugc = rankedBuffer.remove(at: index)
+            if let displaced = batch.popLast() { rankedBuffer.insert(displaced, at: 0) }
+            batch.insert(ugc, at: min(slot, batch.count))
+        }
         return batch.map { candidate in
             servedIds.insert(candidate.post.id)
             var post = candidate.post
@@ -469,9 +475,7 @@ final class FeedViewModel: ObservableObject {
             sortBy: [SortDescriptor(\.feedPosition)]
         )
         if let cached = try? context.fetch(descriptor), !cached.isEmpty {
-            // Same rule as the live page: no user-generated posts, including
-            // ones cached before posting was removed.
-            posts = cached.map { $0.toPost() }.filter { $0.source != "ugc" }
+            posts = cached.map { $0.toPost() }
         }
     }
 

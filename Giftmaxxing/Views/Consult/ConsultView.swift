@@ -672,12 +672,7 @@ private struct ResultsStep: View {
 
                 if let top = vm.gifts.first {
                     TopPickCard(gift: top)
-                    // The "double-check by swipe game" builds a challenge deck
-                    // for someone else — invite-only, like the rest of the
-                    // social layer.
-                    if InviteAccess.isUnlockedNow {
-                        VerifyPanel(vm: vm, top: top)
-                    }
+                    VerifyPanel(vm: vm, top: top)
                 } else {
                     Text("My catalog came up short for this one — explore the feed and I'll keep learning their taste.")
                         .font(.system(size: 14))

@@ -126,7 +126,7 @@ struct NotificationsView: View {
             Text("You're all caught up")
                 .font(.displaySmall)
                 .foregroundStyle(Color.ink)
-            Text("Upcoming occasions, saved-idea activity, and gift updates land here.")
+            Text("Friend requests, completed swipe challenges, and upcoming occasions land here.")
                 .font(.bodyMedium)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

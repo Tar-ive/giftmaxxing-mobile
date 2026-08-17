@@ -11,9 +11,11 @@ struct FeedView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedPost: Post?
     @State private var selectedAuthor: PublicPerson?
+    @State private var pledgingPost: Post?
     // "Add to swipe list" opens the Instagram-collections-style picker: choose
     // WHOSE list this find belongs to (or make one) instead of a blind toggle.
     @State private var listPickerPost: Post?
+    @State private var viewingPool: Pool?
     @State private var selectedCollection: CuratedCollection?
     @State private var showSearch = false
     @State private var showNotifications = false
@@ -21,7 +23,7 @@ struct FeedView: View {
     // Bell badge = incoming friend requests + unseen swipe activity.
     @State private var notificationCount = 0
     @ObservedObject private var swipeList = SwipeListStore.shared
-    @ObservedObject private var invites = InviteAccess.shared
+    @ObservedObject private var postingStore = UGCPostingStore.shared
     @State private var refreshed = false
 
     var body: some View {
@@ -29,9 +31,9 @@ struct FeedView: View {
             ScrollView {
                 LazyVStack(spacing: 1) {
                     // Compact custom header (system toolbar stays hidden on
-                    // Home) — the search bar IS the identity row (Amazon-style):
-                    // search, camera (visual search) and mic (Maxi), with the
-                    // notification bell beside it. Shop lives under You.
+                    // Home) — the search bar IS the identity row (Amazon-style),
+                    // with the notification bell and messages beside it. Shop
+                    // lives in the tab bar, not up here.
                     HStack(spacing: 10) {
                         HomeSearchBar(
                             onSearchTap: { showSearch = true },
@@ -60,20 +62,15 @@ struct FeedView: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel("Notifications")
 
-                        // Messaging belongs to the invite-only social layer —
-                        // an empty inbox is exactly the "empty social app"
-                        // impression a gift-search tool shouldn't give.
-                        if invites.isUnlocked {
-                            Button {
-                                showMessages = true
-                            } label: {
-                                Image(systemName: "paperplane")
-                                    .font(.system(size: 20))
-                                    .foregroundStyle(Color.ink)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Messages")
+                        Button {
+                            showMessages = true
+                        } label: {
+                            Image(systemName: "paperplane")
+                                .font(.system(size: 20))
+                                .foregroundStyle(Color.ink)
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Messages")
                     }
                     .padding(.horizontal, 14)
                     .padding(.top, 6)
@@ -85,9 +82,20 @@ struct FeedView: View {
                         selectedCollection = collection
                     }
 
+                    // Group-gift pledge cards (Amazon-style horizontal swipe).
+                    // Replaces the old circular avatar tray at the top of Home.
+                    CompactPledgeRail { pool in
+                        viewingPool = pool
+                    }
+
                     // Reddit-mined "goes well together" gift bundles resolved
                     // to buyable products. Hidden until bundle data exists.
                     GiftBundlesRail()
+
+                    ForEach(postingStore.items) { item in
+                        PendingUGCFeedCard(item: item)
+                        Divider().padding(.horizontal, 14)
+                    }
 
                     if viewModel.isLoading && viewModel.posts.isEmpty {
                         ForEach(0..<3, id: \.self) { _ in
@@ -120,6 +128,14 @@ struct FeedView: View {
                                 onBookmark: {
                                     swipeList.toggleMyGiftIdea(post)
                                     viewModel.toggleSave(for: post, context: modelContext)
+                                },
+                                onPledge: {
+                                    pledgingPost = post
+                                    // Pledge = the strongest positive signal the feed has.
+                                    AnalyticsEngine.shared.trackContentAction(
+                                        .contentLike,
+                                        postId: post.id
+                                    )
                                 },
                                 onAddToSwipeList: {
                                     listPickerPost = post
@@ -230,9 +246,24 @@ struct FeedView: View {
                 }
             )
         }
+        .onReceive(NotificationCenter.default.publisher(for: .ugcPostReady)) { _ in
+            Task { await viewModel.refreshFeed(context: modelContext) }
+        }
         .sensoryFeedback(.success, trigger: refreshed)
         .sheet(item: $listPickerPost) { post in
             SwipeListPickerSheet(post: post)
+        }
+        .sheet(item: $pledgingPost) { post in
+            // Pledge → pool creation prefilled with this post's product.
+            CreatePoolFromCaptureView(
+                image: nil,
+                sourceURL: post.productUrl ?? post.url,
+                product: post.product
+            )
+            .environmentObject(appState)
+        }
+        .sheet(item: $viewingPool) { pool in
+            PoolDetailView(poolId: pool.id)
         }
         .task {
             // appState.currentUser is never populated — AuthManager owns identity.

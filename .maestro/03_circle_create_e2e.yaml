@@ -16,9 +16,6 @@ tags:
     arguments:
       e2eEmail: ${E2E_EMAIL}
       e2ePassword: ${E2E_PASSWORD}
-      # Circles ships invite-only (InviteAccess); the DEBUG-only hook opens it
-      # for automation instead of typing a code.
-      e2eUnlockCircles: true
 
 # Consult only shows for identities without an onboarded cloud profile.
 - extendedWaitUntil:
