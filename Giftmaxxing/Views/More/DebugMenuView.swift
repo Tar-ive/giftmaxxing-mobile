@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingDesignSystem
 
 // The operator's design bench. Only reachable from an allowlisted account —
 // the row that opens it does not render for anyone else.

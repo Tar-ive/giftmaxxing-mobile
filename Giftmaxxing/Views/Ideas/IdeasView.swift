@@ -1,5 +1,7 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // The Ideas see-all. Two ways to browse, because there are two ways people
 // arrive: with a theme in mind (Packs) or with nothing in mind and a hope that

@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingNetworking
 
 /// Maxi-led "Edit taste" — a short trivia-style interview that collects the
 /// same signals Giftster-style forms do (interests, sizes, dislikes, gift
@@ -114,7 +115,7 @@ struct TasteInterviewView: View {
                                     .font(.system(size: 15, weight: .bold))
                                     .foregroundStyle(Color.ink)
                                 Text(opt.hint)
-                                    .font(.caption)
+                                    .font(.captionMedium)
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()

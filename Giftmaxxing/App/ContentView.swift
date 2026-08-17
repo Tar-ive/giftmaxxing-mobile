@@ -1,5 +1,7 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 struct ContentView: View {
     @EnvironmentObject private var appState: AppState
@@ -40,59 +42,7 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            TabView(selection: $appState.selectedTab) {
-                FeedView()
-                    .tabItem {
-                        Label(Tab.feed.rawValue, systemImage: Tab.feed.icon(selected: appState.selectedTab == .feed))
-                    }
-                    .tag(Tab.feed)
-
-                SwipeView()
-                    .tabItem {
-                        Label(Tab.swipe.rawValue, systemImage: Tab.swipe.icon(selected: appState.selectedTab == .swipe))
-                    }
-                    .tag(Tab.swipe)
-
-                SearchTabsView()
-                    .tabItem {
-                        Label(Tab.search.rawValue, systemImage: Tab.search.icon(selected: appState.selectedTab == .search))
-                    }
-                    .tag(Tab.search)
-
-                // Circles — the whole social layer — is invite-only. Without a
-                // redeemed code the tab doesn't exist at all (You → "Circles"
-                // opens the code sheet).
-                if invites.isUnlocked {
-                    CirclesView()
-                        .tabItem {
-                            Label(Tab.circles.rawValue, systemImage: Tab.circles.icon(selected: appState.selectedTab == .circles))
-                        }
-                        .tag(Tab.circles)
-                }
-
-                Group {
-                    #if DEBUG
-                    if UserDefaults.standard.bool(forKey: "publicProfilePreview") {
-                        NavigationStack {
-                            PublicProfileView(person: PublicPerson(
-                                userId: "google_102419904198993789987",
-                                name: "Saksham Adhikari",
-                                handle: "sakshamadhikari"
-                            ))
-                        }
-                    } else {
-                        MoreView()
-                    }
-                    #else
-                    MoreView()
-                    #endif
-                }
-                    .tabItem {
-                        Label(Tab.you.rawValue, systemImage: Tab.you.icon(selected: appState.selectedTab == .you))
-                    }
-                    .tag(Tab.you)
-            }
-            .tint(Color.coral)
+            tabs
 
             // Maxi is one tap from every tab. The search bar's mic still opens
             // the same conversation, but voice can't be the only door — and the
@@ -131,7 +81,7 @@ struct ContentView: View {
                 VStack {
                     HStack(spacing: 6) {
                         Image(systemName: "wifi.slash")
-                            .font(.caption)
+                            .font(.captionMedium)
                         Text("Offline mode")
                             .font(.caption.weight(.medium))
                         if offlineQueue.pendingCount > 0 {
@@ -423,6 +373,64 @@ struct ContentView: View {
         }
         guard url.scheme == "giftmaxxing" else { return }
         drainCaptureInbox()
+    }
+
+    // The tab bar, lifted out of `body`: with the design tokens now behind a
+    // module boundary, leaving it inline pushed the whole body past the
+    // type-checker's budget.
+    @ViewBuilder
+    private var tabs: some View {
+            TabView(selection: $appState.selectedTab) {
+            FeedView()
+                .tabItem { tabLabel(.feed) }
+                .tag(Tab.feed)
+
+            SwipeView()
+                .tabItem { tabLabel(.swipe) }
+                .tag(Tab.swipe)
+
+            SearchTabsView()
+                .tabItem { tabLabel(.search) }
+                .tag(Tab.search)
+
+            // Circles — the whole social layer — is invite-only. Without a
+            // redeemed code the tab doesn't exist at all (You → "Circles"
+            // opens the code sheet).
+            if invites.isUnlocked {
+                CirclesView()
+                    .tabItem { tabLabel(.circles) }
+                    .tag(Tab.circles)
+            }
+
+            Group {
+                #if DEBUG
+                if UserDefaults.standard.bool(forKey: "publicProfilePreview") {
+                    NavigationStack {
+                        PublicProfileView(person: PublicPerson(
+                            userId: "google_102419904198993789987",
+                            name: "Saksham Adhikari",
+                            handle: "sakshamadhikari"
+                        ))
+                    }
+                } else {
+                    MoreView()
+                }
+                #else
+                MoreView()
+                #endif
+            }
+                .tabItem { tabLabel(.you) }
+                .tag(Tab.you)
+        }
+        .tint(Color.coral)
+    }
+
+    // One helper rather than five inline Labels: with the tokens now in a
+    // module, the inline version pushed the TabView body past the type-checker's
+    // budget ("unable to type-check this expression in reasonable time").
+    @ViewBuilder
+    private func tabLabel(_ tab: Tab) -> some View {
+        Label(tab.rawValue, systemImage: tab.icon(selected: appState.selectedTab == tab))
     }
 
     // Centre of the last tab slot, as a fraction of screen width.

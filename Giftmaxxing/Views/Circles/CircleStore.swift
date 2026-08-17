@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingNetworking
 
 // Which circles this device belongs to (and as whom) — the iOS twin of the
 // web's localStorage "giftmaxxing_my_circles" (web/lib/circles.ts). Server

@@ -1,4 +1,6 @@
 import SwiftUI
+import GiftmaxxingCore
+import GiftmaxxingDesignSystem
 
 // "Birthday freebies" — the Shop section for the TikTok/Reddit-famous free
 // birthday stuff (Sephora gift, Starbucks drink, Denny's Grand Slam...).

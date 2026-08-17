@@ -157,7 +157,7 @@ struct ScreenshotShopRail: View {
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(Color.ink)
                     Text("Screenshotted something they'd love? Find it as a gift.")
-                        .font(.caption)
+                        .font(.captionMedium)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.leading)
                 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingDesignSystem
 
 // Full-screen story viewer — iOS port of the web StoryViewer
 // (web/components/app/stories.tsx): segmented progress bars, auto-advance,

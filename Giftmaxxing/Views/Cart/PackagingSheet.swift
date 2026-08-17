@@ -1,5 +1,7 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // "Ready to buy" — the last mile of a gift.
 //

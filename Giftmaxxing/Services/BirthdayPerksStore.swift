@@ -1,5 +1,7 @@
 import Foundation
 import UserNotifications
+import GiftmaxxingNetworking
+import GiftmaxxingCore
 
 // Birthday freebies — the "free stuff on your birthday" canon (Sephora gift,
 // Starbucks drink, Denny's Grand Slam...) surfaced as a Shop section.
@@ -10,24 +12,6 @@ import UserNotifications
 // UserDefaults. Reminders: yearly-repeating LOCAL notifications (same
 // no-server-needed approach as ReminderScheduler) — one when the birthday
 // month starts, one on the day itself.
-
-struct BirthdayPerk: Identifiable, Codable, Equatable {
-    let id: String
-    let brand: String
-    let category: String
-    let gift: String
-    let how: String
-    let window: String
-    let url: String
-    let emoji: String
-    let color: String
-}
-
-struct BirthdayPerksResponse: Codable {
-    let perks: [BirthdayPerk]
-    let categories: [String]
-    let updatedAt: String
-}
 
 @MainActor
 final class BirthdayPerksStore: ObservableObject {

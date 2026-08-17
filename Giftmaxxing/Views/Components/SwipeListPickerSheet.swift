@@ -1,5 +1,6 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingDesignSystem
 
 // Instagram-collections-style "save to board" sheet. Tapping "Gift board"
 // anywhere in the app lands here: pick which person's Gift Board the find
@@ -158,7 +159,7 @@ struct SwipeListPickerSheet: View {
                         .foregroundStyle(Color.ink)
                         .lineLimit(1)
                     Text(subtitle(for: list))
-                        .font(.caption)
+                        .font(.captionMedium)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }

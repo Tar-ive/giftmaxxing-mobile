@@ -1,5 +1,6 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingDesignSystem
 
 // Pool detail — the "look before you chip in" screen. Shows the gift, the
 // goal, and crucially WHO already committed and how much: the visible list is
@@ -182,7 +183,7 @@ struct PoolDetailView: View {
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundStyle(Color.ink)
                                 Text("committed")
-                                    .font(.caption)
+                                    .font(.captionMedium)
                                     .foregroundStyle(.secondary)
                             }
 

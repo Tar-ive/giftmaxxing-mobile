@@ -1,5 +1,6 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingNetworking
 
 // Loads every idea pack once and shares it between the Home rail and the
 // see-all screen, so opening "See all" is instant rather than a second fan-out

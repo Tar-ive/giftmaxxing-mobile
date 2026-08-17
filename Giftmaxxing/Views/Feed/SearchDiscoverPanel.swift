@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingDesignSystem
 
 // What the search page shows before you have typed anything.
 //

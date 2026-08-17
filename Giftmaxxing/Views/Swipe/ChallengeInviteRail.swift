@@ -1,5 +1,7 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // Swipe lists a friend sent you IN the app. Before this, an invite only
 // existed as a link in a DM — easy to miss and easy to lose. Now it waits at
@@ -56,7 +58,7 @@ struct ChallengeInviteRail: View {
                     .foregroundStyle(Color.ink)
                     .lineLimit(1)
                 Text(subtitle(invite))
-                    .font(.caption)
+                    .font(.captionMedium)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }

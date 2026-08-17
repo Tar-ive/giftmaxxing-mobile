@@ -1,6 +1,7 @@
 import XCTest
 import SwiftUI
-@testable import Giftmaxxing
+@testable import GiftmaxxingDesignSystem
+import GiftmaxxingCore
 import GiftmaxxingCore
 
 final class AvatarPaletteTests: XCTestCase {
@@ -130,3 +131,5 @@ final class AvatarPaletteTests: XCTestCase {
         return 1.05 / (luminance + 0.05)
     }
 }
+
+

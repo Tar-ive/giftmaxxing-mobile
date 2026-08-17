@@ -1,5 +1,7 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 /// Friends hub — iOS port of web/app/feed/friends/page.tsx.
 /// Tabs: Friends / Requests / Discover. Connect, message, and gift.
@@ -389,7 +391,7 @@ private struct PersonRow<Actions: View>: View {
                     .lineLimit(1)
                 if let handle, !handle.isEmpty {
                     Text("@\(handle)")
-                        .font(.caption)
+                        .font(.captionMedium)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -583,7 +585,7 @@ struct PublicProfileView: View {
             .buttonStyle(ProfilePrimaryButtonStyle())
             .disabled(busy || relationship == "pending")
             Text("Gift lists, messaging, and group gift invites unlock after you’re friends.")
-                .font(.caption).foregroundStyle(Color.inkSecondary)
+                .font(.captionMedium).foregroundStyle(Color.inkSecondary)
         }
     }
 
@@ -624,9 +626,9 @@ struct PublicProfileView: View {
             .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
             VStack(alignment: .leading, spacing: 5) {
                 Text(item.name ?? "Gift idea").font(.system(size: 13, weight: .bold)).lineLimit(2)
-                Text(item.brand ?? "Saved find").font(.caption).foregroundStyle(Color.inkSecondary).lineLimit(1)
+                Text(item.brand ?? "Saved find").font(.captionMedium).foregroundStyle(Color.inkSecondary).lineLimit(1)
                 if let price = item.price, price > 0 {
-                    Text(price, format: .currency(code: "USD")).font(.caption).foregroundStyle(Color.inkSecondary)
+                    Text(price, format: .currency(code: "USD")).font(.captionMedium).foregroundStyle(Color.inkSecondary)
                 }
             }
             Spacer(minLength: 0)
@@ -646,7 +648,7 @@ struct PublicProfileView: View {
                             HStack(spacing: 7) {
                                 Image(systemName: sizeIcon(key)).font(.title3).foregroundStyle(Color.coral)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(key.capitalized).font(.caption).foregroundStyle(Color.inkSecondary)
+                                    Text(key.capitalized).font(.captionMedium).foregroundStyle(Color.inkSecondary)
                                     Text(value).font(.system(size: 17, weight: .bold, design: .rounded))
                                 }
                             }
@@ -734,7 +736,7 @@ struct PublicProfileView: View {
                                     .font(.subheadline.weight(.bold))
                                     .foregroundStyle(Color.ink)
                                 Text("Open or join this gift circle")
-                                    .font(.caption)
+                                    .font(.captionMedium)
                                     .foregroundStyle(Color.inkSecondary)
                             }
                             Spacer()
@@ -880,7 +882,7 @@ private struct FriendGiftListView: View {
                 Spacer()
                 if let price = item.price, price > 0 { Text(price, format: .currency(code: "USD")) }
             }
-            .font(.caption).foregroundStyle(Color.inkSecondary)
+            .font(.captionMedium).foregroundStyle(Color.inkSecondary)
         }
         .padding(10).background(Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))

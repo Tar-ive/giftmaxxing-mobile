@@ -2,6 +2,8 @@ import AVFoundation
 import AVKit
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 @MainActor
 final class UGCFeedMusicPlayback: ObservableObject {
@@ -111,7 +113,7 @@ struct PostCardView: View {
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundStyle(Color.ink)
                             if let retailer = retailerLabel {
-                                Text(retailer).font(.caption).foregroundStyle(.secondary)
+                                Text(retailer).font(.captionMedium).foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -122,7 +124,7 @@ struct PostCardView: View {
                 Spacer()
 
                 Text(post.time)
-                    .font(.caption)
+                    .font(.captionMedium)
                     .foregroundStyle(.secondary)
 
                 Button { showActions = true } label: {
@@ -404,11 +406,11 @@ struct PostCardView: View {
                         Text(reason)
                             .lineLimit(1)
                     }
-                    .font(.caption)
+                    .font(.captionMedium)
                     .foregroundStyle(Color.coral.opacity(0.9))
                 } else {
                     Text(post.product.brand)
-                        .font(.caption)
+                        .font(.captionMedium)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }

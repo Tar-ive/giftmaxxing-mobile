@@ -1,6 +1,7 @@
 import XCTest
 import CryptoKit
-@testable import Giftmaxxing
+@testable import GiftmaxxingNetworking
+import GiftmaxxingCore
 import GiftmaxxingCore
 
 final class APIRequestSignerTests: XCTestCase {

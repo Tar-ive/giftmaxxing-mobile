@@ -3,19 +3,19 @@ import Foundation
 
 /// Signs the exact protobuf bytes sent to the v2 mobile API. The P-256 private
 /// key is device-only Keychain material; the server stores only its public key.
-struct APIRequestSigner {
-    struct SignedBody {
-        let data: Data
-        let headers: [String: String]
+public struct APIRequestSigner {
+    public struct SignedBody {
+        public let data: Data
+        public let headers: [String: String]
     }
 
     private static let privateKeyKey = "api-signing-private-p256"
     private static let keyIdKey = "api-signing-key-id"
 
     private let privateKey: P256.Signing.PrivateKey
-    let keyId: String
+    public let keyId: String
 
-    init() throws {
+    public init() throws {
         if let raw = KeychainStore.load(key: Self.privateKeyKey),
            let key = try? P256.Signing.PrivateKey(rawRepresentation: raw) {
             privateKey = key
@@ -33,14 +33,14 @@ struct APIRequestSigner {
         }
     }
 
-    init(testingPrivateKey: P256.Signing.PrivateKey, keyId: String) {
+    public init(testingPrivateKey: P256.Signing.PrivateKey, keyId: String) {
         privateKey = testingPrivateKey
         self.keyId = keyId
     }
 
-    var publicKeyBase64: String { privateKey.publicKey.x963Representation.base64EncodedString() }
+    public var publicKeyBase64: String { privateKey.publicKey.x963Representation.base64EncodedString() }
 
-    func sign(method: String, path: String, json: Data) throws -> SignedBody {
+    public func sign(method: String, path: String, json: Data) throws -> SignedBody {
         let body = ProtobufEnvelope.encode(json: json, requestId: UUID().uuidString, serverTimeMs: 0)
         let timestamp = Int64(Date().timeIntervalSince1970 * 1000)
         let nonce = UUID().uuidString.lowercased()
@@ -58,8 +58,8 @@ struct APIRequestSigner {
     }
 }
 
-enum ProtobufEnvelope {
-    static func encode(json: Data, requestId: String, serverTimeMs: Int64) -> Data {
+public enum ProtobufEnvelope {
+    public static func encode(json: Data, requestId: String, serverTimeMs: Int64) -> Data {
         var output = Data()
         appendField(1, bytes: json, to: &output)
         appendField(2, bytes: Data(requestId.utf8), to: &output)
@@ -68,7 +68,7 @@ enum ProtobufEnvelope {
         return output
     }
 
-    static func decodeJSON(_ data: Data) throws -> Data {
+    public static func decodeJSON(_ data: Data) throws -> Data {
         let bytes = [UInt8](data)
         var cursor = 0
         while cursor < bytes.count {

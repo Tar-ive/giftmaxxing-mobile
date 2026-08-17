@@ -1,6 +1,7 @@
 import SwiftUI
 import Photos
 import GiftmaxxingCore
+import GiftmaxxingDesignSystem
 
 // The user's most recent photos and videos, inline.
 //
@@ -180,7 +181,7 @@ struct SectionHeader: View {
 
     var body: some View {
         Text(title)
-            .font(.caption)
+            .font(.captionMedium)
             .textCase(.uppercase)
             .tracking(0.6)
             .foregroundStyle(.secondary)

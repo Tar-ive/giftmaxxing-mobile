@@ -1,6 +1,8 @@
 import SwiftUI
 import GiftmaxxingCore
 import GiftmaxxingRecommendation
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // Post detail sheet — iOS port of the web PostModal (web/components/app/
 // post-modal.tsx): full product image, seller row, price, caption, comments,
@@ -132,13 +134,13 @@ struct PostDetailView: View {
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundStyle(Color.ink)
                                 Text(activePost.time)
-                                    .font(.caption)
+                                    .font(.captionMedium)
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
                             if let source = activePost.source {
                                 Text(source)
-                                    .font(.caption)
+                                    .font(.captionMedium)
                                     .foregroundStyle(.secondary)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
@@ -165,7 +167,7 @@ struct PostDetailView: View {
                                     .fixedSize()
                                 if let was = activePost.product.was, was > activePost.product.price {
                                     Text("$\(Int(was))")
-                                        .font(.caption)
+                                        .font(.captionMedium)
                                         .strikethrough()
                                         .foregroundStyle(.secondary)
                                 }
@@ -183,7 +185,7 @@ struct PostDetailView: View {
                                 Image(systemName: "sparkles")
                                     .font(.system(size: 12))
                                 Text(reason)
-                                    .font(.caption)
+                                    .font(.captionMedium)
                             }
                             .foregroundStyle(Color.coral)
                         }

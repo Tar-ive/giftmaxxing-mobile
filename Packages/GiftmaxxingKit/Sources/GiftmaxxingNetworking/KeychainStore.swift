@@ -1,10 +1,10 @@
 import Foundation
 import Security
 
-enum KeychainStore {
+public enum KeychainStore {
     private static let service = "com.giftmaxxing.ios"
 
-    static func save(key: String, data: Data) throws {
+    public static func save(key: String, data: Data) throws {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -22,7 +22,7 @@ enum KeychainStore {
         }
     }
 
-    static func load(key: String) -> Data? {
+    public static func load(key: String) -> Data? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -36,7 +36,7 @@ enum KeychainStore {
         return result as? Data
     }
 
-    static func delete(key: String) {
+    public static func delete(key: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -45,21 +45,21 @@ enum KeychainStore {
         SecItemDelete(query as CFDictionary)
     }
 
-    static func saveString(key: String, value: String) throws {
+    public static func saveString(key: String, value: String) throws {
         guard let data = value.data(using: .utf8) else { return }
         try save(key: key, data: data)
     }
 
-    static func loadString(key: String) -> String? {
+    public static func loadString(key: String) -> String? {
         guard let data = load(key: key) else { return nil }
         return String(data: data, encoding: .utf8)
     }
 }
 
-enum KeychainError: LocalizedError {
+public enum KeychainError: LocalizedError {
     case saveFailed(OSStatus)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .saveFailed(let status):
             return "Keychain save failed with status \(status)"

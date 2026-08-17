@@ -1,5 +1,6 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingDesignSystem
 
 /// Sends the same canonical pool invite URL through an accepted in-app DM.
 /// External recipients use the adjacent system ShareLink instead.
@@ -38,7 +39,7 @@ struct PoolInviteFriendsSheet: View {
                                 Text(friend.name ?? friend.handle ?? "Friend")
                                     .font(.system(size: 16, weight: .semibold))
                                 Text("Send a pool invite in chat")
-                                    .font(.caption)
+                                    .font(.captionMedium)
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()

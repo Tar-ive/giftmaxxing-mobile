@@ -2,6 +2,8 @@ import SwiftUI
 import SwiftData
 import GiftmaxxingCore
 import GiftmaxxingRecommendation
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // Circles — your people, their dates, and gifting together. ONE hub:
 //   • Circles — shared family/friend groups (server-backed): members add
@@ -419,7 +421,7 @@ struct CirclesView: View {
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundStyle(Color.ink)
                             Text("One link, everyone's birthdays.")
-                                .font(.caption)
+                                .font(.captionMedium)
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.leading)
                         }
@@ -446,12 +448,12 @@ struct CirclesView: View {
                                     .font(.system(size: 15, weight: .semibold))
                                     .foregroundStyle(Color.ink)
                                 Text(circle.joinedAs.map { "you're in as \($0)" } ?? "tap to see whose moment is next")
-                                    .font(.caption)
+                                    .font(.captionMedium)
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.caption)
+                                .font(.captionMedium)
                                 .foregroundStyle(.tertiary)
                         }
                         .padding(12)
@@ -565,7 +567,7 @@ private struct JoinCircleByLinkSheet: View {
 
                 if let errorMessage {
                     Text(errorMessage)
-                        .font(.caption)
+                        .font(.captionMedium)
                         .foregroundStyle(.red)
                 }
 
@@ -679,12 +681,12 @@ private struct CircleRow: View {
                 Text(gift.poolId != nil
                      ? "Pledge round underway"
                      : (gift.youSwiped ? "Waiting on the group…" : "Your swipe is missing!"))
-                    .font(.caption)
+                    .font(.captionMedium)
                     .foregroundStyle(.secondary)
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .font(.caption)
+                .font(.captionMedium)
                 .foregroundStyle(.tertiary)
         }
         .padding(12)
@@ -713,13 +715,13 @@ private struct FeatureCard: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Color.ink)
                     Text(subtitle)
-                        .font(.caption)
+                        .font(.captionMedium)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.leading)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.caption)
+                    .font(.captionMedium)
                     .foregroundStyle(.tertiary)
             }
             .padding(12)

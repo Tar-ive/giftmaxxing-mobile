@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import GiftmaxxingCore
 import GiftmaxxingRecommendation
+import GiftmaxxingNetworking
 
 @MainActor
 final class EventsViewModel: ObservableObject {
@@ -316,13 +317,13 @@ struct EventCard: View {
                     .foregroundStyle(Color.ink)
 
                 Text(event.dateString)
-                    .font(.caption)
+                    .font(.captionMedium)
                     .foregroundStyle(.secondary)
 
                 HStack(spacing: 6) {
                     if !event.recipientName.isEmpty {
                         Text("For \(event.recipientName)")
-                            .font(.caption)
+                            .font(.captionMedium)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }

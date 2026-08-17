@@ -1,6 +1,8 @@
 import SwiftUI
 import GiftmaxxingCore
 import GiftmaxxingRecommendation
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // Swipe-challenge sharing, in-app. Mirrors the web's /challenge page and its
 // Instagram-style guest boundary:

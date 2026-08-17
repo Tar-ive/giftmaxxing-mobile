@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import GiftmaxxingCore
+import GiftmaxxingNetworking
 
 /// Friends + DMs store — iOS port of web/lib/friends.ts.
 /// Prefers the live AWS friends APIs; falls back to UserDefaults so the UI

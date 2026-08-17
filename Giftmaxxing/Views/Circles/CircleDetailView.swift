@@ -1,5 +1,7 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // One circle — the group's shared gift calendar (web /circle/<id> parity).
 // Members + their birthdays and the circle's occasions live server-side under
@@ -122,7 +124,7 @@ struct CircleDetailView: View {
                         .foregroundStyle(Color.ink)
                     let count = data.members?.count ?? 0
                     Text("\(count) \(count == 1 ? "member" : "members") · a shared calendar of gift moments")
-                        .font(.caption)
+                        .font(.captionMedium)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -357,7 +359,7 @@ struct CircleDetailView: View {
                     }
                 }
                 Text(birthdayLabel(member) + (linkedId != nil ? " · on Giftmaxxing" : ""))
-                    .font(.caption)
+                    .font(.captionMedium)
                     .foregroundStyle(.secondary)
 
                 if canConnect, let linkedId, let myId = authManager.userId {
@@ -503,11 +505,11 @@ struct CircleDetailView: View {
                                     .foregroundStyle(Color.ink)
                                 HStack(spacing: 6) {
                                     Text(event.date)
-                                        .font(.caption)
+                                        .font(.captionMedium)
                                         .foregroundStyle(.secondary)
                                     if let by = event.addedBy, !by.isEmpty {
                                         Text("· added by \(by)")
-                                            .font(.caption)
+                                            .font(.captionMedium)
                                             .foregroundStyle(.tertiary)
                                     }
                                 }
@@ -719,7 +721,7 @@ private struct MomentRow: View {
                     .foregroundStyle(.secondary))
                     .lineLimit(1)
                 Text(CircleMoment.monthDayString(moment.date))
-                    .font(.caption)
+                    .font(.captionMedium)
                     .foregroundStyle(.secondary)
             }
 
@@ -778,7 +780,7 @@ private struct JoinCard: View {
 
             if let errorMessage {
                 Text(errorMessage)
-                    .font(.caption)
+                    .font(.captionMedium)
                     .foregroundStyle(.red)
             }
 
@@ -878,7 +880,7 @@ struct AddCircleOccasionSheet: View {
 
                 if let errorMessage {
                     Text(errorMessage)
-                        .font(.caption)
+                        .font(.captionMedium)
                         .foregroundStyle(.red)
                 }
 
@@ -955,7 +957,7 @@ struct AddBirthdaySheet: View {
 
                 if let errorMessage {
                     Text(errorMessage)
-                        .font(.caption)
+                        .font(.captionMedium)
                         .foregroundStyle(.red)
                 }
 
@@ -1075,7 +1077,7 @@ struct CreateCircleSheet: View {
 
             if let errorMessage {
                 Text(errorMessage)
-                    .font(.caption)
+                    .font(.captionMedium)
                     .foregroundStyle(.red)
             }
 

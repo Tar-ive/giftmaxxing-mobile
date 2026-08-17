@@ -1,4 +1,10 @@
+// The design system is UIKit-backed (UIColor trait resolution, UIViewRepresentable
+// pickers, UIImage caching), so it only exists where UIKit does. The guard keeps
+// `swift build` / `swift test` working natively on macOS for the other three
+// targets — which is what makes the sub-second test loop possible.
+#if canImport(UIKit)
 import SwiftUI
+import GiftmaxxingCore
 
 // Swappable colour palettes.
 //
@@ -11,29 +17,29 @@ import SwiftUI
 // Contrast: text tokens are chosen to clear WCAG AA (4.5:1) against the surface
 // they sit on in BOTH appearances. That is the non-negotiable part; the mood is
 // the part worth experimenting with.
-struct Palette: Equatable {
-    var coral: (light: String, dark: String)
-    var coralEmphasis: (light: String, dark: String)
-    var cream: (light: String, dark: String)
-    var ink: (light: String, dark: String)
-    var inkSecondary: (light: String, dark: String)
-    var inkTertiary: (light: String, dark: String)
-    var line: (light: String, dark: String)
-    var surface: (light: String, dark: String)
-    var surfaceSunken: (light: String, dark: String)
-    var coralSoft: (light: String, dark: String)
-    var gradientEnd: (light: String, dark: String)
-    var onboardingGlow: (light: String, dark: String)
-    var onboardingWash: (light: String, dark: String)
-    var success: (light: String, dark: String)
-    var danger: (light: String, dark: String)
+public struct Palette: Equatable {
+    public var coral: (light: String, dark: String)
+    public var coralEmphasis: (light: String, dark: String)
+    public var cream: (light: String, dark: String)
+    public var ink: (light: String, dark: String)
+    public var inkSecondary: (light: String, dark: String)
+    public var inkTertiary: (light: String, dark: String)
+    public var line: (light: String, dark: String)
+    public var surface: (light: String, dark: String)
+    public var surfaceSunken: (light: String, dark: String)
+    public var coralSoft: (light: String, dark: String)
+    public var gradientEnd: (light: String, dark: String)
+    public var onboardingGlow: (light: String, dark: String)
+    public var onboardingWash: (light: String, dark: String)
+    public var success: (light: String, dark: String)
+    public var danger: (light: String, dark: String)
 
-    static func == (a: Palette, b: Palette) -> Bool {
+    public static func == (a: Palette, b: Palette) -> Bool {
         a.coral == b.coral && a.surface == b.surface && a.ink == b.ink
     }
 }
 
-enum AppTheme: String, CaseIterable, Identifiable {
+public enum AppTheme: String, CaseIterable, Identifiable {
     case warmBoutique
     case midnightPlum
     case editorialMono
@@ -43,9 +49,9 @@ enum AppTheme: String, CaseIterable, Identifiable {
     case terracotta
     case nordicIce
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
-    var displayName: String {
+    public var displayName: String {
         switch self {
         case .warmBoutique: return "Warm Boutique"
         case .midnightPlum: return "Midnight Plum"
@@ -58,7 +64,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
         }
     }
 
-    var blurb: String {
+    public var blurb: String {
         switch self {
         case .warmBoutique: return "Today's look — warm brown-black, coral accent"
         case .midnightPlum: return "Deep violet-black, punchy pink coral, ivory text"
@@ -72,12 +78,12 @@ enum AppTheme: String, CaseIterable, Identifiable {
     }
 
     /// Three swatches for the picker: accent, surface, text.
-    var previewHexes: (accent: String, surface: String, text: String) {
+    public var previewHexes: (accent: String, surface: String, text: String) {
         let p = palette
         return (p.coral.dark, p.surface.dark, p.ink.dark)
     }
 
-    var palette: Palette {
+    public var palette: Palette {
         switch self {
         // The shipped look. Coral was already tuned for AA in both modes; the
         // dark side is a WARM brown-black so the boutique feel survives.
@@ -259,12 +265,12 @@ enum AppTheme: String, CaseIterable, Identifiable {
 // view observes this object, so switching re-renders the whole app instantly —
 // which is the entire point of making it swappable rather than a build flag.
 @MainActor
-final class ThemeManager: ObservableObject {
-    static let shared = ThemeManager()
+public final class ThemeManager: ObservableObject {
+    public static let shared = ThemeManager()
 
     private static let key = "giftmaxxing_app_theme"
 
-    @Published var theme: AppTheme {
+    @Published public var theme: AppTheme {
         didSet {
             guard theme != oldValue else { return }
             UserDefaults.standard.set(theme.rawValue, forKey: Self.key)
@@ -283,3 +289,6 @@ final class ThemeManager: ObservableObject {
         return (saved.flatMap(AppTheme.init(rawValue:)) ?? .warmBoutique).palette
     }
 }
+
+
+#endif

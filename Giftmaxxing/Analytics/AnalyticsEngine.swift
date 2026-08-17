@@ -3,6 +3,7 @@ import UIKit
 import os.signpost
 import GiftmaxxingCore
 import GiftmaxxingRecommendation
+import GiftmaxxingNetworking
 
 // Behavioral analytics engine modeled after Instagram's impression tracking and
 // Tinder's swipe telemetry. Uses Apple's os_signpost for precise interval

@@ -1,15 +1,28 @@
+// The design system is UIKit-backed (UIColor trait resolution, UIViewRepresentable
+// pickers, UIImage caching), so it only exists where UIKit does. The guard keeps
+// `swift build` / `swift test` working natively on macOS for the other three
+// targets — which is what makes the sub-second test loop possible.
+#if canImport(UIKit)
 import SwiftUI
+import GiftmaxxingCore
 
 // Amazon-style cold-launch splash: brand logo scales in with a spring, holds
 // a beat, then the overlay fades out (driven by ContentView).
-struct SplashView: View {
-    var onFinished: () -> Void
+public struct SplashView: View {
+    public var onFinished: () -> Void
+
+    public init(
+        onFinished: @escaping () -> Void
+    ) {
+        self.onFinished = onFinished
+    }
+
 
     @State private var logoScale: CGFloat = 0.7
     @State private var logoOpacity: Double = 0
     @State private var glowScale: CGFloat = 0.4
 
-    var body: some View {
+    public var body: some View {
         ZStack {
             Color.cream.ignoresSafeArea()
 
@@ -59,3 +72,6 @@ struct SplashView: View {
         }
     }
 }
+
+
+#endif

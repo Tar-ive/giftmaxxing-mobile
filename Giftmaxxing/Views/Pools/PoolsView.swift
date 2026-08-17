@@ -1,5 +1,6 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingDesignSystem
 
 struct PoolsView: View {
     @ObservedObject private var store = PoolsStore.shared
@@ -36,7 +37,7 @@ struct PoolsView: View {
                                     .font(.system(size: 15, weight: .semibold))
                                     .foregroundStyle(Color.ink)
                                 Text("Split the cost of a gift with friends")
-                                    .font(.caption)
+                                    .font(.captionMedium)
                                     .foregroundStyle(.secondary)
                             }
 
@@ -101,7 +102,7 @@ struct PoolCard: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .font(.caption)
+                    .font(.captionMedium)
                 }
 
                 Spacer()

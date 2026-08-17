@@ -1,5 +1,6 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingDesignSystem
 
 // A pack, opened. Two ways out: take the whole thing for one person, or pick
 // the pieces you want. Bundles support both (one item per slot is the pairing's
@@ -97,7 +98,7 @@ struct IdeaPackDetailView: View {
             .buttonStyle(PrimaryButtonStyle())
 
             Text("One from each — swap any of them after.")
-                .font(.caption)
+                .font(.captionMedium)
                 .foregroundStyle(Color.inkTertiary)
         }
         .padding(.horizontal, ThemeSpacing.md)

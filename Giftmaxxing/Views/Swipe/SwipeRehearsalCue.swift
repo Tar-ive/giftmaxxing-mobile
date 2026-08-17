@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingDesignSystem
 
 // First-deck gesture rehearsal (interactive affordance cue): a hand glyph
 // traces the swipe-right then swipe-left path over the REAL top card, with

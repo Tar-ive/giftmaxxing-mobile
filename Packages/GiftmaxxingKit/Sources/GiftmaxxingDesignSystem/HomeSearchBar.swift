@@ -1,4 +1,10 @@
+// The design system is UIKit-backed (UIColor trait resolution, UIViewRepresentable
+// pickers, UIImage caching), so it only exists where UIKit does. The guard keeps
+// `swift build` / `swift test` working natively on macOS for the other three
+// targets — which is what makes the sub-second test loop possible.
+#if canImport(UIKit)
 import SwiftUI
+import GiftmaxxingCore
 
 // Home's search field.
 //
@@ -7,10 +13,10 @@ import SwiftUI
 // toolbar rather than a search box, and neither shortcut was the thing people
 // came to the field to do. Visual search still lives in the search screen this
 // opens; Maxi is a floating button, not a glyph hidden in a text input.
-struct HomeSearchBar: View {
-    var onSearchTap: () -> Void
+public struct HomeSearchBar: View {
+    public var onSearchTap: () -> Void
 
-    var body: some View {
+    public var body: some View {
         Button(action: onSearchTap) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
@@ -32,3 +38,6 @@ struct HomeSearchBar: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
+
+
+#endif

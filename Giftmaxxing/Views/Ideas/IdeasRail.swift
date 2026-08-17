@@ -1,5 +1,6 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingDesignSystem
 
 // Home's single discovery rail. Replaces the three that used to compete here
 // (Gift galleries, Group gifts, Goes well together) — group gifts moved to

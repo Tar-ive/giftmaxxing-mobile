@@ -1,6 +1,8 @@
 import SwiftUI
 import UIKit
 import GiftmaxxingCore
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // "Where can I buy THAT?" — run visual search from an image the app already
 // has (a UGC photo, a video's poster frame) instead of only from the camera.
@@ -54,7 +56,7 @@ struct ShopThisPostRail: View {
                 HStack(spacing: 8) {
                     ProgressView().scaleEffect(0.8)
                     Text("Finding where to buy…")
-                        .font(.caption)
+                        .font(.captionMedium)
                         .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 16)
@@ -119,7 +121,7 @@ struct ShopThisPostRail: View {
                     .foregroundStyle(Color.coral)
             } else if let merchant = post.merchant {
                 Text(merchant)
-                    .font(.caption)
+                    .font(.captionMedium)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }

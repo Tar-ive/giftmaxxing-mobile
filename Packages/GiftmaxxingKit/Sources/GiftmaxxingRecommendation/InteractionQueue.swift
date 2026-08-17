@@ -7,18 +7,6 @@ import GiftmaxxingCore
 // taste profile instantly and are flushed to POST /interactions in batches —
 // one invocation per ~N events instead of one per tap.
 
-// The queue used to call `APIClient.shared` directly, which is what tied the
-// whole ranking stack to the networking layer. The app injects an uploader at
-// launch instead, so this module tests without a network stack.
-//
-// IMPORTANT: if nothing sets `uploader`, interactions queue forever and every
-// taste signal is silently lost — no crash, no failing test. The debug
-// assertion below is the tripwire for exactly that.
-public protocol InteractionUploading: AnyObject, Sendable {
-    func sendInteractionsBatch(_ batch: [InteractionQueue.PendingInteraction]) async throws
-    func submitMixerEvents(_ events: [[String: Any]], anonymousId: String?) async throws
-}
-
 
 public actor InteractionQueue {
     public static let shared = InteractionQueue()
@@ -31,21 +19,11 @@ public actor InteractionQueue {
         self.uploader = uploader
     }
 
-    public struct PendingInteraction: Codable {
-        public let userId: String
-        public let targetId: String
-        public let type: String
-        public let queuedAt: Double
-        // Optional context ({mode:"gift", giftType, decisionMs, amount…}) —
-        // rides to POST /interactions as `data` so gift-mode events can build
-        // per-recipient taste server-side. Optional: old queued files decode.
-        public var data: [String: String]?
-        public var recommendationId: String?
-        public var attributionToken: String?
-        public var position: Int?
-        public var dwellMs: Double?
-        public var forceMixer: Bool?
-    }
+    /// Kept so `InteractionQueue.PendingInteraction` still resolves at every
+    /// existing call site — the type itself lives in Core so both this module
+    /// and Networking can see it without depending on each other.
+    public typealias PendingInteraction = GiftmaxxingCore.PendingInteraction
+
 
     private var pending: [PendingInteraction] = []
     private var loaded = false
@@ -56,15 +34,10 @@ public actor InteractionQueue {
     private static let flushDelaySeconds: UInt64 = 20
     private static let queueCap = 500
 
-    // Stable anonymous identity so server-side taste accrues pre-signup and
-    // survives app restarts. A real signed-in user id takes precedence.
-    public static var anonymousUserId: String {
-        let key = "gm.anonUserId"
-        if let existing = UserDefaults.standard.string(forKey: key) { return existing }
-        let fresh = "anon-" + UUID().uuidString.lowercased()
-        UserDefaults.standard.set(fresh, forKey: key)
-        return fresh
-    }
+    /// The identity itself lives in Core (`AnonymousIdentity`) so the API
+    /// client can read it without importing this module. Kept here so the 14
+    /// existing call sites don't churn.
+    public static var anonymousUserId: String { AnonymousIdentity.current }
 
     public func enqueue(
         userId: String?, targetId: String, type: String, data: [String: String]? = nil,

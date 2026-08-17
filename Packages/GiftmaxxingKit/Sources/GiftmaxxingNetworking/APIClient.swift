@@ -1,9 +1,8 @@
 import Foundation
 import GiftmaxxingCore
-import GiftmaxxingRecommendation
 
-actor APIClient: InteractionUploading {
-    static let shared = APIClient()
+public actor APIClient: InteractionUploading {
+    public static let shared = APIClient()
 
     // CloudFront edge cache in front of the API (infra/cloudfront.tf). Generic
     // feed pages + /vectors are served from cache; personal routes pass through.
@@ -31,14 +30,14 @@ actor APIClient: InteractionUploading {
         decoder.keyDecodingStrategy = .useDefaultKeys
     }
 
-    func setAuthToken(_ token: String?) {
+    public func setAuthToken(_ token: String?) {
         authToken = token
         if token != registeredSigningToken { registeredSigningToken = nil }
     }
 
     // MARK: - User-generated posts
 
-    func createUGCUpload(
+    public func createUGCUpload(
         media: [[String: Any]],
         caption: String,
         musicTrackId: String?,
@@ -52,7 +51,7 @@ actor APIClient: InteractionUploading {
         return try await post("/ugc/uploads", body: body)
     }
 
-    func fetchUGCMusicTracks() async throws -> [UGCMusicTrack] {
+    public func fetchUGCMusicTracks() async throws -> [UGCMusicTrack] {
         let response: UGCMusicTracksResponse = try await get("/ugc/music")
         return response.items.map { track in
             var track = track
@@ -61,7 +60,7 @@ actor APIClient: InteractionUploading {
         }
     }
 
-    func uploadUGC(fileURL: URL, to uploadURL: String, headers: [String: String]) async throws {
+    public func uploadUGC(fileURL: URL, to uploadURL: String, headers: [String: String]) async throws {
         guard let url = URL(string: uploadURL) else { throw APIError.invalidResponse }
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
@@ -70,33 +69,33 @@ actor APIClient: InteractionUploading {
         try validateResponse(response)
     }
 
-    func completeUGCUpload(postId: String) async throws {
+    public func completeUGCUpload(postId: String) async throws {
         let _: UGCCompleteResponse = try await post("/ugc/posts/\(postId)/complete", body: [:])
     }
 
-    func fetchMyUGCPosts() async throws -> [UGCPost] {
+    public func fetchMyUGCPosts() async throws -> [UGCPost] {
         let response: UGCPostsResponse = try await get("/ugc/posts")
         return response.items.map(normalizeUGCPost)
     }
 
-    func fetchUGCPost(postId: String) async throws -> UGCPost {
+    public func fetchUGCPost(postId: String) async throws -> UGCPost {
         let response: UGCPostResponse = try await get("/ugc/posts/\(postId)")
         return normalizeUGCPost(response.item)
     }
 
-    func reportUGCPost(postId: String, reason: String) async throws {
+    public func reportUGCPost(postId: String, reason: String) async throws {
         let _: EmptyResponse = try await post("/ugc/posts/\(postId)/report", body: ["reason": reason])
     }
 
-    func blockUGCUser(userId: String) async throws {
+    public func blockUGCUser(userId: String) async throws {
         let _: EmptyResponse = try await post("/ugc/users/\(userId)/block", body: [:])
     }
 
-    func setPostLike(postId: String, liked: Bool) async throws -> PostLikeResponse {
+    public func setPostLike(postId: String, liked: Bool) async throws -> PostLikeResponse {
         try await post("/ugc/posts/\(postId)/like", body: ["liked": liked])
     }
 
-    func fetchPostLikeStates(postIds: [String]) async throws -> Set<String> {
+    public func fetchPostLikeStates(postIds: [String]) async throws -> Set<String> {
         let response: PostLikeStatesResponse = try await post(
             "/ugc/likes/status",
             body: ["postIds": Array(Set(postIds)).prefix(100).map(\.self)]
@@ -104,19 +103,19 @@ actor APIClient: InteractionUploading {
         return Set(response.likedPostIds)
     }
 
-    func fetchPostComments(postId: String) async throws -> PostCommentsResponse {
+    public func fetchPostComments(postId: String) async throws -> PostCommentsResponse {
         try await get("/ugc/posts/\(postId)/comments")
     }
 
-    func addPostComment(postId: String, text: String) async throws -> PostCommentResponse {
+    public func addPostComment(postId: String, text: String) async throws -> PostCommentResponse {
         try await post("/ugc/posts/\(postId)/comments", body: ["text": text])
     }
 
-    func createAvatarUpload(mimeType: String, fileSize: Int) async throws -> AvatarUploadResponse {
+    public func createAvatarUpload(mimeType: String, fileSize: Int) async throws -> AvatarUploadResponse {
         try await post("/ugc/avatar/uploads", body: ["mimeType": mimeType, "fileSize": fileSize])
     }
 
-    func uploadAvatar(data: Data, to uploadURL: String, headers: [String: String]) async throws {
+    public func uploadAvatar(data: Data, to uploadURL: String, headers: [String: String]) async throws {
         guard let url = URL(string: uploadURL) else { throw APIError.invalidResponse }
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
@@ -125,18 +124,18 @@ actor APIClient: InteractionUploading {
         try validateResponse(response)
     }
 
-    func completeAvatarUpload(avatarId: String) async throws -> String {
+    public func completeAvatarUpload(avatarId: String) async throws -> String {
         let response: AvatarCompleteResponse = try await post("/ugc/avatar/uploads/\(avatarId)/complete", body: [:])
         return absoluteMediaURL(response.imageUrl) ?? response.imageUrl
     }
 
-    func removeAvatar() async throws {
+    public func removeAvatar() async throws {
         let _: EmptyResponse = try await delete("/ugc/avatar")
     }
 
     // MARK: - Feed
 
-    func fetchFeed(
+    public func fetchFeed(
         cursor: String? = nil,
         limit: Int = 20,
         vibes: [String]? = nil,
@@ -173,14 +172,14 @@ actor APIClient: InteractionUploading {
         return FeedPage(posts: posts, cursor: response.cursor)
     }
 
-    static var dailyFeedBucket: String {
+    public static var dailyFeedBucket: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd"
         formatter.timeZone = TimeZone(identifier: "UTC")
         return formatter.string(from: Date())
     }
 
-    func fetchRecommendations(
+    public func fetchRecommendations(
         cursor: String? = nil,
         limit: Int = 20,
         vibes: [String]? = nil,
@@ -199,7 +198,7 @@ actor APIClient: InteractionUploading {
         return FeedPage(posts: posts, cursor: response.cursor)
     }
 
-    func fetchMixerRecommendations(
+    public func fetchMixerRecommendations(
         surface: String,
         cursor: String? = nil,
         limit: Int = 20,
@@ -241,7 +240,7 @@ actor APIClient: InteractionUploading {
         )
     }
 
-    func fetchFeedTaxonomy() async throws -> [FeedTheme] {
+    public func fetchFeedTaxonomy() async throws -> [FeedTheme] {
         let response: FeedTaxonomyResponse = try await get("/v2/feed-taxonomy")
         return response.themes.map { theme in
             FeedTheme(
@@ -251,13 +250,13 @@ actor APIClient: InteractionUploading {
         }
     }
 
-    func submitMixerEvents(_ events: [[String: Any]], anonymousId: String? = nil) async throws {
+    public func submitMixerEvents(_ events: [[String: Any]], anonymousId: String? = nil) async throws {
         var body: [String: Any] = ["events": events]
         if let anonymousId { body["anonymousId"] = anonymousId }
         let _: EmptyResponse = try await post("/v2/events/batch", body: body)
     }
 
-    func fetchMixerVisualSearch(imageBase64: String, text: String? = nil, limit: Int = 18) async throws -> [VectorItem] {
+    public func fetchMixerVisualSearch(imageBase64: String, text: String? = nil, limit: Int = 18) async throws -> [VectorItem] {
         let response: MixerResponse = try await post("/v2/recommendations", body: [
             "surface": "search", "subject": ["profileIds": []],
             "context": ["themeId": "for-you"],
@@ -277,7 +276,7 @@ actor APIClient: InteractionUploading {
         }
     }
 
-    func fetchChallengeLearningDeck(
+    public func fetchChallengeLearningDeck(
         profileIds: [String], seedItemIds: [String] = [], cursor: String? = nil,
         limit: Int = 14, excludeItemIds: [String] = []
     ) async throws -> MixerFeedPage {
@@ -292,7 +291,7 @@ actor APIClient: InteractionUploading {
         return mixerPage(response)
     }
 
-    func fetchRecipientLeaderboard(segment: String, limit: Int = 10) async throws -> [RecipientLeaderboardItem] {
+    public func fetchRecipientLeaderboard(segment: String, limit: Int = 10) async throws -> [RecipientLeaderboardItem] {
         let response: RecipientLeaderboardResponse = try await post(
             "/v2/recipient-leaderboard", body: ["segment": segment, "limit": limit]
         )
@@ -305,7 +304,7 @@ actor APIClient: InteractionUploading {
         }
     }
 
-    func fetchChallengeRecommendations(profileIds: [String], seedItemIds: [String] = [], limit: Int = 20) async throws -> MixerFeedPage {
+    public func fetchChallengeRecommendations(profileIds: [String], seedItemIds: [String] = [], limit: Int = 20) async throws -> MixerFeedPage {
         let response: MixerResponse = try await post("/v2/recommendations", body: [
             "surface": "challenge_recommend", "subject": ["profileIds": profileIds],
             "context": ["themeId": "for-you"], "query": ["seedItemIds": seedItemIds],
@@ -332,30 +331,30 @@ actor APIClient: InteractionUploading {
     // infra/ingest/build-shelves.mjs — semantic kNN over the shelf theme, not
     // vibe keywords). Throws (incl. 404) when no curated list exists yet; the
     // caller falls back to the legacy query-by-vibes path.
-    func fetchGallery(id: String, limit: Int = 60) async throws -> [Post] {
+    public func fetchGallery(id: String, limit: Int = 60) async throws -> [Post] {
         let response: FeedResponse = try await get("/galleries/\(id)", params: ["limit": String(limit)])
         return (response.items ?? []).map { mapAPIPost($0) }
     }
 
-    struct GiftBundleSlot: Identifiable {
-        let id: String
-        let label: String
-        let emoji: String
-        let items: [Post]
+    public struct GiftBundleSlot: Identifiable {
+        public let id: String
+        public let label: String
+        public let emoji: String
+        public let items: [Post]
     }
-    struct GiftBundle: Identifiable {
-        let id: String
-        let recipient: String
-        let why: String
-        let slots: [GiftBundleSlot]
+    public struct GiftBundle: Identifiable {
+        public let id: String
+        public let recipient: String
+        public let why: String
+        public let slots: [GiftBundleSlot]
     }
 
     // Reddit-mined "goes together" bundles resolved to buyable products.
     // recipient nil -> sampler across all mined recipients.
-    func fetchGiftBundles(recipient: String? = nil, limit: Int = 6) async throws -> [GiftBundle] {
-        struct SlotDTO: Codable { let key: String?; let label: String?; let emoji: String?; let items: [APIPost]? }
-        struct BundleDTO: Codable { let recipient: String?; let why: String?; let slots: [SlotDTO]? }
-        struct BundlesResponse: Codable { let bundles: [BundleDTO]? }
+    public func fetchGiftBundles(recipient: String? = nil, limit: Int = 6) async throws -> [GiftBundle] {
+        struct SlotDTO: Codable { public let key: String?; public let label: String?; public let emoji: String?; public let items: [APIPost]? }
+        struct BundleDTO: Codable { public let recipient: String?; public let why: String?; public let slots: [SlotDTO]? }
+        struct BundlesResponse: Codable { public let bundles: [BundleDTO]? }
         var params = ["limit": String(limit)]
         if let recipient { params["recipient"] = recipient }
         let response: BundlesResponse = try await get("/bundles", params: params)
@@ -378,7 +377,7 @@ actor APIClient: InteractionUploading {
 
     // MARK: - Interactions
 
-    func recordInteraction(userId: String?, targetId: String, type: String, data: [String: String]? = nil) async {
+    public func recordInteraction(userId: String?, targetId: String, type: String, data: [String: String]? = nil) async {
         var body: [String: Any] = ["targetId": targetId, "type": type]
         if let userId { body["userId"] = userId }
         if let data { body["data"] = data }
@@ -390,7 +389,7 @@ actor APIClient: InteractionUploading {
         }
     }
 
-    func batchRecordInteractions(_ interactions: [[String: Any]]) async {
+    public func batchRecordInteractions(_ interactions: [[String: Any]]) async {
         guard !interactions.isEmpty else { return }
         let body: [String: Any] = ["interactions": interactions]
         do {
@@ -407,7 +406,7 @@ actor APIClient: InteractionUploading {
         }
     }
 
-    func fetchInteractions(userId: String, types: [String]? = nil) async throws -> [PersistedInteraction] {
+    public func fetchInteractions(userId: String, types: [String]? = nil) async throws -> [PersistedInteraction] {
         var params: [String: String] = ["userId": userId]
         if let types, !types.isEmpty { params["types"] = types.joined(separator: ",") }
         let response: InteractionsResponse = try await get("/interactions", params: params)
@@ -421,14 +420,14 @@ actor APIClient: InteractionUploading {
     // userId is the CANONICAL identity: if this email already has an account
     // (e.g. created on the web), that account's id comes back and the app
     // adopts it — the web → iOS "all my data is here" handshake.
-    struct SessionResponse: Codable {
-        let token: String
-        let userId: String
-        let email: String?
-        let expiresIn: Double?
+    public struct SessionResponse: Codable {
+        public let token: String
+        public let userId: String
+        public let email: String?
+        public let expiresIn: Double?
     }
 
-    func establishSession(name: String? = nil) async throws -> SessionResponse {
+    public func establishSession(name: String? = nil) async throws -> SessionResponse {
         var body: [String: Any] = [:]
         if let name { body["name"] = name }
         return try await post("/auth/session", body: body)
@@ -437,14 +436,14 @@ actor APIClient: InteractionUploading {
     // POST /me/identity — name/email ping that MERGES server-side. Never use
     // PUT /me for sign-in pings: that REPLACES the row and wipes the profile
     // the web app saved (interests, events, genderPref …).
-    func identify(userId: String, name: String? = nil, email: String? = nil) async {
+    public func identify(userId: String, name: String? = nil, email: String? = nil) async {
         var body: [String: Any] = ["userId": userId]
         if let name, !name.isEmpty { body["name"] = name }
         if let email, !email.isEmpty { body["email"] = email }
         let _: EmptyResponse? = try? await post("/me/identity", body: body)
     }
 
-    func fetchMe(userId: String) async throws -> UserProfile? {
+    public func fetchMe(userId: String) async throws -> UserProfile? {
         let response: UserProfileResponse = try await get("/me", params: ["userId": userId])
         var profile = response.item
         let imageUrl = profile?.imageUrl
@@ -462,16 +461,16 @@ actor APIClient: InteractionUploading {
     // DELETE /account — App Store 5.1.1(v). Permanently deletes the signed-in
     // user's account and all server-side data (profile, interactions, soft
     // profiles, events, graph, friend edges). Irreversible.
-    func deleteAccount(userId: String) async throws {
+    public func deleteAccount(userId: String) async throws {
         let _: EmptyResponse = try await delete("/account", params: ["userId": userId])
     }
 
-    func saveMe(userId: String, profile: UserProfile) async throws {
+    public func saveMe(userId: String, profile: UserProfile) async throws {
         let body: [String: Any] = ["userId": userId, "profile": encodeToDictionary(profile)]
         let _: EmptyResponse = try await put("/me", body: body)
     }
 
-    func saveMe(userId: String, profile: [String: String]) async throws {
+    public func saveMe(userId: String, profile: [String: String]) async throws {
         var body: [String: Any] = ["userId": userId]
         body["profile"] = profile
         let _: EmptyResponse = try await put("/me", body: body)
@@ -481,14 +480,14 @@ actor APIClient: InteractionUploading {
     // superset of our Codable UserProfile, so the concierge writes the full
     // web-compatible dictionary. PUT REPLACES the row: callers must only use
     // this when the account has no completed profile yet.
-    func saveMeRaw(userId: String, profile: [String: Any]) async throws {
+    public func saveMeRaw(userId: String, profile: [String: Any]) async throws {
         let body: [String: Any] = ["userId": userId, "profile": profile]
         let _: EmptyResponse = try await put("/me", body: body)
     }
 
     // MARK: - Events
 
-    func fetchUpcomingEvents(userId: String, withinDays: Int = 90) async throws -> [UpcomingEvent] {
+    public func fetchUpcomingEvents(userId: String, withinDays: Int = 90) async throws -> [UpcomingEvent] {
         let params: [String: String] = [
             "userId": userId,
             "withinDays": String(withinDays)
@@ -500,7 +499,7 @@ actor APIClient: InteractionUploading {
     // GET /events — the unified events table (user-added dates, scope-tagged).
     // Distinct from /events/upcoming, which reads onboarding-logged occasions
     // off the user profile; the Circles hub merges both.
-    func fetchEvents(userId: String, scope: String? = nil) async throws -> [UpcomingEvent] {
+    public func fetchEvents(userId: String, scope: String? = nil) async throws -> [UpcomingEvent] {
         var params: [String: String] = ["userId": userId]
         if let scope { params["scope"] = scope }
         let response: UpcomingEventsResponse = try await get("/events", params: params)
@@ -512,7 +511,7 @@ actor APIClient: InteractionUploading {
     // birthday via the /circle/<id> web link (no account), and everyone sees
     // one gift calendar. The link is the credential.
 
-    func createCircle(name: String, emoji: String?, creatorName: String?, creatorBirthday: String?) async throws -> CircleCreateResponse {
+    public func createCircle(name: String, emoji: String?, creatorName: String?, creatorBirthday: String?) async throws -> CircleCreateResponse {
         var body: [String: Any] = ["name": name]
         if let emoji, !emoji.isEmpty { body["emoji"] = emoji }
         if let creatorName, !creatorName.isEmpty {
@@ -523,11 +522,11 @@ actor APIClient: InteractionUploading {
         return try await post("/circles", body: body)
     }
 
-    func fetchCircle(circleId: String) async throws -> CircleDataResponse {
+    public func fetchCircle(circleId: String) async throws -> CircleDataResponse {
         try await get("/circles/\(circleId)")
     }
 
-    func joinCircle(circleId: String, name: String, birthday: String?, userId: String? = nil) async throws -> CircleJoinResponse {
+    public func joinCircle(circleId: String, name: String, birthday: String?, userId: String? = nil) async throws -> CircleJoinResponse {
         var body: [String: Any] = ["name": name]
         if let birthday, !birthday.isEmpty { body["birthday"] = birthday }
         if let userId, !userId.isEmpty { body["userId"] = userId }
@@ -537,7 +536,7 @@ actor APIClient: InteractionUploading {
     /// Add a friend who's already on Giftmaxxing straight into a circle —
     /// no share link, no re-entering their birthday (WhatsApp-community model).
     @discardableResult
-    func addCircleMember(
+    public func addCircleMember(
         circleId: String,
         userId: String,
         name: String,
@@ -554,14 +553,14 @@ actor APIClient: InteractionUploading {
 
     /// Every circle this account belongs to (server truth), so a circle someone
     /// added you to shows up on your device.
-    func listMyCircles(userId: String) async throws -> [MyCircleRef] {
+    public func listMyCircles(userId: String) async throws -> [MyCircleRef] {
         let response: MyCirclesResponse = try await get("/circles", params: ["userId": userId])
         return response.items ?? []
     }
 
     /// Link a signed-in account to a circle seat so other members can friend / message / gift you.
     @discardableResult
-    func claimCircleSeat(circleId: String, userId: String, memberName: String) async throws -> CircleClaimResponse {
+    public func claimCircleSeat(circleId: String, userId: String, memberName: String) async throws -> CircleClaimResponse {
         try await post(
             "/circles/\(circleId)/claim",
             body: ["userId": userId, "memberName": memberName]
@@ -570,7 +569,7 @@ actor APIClient: InteractionUploading {
 
     // MARK: - Friends / people discovery / DMs
 
-    func searchPeople(query: String = "", limit: Int = 24) async throws -> [PublicPerson] {
+    public func searchPeople(query: String = "", limit: Int = 24) async throws -> [PublicPerson] {
         var params: [String: String] = ["limit": String(limit)]
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty { params["q"] = trimmed }
@@ -578,12 +577,12 @@ actor APIClient: InteractionUploading {
         return (response.items ?? []).map(normalizePerson)
     }
 
-    func fetchPerson(userId: String) async throws -> PublicPerson? {
+    public func fetchPerson(userId: String) async throws -> PublicPerson? {
         let response: PersonResponse = try await get("/people/\(userId)")
         return response.item.map(normalizePerson)
     }
 
-    func listFriends(userId: String, status: String? = nil) async throws -> [Friendship] {
+    public func listFriends(userId: String, status: String? = nil) async throws -> [Friendship] {
         var params: [String: String] = ["userId": userId]
         if let status { params["status"] = status }
         let response: FriendsListResponse = try await get("/friends", params: params)
@@ -594,28 +593,28 @@ actor APIClient: InteractionUploading {
         }
     }
 
-    func friendshipStatus(userId: String, otherId: String) async throws -> FriendshipStatusResponse {
+    public func friendshipStatus(userId: String, otherId: String) async throws -> FriendshipStatusResponse {
         try await get("/friends/status", params: ["userId": userId, "otherId": otherId])
     }
 
     @discardableResult
-    func requestFriend(fromUserId: String, toUserId: String, circleId: String? = nil) async throws -> FriendActionResponse {
+    public func requestFriend(fromUserId: String, toUserId: String, circleId: String? = nil) async throws -> FriendActionResponse {
         var body: [String: Any] = ["fromUserId": fromUserId, "toUserId": toUserId]
         if let circleId { body["circleId"] = circleId }
         return try await post("/friends/request", body: body)
     }
 
     @discardableResult
-    func acceptFriend(userId: String, fromUserId: String) async throws -> FriendActionResponse {
+    public func acceptFriend(userId: String, fromUserId: String) async throws -> FriendActionResponse {
         try await post("/friends/accept", body: ["userId": userId, "fromUserId": fromUserId])
     }
 
     @discardableResult
-    func removeFriend(userId: String, friendId: String) async throws -> FriendActionResponse {
+    public func removeFriend(userId: String, friendId: String) async throws -> FriendActionResponse {
         try await post("/friends/remove", body: ["userId": userId, "fromUserId": friendId, "friendId": friendId])
     }
 
-    func openDm(userId: String, otherUserId: String) async throws -> String {
+    public func openDm(userId: String, otherUserId: String) async throws -> String {
         let response: DmOpenResponse = try await post(
             "/dms/open",
             body: ["userId": userId, "otherUserId": otherUserId]
@@ -626,19 +625,19 @@ actor APIClient: InteractionUploading {
         return threadId
     }
 
-    func listDms(userId: String) async throws -> [DmThread] {
+    public func listDms(userId: String) async throws -> [DmThread] {
         let response: DmListResponse = try await get("/dms", params: ["userId": userId])
         return response.items ?? []
     }
 
-    func fetchDmMessages(threadId: String) async throws -> [DmMessage] {
+    public func fetchDmMessages(threadId: String) async throws -> [DmMessage] {
         let encoded = threadId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? threadId
         let response: DmMessagesResponse = try await get("/dms/\(encoded)/messages")
         return response.items ?? []
     }
 
     @discardableResult
-    func sendDmMessage(threadId: String, userId: String, name: String, text: String) async throws -> DmMessage {
+    public func sendDmMessage(threadId: String, userId: String, name: String, text: String) async throws -> DmMessage {
         let encoded = threadId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? threadId
         let response: DmSendResponse = try await post(
             "/dms/\(encoded)/messages",
@@ -651,7 +650,7 @@ actor APIClient: InteractionUploading {
     }
 
     @discardableResult
-    func addCircleEvent(
+    public func addCircleEvent(
         circleId: String,
         title: String,
         date: String,
@@ -667,13 +666,13 @@ actor APIClient: InteractionUploading {
     }
 
     @discardableResult
-    func deleteCircleEvent(circleId: String, eventId: String) async throws -> CircleAck {
+    public func deleteCircleEvent(circleId: String, eventId: String) async throws -> CircleAck {
         try await post("/circles/\(circleId)/events/delete", body: ["eventId": eventId])
     }
 
     // MARK: - Maxi Agent
 
-    func askMaxi(
+    public func askMaxi(
         userId: String?,
         name: String?,
         message: String,
@@ -724,7 +723,7 @@ actor APIClient: InteractionUploading {
     // The account's Maxi transcript, oldest first. Server-side, so the
     // conversation survives reinstall and follows the user to a new device —
     // UserDefaults alone lost it both times.
-    func fetchMaxiHistory(userId: String, limit: Int = 40) async throws -> [MaxiHistoryTurn] {
+    public func fetchMaxiHistory(userId: String, limit: Int = 40) async throws -> [MaxiHistoryTurn] {
         let response: MaxiHistoryResponse = try await get(
             "/maxi/history",
             params: ["userId": userId, "limit": String(limit)]
@@ -741,7 +740,7 @@ actor APIClient: InteractionUploading {
     //
     // This is a cold-start-heavy call (image generation runs for seconds), so
     // it gets its own generous timeout rather than the client default.
-    func fetchPackaging(
+    public func fetchPackaging(
         userId: String?,
         items: [PackagingRequestItem],
         occasion: String?,
@@ -769,17 +768,32 @@ actor APIClient: InteractionUploading {
         return response
     }
 
-    struct PackagingRequestItem {
-        let postId: String
-        let title: String
-        let image: String?
-        let category: String?
-        let price: Double?
+    public struct PackagingRequestItem {
+        public let postId: String
+        public let title: String
+        public let image: String?
+        public let category: String?
+        public let price: Double?
+
+        public init(
+            postId: String,
+            title: String,
+            image: String? = nil,
+            category: String? = nil,
+            price: Double? = nil
+        ) {
+            self.postId = postId
+            self.title = title
+            self.image = image
+            self.category = category
+            self.price = price
+        }
+
     }
 
     // MARK: - Vector Recommendations
 
-    func fetchVectorRecommendations(
+    public func fetchVectorRecommendations(
         seedKeys: [String]? = nil,
         vibes: [String]? = nil,
         sourceUser: String? = nil,
@@ -811,7 +825,7 @@ actor APIClient: InteractionUploading {
     // Mirrors web fetchVisualSearch (POST /visual-search {imageBase64, ...}).
     // userId (or the anonymous id) makes the server keep the photo's embedding
     // as a graph photoseed; the response echoes it packed for on-device use.
-    func fetchVisualSearch(
+    public func fetchVisualSearch(
         imageBase64: String,
         text: String? = nil,
         limit: Int = 18,
@@ -821,7 +835,7 @@ actor APIClient: InteractionUploading {
     ) async throws -> VectorResponse {
         var body: [String: Any] = ["imageBase64": imageBase64, "limit": limit]
         if let text, !text.isEmpty { body["text"] = text }
-        body["userId"] = userId ?? InteractionQueue.anonymousUserId
+        body["userId"] = userId ?? AnonymousIdentity.current
         if let intent, !intent.isEmpty { body["intent"] = intent }
         if let recipientRef, !recipientRef.isEmpty { body["recipientRef"] = recipientRef }
         return try await post("/visual-search", body: body)
@@ -834,7 +848,7 @@ actor APIClient: InteractionUploading {
     // deckMode "exact" (swipe lists): the guest deck is EXACTLY the seedKeys —
     // no lookalike padding, no hidden seed. `cards` carries client snapshots so
     // items outside the vector index still make the deck.
-    func createChallenge(
+    public func createChallenge(
         senderId: String,
         mode: String? = nil,
         seedImageBase64: String? = nil,
@@ -873,7 +887,7 @@ actor APIClient: InteractionUploading {
 
     // GET /challenges/{id} — the public view. For group gifts this carries the
     // shared tally (groupPicks + responders) every friend can see.
-    func fetchChallengeStatus(challengeId: String) async throws -> ChallengeStatusResponse {
+    public func fetchChallengeStatus(challengeId: String) async throws -> ChallengeStatusResponse {
         try await get("/challenges/\(challengeId)")
     }
 
@@ -884,7 +898,7 @@ actor APIClient: InteractionUploading {
     /// `dwellMs` per card is how long the recipient actually looked at it — a
     /// fast yes and a 20-second deliberation are different signals, and the
     /// server already stores the field.
-    func submitChallengeResponse(
+    public func submitChallengeResponse(
         challengeId: String,
         guestName: String,
         swipes: [(id: String, dir: String, dwellMs: Double)],
@@ -906,7 +920,7 @@ actor APIClient: InteractionUploading {
     /// Deliver a swipe list to a friend who already has the app: it lands in
     /// their in-app inbox with a push, instead of a link they have to open.
     @discardableResult
-    func inviteToChallenge(
+    public func inviteToChallenge(
         challengeId: String,
         toUserId: String,
         byUserId: String? = nil,
@@ -921,7 +935,7 @@ actor APIClient: InteractionUploading {
     }
 
     /// Swipe lists waiting for this account to answer.
-    func fetchChallengeInvites(userId: String) async throws -> [ChallengeInvite] {
+    public func fetchChallengeInvites(userId: String) async throws -> [ChallengeInvite] {
         let response: ChallengeInvitesResponse = try await get(
             "/challenge-invites",
             params: ["userId": userId]
@@ -931,7 +945,7 @@ actor APIClient: InteractionUploading {
 
     /// Hand a Gift Board to a co-giver so you can build the deck together.
     @discardableResult
-    func shareBoard(
+    public func shareBoard(
         toUserId: String,
         board: [String: Any],
         byUserId: String? = nil,
@@ -943,12 +957,12 @@ actor APIClient: InteractionUploading {
         return try await post("/boards/share", body: body)
     }
 
-    func fetchSharedBoards(userId: String) async throws -> [SharedBoard] {
+    public func fetchSharedBoards(userId: String) async throws -> [SharedBoard] {
         let response: SharedBoardsResponse = try await get("/board-shares", params: ["userId": userId])
         return response.items ?? []
     }
 
-    func acceptSharedBoard(shareId: String, userId: String) async {
+    public func acceptSharedBoard(shareId: String, userId: String) async {
         let _: BoardShareAck? = try? await post("/board-shares/\(shareId)/accept", body: ["userId": userId])
     }
 
@@ -956,14 +970,14 @@ actor APIClient: InteractionUploading {
     /// then caches on the post — so this is a plain read for everyone after
     /// the first viewer, instead of every client re-downloading and
     /// re-embedding the same image.
-    func fetchShoppable(postId: String) async throws -> [VectorItem] {
+    public func fetchShoppable(postId: String) async throws -> [VectorItem] {
         let response: ShoppableResponse = try await get("/posts/\(postId)/shoppable")
         return response.items ?? []
     }
 
     /// Resolve postIds (e.g. a challenge responder's yes-swipes) to display
     /// items. GET /posts/{id} is public and returns the raw post row.
-    func fetchPostsByIds(_ ids: [String]) async throws -> [VectorItem] {
+    public func fetchPostsByIds(_ ids: [String]) async throws -> [VectorItem] {
         await withTaskGroup(of: VectorItem?.self) { group in
             for id in ids.prefix(12) {
                 group.addTask {
@@ -989,14 +1003,14 @@ actor APIClient: InteractionUploading {
     // Quantized Titan embeddings for a set of pin keys — feeds the on-device
     // VectorStore so centroid + similarity math runs locally instead of in the
     // Lambda (GET /vectors is served straight from S3 Vectors GetVectors).
-    func fetchVectors(keys: [String]) async throws -> VectorsResponse {
+    public func fetchVectors(keys: [String]) async throws -> VectorsResponse {
         guard !keys.isEmpty else { return VectorsResponse(items: [], source: nil) }
         return try await get("/vectors", params: ["keys": keys.prefix(60).joined(separator: ",")])
     }
 
     // Batched interaction upload (one Lambda invocation per batch instead of
     // one per tap). Server accepts { items: [...] } on POST /interactions.
-    func sendInteractionsBatch(_ batch: [InteractionQueue.PendingInteraction]) async throws {
+    public func sendInteractionsBatch(_ batch: [PendingInteraction]) async throws {
         guard !batch.isEmpty else { return }
         let items: [[String: Any]] = batch.map {
             var item: [String: Any] = [
@@ -1017,13 +1031,13 @@ actor APIClient: InteractionUploading {
 
     // POST /connections/seen — clear the unseen flags (bell badge source).
     // Omitting connectionIds marks everything unseen as seen.
-    func markConnectionsSeen(userId: String, connectionIds: [String]? = nil) async {
+    public func markConnectionsSeen(userId: String, connectionIds: [String]? = nil) async {
         var body: [String: Any] = ["userId": userId]
         if let connectionIds, !connectionIds.isEmpty { body["connectionIds"] = connectionIds }
         let _: EmptyResponse? = try? await post("/connections/seen", body: body)
     }
 
-    func fetchConnections(userId: String, unseenOnly: Bool = false) async throws -> [SoftConnectionItem] {
+    public func fetchConnections(userId: String, unseenOnly: Bool = false) async throws -> [SoftConnectionItem] {
         var params: [String: String] = ["userId": userId]
         if unseenOnly { params["unseenOnly"] = "1" }
         let response: ConnectionsResponse = try await get("/connections", params: params)
@@ -1032,13 +1046,13 @@ actor APIClient: InteractionUploading {
 
     // MARK: - Graph
 
-    func fetchGraph(userId: String) async throws -> GraphResponse {
+    public func fetchGraph(userId: String) async throws -> GraphResponse {
         return try await get("/graph", params: ["userId": userId])
     }
 
     // MARK: - Mobile Device Registration
 
-    func registerDevice(userId: String, platform: String, token: String) async throws {
+    public func registerDevice(userId: String, platform: String, token: String) async throws {
         let body: [String: Any] = [
             "userId": userId,
             "platform": platform,
@@ -1049,7 +1063,7 @@ actor APIClient: InteractionUploading {
 
     // MARK: - Delta Sync
 
-    func fetchDeltaSync(since: Date) async throws -> DeltaSyncResponse {
+    public func fetchDeltaSync(since: Date) async throws -> DeltaSyncResponse {
         let params: [String: String] = [
             "since": String(Int(since.timeIntervalSince1970 * 1000)),
         ]
@@ -1058,14 +1072,14 @@ actor APIClient: InteractionUploading {
 
     // MARK: - Analytics
 
-    func uploadAnalytics(events: [[String: Any]]) async throws {
+    public func uploadAnalytics(events: [[String: Any]]) async throws {
         let body: [String: Any] = ["events": events]
         let _: EmptyResponse = try await post("/mobile/analytics", body: body)
     }
 
     // MARK: - Raw execution (for offline queue replay)
 
-    func executeRaw(method: String, path: String, body: [String: Any]?) async throws {
+    public func executeRaw(method: String, path: String, body: [String: Any]?) async throws {
         switch method.uppercased() {
         case "POST":
             let _: EmptyResponse = try await post(path, body: body ?? [:])
@@ -1079,7 +1093,7 @@ actor APIClient: InteractionUploading {
     // MARK: - Birthday freebies
 
     // Curated "free on your birthday" perks (see infra/src/birthday-freebies.mjs).
-    func fetchBirthdayFreebies() async throws -> BirthdayPerksResponse {
+    public func fetchBirthdayFreebies() async throws -> BirthdayPerksResponse {
         try await get("/birthday-freebies")
     }
 
@@ -1211,7 +1225,7 @@ actor APIClient: InteractionUploading {
     // MARK: - Post Mapping
 
     /// Shared-board payloads arrive as APIPosts — reuse the feed mapping.
-    func post(from api: APIPost) -> Post { mapAPIPost(api) }
+    public func post(from api: APIPost) -> Post { mapAPIPost(api) }
 
     private func mapAPIPost(_ api: APIPost) -> Post {
         let p = api.product
@@ -1342,30 +1356,30 @@ actor APIClient: InteractionUploading {
     }
 }
 
-struct FeedPage {
-    var posts: [Post]
-    var cursor: String?
+public struct FeedPage {
+    public var posts: [Post]
+    public var cursor: String?
 }
 
-struct MixerFeedPage {
-    let posts: [Post]
-    let cursor: String?
-    let recommendationId: String
-    let policyVersion: String
-    let modelVersion: String
-    let taxonomyVersion: String
-    let profileVersion: Int
-    let attributions: [String: String]
-    let ranks: [String: Int]
+public struct MixerFeedPage {
+    public let posts: [Post]
+    public let cursor: String?
+    public let recommendationId: String
+    public let policyVersion: String
+    public let modelVersion: String
+    public let taxonomyVersion: String
+    public let profileVersion: Int
+    public let attributions: [String: String]
+    public let ranks: [String: Int]
 }
 
-struct EmptyResponse: Decodable {}
+public struct EmptyResponse: Decodable {}
 
-enum APIError: LocalizedError {
+public enum APIError: LocalizedError {
     case invalidResponse
     case httpError(statusCode: Int)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .invalidResponse:
             return "Invalid response from server"

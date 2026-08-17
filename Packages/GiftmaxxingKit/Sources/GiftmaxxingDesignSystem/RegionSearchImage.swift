@@ -1,15 +1,34 @@
+// The design system is UIKit-backed (UIColor trait resolution, UIViewRepresentable
+// pickers, UIImage caching), so it only exists where UIKit does. The guard keeps
+// `swift build` / `swift test` working natively on macOS for the other three
+// targets — which is what makes the sub-second test loop possible.
+#if canImport(UIKit)
 import SwiftUI
+import GiftmaxxingCore
 
 // Lens-style query image: shows the photo with tappable anchor dots on the
 // objects Vision found. Tap a dot → search just that item; tap the selected
 // dot's frame corners mirror Amazon Lens's crop brackets.
-struct RegionSearchImage: View {
-    let image: UIImage
-    let regions: [CGRect]      // normalized, top-left origin
-    let selected: Int?
-    let onSelect: (Int?) -> Void
+public struct RegionSearchImage: View {
+    public let image: UIImage
+    public let regions: [CGRect]      // normalized, top-left origin
+    public let selected: Int?
+    public let onSelect: (Int?) -> Void
 
-    var body: some View {
+    public init(
+        image: UIImage,
+        regions: [CGRect],
+        selected: Int? = nil,
+        onSelect: @escaping (Int?) -> Void
+    ) {
+        self.image = image
+        self.regions = regions
+        self.selected = selected
+        self.onSelect = onSelect
+    }
+
+
+    public var body: some View {
         // Exact-fit frame (no clipping) so normalized rects map 1:1 to points.
         let aspect = image.size.height / max(image.size.width, 1)
         let width = min(UIScreen.main.bounds.width - 80, 300, 340 / max(aspect, 0.01))
@@ -57,3 +76,6 @@ struct RegionSearchImage: View {
         .animation(.spring(response: 0.3), value: selected)
     }
 }
+
+
+#endif

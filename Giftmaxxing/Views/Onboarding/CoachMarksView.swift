@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingDesignSystem
 
 // Interactive spotlight tour — a scrim with a hole punched over the REAL
 // control for each step. The user advances by tapping the actual control
@@ -158,7 +159,7 @@ struct CoachMarksView: View {
 
             HStack(spacing: 6) {
                 Image(systemName: "hand.tap.fill")
-                    .font(.caption)
+                    .font(.captionMedium)
                 Text(step.hint)
                     .font(.footnote.weight(.semibold))
             }

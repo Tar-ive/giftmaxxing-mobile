@@ -1,4 +1,10 @@
+// The design system is UIKit-backed (UIColor trait resolution, UIViewRepresentable
+// pickers, UIImage caching), so it only exists where UIKit does. The guard keeps
+// `swift build` / `swift test` working natively on macOS for the other three
+// targets — which is what makes the sub-second test loop possible.
+#if canImport(UIKit)
 import SwiftUI
+import GiftmaxxingCore
 
 // Maxi's mark: a four-point spark with concave sides — the shape people now
 // read as "intelligence" — drawn as a real Shape rather than an SF Symbol or
@@ -9,8 +15,8 @@ import SwiftUI
 // logo. Two problems with that: it made the assistant look like the app rather
 // than a character in it, and the floating button already used a spark — so
 // you tapped one mark and were answered by a different one.
-struct SparkleMark: Shape {
-    func path(in rect: CGRect) -> Path {
+public struct SparkleMark: Shape {
+    public func path(in rect: CGRect) -> Path {
         var path = Path()
         let w = rect.width
         let h = rect.height
@@ -33,13 +39,22 @@ struct SparkleMark: Shape {
 }
 
 // The avatar beside every Maxi reply, and the glyph inside the floating button.
-struct MaxiIcon: View {
-    var size: CGFloat = 32
+public struct MaxiIcon: View {
+    public var size: CGFloat = 32
     /// Draws the gradient disc behind the mark. Off when the mark sits on a
     /// coral surface already (the FAB).
-    var showsBackground: Bool = true
+    public var showsBackground: Bool = true
 
-    var body: some View {
+    public init(
+        size: CGFloat = 32,
+        showsBackground: Bool = true
+    ) {
+        self.size = size
+        self.showsBackground = showsBackground
+    }
+
+
+    public var body: some View {
         ZStack {
             if showsBackground {
                 Circle()
@@ -73,3 +88,6 @@ struct MaxiIcon: View {
     .padding()
     .background(Color.cream)
 }
+
+
+#endif

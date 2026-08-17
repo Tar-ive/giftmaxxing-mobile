@@ -3,6 +3,8 @@ import PhotosUI
 import Vision
 import OSLog
 import GiftmaxxingCore
+import GiftmaxxingDesignSystem
+import GiftmaxxingNetworking
 
 // Search — iOS port of web/app/feed/search/page.tsx: People / Brands /
 // Products / Visual tabs, brand-enriched matching, and photo-based visual
@@ -317,8 +319,11 @@ struct SearchTabsView: View {
     @State private var openDmThreadId: String?
     @State private var showDm = false
 
-    var body: some View {
-        NavigationStack {
+    // Extracted from `body`: the stack plus its own modifiers type-checks on
+    // its own, but chained onto the lifecycle modifiers below it exceeded the
+    // compiler budget once the design tokens moved into a module.
+    @ViewBuilder
+    private var searchStack: some View {
             VStack(spacing: 0) {
                 // Search field + camera button (web: search input + photo upload)
                 HStack(spacing: 8) {
@@ -328,7 +333,7 @@ struct SearchTabsView: View {
                         onSubmit: { viewModel.commitSearch() }
                     )
                     .onChange(of: viewModel.query) { _, _ in viewModel.search() }
-
+    
                     Button {
                         // On a device: choose camera or library. No camera
                         // (simulator/iPad without one): straight to library.
@@ -349,7 +354,7 @@ struct SearchTabsView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 8)
-
+    
                 // Tabs (web TABS row)
                 HStack(spacing: 6) {
                     ForEach(SearchTab.visible(inviteUnlocked: invites.isUnlocked), id: \.self) { tab in
@@ -369,7 +374,7 @@ struct SearchTabsView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-
+    
                 ScrollView {
                     switch viewModel.tab {
                     case .people where invites.isUnlocked:
@@ -405,71 +410,80 @@ struct SearchTabsView: View {
                     .accessibilityLabel("Close search")
                 }
             }
-            .sheet(item: $selectedPost) { post in
-                PostDetailView(post: post)
-            }
-            .task {
-                AnalyticsEngine.shared.trackScreenView(screen: "search")
-                await viewModel.loadCatalog()
-                await viewModel.loadPeople(userId: authManager.userId)
-            }
-            .onChange(of: viewModel.query) { _, _ in
-                guard viewModel.tab == .people else { return }
+    }
+
+    // The chain is split across two properties: as one expression it exceeded
+    // the type-checker budget once the tokens moved behind a module boundary.
+    private var chrome: some View {
+        NavigationStack { searchStack }
+        .sheet(item: $selectedPost) { post in
+            PostDetailView(post: post)
+        }
+        .task {
+            AnalyticsEngine.shared.trackScreenView(screen: "search")
+            await viewModel.loadCatalog()
+            await viewModel.loadPeople(userId: authManager.userId)
+        }
+        .onChange(of: viewModel.query) { _, _ in
+            guard viewModel.tab == .people else { return }
+            Task { await viewModel.loadPeople(userId: authManager.userId) }
+        }
+        .onChange(of: viewModel.tab) { _, tab in
+            if tab == .people {
                 Task { await viewModel.loadPeople(userId: authManager.userId) }
             }
-            .onChange(of: viewModel.tab) { _, tab in
-                if tab == .people {
-                    Task { await viewModel.loadPeople(userId: authManager.userId) }
-                }
-            }
-            .navigationDestination(isPresented: $showDm) {
-                if let openDmThreadId {
-                    FriendDmThreadView(threadId: openDmThreadId)
-                        .environmentObject(authManager)
-                }
-            }
-            .onAppear {
-                if let pending = appState.pendingSearchTab {
-                    viewModel.tab = pending
-                    appState.pendingSearchTab = nil
-                }
-                consumeCapture()
-            }
-            .onChange(of: appState.pendingSearchTab) { _, pending in
-                if let pending {
-                    viewModel.tab = pending
-                    appState.pendingSearchTab = nil
-                }
-            }
-            .onChange(of: appState.pendingCaptureImage) { _, _ in
-                consumeCapture()
-            }
-            .onChange(of: appState.pendingCaptureNote) { _, _ in
-                consumeCapture()
-            }
-            .onChange(of: photoItem) { _, newItem in
-                guard let newItem else { return }
-                Task {
-                    if let data = try? await newItem.loadTransferable(type: Data.self),
-                       let image = UIImage(data: data) {
-                        await viewModel.runVisualSearch(with: image)
-                    }
-                    photoItem = nil
-                }
-            }
-            .confirmationDialog("Search with a photo", isPresented: $showSourceDialog, titleVisibility: .visible) {
-                Button("Take a photo") { showCamera = true }
-                Button("Choose from library") { showLibrary = true }
-                Button("Cancel", role: .cancel) {}
-            }
-            .fullScreenCover(isPresented: $showCamera) {
-                CameraPicker { image in
-                    Task { await viewModel.runVisualSearch(with: image) }
-                }
-                .ignoresSafeArea()
-            }
-            .photosPicker(isPresented: $showLibrary, selection: $photoItem, matching: .images)
         }
+        .navigationDestination(isPresented: $showDm) {
+            if let openDmThreadId {
+                FriendDmThreadView(threadId: openDmThreadId)
+                    .environmentObject(authManager)
+            }
+        }
+        .onAppear {
+            if let pending = appState.pendingSearchTab {
+                viewModel.tab = pending
+                appState.pendingSearchTab = nil
+            }
+            consumeCapture()
+        }
+    }
+
+    var body: some View {
+        chrome
+        .onChange(of: appState.pendingSearchTab) { _, pending in
+            if let pending {
+                viewModel.tab = pending
+                appState.pendingSearchTab = nil
+            }
+        }
+        .onChange(of: appState.pendingCaptureImage) { _, _ in
+            consumeCapture()
+        }
+        .onChange(of: appState.pendingCaptureNote) { _, _ in
+            consumeCapture()
+        }
+        .onChange(of: photoItem) { _, newItem in
+            guard let newItem else { return }
+            Task {
+                if let data = try? await newItem.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    await viewModel.runVisualSearch(with: image)
+                }
+                photoItem = nil
+            }
+        }
+        .confirmationDialog("Search with a photo", isPresented: $showSourceDialog, titleVisibility: .visible) {
+            Button("Take a photo") { showCamera = true }
+            Button("Choose from library") { showLibrary = true }
+            Button("Cancel", role: .cancel) {}
+        }
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraPicker { image in
+                Task { await viewModel.runVisualSearch(with: image) }
+            }
+            .ignoresSafeArea()
+        }
+        .photosPicker(isPresented: $showLibrary, selection: $photoItem, matching: .images)
     }
 
     // Shared-in image (share extension / screenshots rail) → visual search.

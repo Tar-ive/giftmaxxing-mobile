@@ -3,6 +3,7 @@ import SwiftData
 import UserNotifications
 import FBSDKCoreKit
 import GiftmaxxingRecommendation
+import GiftmaxxingNetworking
 
 // Rebuild nudge: 2026-07-16 — verify Xcode Cloud auto-trigger on main.
 // SwiftUI apps never receive the APNs registration callbacks without a real

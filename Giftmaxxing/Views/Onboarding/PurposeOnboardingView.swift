@@ -1,5 +1,7 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // Two decisions, then value. Taste learning belongs in the Swipe tab where the
 // action has context; onboarding only establishes who the user shops for and a
@@ -137,7 +139,7 @@ struct PurposeOnboardingView: View {
                                     .font(.title2.weight(.semibold))
                                     .foregroundStyle(segment == recipient.id ? .white : Color.coral)
                                 Text(recipient.title).font(.headline)
-                                Text(recipient.subtitle).font(.caption).opacity(0.75)
+                                Text(recipient.subtitle).font(.captionMedium).opacity(0.75)
                             }
                             .foregroundStyle(segment == recipient.id ? .white : Color.ink)
                             .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
@@ -193,7 +195,7 @@ struct PurposeOnboardingView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.md))
                             VStack(alignment: .leading, spacing: 5) {
                                 Text(result.post.product.name).font(.headline).lineLimit(2)
-                                Text(result.post.product.brand).font(.caption).foregroundStyle(.secondary)
+                                Text(result.post.product.brand).font(.captionMedium).foregroundStyle(.secondary)
                                 Text(result.voterCount > 0 ? "Loved by \(result.voterCount) people" : "Curated starting pick")
                                     .font(.caption.weight(.semibold)).foregroundStyle(Color.coral)
                             }

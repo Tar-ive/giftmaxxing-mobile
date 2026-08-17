@@ -1,5 +1,7 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // Gift Boards a co-giver handed you — "we're both shopping for Mom, here's
 // what I've found so far." Accepting copies it into your boards so you can add
@@ -47,7 +49,7 @@ struct SharedBoardsRail: View {
                     .foregroundStyle(Color.ink)
                     .lineLimit(1)
                 Text(subtitle(share))
-                    .font(.caption)
+                    .font(.captionMedium)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }

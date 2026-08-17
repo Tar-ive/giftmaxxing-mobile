@@ -1,6 +1,7 @@
 import SwiftUI
 import GiftmaxxingCore
 import GiftmaxxingRecommendation
+import GiftmaxxingNetworking
 
 // The Gift Concierge consult (mirrors web/components/app/gift-consult.tsx).
 //

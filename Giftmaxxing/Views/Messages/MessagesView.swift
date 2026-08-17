@@ -1,5 +1,7 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // Group-gift messages — iOS port of web/app/feed/messages/page.tsx backed by
 // the same seeded chats (web/lib/social.ts GROUP_CHATS), persisted locally so
@@ -339,7 +341,7 @@ private struct ChatRow: View {
                     Spacer()
                     if let last = chat.messages.last {
                         Text(last.time)
-                            .font(.caption)
+                            .font(.captionMedium)
                             .foregroundStyle(.secondary)
                     }
                 }

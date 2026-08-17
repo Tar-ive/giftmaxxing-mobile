@@ -1,5 +1,7 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // Add friends who are ALREADY on Giftmaxxing straight into a circle — the
 // WhatsApp-community / Discord model. The share link stays for people without
@@ -92,7 +94,7 @@ struct AddFriendsToCircleSheet: View {
                     .lineLimit(1)
                 if let handle = friend.handle, !handle.isEmpty {
                     Text("@\(handle)")
-                        .font(.caption)
+                        .font(.captionMedium)
                         .foregroundStyle(.secondary)
                 }
             }

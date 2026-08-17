@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import Network
+import GiftmaxxingNetworking
 
 @MainActor
 final class OfflineQueue: ObservableObject {

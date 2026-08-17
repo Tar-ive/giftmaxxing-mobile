@@ -1,3 +1,8 @@
+// The design system is UIKit-backed (UIColor trait resolution, UIViewRepresentable
+// pickers, UIImage caching), so it only exists where UIKit does. The guard keeps
+// `swift build` / `swift test` working natively on macOS for the other three
+// targets — which is what makes the sub-second test loop possible.
+#if canImport(UIKit)
 import SwiftUI
 import GiftmaxxingCore
 
@@ -14,13 +19,26 @@ import GiftmaxxingCore
 // Column balancing is greedy-by-height rather than alternating, because
 // alternating leaves one column visibly longer whenever aspect ratios differ —
 // the classic ragged-Pinterest-column artefact.
-struct MasonryFeedGrid: View {
-    let posts: [Post]
-    var savedIds: Set<String> = []
-    var onTap: (Post) -> Void
-    var onSave: (Post) -> Void
+public struct MasonryFeedGrid: View {
+    public let posts: [Post]
+    public var savedIds: Set<String> = []
+    public var onTap: (Post) -> Void
+    public var onSave: (Post) -> Void
 
-    var body: some View {
+    public init(
+        posts: [Post],
+        savedIds: Set<String> = [],
+        onTap: @escaping (Post) -> Void,
+        onSave: @escaping (Post) -> Void
+    ) {
+        self.posts = posts
+        self.savedIds = savedIds
+        self.onTap = onTap
+        self.onSave = onSave
+    }
+
+
+    public var body: some View {
         LazyVGrid(
             columns: Array(repeating: GridItem(.flexible(), spacing: ThemeSpacing.xs, alignment: .top), count: 2),
             alignment: .leading,
@@ -41,16 +59,16 @@ struct MasonryFeedGrid: View {
 
 }
 
-struct MasonryTile: View {
-    let post: Post
-    var isSaved: Bool
-    var autoplaysGallery = false
-    var onTap: () -> Void
-    var onSave: () -> Void
+public struct MasonryTile: View {
+    public let post: Post
+    public var isSaved: Bool
+    public var autoplaysGallery = false
+    public var onTap: () -> Void
+    public var onSave: () -> Void
 
-    static func aspect(for post: Post) -> CGFloat { MediaAspect.recommendationCard }
+    public static func aspect(for post: Post) -> CGFloat { MediaAspect.recommendationCard }
 
-    var body: some View {
+    public var body: some View {
         // The IMAGE is the card. There is no container behind it: a rounded
         // panel around every photo added a second border to something that
         // already had edges, and on a dark theme those panels read as grey
@@ -119,3 +137,6 @@ struct MasonryTile: View {
         .clipped()
     }
 }
+
+
+#endif

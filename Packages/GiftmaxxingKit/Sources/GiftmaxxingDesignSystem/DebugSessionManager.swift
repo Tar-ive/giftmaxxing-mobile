@@ -1,4 +1,10 @@
+// The design system is UIKit-backed (UIColor trait resolution, UIViewRepresentable
+// pickers, UIImage caching), so it only exists where UIKit does. The guard keeps
+// `swift build` / `swift test` working natively on macOS for the other three
+// targets — which is what makes the sub-second test loop possible.
+#if canImport(UIKit)
 import SwiftUI
+import GiftmaxxingCore
 import Combine
 
 // Hidden design-variant switcher, unlocked by account.
@@ -15,14 +21,14 @@ import Combine
 // which accent paints. It grants no data access and unlocks no privileged API,
 // so a client-side email check is the right amount of rigour. Anything that
 // touched other people's data would need a server-issued claim instead.
-enum DesignVariant: String, CaseIterable, Identifiable {
+public enum DesignVariant: String, CaseIterable, Identifiable {
     case variantA
     case variantB
     case variantC
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
-    var displayName: String {
+    public var displayName: String {
         switch self {
         case .variantA: return "A · Control"
         case .variantB: return "B · Inspiration-led"
@@ -30,7 +36,7 @@ enum DesignVariant: String, CaseIterable, Identifiable {
         }
     }
 
-    var blurb: String {
+    public var blurb: String {
         switch self {
         case .variantA: return "Create opens straight to camera/gallery. Circles reads as groups. Coral."
         case .variantB: return "Create leads with post formats to copy. Circles reads as a calendar. Blue."
@@ -40,7 +46,7 @@ enum DesignVariant: String, CaseIterable, Identifiable {
 
     /// Accent override. A keeps the shipped coral precisely because it is the
     /// control — changing its accent would confound the comparison.
-    var accentHex: (light: String, dark: String)? {
+    public var accentHex: (light: String, dark: String)? {
         switch self {
         case .variantA: return nil
         case .variantB: return ("#1A73C7", "#5FA8FF")   // blue
@@ -49,7 +55,7 @@ enum DesignVariant: String, CaseIterable, Identifiable {
     }
 
     /// What the Create tab leads with.
-    var createFocus: CreateFocus {
+    public var createFocus: CreateFocus {
         switch self {
         case .variantA: return .cameraGallery
         case .variantB: return .postInspiration
@@ -57,7 +63,7 @@ enum DesignVariant: String, CaseIterable, Identifiable {
         }
     }
 
-    enum CreateFocus {
+    public enum CreateFocus {
         case cameraGallery
         case postInspiration
         case templates
@@ -66,7 +72,7 @@ enum DesignVariant: String, CaseIterable, Identifiable {
     /// Circles-tab iconography. Same information, three different metaphors —
     /// whether people read "circles" as a group, a calendar or a relationship
     /// is exactly the kind of thing you cannot settle by argument.
-    var circleIcons: CircleIconSet {
+    public var circleIcons: CircleIconSet {
         switch self {
         case .variantA: return CircleIconSet(
             circle: "person.3.fill",
@@ -94,18 +100,18 @@ enum DesignVariant: String, CaseIterable, Identifiable {
         }
     }
 
-    struct CircleIconSet {
-        let circle: String
-        let addEvent: String
-        let messages: String
-        let streak: String
-        let groupGift: String
+    public struct CircleIconSet {
+        public let circle: String
+        public let addEvent: String
+        public let messages: String
+        public let streak: String
+        public let groupGift: String
     }
 }
 
 @MainActor
-final class DebugSessionManager: ObservableObject {
-    static let shared = DebugSessionManager()
+public final class DebugSessionManager: ObservableObject {
+    public static let shared = DebugSessionManager()
 
     /// Operators who see the menu. Lowercased comparison.
     private static let allowlist: Set<String> = [
@@ -115,9 +121,9 @@ final class DebugSessionManager: ObservableObject {
     private static let variantKey = "giftmaxxing_design_variant"
 
     /// True only for an allowlisted signed-in account.
-    @Published private(set) var isUnlocked = false
+    @Published public private(set) var isUnlocked = false
 
-    @Published var variant: DesignVariant {
+    @Published public var variant: DesignVariant {
         didSet {
             guard variant != oldValue else { return }
             UserDefaults.standard.set(variant.rawValue, forKey: Self.variantKey)
@@ -136,7 +142,7 @@ final class DebugSessionManager: ObservableObject {
     /// Called on every auth state change. A non-operator account resets the
     /// variant, so signing in as someone else never leaves an experimental
     /// layout on screen.
-    func handleIdentityChange(email: String?) {
+    public func handleIdentityChange(email: String?) {
         let normalized = (email ?? "").lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         let unlocked = Self.allowlist.contains(normalized)
         // Persisted so `active` — which is read synchronously from draw code —
@@ -156,8 +162,11 @@ final class DebugSessionManager: ObservableObject {
 
     /// The variant that should DRAW right now. Locked to A unless unlocked, so
     /// a stale UserDefaults value can never leak an experiment to a real user.
-    nonisolated static var active: DesignVariant {
+    public nonisolated static var active: DesignVariant {
         guard UserDefaults.standard.bool(forKey: unlockedKey) else { return .variantA }
         return cachedVariant
     }
 }
+
+
+#endif

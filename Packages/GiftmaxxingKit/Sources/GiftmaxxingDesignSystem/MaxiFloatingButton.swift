@@ -1,4 +1,10 @@
+// The design system is UIKit-backed (UIColor trait resolution, UIViewRepresentable
+// pickers, UIImage caching), so it only exists where UIKit does. The guard keeps
+// `swift build` / `swift test` working natively on macOS for the other three
+// targets — which is what makes the sub-second test loop possible.
+#if canImport(UIKit)
 import SwiftUI
+import GiftmaxxingCore
 
 // Floating Maxi entry point — the one always-visible door to the concierge.
 //
@@ -7,15 +13,22 @@ import SwiftUI
 // pulse are sanctioned. The pulse is what makes it read as "alive and waiting"
 // rather than another toolbar icon; it is suppressed under Reduce Motion,
 // where the sparkles symbol's own breathe effect carries the affordance.
-struct MaxiFloatingButton: View {
-    var action: () -> Void
+public struct MaxiFloatingButton: View {
+    public var action: () -> Void
+
+    public init(
+        action: @escaping () -> Void
+    ) {
+        self.action = action
+    }
+
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pulse = false
 
     private let diameter: CGFloat = 56
 
-    var body: some View {
+    public var body: some View {
         Button(action: action) {
             ZStack {
                 Circle()
@@ -50,3 +63,6 @@ struct MaxiFloatingButton: View {
         }
     }
 }
+
+
+#endif

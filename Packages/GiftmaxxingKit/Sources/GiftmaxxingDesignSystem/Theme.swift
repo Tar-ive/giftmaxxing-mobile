@@ -1,3 +1,8 @@
+// The design system is UIKit-backed (UIColor trait resolution, UIViewRepresentable
+// pickers, UIImage caching), so it only exists where UIKit does. The guard keeps
+// `swift build` / `swift test` working natively on macOS for the other three
+// targets — which is what makes the sub-second test loop possible.
+#if canImport(UIKit)
 import SwiftUI
 import GiftmaxxingCore
 
@@ -17,21 +22,21 @@ extension Color {
     // the whole app can be re-themed at runtime. `var` not `let`: a stored
     // constant would bake in whichever palette happened to be selected at
     // first access and never change again.
-    static var coral: Color { token(\.coral) }
-    static var coralEmphasis: Color { token(\.coralEmphasis) }
-    static var cream: Color { token(\.cream) }
-    static var ink: Color { token(\.ink) }
-    static var inkSecondary: Color { token(\.inkSecondary) }
-    static var inkTertiary: Color { token(\.inkTertiary) }
-    static var line: Color { token(\.line) }
-    static var surface: Color { token(\.surface) }
-    static var surfaceSunken: Color { token(\.surfaceSunken) }
-    static var coralSoft: Color { token(\.coralSoft) }
-    static var gradientEnd: Color { token(\.gradientEnd) }
-    static var onboardingGlow: Color { token(\.onboardingGlow) }
-    static var onboardingWash: Color { token(\.onboardingWash) }
-    static var success: Color { token(\.success) }
-    static var danger: Color { token(\.danger) }
+    public static var coral: Color { token(\.coral) }
+    public static var coralEmphasis: Color { token(\.coralEmphasis) }
+    public static var cream: Color { token(\.cream) }
+    public static var ink: Color { token(\.ink) }
+    public static var inkSecondary: Color { token(\.inkSecondary) }
+    public static var inkTertiary: Color { token(\.inkTertiary) }
+    public static var line: Color { token(\.line) }
+    public static var surface: Color { token(\.surface) }
+    public static var surfaceSunken: Color { token(\.surfaceSunken) }
+    public static var coralSoft: Color { token(\.coralSoft) }
+    public static var gradientEnd: Color { token(\.gradientEnd) }
+    public static var onboardingGlow: Color { token(\.onboardingGlow) }
+    public static var onboardingWash: Color { token(\.onboardingWash) }
+    public static var success: Color { token(\.success) }
+    public static var danger: Color { token(\.danger) }
 
     private static func token(_ path: KeyPath<Palette, (light: String, dark: String)>) -> Color {
         // Resolved inside the UIColor provider, so the palette is read at DRAW
@@ -48,16 +53,16 @@ extension Color {
         })
     }
 
-    static let onPrimary = Color.white
+    public static let onPrimary = Color.white
 
     /// A color that resolves differently in light and dark appearance.
-    static func dynamic(light: String, dark: String) -> Color {
+    public static func dynamic(light: String, dark: String) -> Color {
         Color(uiColor: UIColor { traits in
             UIColor(Color(hex: traits.userInterfaceStyle == .dark ? dark : light))
         })
     }
 
-    init(hex: String) {
+    public init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0
         Scanner(string: hex).scanHexInt64(&int)
@@ -81,7 +86,7 @@ extension Color {
         )
     }
 
-    static var brandGradient: LinearGradient {
+    public static var brandGradient: LinearGradient {
         LinearGradient(
             colors: [.coral, .gradientEnd],
             startPoint: .topLeading,
@@ -89,7 +94,7 @@ extension Color {
         )
     }
 
-    static func gradient(for style: GradientStyle) -> LinearGradient {
+    public static func gradient(for style: GradientStyle) -> LinearGradient {
         let colors = style.colors
         return LinearGradient(
             colors: [Color(hex: colors.primary), Color(hex: colors.secondary)],
@@ -99,30 +104,30 @@ extension Color {
     }
 }
 
-enum ThemeRadius {
-    static let sm: CGFloat = 8
-    static let md: CGFloat = 12
-    static let lg: CGFloat = 16
-    static let xl: CGFloat = 24
+public enum ThemeRadius {
+    public static let sm: CGFloat = 8
+    public static let md: CGFloat = 12
+    public static let lg: CGFloat = 16
+    public static let xl: CGFloat = 24
 }
 
-enum ThemeSpacing {
-    static let xxs: CGFloat = 4
-    static let xs: CGFloat = 8
-    static let sm: CGFloat = 12
-    static let md: CGFloat = 16
-    static let lg: CGFloat = 20
-    static let xl: CGFloat = 24
-    static let xxl: CGFloat = 32
+public enum ThemeSpacing {
+    public static let xxs: CGFloat = 4
+    public static let xs: CGFloat = 8
+    public static let sm: CGFloat = 12
+    public static let md: CGFloat = 16
+    public static let lg: CGFloat = 20
+    public static let xl: CGFloat = 24
+    public static let xxl: CGFloat = 32
 }
 
-enum ThemeElevation {
-    static let card = (color: Color.black.opacity(0.06), radius: CGFloat(12), y: CGFloat(4))
-    static let floating = (color: Color.black.opacity(0.10), radius: CGFloat(24), y: CGFloat(8))
+public enum ThemeElevation {
+    public static let card = (color: Color.black.opacity(0.06), radius: CGFloat(12), y: CGFloat(4))
+    public static let floating = (color: Color.black.opacity(0.10), radius: CGFloat(24), y: CGFloat(8))
 }
 
 extension View {
-    func cardElevation() -> some View {
+    public func cardElevation() -> some View {
         shadow(
             color: ThemeElevation.card.color,
             radius: ThemeElevation.card.radius,
@@ -131,8 +136,10 @@ extension View {
     }
 }
 
-struct PrimaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
+public struct PrimaryButtonStyle: ButtonStyle {
+    public init() {}
+
+    public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.labelBold)
             .foregroundStyle(.white)
@@ -145,8 +152,10 @@ struct PrimaryButtonStyle: ButtonStyle {
     }
 }
 
-struct SecondaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
+public struct SecondaryButtonStyle: ButtonStyle {
+    public init() {}
+
+    public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
             .foregroundStyle(Color.coral)
@@ -160,12 +169,19 @@ struct SecondaryButtonStyle: ButtonStyle {
 }
 
 extension Font {
-    static let displayLarge = Font.system(size: 28, weight: .heavy, design: .rounded)
-    static let displayMedium = Font.system(size: 22, weight: .bold, design: .rounded)
-    static let displaySmall = Font.system(size: 18, weight: .bold, design: .rounded)
-    static let bodyLarge = Font.system(size: 16, weight: .regular)
-    static let bodyMedium = Font.system(size: 14, weight: .regular)
-    static let bodySmall = Font.system(size: 12, weight: .regular)
-    static let caption = Font.system(size: 11, weight: .medium)
-    static let labelBold = Font.system(size: 14, weight: .bold)
+    public static let displayLarge = Font.system(size: 28, weight: .heavy, design: .rounded)
+    public static let displayMedium = Font.system(size: 22, weight: .bold, design: .rounded)
+    public static let displaySmall = Font.system(size: 18, weight: .bold, design: .rounded)
+    public static let bodyLarge = Font.system(size: 16, weight: .regular)
+    public static let bodyMedium = Font.system(size: 14, weight: .regular)
+    public static let bodySmall = Font.system(size: 12, weight: .regular)
+    /// NOT named `caption`: SwiftUI already defines `Font.captionMedium`, and once the
+    /// tokens moved into their own module the two became ambiguous at every call
+    /// site — silently resolving to SwiftUI's dynamic caption instead of this
+    /// 11pt medium. Distinct names keep the design system unambiguous.
+    public static let captionMedium = Font.system(size: 11, weight: .medium)
+    public static let labelBold = Font.system(size: 14, weight: .bold)
 }
+
+
+#endif

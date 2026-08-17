@@ -1,5 +1,6 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingDesignSystem
 
 struct CuratedJourneyRail: View {
     let onSelect: (CuratedGiftJourney) -> Void
@@ -254,7 +255,7 @@ struct CuratedJourneyDetailView: View {
                 .foregroundStyle(Color.inkSecondary)
 
             Text(product.capabilities.joined(separator: " · "))
-                .font(.caption)
+                .font(.captionMedium)
                 .foregroundStyle(Color.inkTertiary)
 
             HStack(spacing: ThemeSpacing.sm) {

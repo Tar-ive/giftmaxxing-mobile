@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingDesignSystem
 
 // Activity / notifications feed — iOS port of web/app/feed/activity/page.tsx.
 // Completed challenge connections (from the invite flow) surface at the top,
@@ -68,7 +69,7 @@ private struct ActivityRow: View {
                 .fixedSize(horizontal: false, vertical: true)
 
                 Text(item.time)
-                    .font(.caption)
+                    .font(.captionMedium)
                     .foregroundStyle(.secondary)
             }
 

@@ -28,6 +28,10 @@ targets:
         product: GiftmaxxingCore
       - package: GiftmaxxingKit
         product: GiftmaxxingRecommendation
+      - package: GiftmaxxingKit
+        product: GiftmaxxingNetworking
+      - package: GiftmaxxingKit
+        product: GiftmaxxingDesignSystem
       - package: Facebook
         product: FacebookCore
     # giftmaxxing:// deep links — the share extension hands off to the app

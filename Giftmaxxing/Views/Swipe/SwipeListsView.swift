@@ -1,6 +1,8 @@
 import SwiftUI
 import GiftmaxxingCore
 import GiftmaxxingRecommendation
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // The "For someone" home: every Gift Board you keep, one per person/occasion
 // (Instagram-collections model). Tap into a board to manage its items, send it
@@ -185,7 +187,7 @@ struct SwipeListRow: View {
                             .foregroundStyle(Color.coral)
                     }
                 }
-                .font(.caption)
+                .font(.captionMedium)
                 .foregroundStyle(.secondary)
             }
 

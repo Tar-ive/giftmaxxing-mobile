@@ -1,6 +1,7 @@
 import Foundation
 import GiftmaxxingCore
 import GiftmaxxingRecommendation
+import GiftmaxxingNetworking
 
 // Local-first (like pools); each list's share link is backed by a server-side
 // challenge, and responses flow back through the existing challenge/connection

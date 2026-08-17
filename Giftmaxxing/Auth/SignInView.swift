@@ -70,7 +70,7 @@ struct SignInView: View {
 
             if let error = authManager.error {
                 Text(error)
-                    .font(.caption)
+                    .font(.captionMedium)
                     .foregroundStyle(.red)
                     .padding(.horizontal, 40)
                     .multilineTextAlignment(.center)

@@ -1,6 +1,8 @@
 import SwiftUI
 import GiftmaxxingCore
 import GiftmaxxingRecommendation
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // Native, in-app challenge swiping — no browser bounce. An invite arriving in
 // a DM, a deep link (giftmaxxing://challenge/<id>), or a pasted invite URL
@@ -138,7 +140,7 @@ struct ChallengeSwipeView: View {
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
             Text("\(min(index + 1, deck.count))/\(deck.count)")
-                .font(.caption)
+                .font(.captionMedium)
                 .foregroundStyle(.tertiary)
         }
         .padding(.top, 10)
@@ -381,7 +383,7 @@ struct FriendPickerSheet: View {
                                         .foregroundStyle(Color.ink)
                                     if let handle = friend.handle {
                                         Text("@\(handle)")
-                                            .font(.caption)
+                                            .font(.captionMedium)
                                             .foregroundStyle(.secondary)
                                     }
                                 }

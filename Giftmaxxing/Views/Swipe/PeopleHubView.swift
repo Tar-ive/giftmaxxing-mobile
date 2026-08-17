@@ -1,6 +1,8 @@
 import SwiftUI
 import SwiftData
 import GiftmaxxingCore
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // Swipe → "People": the challenge hub. Every person you gift for, in one
 // list, split by what you can DO right now:
@@ -195,7 +197,7 @@ struct PeopleHubView: View {
                         .foregroundStyle(Color.ink)
                         .lineLimit(1)
                     Text(statusLine(person))
-                        .font(.caption)
+                        .font(.captionMedium)
                         .foregroundStyle(person.hasResults ? Color.coral : Color.inkSecondary)
                         .lineLimit(1)
                 }
@@ -338,7 +340,7 @@ struct ChallengeResultsSheet: View {
                         HStack(spacing: 8) {
                             ProgressView().scaleEffect(0.8)
                             Text("Loading what they liked…")
-                                .font(.caption)
+                                .font(.captionMedium)
                                 .foregroundStyle(.secondary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)

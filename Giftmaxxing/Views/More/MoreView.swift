@@ -4,6 +4,8 @@ import SwiftUI
 import SwiftData
 import UIKit
 import GiftmaxxingCore
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 struct MoreView: View {
     @EnvironmentObject private var appState: AppState
@@ -474,7 +476,7 @@ struct MoreView: View {
                 Spacer()
                 if let price = item.price, price > 0 { Text(price, format: .currency(code: "USD")) }
             }
-            .font(.caption)
+            .font(.captionMedium)
             .foregroundStyle(Color.inkSecondary)
         }
         .padding(10)
@@ -530,7 +532,7 @@ struct MoreView: View {
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(Color.coral)
                         Text(value).font(.system(size: 17, weight: .bold, design: .rounded))
-                        Text(key.capitalized).font(.caption).foregroundStyle(Color.inkSecondary)
+                        Text(key.capitalized).font(.captionMedium).foregroundStyle(Color.inkSecondary)
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -680,7 +682,7 @@ struct MoreView: View {
                             .font(.system(size: 12, weight: .bold))
                             .foregroundStyle(.secondary)
                         Image(systemName: "chevron.right")
-                            .font(.caption)
+                            .font(.captionMedium)
                             .foregroundStyle(.tertiary)
                     }
                     .padding(.horizontal, 14)
@@ -802,7 +804,7 @@ struct MoreView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Appearance").font(.system(size: 15, weight: .medium))
                                 Text(appearance.mode.label)
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(.captionMedium).foregroundStyle(.secondary)
                             }
                             Spacer()
                             Picker("Appearance", selection: $appearance.mode) {
@@ -822,7 +824,7 @@ struct MoreView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Profile visibility").font(.system(size: 15, weight: .medium))
                                     Text(visibility == "private" ? "Friends only" : "Anyone can view")
-                                        .font(.caption).foregroundStyle(.secondary)
+                                        .font(.captionMedium).foregroundStyle(.secondary)
                                 }
                                 Spacer()
                                 Picker("Profile visibility", selection: $visibility) {
@@ -929,10 +931,10 @@ struct MoreView: View {
                 Image(systemName: icon).frame(width: 28)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.system(size: 15, weight: .medium))
-                    if let subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) }
+                    if let subtitle { Text(subtitle).font(.captionMedium).foregroundStyle(.secondary) }
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                Image(systemName: "chevron.right").font(.captionMedium).foregroundStyle(.tertiary)
             }
             .foregroundStyle(role == .destructive ? Color.red : Color.ink)
             .padding(14)
@@ -1382,14 +1384,14 @@ struct MoreRow<Destination: View>: View {
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(Color.ink)
                     Text(subtitle)
-                        .font(.caption)
+                        .font(.captionMedium)
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.caption)
+                    .font(.captionMedium)
                     .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 14)
@@ -1427,7 +1429,7 @@ struct SupportView: View {
                             Image(systemName: "envelope.fill")
                             Text(supportEmail).font(.labelBold)
                             Spacer()
-                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                            Image(systemName: "chevron.right").font(.captionMedium).foregroundStyle(.tertiary)
                         }
                         .foregroundStyle(Color.coral)
                         .padding(14)

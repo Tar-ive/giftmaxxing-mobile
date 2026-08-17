@@ -1,6 +1,8 @@
 import SwiftUI
 import GiftmaxxingCore
 import GiftmaxxingRecommendation
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // Shared, not per-sheet: the conversation is the product. A concierge that
 // restarts the interview every time you close the sheet is a search box with
@@ -331,7 +333,7 @@ struct MaxiView: View {
                 if let brief = viewModel.brief, !brief.isEmpty {
                     HStack(spacing: 6) {
                         Image(systemName: "target")
-                            .font(.caption)
+                            .font(.captionMedium)
                         Text(brief.summary)
                             .font(.footnote.weight(.medium))
                             .lineLimit(1)
@@ -427,7 +429,7 @@ struct MaxiView: View {
                     .background(Color.coralSoft)
                 } else if let voiceError = speech.errorMessage {
                     Text(voiceError)
-                        .font(.caption)
+                        .font(.captionMedium)
                         .foregroundStyle(.red)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 6)
@@ -577,11 +579,11 @@ struct MaxiMessageBubble: View {
                     if let rating = message.rating {
                         Label(rating > 0 ? "Thanks — more like these." : "Got it — I'll steer away.",
                               systemImage: rating > 0 ? "hand.thumbsup.fill" : "hand.thumbsdown.fill")
-                            .font(.caption)
+                            .font(.captionMedium)
                             .foregroundStyle(Color.inkTertiary)
                     } else {
                         Text("Any good?")
-                            .font(.caption)
+                            .font(.captionMedium)
                             .foregroundStyle(Color.inkTertiary)
                         Button { onRate?(1) } label: {
                             Image(systemName: "hand.thumbsup")
@@ -646,7 +648,7 @@ struct MaxiMessageBubble: View {
                                     .font(.system(size: 12))
                                     .foregroundStyle(.green)
                                 Text(step.label)
-                                    .font(.caption)
+                                    .font(.captionMedium)
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -758,7 +760,7 @@ struct MaxiProductCard: View {
 
             if let brand = product.brand, !brand.isEmpty {
                 Text(brand)
-                    .font(.caption)
+                    .font(.captionMedium)
                     .foregroundStyle(Color.inkTertiary)
                     .lineLimit(1)
             }

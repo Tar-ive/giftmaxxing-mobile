@@ -98,7 +98,7 @@ struct InviteCodeSheet: View {
 
                 if failed {
                     Text("That code isn't valid. Check it with whoever invited you.")
-                        .font(.caption)
+                        .font(.captionMedium)
                         .foregroundStyle(.red)
                 }
 

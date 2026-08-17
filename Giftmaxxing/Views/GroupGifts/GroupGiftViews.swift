@@ -1,6 +1,8 @@
 import SwiftUI
 import GiftmaxxingCore
 import GiftmaxxingRecommendation
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // ── Group gifts — the "swipe together" context ───────────────────────────────
 // One friend starts it, everyone swipes the same server-built deck, the tally
@@ -855,7 +857,7 @@ struct GroupSwipeSheet: View {
                 let item = deck[index]
 
                 Text("\(index + 1)/\(deck.count)")
-                    .font(.caption)
+                    .font(.captionMedium)
                     .foregroundStyle(.secondary)
 
                 VStack(spacing: 0) {

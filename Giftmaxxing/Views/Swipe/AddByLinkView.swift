@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import GiftmaxxingCore
+import GiftmaxxingDesignSystem
 
 // Paste any product link — SHEIN, Target, Walmart, Sephora, HEB, a Shopify
 // store, anything with a URL — and it becomes a swipeable card you can drop
@@ -188,7 +189,7 @@ struct AddByLinkView: View {
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
                         Text(metaLine(post))
-                            .font(.caption)
+                            .font(.captionMedium)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -352,7 +353,7 @@ struct BoardChooserSheet: View {
                                         .foregroundStyle(Color.ink)
                                         .lineLimit(1)
                                     Text(subtitle(list))
-                                        .font(.caption)
+                                        .font(.captionMedium)
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()

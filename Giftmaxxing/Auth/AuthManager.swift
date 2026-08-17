@@ -1,5 +1,6 @@
 import SwiftUI
 import AuthenticationServices
+import GiftmaxxingNetworking
 
 @MainActor
 final class AuthManager: ObservableObject {

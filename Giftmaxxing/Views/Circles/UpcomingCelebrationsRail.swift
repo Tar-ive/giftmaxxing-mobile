@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingDesignSystem
 
 // "Upcoming celebrations" — replaces the 31-day month grid.
 //

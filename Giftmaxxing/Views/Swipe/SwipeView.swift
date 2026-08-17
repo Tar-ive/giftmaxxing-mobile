@@ -2,6 +2,8 @@ import SwiftUI
 import SwiftData
 import GiftmaxxingCore
 import GiftmaxxingRecommendation
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 enum ProductReliabilityVote: String, Codable, CaseIterable {
     case reliable = "reliability_reliable"
@@ -384,7 +386,7 @@ struct SwipeView: View {
                 Text(viewModel.yesCount < 10
                      ? "Like \(10 - viewModel.yesCount) more to sharpen your picks"
                      : "Your taste profile is getting smarter")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.captionMedium).foregroundStyle(.secondary)
             }
             Spacer()
             Text("\(viewModel.choices)").font(.caption.weight(.bold)).foregroundStyle(.secondary)

@@ -1,5 +1,7 @@
 import SwiftUI
 import GiftmaxxingCore
+import GiftmaxxingNetworking
+import GiftmaxxingDesignSystem
 
 // Intentional Discover — the anti-doomscroll shelf. One finite, slower page
 // (no infinite scroll, no autoplay): a couple dozen picks ranked by a

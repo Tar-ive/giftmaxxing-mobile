@@ -1,5 +1,6 @@
 import Foundation
 import GiftmaxxingCore
+import GiftmaxxingNetworking
 
 // Bridges a networking DTO into the Core value type. This lives in the app
 // because GiftmaxxingCore must not know the API layer exists.

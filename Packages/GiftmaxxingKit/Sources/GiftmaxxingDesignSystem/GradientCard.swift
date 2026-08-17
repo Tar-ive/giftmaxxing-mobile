@@ -1,13 +1,31 @@
+// The design system is UIKit-backed (UIColor trait resolution, UIViewRepresentable
+// pickers, UIImage caching), so it only exists where UIKit does. The guard keeps
+// `swift build` / `swift test` working natively on macOS for the other three
+// targets — which is what makes the sub-second test loop possible.
+#if canImport(UIKit)
 import SwiftUI
 import GiftmaxxingCore
 
-struct GradientCard: View {
-    let grad: GradientStyle
-    let emoji: String
-    var imageURL: String?
-    var size: CGFloat = 120
+public struct GradientCard: View {
+    public let grad: GradientStyle
+    public let emoji: String
+    public var imageURL: String?
+    public var size: CGFloat = 120
 
-    var body: some View {
+    public init(
+        grad: GradientStyle,
+        emoji: String,
+        imageURL: String? = nil,
+        size: CGFloat = 120
+    ) {
+        self.grad = grad
+        self.emoji = emoji
+        self.imageURL = imageURL
+        self.size = size
+    }
+
+
+    public var body: some View {
         ZStack {
             Color.gradient(for: grad)
 
@@ -40,10 +58,17 @@ struct GradientCard: View {
 // decoration circles, the emoji in a frosted chip, then the product name and
 // brand in the app's rounded display type. Used by PostCardView and
 // SwipeCardView whenever product.image is nil.
-struct ProductArtworkView: View {
-    let post: Post
+public struct ProductArtworkView: View {
+    public let post: Post
 
-    var body: some View {
+    public init(
+        post: Post
+    ) {
+        self.post = post
+    }
+
+
+    public var body: some View {
         GeometryReader { geo in
             let side = min(geo.size.width, geo.size.height)
             ZStack {
@@ -78,7 +103,7 @@ struct ProductArtworkView: View {
                         Text(post.isService
                              ? [post.product.brand, post.serviceDuration].compactMap { $0 }.joined(separator: " · ")
                              : post.product.brand)
-                            .font(.caption)
+                            .font(.captionMedium)
                             .fontWeight(.semibold)
                             .textCase(.uppercase)
                             .kerning(1.1)
@@ -95,10 +120,17 @@ struct ProductArtworkView: View {
 // Capsule tag for gift-able services ("a year of Netflix") — services often
 // ship without a product photo, so the branded gradient + emoji IS the card
 // and this badge is what tells the user it's a subscription, not a thing.
-struct ServiceBadge: View {
-    var duration: String?
+public struct ServiceBadge: View {
+    public var duration: String?
 
-    var body: some View {
+    public init(
+        duration: String? = nil
+    ) {
+        self.duration = duration
+    }
+
+
+    public var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "gift.circle.fill")
                 .font(.system(size: 11, weight: .bold))
@@ -114,16 +146,33 @@ struct ServiceBadge: View {
     }
 }
 
-struct AvatarView: View {
-    let name: String
-    let grad: GradientStyle
-    var size: CGFloat = 40
-    var imageUrl: String? = nil
-    var anonymousFallback = false
+public struct AvatarView: View {
+    public let name: String
+    public let grad: GradientStyle
+    public var size: CGFloat = 40
+    public var imageUrl: String? = nil
+    public var anonymousFallback = false
     /// A merchant/brand domain. When there is no uploaded photo, the brand's own
     /// icon beats two letters — you recognise the Allbirds mark instantly and
     /// "AL" not at all.
-    var domain: String? = nil
+    public var domain: String? = nil
+
+    public init(
+        name: String,
+        grad: GradientStyle,
+        size: CGFloat = 40,
+        imageUrl: String? = nil,
+        anonymousFallback: Bool = false,
+        domain: String? = nil
+    ) {
+        self.name = name
+        self.grad = grad
+        self.size = size
+        self.imageUrl = imageUrl
+        self.anonymousFallback = anonymousFallback
+        self.domain = domain
+    }
+
 
     private var initials: String { AvatarPalette.initials(for: name) }
 
@@ -132,7 +181,7 @@ struct AvatarView: View {
         imageUrl ?? AvatarPalette.brandIconURL(domain: domain)
     }
 
-    var body: some View {
+    public var body: some View {
         ZStack {
             // The fallback is ALWAYS drawn; the photo sits on top. A broken
             // avatar URL then reveals initials instead of a broken-photo icon.
@@ -175,3 +224,6 @@ struct AvatarView: View {
         }
     }
 }
+
+
+#endif

@@ -1,3 +1,8 @@
+// The design system is UIKit-backed (UIColor trait resolution, UIViewRepresentable
+// pickers, UIImage caching), so it only exists where UIKit does. The guard keeps
+// `swift build` / `swift test` working natively on macOS for the other three
+// targets — which is what makes the sub-second test loop possible.
+#if canImport(UIKit)
 import SwiftUI
 import GiftmaxxingCore
 
@@ -12,10 +17,10 @@ import GiftmaxxingCore
 // fixed saturation and lightness, so every colour is equally vivid and equally
 // legible against white text. Same name always gives the same colour — across
 // devices, launches and accounts — because the hash is stable, not random.
-enum AvatarPalette {
+public enum AvatarPalette {
     // FNV-1a. Swift's `hashValue` is seeded per-process, so the same name would
     // change colour on every launch — the one thing this must never do.
-    static func stableHash(_ string: String) -> UInt32 {
+    public static func stableHash(_ string: String) -> UInt32 {
         var hash: UInt32 = 2_166_136_261
         for byte in string.lowercased().utf8 {
             hash ^= UInt32(byte)
@@ -25,7 +30,7 @@ enum AvatarPalette {
     }
 
     /// Hue in 0..<360 for a display string.
-    static func hue(for string: String) -> Double {
+    public static func hue(for string: String) -> Double {
         Double(stableHash(string) % 360)
     }
 
@@ -77,7 +82,7 @@ enum AvatarPalette {
     }
 
     /// The darkest-needed lightness for this hue so white initials clear AA.
-    static func accessibleLightness(forHue hue: Double) -> Double {
+    public static func accessibleLightness(forHue hue: Double) -> Double {
         var l = baseLightness
         while l > minLightness,
               contrastWithWhite(hslToRGB(h: hue, s: saturation, l: l)) < contrastTarget {
@@ -91,7 +96,7 @@ enum AvatarPalette {
     /// colour that could clash. Both stops respect the solved lightness — a
     /// fixed lift would re-create the washed-out corner exactly where the
     /// initials sit.
-    static func gradient(for string: String) -> LinearGradient {
+    public static func gradient(for string: String) -> LinearGradient {
         let h = hue(for: string)
         let l = accessibleLightness(forHue: h)
         let h2 = (h + 24).truncatingRemainder(dividingBy: 360)
@@ -109,7 +114,7 @@ enum AvatarPalette {
 
     /// Initials, always uppercase. "co" reading as lowercase at 32px was the
     /// single most legibility-damaging detail in the old avatar.
-    static func initials(for name: String) -> String {
+    public static func initials(for name: String) -> String {
         let parts = name
             .split(whereSeparator: { $0 == " " || $0 == "_" || $0 == "-" })
             .filter { $0.first?.isLetter == true || $0.first?.isNumber == true }
@@ -125,7 +130,7 @@ enum AvatarPalette {
     /// merchants. `apple-touch-icon.png` is the convention for a 180px icon;
     /// when it 404s the avatar simply reveals the initials underneath, because
     /// the fallback layer is always drawn.
-    static func brandIconURL(domain: String?) -> String? {
+    public static func brandIconURL(domain: String?) -> String? {
         guard var host = domain?
             .lowercased()
             .trimmingCharacters(in: .whitespacesAndNewlines),
@@ -144,9 +149,12 @@ extension Color {
     // SwiftUI's Color(hue:saturation:brightness:) is HSB, not HSL. Avatar
     // colours are specified in HSL (lightness 45%), so convert — HSB at 0.45
     // brightness would come out muddy on every hue.
-    init(hue: Double, saturation: Double, lightness: Double, opacity: Double = 1) {
+    public init(hue: Double, saturation: Double, lightness: Double, opacity: Double = 1) {
         let brightness = lightness + saturation * min(lightness, 1 - lightness)
         let sb = brightness == 0 ? 0 : 2 * (1 - lightness / brightness)
         self.init(hue: hue, saturation: sb, brightness: brightness, opacity: opacity)
     }
 }
+
+
+#endif

@@ -1,7 +1,13 @@
+// The design system is UIKit-backed (UIColor trait resolution, UIViewRepresentable
+// pickers, UIImage caching), so it only exists where UIKit does. The guard keeps
+// `swift build` / `swift test` working natively on macOS for the other three
+// targets — which is what makes the sub-second test loop possible.
+#if canImport(UIKit)
 import SwiftUI
+import GiftmaxxingCore
 
-actor ImageLoader {
-    static let shared = ImageLoader()
+public actor ImageLoader {
+    public static let shared = ImageLoader()
 
     private let cache = NSCache<NSString, UIImage>()
     private var inFlightTasks: [String: Task<UIImage?, Never>] = [:]
@@ -20,7 +26,7 @@ actor ImageLoader {
         cache.totalCostLimit = 100 * 1024 * 1024
     }
 
-    func load(url: String, width: Int? = nil) async -> UIImage? {
+    public func load(url: String, width: Int? = nil) async -> UIImage? {
         let key = cacheKey(url: url, width: width)
         let cacheKey = key as NSString
         if let cached = cache.object(forKey: cacheKey) {
@@ -49,7 +55,7 @@ actor ImageLoader {
         return result
     }
 
-    func prefetch(urls: [String], width: Int? = nil) {
+    public func prefetch(urls: [String], width: Int? = nil) {
         for url in urls {
             let key = cacheKey(url: url, width: width)
             let cacheKey = key as NSString
@@ -75,7 +81,7 @@ actor ImageLoader {
         }
     }
 
-    func clearCache() {
+    public func clearCache() {
         cache.removeAllObjects()
     }
 
@@ -119,21 +125,36 @@ actor ImageLoader {
     }
 }
 
-struct CachedAsyncImage: View {
-    let url: String?
-    var width: Int? = nil
-    var contentMode: ContentMode = .fill
+public struct CachedAsyncImage: View {
+    public let url: String?
+    public var width: Int? = nil
+    public var contentMode: ContentMode = .fill
     /// Reports the decoded image's width/height so callers can size
     /// user-uploaded media to its real shape (see MediaAspect).
-    var onAspect: ((CGFloat) -> Void)? = nil
+    public var onAspect: ((CGFloat) -> Void)? = nil
+
+    public init(
+        url: String? = nil,
+        width: Int? = nil,
+        contentMode: ContentMode = .fill,
+        onAspect: ((CGFloat) -> Void)? = nil,
+        showsFailurePlaceholder: Bool = true
+    ) {
+        self.url = url
+        self.width = width
+        self.contentMode = contentMode
+        self.onAspect = onAspect
+        self.showsFailurePlaceholder = showsFailurePlaceholder
+    }
+
     /// Avatars draw their own fallback underneath, so a failed load should
     /// reveal it rather than stamp a broken-photo glyph on top.
-    var showsFailurePlaceholder = true
+    public var showsFailurePlaceholder = true
 
     @State private var image: UIImage?
     @State private var isLoading = true
 
-    var body: some View {
+    public var body: some View {
         Group {
             if let image {
                 if contentMode == .fill {
@@ -185,3 +206,6 @@ struct CachedAsyncImage: View {
         }
     }
 }
+
+
+#endif
