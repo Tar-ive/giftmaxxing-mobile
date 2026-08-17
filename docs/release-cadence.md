@@ -31,7 +31,18 @@ intervention before the weekend.
 - `.github/workflows/app-store-release.yml`: Thursday release of the newest
   `PENDING_DEVELOPER_RELEASE` version; no-op when nothing is approved.
 - `scripts/app-store-release.mjs`: dry-run by default; `--release` performs the
-  App Store release and ensures phased rollout is configured.
+  App Store release, ensures phased rollout is configured, and tags the
+  released commit `v<version>` (idempotent; a tag failure never fails the
+  release).
+
+## Traceability
+
+Every build stamps the commit that produced it: `GIT_COMMIT` is passed at
+archive time and surfaces as the `GitCommit` Info.plist key, shown in
+You → Settings next to the version and build number. Public releases also carry
+a git tag — `v1.0.1` … `v1.1.2` were added retroactively, with the commit
+inferred from each build's App Store Connect upload time (those builds predate
+the stamp, so they are best-effort).
 
 GitHub Actions billing must be healthy for either scheduled workflow to run.
 Until then, the same steps can be dispatched locally with the App Store Connect

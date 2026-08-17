@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { execFileSync } from "node:child_process";
 import { createPrivateKey, sign } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -88,3 +89,32 @@ await request("/v1/appStoreVersionReleaseRequests", "POST", {
   },
 });
 console.log(`Released ${version.attributes.versionString} with phased rollout enabled.`);
+
+// Tag the release. Until this existed, nothing in the repo recorded which
+// commit a public version came from — reconstructing that for 1.1.2 took a dig
+// through agent session logs. The tag is annotated with the build number and
+// the ASC version id so the trail survives outside git too.
+tagRelease(version);
+
+function tagRelease({ id, attributes }) {
+  const tag = `v${attributes.versionString}`;
+  const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
+  try {
+    if (git("tag", "--list", tag)) {
+      console.log(`Tag ${tag} already exists; leaving it alone.`);
+      return;
+    }
+    // The released binary is whatever this checkout is, which is what the
+    // release workflow archived. GitCommit in the build's Info.plist is the
+    // authoritative record; this ties it back to a name.
+    const sha = git("rev-parse", "HEAD");
+    git("tag", "-a", tag, sha, "-m",
+      `App Store ${attributes.versionString} (ASC version ${id}), released ${new Date().toISOString().slice(0, 10)}.`);
+    git("push", "origin", tag);
+    console.log(`Tagged ${tag} at ${sha.slice(0, 8)} and pushed it.`);
+  } catch (error) {
+    // A failed tag must not read as a failed release — the release already
+    // happened by this point.
+    console.warn(`Released, but tagging ${tag} failed: ${error.message}`);
+  }
+}
