@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // Gift Boards a co-giver handed you — "we're both shopping for Mom, here's
 // what I've found so far." Accepting copies it into your boards so you can add

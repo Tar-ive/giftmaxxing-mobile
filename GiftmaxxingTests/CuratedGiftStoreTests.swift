@@ -1,5 +1,6 @@
 import XCTest
 @testable import Giftmaxxing
+import GiftmaxxingCore
 
 final class CuratedGiftStoreTests: XCTestCase {
     private let store = CuratedGiftStore.shared

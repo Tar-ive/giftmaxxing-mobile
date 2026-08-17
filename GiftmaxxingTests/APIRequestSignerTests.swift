@@ -1,6 +1,7 @@
 import XCTest
 import CryptoKit
 @testable import Giftmaxxing
+import GiftmaxxingCore
 
 final class APIRequestSignerTests: XCTestCase {
     func testEnvelopeRoundTrip() throws {

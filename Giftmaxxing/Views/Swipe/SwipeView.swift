@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import GiftmaxxingCore
+import GiftmaxxingRecommendation
 
 enum ProductReliabilityVote: String, Codable, CaseIterable {
     case reliable = "reliability_reliable"

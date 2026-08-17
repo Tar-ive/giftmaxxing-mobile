@@ -1,4 +1,5 @@
 import CoreGraphics
+import GiftmaxxingCore
 
 // User-uploaded media renders in exactly TWO shapes — vertical (9:16
 // short-form) and square (1:1) — and the app adapts to whichever the upload

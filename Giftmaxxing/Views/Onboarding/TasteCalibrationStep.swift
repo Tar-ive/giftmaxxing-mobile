@@ -1,4 +1,6 @@
 import SwiftUI
+import GiftmaxxingCore
+import GiftmaxxingRecommendation
 
 // Onboarding taste calibration — the deck that teaches the app who you are.
 //

@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingCore
 
 // Group gifting — the third swipe context: friends swipe the SAME server deck
 // to converge on a gift for someone who never sees the link. The deck and every

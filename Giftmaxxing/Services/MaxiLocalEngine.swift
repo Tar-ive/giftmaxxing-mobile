@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingCore
 
 // Local Maxi intent engine — iOS port of web/lib/maxi.ts respond(). Runs when
 // the agent API is unreachable (or the user is signed out) so Maxi ALWAYS

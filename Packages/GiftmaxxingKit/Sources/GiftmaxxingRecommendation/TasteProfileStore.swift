@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingCore
 
 // On-device user model. Every interaction (impression/like/save/hide/open) is
 // folded into decayed aggregates locally, so personalization is instant, works
@@ -9,8 +10,8 @@ import Foundation
 //   • userExcludeSet() — the seen/liked de-dup query the Lambda runs per page
 //   • the interactions Query in GET /recommendations used to derive seeds
 
-struct TasteEvent {
-    enum Kind: String, Codable {
+public struct TasteEvent {
+    public enum Kind: String, Codable {
         case impression   // card scrolled into view
         case dwell        // lingered on a card (viewport dwell ≥ threshold)
         case open         // tapped through to product
@@ -23,7 +24,7 @@ struct TasteEvent {
         case queueAdd     // added to the swipe list for a friend (gift-mode)
         case queueRemove
 
-        var weight: Double {
+        public var weight: Double {
             switch self {
             case .impression: return 0.03
             case .dwell: return 0.12
@@ -43,60 +44,81 @@ struct TasteEvent {
         // gift-mode (chosen for someone else) — they inform vibes and the
         // product-vs-service split but must not steer the personal centroid
         // (research doc gap G2).
-        var isSeedSignal: Bool { self == .like || self == .save || self == .open }
+        public var isSeedSignal: Bool { self == .like || self == .save || self == .open }
 
         // Explicit negatives feed the negative seed list (anti-centroid).
-        var isNegativeSeedSignal: Bool { self == .hide || self == .unlike || self == .unsave }
+        public var isNegativeSeedSignal: Bool { self == .hide || self == .unlike || self == .unsave }
     }
 
-    let kind: Kind
-    let postId: String
-    let author: String
-    let price: Double
-    let vibes: [String]
-    let category: String
+    public let kind: Kind
+    public let postId: String
+    public let author: String
+    public let price: Double
+    public let vibes: [String]
+    public let category: String
     // "product" | "service" — drives giftTypeAffinity ("they'd rather get a
     // year of Spotify than a thing").
-    var giftType: String = "product"
+    public var giftType: String = "product"
     // Scales the kind's base weight: an instant left-swipe (fast decision) is a
     // harder no than a hesitant one; a long dwell is a warmer impression.
-    var weightScale: Double = 1
+    public var weightScale: Double = 1
+
+    public init(
+        kind: Kind,
+        postId: String,
+        author: String,
+        price: Double,
+        vibes: [String],
+        category: String,
+        giftType: String = "product",
+        weightScale: Double = 1
+    ) {
+        self.kind = kind
+        self.postId = postId
+        self.author = author
+        self.price = price
+        self.vibes = vibes
+        self.category = category
+        self.giftType = giftType
+        self.weightScale = weightScale
+    }
+
 }
 
 // Immutable snapshot handed to the ranker (safe to use off-actor).
-struct TasteSnapshot: Sendable {
-    var vibes: [String: Double] = [:]
-    var totalVibeWeight: Double = 0
-    var prefPrice: Double?
-    var authorAffinity: [String: Double] = [:]
-    var categoryAffinity: [String: Double] = [:]
+public struct TasteSnapshot: Sendable {
+    public var vibes: [String: Double] = [:]
+    public var totalVibeWeight: Double = 0
+    public var prefPrice: Double?
+    public var authorAffinity: [String: Double] = [:]
+    public var categoryAffinity: [String: Double] = [:]
     // "product" / "service" decayed engagement weights (may be negative).
-    var giftTypeAffinity: [String: Double] = [:]
-    var seen: Set<String> = []
-    var seedKeys: [String] = []      // recent liked/saved/opened post ids, newest first
-    var negSeedKeys: [String] = []   // recent hidden/unliked ids -> anti-centroid
-    var topVibe: String? {
+    public var giftTypeAffinity: [String: Double] = [:]
+    public var seen: Set<String> = []
+    public var seedKeys: [String] = []      // recent liked/saved/opened post ids, newest first
+    public var negSeedKeys: [String] = []   // recent hidden/unliked ids -> anti-centroid
+    public var topVibe: String? {
         vibes.max(by: { $0.value < $1.value })?.key
     }
 }
 
-actor TasteProfileStore {
-    static let shared = TasteProfileStore()
+public actor TasteProfileStore {
+    public static let shared = TasteProfileStore()
 
     // Decayed aggregate state (persisted). Half-life keeps taste current without
     // storing the full event log.
     private struct State: Codable {
-        var vibes: [String: Double] = [:]
-        var authorAffinity: [String: Double] = [:]
-        var categoryAffinity: [String: Double] = [:]
+        public var vibes: [String: Double] = [:]
+        public var authorAffinity: [String: Double] = [:]
+        public var categoryAffinity: [String: Double] = [:]
         // Decodes as [:] on stores written before the giftType split existed.
-        var giftTypeAffinity: [String: Double]? = [:]
-        var priceSum: Double = 0
-        var priceWeight: Double = 0
-        var seen: [String] = []          // insertion-ordered, capped
-        var seedKeys: [String] = []      // newest first, capped
-        var negSeedKeys: [String]? = []  // newest first, capped (optional: old stores)
-        var lastDecayAt: Double = Date().timeIntervalSince1970
+        public var giftTypeAffinity: [String: Double]? = [:]
+        public var priceSum: Double = 0
+        public var priceWeight: Double = 0
+        public var seen: [String] = []          // insertion-ordered, capped
+        public var seedKeys: [String] = []      // newest first, capped
+        public var negSeedKeys: [String]? = []  // newest first, capped (optional: old stores)
+        public var lastDecayAt: Double = Date().timeIntervalSince1970
     }
 
     private var state = State()
@@ -110,7 +132,7 @@ actor TasteProfileStore {
 
     // MARK: - Recording
 
-    func record(_ event: TasteEvent) {
+    public func record(_ event: TasteEvent) {
         loadIfNeeded()
         applyDecay()
 
@@ -161,7 +183,7 @@ actor TasteProfileStore {
 
     // Fold a photo the user searched into taste as a seed key whose vector the
     // caller has already cached in VectorStore (visual search, gap G3).
-    func addPhotoSeed(key: String) {
+    public func addPhotoSeed(key: String) {
         loadIfNeeded()
         state.seedKeys.removeAll { $0 == key }
         state.seedKeys.insert(key, at: 0)
@@ -171,7 +193,7 @@ actor TasteProfileStore {
         scheduleSave()
     }
 
-    func snapshot() -> TasteSnapshot {
+    public func snapshot() -> TasteSnapshot {
         loadIfNeeded()
         applyDecay()
         var snap = TasteSnapshot()
@@ -214,7 +236,7 @@ actor TasteProfileStore {
 
     // Wipe everything the profile has learned (account deletion / switch): the
     // in-memory state AND the on-disk copy, so nothing rehydrates on next read.
-    func clear() {
+    public func clear() {
         saveTask?.cancel()
         state = State()
         loaded = true // don't reload the (now-deleted) file

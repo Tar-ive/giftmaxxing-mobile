@@ -1,5 +1,6 @@
 import SwiftUI
 import Photos
+import GiftmaxxingCore
 
 // The user's most recent photos and videos, inline.
 //

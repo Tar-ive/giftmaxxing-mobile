@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import GiftmaxxingCore
 
 // Paste any product link — SHEIN, Target, Walmart, Sephora, HEB, a Shopify
 // store, anything with a URL — and it becomes a swipeable card you can drop

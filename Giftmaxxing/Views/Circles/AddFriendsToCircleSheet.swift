@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // Add friends who are ALREADY on Giftmaxxing straight into a circle — the
 // WhatsApp-community / Discord model. The share link stays for people without

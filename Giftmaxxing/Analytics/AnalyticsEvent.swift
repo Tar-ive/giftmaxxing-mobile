@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingCore
 
 // Event schema modeled after Instagram's impression tracking + Tinder's swipe
 // telemetry. Each event captures what happened, how long it took, and the

@@ -1,4 +1,6 @@
 import SwiftUI
+import GiftmaxxingCore
+import GiftmaxxingRecommendation
 
 // Shared, not per-sheet: the conversation is the product. A concierge that
 // restarts the interview every time you close the sheet is a search box with

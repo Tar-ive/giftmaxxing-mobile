@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import GiftmaxxingCore
 
 // Swipe → "People": the challenge hub. Every person you gift for, in one
 // list, split by what you can DO right now:

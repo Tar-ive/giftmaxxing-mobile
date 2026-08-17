@@ -1,13 +1,26 @@
 import Foundation
 
 /// Bundled offline fallback. Online navigation is owned by `/v2/feed-taxonomy`.
-struct FeedTheme: Identifiable, Hashable {
-    let id: String
-    let title: String
-    let query: String
-    let tags: [FeedTag]
+public struct FeedTheme: Identifiable, Hashable {
+    public let id: String
+    public let title: String
+    public let query: String
+    public let tags: [FeedTag]
 
-    static let all: [FeedTheme] = [
+    public init(
+        id: String,
+        title: String,
+        query: String,
+        tags: [FeedTag]
+    ) {
+        self.id = id
+        self.title = title
+        self.query = query
+        self.tags = tags
+    }
+
+
+    public static let all: [FeedTheme] = [
         .init(id: "for-you", title: "For you", query: "", tags: []),
         .init(id: "school-and-next-chapter", title: "School & Next Chapter", query: "back-to-school woman college-student teacher educator graduation daughter student", tags: [
             .init(id: "back-to-school-her", title: "Back to School — Her", query: "back-to-school woman college-student"),
@@ -54,9 +67,22 @@ struct FeedTheme: Identifiable, Hashable {
     ]
 }
 
-struct FeedTag: Identifiable, Hashable {
-    let id: String
-    let title: String
-    let query: String
-    var maxPrice: Double?
+public struct FeedTag: Identifiable, Hashable {
+    public let id: String
+    public let title: String
+    public let query: String
+    public var maxPrice: Double?
+
+    public init(
+        id: String,
+        title: String,
+        query: String,
+        maxPrice: Double? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.query = query
+        self.maxPrice = maxPrice
+    }
+
 }

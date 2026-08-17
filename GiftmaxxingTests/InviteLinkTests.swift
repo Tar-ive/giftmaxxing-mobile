@@ -1,5 +1,6 @@
 import XCTest
 @testable import Giftmaxxing
+import GiftmaxxingCore
 
 // Wire-format contract with the web app: /invite/<base64url(JSON)> links built
 // on iOS must decode with web/lib/invite.ts decodeInvite(). These tests pin the

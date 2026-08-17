@@ -1,4 +1,6 @@
 import SwiftUI
+import GiftmaxxingCore
+import GiftmaxxingRecommendation
 
 // ── Group gifts — the "swipe together" context ───────────────────────────────
 // One friend starts it, everyone swipes the same server-built deck, the tally

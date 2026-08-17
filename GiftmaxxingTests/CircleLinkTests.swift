@@ -1,5 +1,6 @@
 import XCTest
 @testable import Giftmaxxing
+import GiftmaxxingCore
 
 // Cross-platform contract with the web circle page (web/lib/circles.ts):
 // link parsing must accept every shape a member might paste, and the date

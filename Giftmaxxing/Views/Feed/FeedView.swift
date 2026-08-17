@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import GiftmaxxingCore
 
 struct FeedView: View {
     @EnvironmentObject private var appState: AppState

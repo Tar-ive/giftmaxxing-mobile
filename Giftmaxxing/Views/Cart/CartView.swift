@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // The cart, grouped by the person each gift is for.
 //

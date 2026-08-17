@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // Group-gift messages — iOS port of web/app/feed/messages/page.tsx backed by
 // the same seeded chats (web/lib/social.ts GROUP_CHATS), persisted locally so

@@ -1,5 +1,6 @@
 import XCTest
 @testable import Giftmaxxing
+import GiftmaxxingCore
 
 // Amazon affiliate routing: ASIN extraction, retagging (web outboundAffiliateUrl
 // parity) and universal-link eligibility (docs/amazon-app-linking.md).

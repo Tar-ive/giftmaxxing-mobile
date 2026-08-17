@@ -1,6 +1,7 @@
 import AVFoundation
 import AVKit
 import SwiftUI
+import GiftmaxxingCore
 
 @MainActor
 final class UGCFeedMusicPlayback: ObservableObject {

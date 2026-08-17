@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 /// Sends the same canonical pool invite URL through an accepted in-app DM.
 /// External recipients use the adjacent system ShareLink instead.

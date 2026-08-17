@@ -3,20 +3,20 @@ import Foundation
 // Codable so the transcript survives dismissing the sheet and relaunching the
 // app (MaxiConversationStore). A concierge that forgets what you told it two
 // minutes ago is not a concierge.
-struct MaxiMessage: Identifiable, Codable {
-    let id: String
-    var role: MessageRole
-    var text: String
-    var products: [MaxiProduct]
-    var steps: [MaxiStep]
-    var chips: [String]
+public struct MaxiMessage: Identifiable, Codable {
+    public let id: String
+    public var role: MessageRole
+    public var text: String
+    public var products: [MaxiProduct]
+    public var steps: [MaxiStep]
+    public var chips: [String]
     /// Was this set of picks any good? nil = not rated yet. Cheap, one-tap
     /// feedback beats asking a question — and it is a LABEL, which is the thing
     /// the ranker is starved of.
-    var rating: Int?
-    var timestamp: Date
+    public var rating: Int?
+    public var timestamp: Date
 
-    init(
+    public init(
         id: String = UUID().uuidString,
         role: MessageRole,
         text: String,
@@ -37,23 +37,42 @@ struct MaxiMessage: Identifiable, Codable {
     }
 }
 
-enum MessageRole: String, Codable {
+public enum MessageRole: String, Codable {
     case user
     case assistant
 }
 
-struct MaxiProduct: Identifiable, Codable {
-    let postId: String
-    var title: String
-    var price: Double?
-    var brand: String?
-    var image: String?
-    var category: String?
+public struct MaxiProduct: Identifiable, Codable {
+    public let postId: String
+    public var title: String
+    public var price: Double?
+    public var brand: String?
+    public var image: String?
+    public var category: String?
     /// Catalog-authored description of what is visible in the product photo.
     /// Maxi receives this automatically; no separate image upload is required.
-    var visualContext: String? = nil
+    public var visualContext: String? = nil
 
-    var id: String { postId }
+    public init(
+        postId: String,
+        title: String,
+        price: Double? = nil,
+        brand: String? = nil,
+        image: String? = nil,
+        category: String? = nil,
+        visualContext: String? = nil
+    ) {
+        self.postId = postId
+        self.title = title
+        self.price = price
+        self.brand = brand
+        self.image = image
+        self.category = category
+        self.visualContext = visualContext
+    }
+
+
+    public var id: String { postId }
 }
 
 extension Post {
@@ -61,7 +80,7 @@ extension Post {
     /// a Gift Board, or the detail sheet like anything else. MaxiProduct has no
     /// product URL — `Affiliate.productUrl(for:)` falls through to a tagged
     /// retailer search, which is its documented behaviour for link-less items.
-    init(maxiProduct product: MaxiProduct) {
+    public init(maxiProduct product: MaxiProduct) {
         self.init(
             id: product.postId,
             user: product.brand ?? "giftmaxxing",
@@ -83,30 +102,30 @@ extension Post {
     }
 }
 
-struct MaxiStep: Identifiable, Codable {
-    var tool: String
-    var label: String
-    var detail: String?
+public struct MaxiStep: Identifiable, Codable {
+    public var tool: String
+    public var label: String
+    public var detail: String?
 
-    var id: String { "\(tool)-\(label)" }
+    public var id: String { "\(tool)-\(label)" }
 }
 
 // What Maxi thinks the current job is: who it's for, the occasion, the budget,
 // what they're into. Surfaced as a chip above the conversation so the user can
 // see — and correct — the assumptions the picks are being made from.
-struct GiftBrief: Codable, Hashable {
-    var recipientName: String?
-    var relationship: String?
-    var occasion: String?
-    var date: String?
-    var budgetMin: Double?
-    var budgetMax: Double?
-    var interests: [String]?
-    var avoid: [String]?
-    var alreadyGiven: [String]?
+public struct GiftBrief: Codable, Hashable {
+    public var recipientName: String?
+    public var relationship: String?
+    public var occasion: String?
+    public var date: String?
+    public var budgetMin: Double?
+    public var budgetMax: Double?
+    public var interests: [String]?
+    public var avoid: [String]?
+    public var alreadyGiven: [String]?
 
     /// "Mom · birthday · under $75" — only the parts that are actually known.
-    var summary: String {
+    public var summary: String {
         var parts: [String] = []
         if let name = recipientName, !name.isEmpty { parts.append(name) }
         if let occasion, !occasion.isEmpty { parts.append(occasion) }
@@ -119,40 +138,40 @@ struct GiftBrief: Codable, Hashable {
         return parts.joined(separator: " · ")
     }
 
-    var isEmpty: Bool { summary.isEmpty }
+    public var isEmpty: Bool { summary.isEmpty }
 }
 
 // One stored turn from GET /maxi/history — a user message and Maxi's reply,
 // with the product cards it showed, so a restored conversation looks the same
 // as the live one rather than a wall of text.
-struct MaxiHistoryTurn: Codable {
-    var at: Double?
-    var user: String?
-    var say: String?
-    var pins: [MaxiProduct]?
+public struct MaxiHistoryTurn: Codable {
+    public var at: Double?
+    public var user: String?
+    public var say: String?
+    public var pins: [MaxiProduct]?
 }
 
-struct MaxiHistoryResponse: Codable {
-    var items: [MaxiHistoryTurn]?
+public struct MaxiHistoryResponse: Codable {
+    public var items: [MaxiHistoryTurn]?
 }
 
-struct MaxiAgentReply: Codable {
-    var say: String
-    var pins: [MaxiProduct]
-    var actions: [MaxiAction]
-    var steps: [MaxiStep]
-    var source: String
+public struct MaxiAgentReply: Codable {
+    public var say: String
+    public var pins: [MaxiProduct]
+    public var actions: [MaxiAction]
+    public var steps: [MaxiStep]
+    public var source: String
     /// Absent on older deployments — the chip just doesn't render.
-    var brief: GiftBrief?
+    public var brief: GiftBrief?
 
     // The agent tells the client what to do rather than doing it server-side:
     // the cart and Gift Boards are local-first stores synced through /me, so a
     // server write would race their debounced push. `recipient`/`occasion` are
     // optional so an older deployment (which sends neither) still works.
-    struct MaxiAction: Codable {
-        var type: String
-        var postIds: [String]?
-        var recipient: String?
-        var occasion: String?
+    public struct MaxiAction: Codable {
+        public var type: String
+        public var postIds: [String]?
+        public var recipient: String?
+        public var occasion: String?
     }
 }

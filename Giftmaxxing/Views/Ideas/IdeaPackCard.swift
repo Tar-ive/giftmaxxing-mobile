@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // One card for both kinds of pack. Galleries lead with a single cover image
 // (the shelf's mood); bundles lead with a collage, because the pairing IS the

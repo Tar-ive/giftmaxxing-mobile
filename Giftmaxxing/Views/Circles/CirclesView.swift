@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import GiftmaxxingCore
+import GiftmaxxingRecommendation
 
 // Circles — your people, their dates, and gifting together. ONE hub:
 //   • Circles — shared family/friend groups (server-backed): members add

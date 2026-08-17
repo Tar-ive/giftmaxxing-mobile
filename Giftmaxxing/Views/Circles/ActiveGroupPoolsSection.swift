@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // Active group gifts, as fundraiser-style progress cards.
 //

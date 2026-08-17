@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingCore
 
 // Amazon Associates affiliate helpers — port of web/lib/affiliate.ts.
 // Every outbound product link carries the associate tag; items without a

@@ -1,4 +1,6 @@
 import SwiftUI
+import GiftmaxxingCore
+import GiftmaxxingRecommendation
 
 // The Home bell. One inbox for everything that used to be invisible:
 //   • friend requests (accept / decline inline)

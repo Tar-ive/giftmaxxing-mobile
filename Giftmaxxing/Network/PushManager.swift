@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import UserNotifications
+import GiftmaxxingRecommendation
 
 @MainActor
 final class PushManager: NSObject, ObservableObject {

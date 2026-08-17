@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingCore
 
 // On-device port of the server's deterministic content-quality classifier
 // (infra/src/quality.mjs). Stage-1 gate of the local ranking pipeline: decides
@@ -7,7 +8,7 @@ import Foundation
 // carries (title, domain, link, price), so it runs at zero cost on device and
 // keeps working even when the server sheds AI routes in degraded mode.
 
-enum ContentType: String {
+public enum ContentType: String {
     case singleProduct = "single_product"
     case giftGuide = "gift_guide"
     case editorial
@@ -19,10 +20,10 @@ enum ContentType: String {
     case nonGift = "non_gift"
 }
 
-struct ContentQuality {
-    let contentType: ContentType
-    let feedEligible: Bool
-    let qualityScore: Double
+public struct ContentQuality {
+    public let contentType: ContentType
+    public let feedEligible: Bool
+    public let qualityScore: Double
 
     // Head-domain reputation (mirrors RETAILER in quality.mjs).
     private static let retailerDomains: Set<String> = [
@@ -87,7 +88,7 @@ struct ContentQuality {
         return .unknown
     }
 
-    static func classify(title: String?, domain: String?, link: String?, price: Double?) -> ContentQuality {
+    public static func classify(title: String?, domain: String?, link: String?, price: Double?) -> ContentQuality {
         let t = title ?? ""
         let lt = t.lowercased()
         let dc = domainClass(domain)
@@ -152,7 +153,7 @@ struct ContentQuality {
 
 extension String {
     // Case-insensitive regex test used across the local ranking pipeline.
-    func matches(_ pattern: String) -> Bool {
+    public func matches(_ pattern: String) -> Bool {
         range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
     }
 }

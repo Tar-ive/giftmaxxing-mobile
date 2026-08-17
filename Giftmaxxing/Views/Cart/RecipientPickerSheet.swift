@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // "Who's this for?" — the one question that turns a pile of finds into a cart.
 //

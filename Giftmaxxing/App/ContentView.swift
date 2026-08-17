@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 struct ContentView: View {
     @EnvironmentObject private var appState: AppState

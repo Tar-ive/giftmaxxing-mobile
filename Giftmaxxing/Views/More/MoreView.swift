@@ -3,6 +3,7 @@ import PhotosUI
 import SwiftUI
 import SwiftData
 import UIKit
+import GiftmaxxingCore
 
 struct MoreView: View {
     @EnvironmentObject private var appState: AppState

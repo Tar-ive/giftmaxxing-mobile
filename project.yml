@@ -7,6 +7,10 @@ options:
   createIntermediateGroups: true
 
 packages:
+  # Local package — see Packages/GiftmaxxingKit/Package.swift. The rule that
+  # makes it worth having: nothing in it may import the app target.
+  GiftmaxxingKit:
+    path: Packages/GiftmaxxingKit
   Facebook:
     url: https://github.com/facebook/facebook-ios-sdk
     from: 18.1.0
@@ -20,6 +24,10 @@ targets:
     dependencies:
       - target: GiftmaxxingShare
         embed: true
+      - package: GiftmaxxingKit
+        product: GiftmaxxingCore
+      - package: GiftmaxxingKit
+        product: GiftmaxxingRecommendation
       - package: Facebook
         product: FacebookCore
     # giftmaxxing:// deep links — the share extension hands off to the app

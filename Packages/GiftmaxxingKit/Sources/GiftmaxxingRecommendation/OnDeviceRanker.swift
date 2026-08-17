@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingCore
 
 // The on-device final-stage ranker. Instagram-style layered serving, mapped to
 // this app:
@@ -15,54 +16,84 @@ import Foundation
 // personalization quality goes UP, because local signals are richer and
 // fresher than what the server ever saw.
 
-struct RankedCandidate {
-    let post: Post
-    let score: Double
-    let reason: String?
+public struct RankedCandidate {
+    public let post: Post
+    public let score: Double
+    public let reason: String?
+
+    public init(
+        post: Post,
+        score: Double,
+        reason: String? = nil
+    ) {
+        self.post = post
+        self.score = score
+        self.reason = reason
+    }
+
 }
 
-struct RankingContext {
-    var budget: Double?
-    var eventBoost: Double = 0
-    var recipient: String?
-    var occasion: String?
+public struct RankingContext {
+    public var budget: Double?
+    public var eventBoost: Double = 0
+    public var recipient: String?
+    public var occasion: String?
     // Consult-declared interests ("world vibes") — the cold-start taste signal
     // for brand-new users whose profile has zero interactions yet.
-    var consultVibes: [String] = []
+    public var consultVibes: [String] = []
     // Who this giver is (learned from their Thoughtfulness ledger) — scales
     // how hard the gift-graph intentionality feature pulls.
-    var mindset: GiftMindset = .balanced
-    var now: Date = Date()
+    public var mindset: GiftMindset = .balanced
+    public var now: Date = Date()
+
+    public init(
+        budget: Double? = nil,
+        eventBoost: Double = 0,
+        recipient: String? = nil,
+        occasion: String? = nil,
+        consultVibes: [String] = [],
+        mindset: GiftMindset = .balanced,
+        now: Date = Date()
+    ) {
+        self.budget = budget
+        self.eventBoost = eventBoost
+        self.recipient = recipient
+        self.occasion = occasion
+        self.consultVibes = consultVibes
+        self.mindset = mindset
+        self.now = now
+    }
+
 }
 
-enum OnDeviceRanker {
+public enum OnDeviceRanker {
 
     // Scoring weights. Layer-3 terms mirror infra/src/handler.mjs scorePost()
     // so device and server ranking stay consistent; layer-4 terms are the
     // device-only personalization the server used to approximate.
     private enum W {
-        static let social = 0.35
-        static let tasteFacet = 0.25
-        static let recency = 0.10
-        static let quality = 0.40
-        static let recipient = 0.20
-        static let occasion = 0.15
-        static let budgetFit = 0.15
-        static let tasteVibes = 0.45
-        static let priceFit = 0.15
-        static let author = 0.20
-        static let vector = 0.35
-        static let vectorNeg = 0.25   // similarity to the HIDDEN-items centroid
-        static let giftTypeLean = 0.12 // product-vs-service preference
+        public static let social = 0.35
+        public static let tasteFacet = 0.25
+        public static let recency = 0.10
+        public static let quality = 0.40
+        public static let recipient = 0.20
+        public static let occasion = 0.15
+        public static let budgetFit = 0.15
+        public static let tasteVibes = 0.45
+        public static let priceFit = 0.15
+        public static let author = 0.20
+        public static let vector = 0.35
+        public static let vectorNeg = 0.25   // similarity to the HIDDEN-items centroid
+        public static let giftTypeLean = 0.12 // product-vs-service preference
         // Multi-image product carousels (Shopify/Etsy). Was 0.22 — the single
         // largest discretionary boost, which turned the top of every feed into
         // a wall of the big Shopify inventories (shoes/gym apparel). Still a
         // positive nudge, no longer a takeover.
-        static let gallery = 0.10
-        static let explore = 0.11
+        public static let gallery = 0.10
+        public static let explore = 0.11
     }
 
-    static func rank(
+    public static func rank(
         candidates: [Post],
         profile: TasteSnapshot,
         centroid: [Float]? = nil,

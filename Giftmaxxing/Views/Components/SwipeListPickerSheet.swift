@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // Instagram-collections-style "save to board" sheet. Tapping "Gift board"
 // anywhere in the app lands here: pick which person's Gift Board the find

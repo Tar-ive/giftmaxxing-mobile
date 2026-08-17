@@ -1,6 +1,8 @@
 import Foundation
+import GiftmaxxingCore
+import GiftmaxxingRecommendation
 
-actor APIClient {
+actor APIClient: InteractionUploading {
     static let shared = APIClient()
 
     // CloudFront edge cache in front of the API (infra/cloudfront.tf). Generic

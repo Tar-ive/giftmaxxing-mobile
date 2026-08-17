@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // Tier 1 — the macro theme bar, as capsule pills.
 //

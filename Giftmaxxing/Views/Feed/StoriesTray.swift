@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 struct StoryItem: Identifiable {
     let id: String

@@ -1,10 +1,11 @@
 import Foundation
+import GiftmaxxingCore
 
-struct ReliabilityPromptPolicy {
-    static let minimumCompletedSwipes = 5
-    static let cooldown: TimeInterval = 2 * 24 * 60 * 60
+public struct ReliabilityPromptPolicy {
+    public static let minimumCompletedSwipes = 5
+    public static let cooldown: TimeInterval = 2 * 24 * 60 * 60
 
-    static func canPrompt(
+    public static func canPrompt(
         completedSwipes: Int,
         lastPromptAt: Date?,
         hasVote: Bool,

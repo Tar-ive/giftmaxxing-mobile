@@ -7,7 +7,7 @@ import Foundation
 // maker's own product description). The fallback is composed ONLY from real
 // metadata — provenance we can stand behind (marketplace type, service shape,
 // the curator's reason) — never invented claims about who made what.
-enum GiftStory {
+public enum GiftStory {
     // Marketplaces whose sellers are independent makers/curators — the
     // "choose small businesses" signal for Thoughtfulness Points too.
     private static let independentMarketplaces: Set<String> = [
@@ -15,14 +15,14 @@ enum GiftStory {
         "thegrommet.com", "minted.com", "society6.com",
     ]
 
-    static func isSmallBusiness(_ post: Post) -> Bool {
+    public static func isSmallBusiness(_ post: Post) -> Bool {
         let domain = (post.domain ?? "").lowercased().replacingOccurrences(of: "www.", with: "")
         return independentMarketplaces.contains(domain)
             || independentMarketplaces.contains(where: { domain.hasSuffix("." + $0) })
     }
 
     // nil = nothing meaningful to tell (no overlay, no hint icon).
-    static func story(for post: Post) -> String? {
+    public static func story(for post: Post) -> String? {
         if let story = post.story?.trimmingCharacters(in: .whitespacesAndNewlines), !story.isEmpty {
             return story
         }

@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // Pool detail — the "look before you chip in" screen. Shows the gift, the
 // goal, and crucially WHO already committed and how much: the visible list is

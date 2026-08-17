@@ -1,5 +1,6 @@
 import Foundation
 import UserNotifications
+import GiftmaxxingCore
 
 // Local reminders for gift events — the on-device half of the reminders story.
 // The backend job (infra/src/reminders.mjs) publishes server-side nudges to an

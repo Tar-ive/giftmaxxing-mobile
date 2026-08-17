@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // Token surface for DESIGN.md — resolve colors, radii, spacing, and elevation
 // here instead of hardcoding values in views.

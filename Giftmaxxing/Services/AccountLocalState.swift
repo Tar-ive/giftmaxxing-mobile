@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingRecommendation
 
 // Privacy boundary for the local-first gifting stores. Pools, group gifts,
 // Gift Boards, Thoughtfulness Points, and the persona texts all live in

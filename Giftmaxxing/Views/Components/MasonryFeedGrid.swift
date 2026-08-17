@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // Variant C — two-column staggered grid.
 //

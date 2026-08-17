@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 @MainActor
 final class AppState: ObservableObject {

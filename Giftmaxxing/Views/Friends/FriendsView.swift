@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 /// Friends hub — iOS port of web/app/feed/friends/page.tsx.
 /// Tabs: Friends / Requests / Discover. Connect, message, and gift.

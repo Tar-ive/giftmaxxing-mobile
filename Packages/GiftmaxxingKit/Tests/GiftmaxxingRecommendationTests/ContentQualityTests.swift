@@ -1,5 +1,6 @@
 import XCTest
-@testable import Giftmaxxing
+@testable import GiftmaxxingRecommendation
+import GiftmaxxingCore
 
 // Stage-1 feed gate. Parity contract with infra/src/quality.mjs — if these
 // break, junk (listicles/recipes/blog spam) leaks into the scroll feed or real

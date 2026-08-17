@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingCore
 import Accelerate
 
 // On-device embedding cache + similarity math. The server's S3 Vectors index
@@ -11,15 +12,15 @@ import Accelerate
 // iOS memory or app-size concern. A full 150-candidate similarity pass is a
 // few hundred microseconds of vDSP time, so battery impact is negligible.
 
-actor VectorStore {
-    static let shared = VectorStore()
+public actor VectorStore {
+    public static let shared = VectorStore()
 
-    struct QuantizedVector: Codable {
-        let scale: Float
-        let data: Data          // int8 components, value[i] = Int8(bitPattern:) * scale
-        var lastAccess: Double
+    public struct QuantizedVector: Codable {
+        public let scale: Float
+        public let data: Data          // int8 components, value[i] = Int8(bitPattern:) * scale
+        public var lastAccess: Double
 
-        func dequantized() -> [Float] {
+        public func dequantized() -> [Float] {
             var out = [Float](repeating: 0, count: data.count)
             data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
                 let int8Buf = raw.bindMemory(to: Int8.self)
@@ -39,7 +40,7 @@ actor VectorStore {
 
     // Server payload: base64(int8 bytes) + per-vector scale (unit-normalized
     // before quantization server-side, so dot product ≈ cosine similarity).
-    func upsert(key: String, base64: String, scale: Float) {
+    public func upsert(key: String, base64: String, scale: Float) {
         loadIfNeeded()
         guard let data = Data(base64Encoded: base64), !data.isEmpty else { return }
         vectors[key] = QuantizedVector(scale: scale, data: data, lastAccess: Date().timeIntervalSince1970)
@@ -48,24 +49,24 @@ actor VectorStore {
     }
 
     // Drop every cached embedding + the on-disk copy (account deletion/switch).
-    func clear() {
+    public func clear() {
         saveTask?.cancel()
         vectors = [:]
         loaded = true // don't reload the (now-deleted) file
         try? FileManager.default.removeItem(at: Self.fileURL)
     }
 
-    func contains(_ key: String) -> Bool {
+    public func contains(_ key: String) -> Bool {
         loadIfNeeded()
         return vectors[key] != nil
     }
 
-    func missingKeys(from keys: [String]) -> [String] {
+    public func missingKeys(from keys: [String]) -> [String] {
         loadIfNeeded()
         return keys.filter { vectors[$0] == nil }
     }
 
-    var count: Int {
+    public var count: Int {
         loadIfNeeded()
         return vectors.count
     }
@@ -74,7 +75,7 @@ actor VectorStore {
 
     // Mean of the seed vectors = the user's taste point in Titan space.
     // Mirrors getCentroid() in infra/src/handler.mjs, moved on-device.
-    func centroid(of keys: [String]) -> [Float]? {
+    public func centroid(of keys: [String]) -> [Float]? {
         loadIfNeeded()
         let found = keys.compactMap { touch($0) }
         guard !found.isEmpty, let dim = found.first?.count else { return nil }
@@ -87,7 +88,7 @@ actor VectorStore {
     }
 
     // Cosine similarity of one cached item against a query vector.
-    func similarity(key: String, to query: [Float]) -> Float? {
+    public func similarity(key: String, to query: [Float]) -> Float? {
         loadIfNeeded()
         guard let v = touch(key), v.count == query.count else { return nil }
         return Self.cosine(v, query)
@@ -95,7 +96,7 @@ actor VectorStore {
 
     // Batch: similarity for each requested key (nil-skipped), e.g. scoring a
     // candidate page against the taste centroid.
-    func similarities(keys: [String], to query: [Float]) -> [String: Float] {
+    public func similarities(keys: [String], to query: [Float]) -> [String: Float] {
         loadIfNeeded()
         var out: [String: Float] = [:]
         out.reserveCapacity(keys.count)
@@ -109,7 +110,7 @@ actor VectorStore {
 
     // Local kNN over everything cached — powers instant/offline "similar to
     // your taste" rows without any server round trip.
-    func nearest(to query: [Float], k: Int, excluding: Set<String> = []) -> [(key: String, score: Float)] {
+    public func nearest(to query: [Float], k: Int, excluding: Set<String> = []) -> [(key: String, score: Float)] {
         loadIfNeeded()
         var scored: [(String, Float)] = []
         scored.reserveCapacity(vectors.count)
@@ -121,7 +122,7 @@ actor VectorStore {
         return Array(scored.sorted { $0.1 > $1.1 }.prefix(k))
     }
 
-    static func cosine(_ a: [Float], _ b: [Float]) -> Float {
+    public static func cosine(_ a: [Float], _ b: [Float]) -> Float {
         let dot = vDSP.dot(a, b)
         let na = sqrt(vDSP.sumOfSquares(a))
         let nb = sqrt(vDSP.sumOfSquares(b))

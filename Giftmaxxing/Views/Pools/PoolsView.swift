@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 struct PoolsView: View {
     @ObservedObject private var store = PoolsStore.shared

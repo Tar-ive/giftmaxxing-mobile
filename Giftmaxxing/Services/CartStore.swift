@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingCore
 
 // Per-account cart, local-first with server sync.
 //

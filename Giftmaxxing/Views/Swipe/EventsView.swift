@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import GiftmaxxingCore
+import GiftmaxxingRecommendation
 
 @MainActor
 final class EventsViewModel: ObservableObject {

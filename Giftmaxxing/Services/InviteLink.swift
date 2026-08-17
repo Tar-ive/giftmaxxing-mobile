@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingCore
 
 // Builds shareable swipe-challenge links with the SAME wire format as the web
 // app (web/lib/invite.ts): base64url-encoded JSON payload in the URL path,

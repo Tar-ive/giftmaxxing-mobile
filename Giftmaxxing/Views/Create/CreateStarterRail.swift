@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // What the Create tab leads with, per design variant.
 //

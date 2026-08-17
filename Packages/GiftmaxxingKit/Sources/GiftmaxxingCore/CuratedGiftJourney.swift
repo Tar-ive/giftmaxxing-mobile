@@ -1,32 +1,32 @@
 import Foundation
 
-struct CuratedGiftCatalog: Codable {
-    let version: String
-    let sourceFile: String
-    let reviewedAt: String
-    let journeys: [CuratedGiftJourney]
-    let products: [CuratedGiftProduct]
-    let wrapKit: [CuratedGiftProduct]
+public struct CuratedGiftCatalog: Codable {
+    public let version: String
+    public let sourceFile: String
+    public let reviewedAt: String
+    public let journeys: [CuratedGiftJourney]
+    public let products: [CuratedGiftProduct]
+    public let wrapKit: [CuratedGiftProduct]
 }
 
-struct CuratedGiftJourney: Identifiable, Codable, Hashable {
-    let id: String
-    let sourcePostId: String
-    let sourceUrl: String
-    let title: String
-    let subtitle: String
-    let whySelected: String
-    let labels: [String]
-    let imageCount: Int
-    let productIds: [String]
+public struct CuratedGiftJourney: Identifiable, Codable, Hashable {
+    public let id: String
+    public let sourcePostId: String
+    public let sourceUrl: String
+    public let title: String
+    public let subtitle: String
+    public let whySelected: String
+    public let labels: [String]
+    public let imageCount: Int
+    public let productIds: [String]
 
-    var images: [String] {
+    public var images: [String] {
         (1...max(imageCount, 1)).map {
             "bundle:///\(sourcePostId)-\(String(format: "%02d", $0)).jpg"
         }
     }
 
-    var sourcePost: Post {
+    public var sourcePost: Post {
         Post(
             id: "curated-source-\(sourcePostId)",
             user: "giftmaxxing",
@@ -56,25 +56,25 @@ struct CuratedGiftJourney: Identifiable, Codable, Hashable {
     }
 }
 
-struct CuratedGiftProduct: Identifiable, Codable, Hashable {
-    enum PurchaseMode: String, Codable {
+public struct CuratedGiftProduct: Identifiable, Codable, Hashable {
+    public enum PurchaseMode: String, Codable {
         case productPage
         case chooseVariant
         case configure
     }
 
-    let id: String
-    let name: String
-    let brand: String
-    let price: Double
-    let merchant: String
-    let productUrl: String
-    let image: String
-    let purchaseMode: PurchaseMode
-    let capabilities: [String]
-    let matchEvidence: String
+    public let id: String
+    public let name: String
+    public let brand: String
+    public let price: Double
+    public let merchant: String
+    public let productUrl: String
+    public let image: String
+    public let purchaseMode: PurchaseMode
+    public let capabilities: [String]
+    public let matchEvidence: String
 
-    var purchaseLabel: String {
+    public var purchaseLabel: String {
         switch purchaseMode {
         case .configure: "Configure at \(merchant)"
         case .chooseVariant: "Choose at \(merchant)"
@@ -82,7 +82,7 @@ struct CuratedGiftProduct: Identifiable, Codable, Hashable {
         }
     }
 
-    var post: Post {
+    public var post: Post {
         Post(
             id: "curated-product-\(id)",
             user: merchant,
@@ -113,29 +113,29 @@ struct CuratedGiftProduct: Identifiable, Codable, Hashable {
     }
 }
 
-final class CuratedGiftStore {
-    static let shared = CuratedGiftStore()
-    static let isPilotEnabled = true
+public final class CuratedGiftStore {
+    public static let shared = CuratedGiftStore()
+    public static let isPilotEnabled = true
 
-    let catalog: CuratedGiftCatalog
+    public let catalog: CuratedGiftCatalog
 
-    var sourcePosts: [Post] { catalog.journeys.map(\.sourcePost) }
-    var productPosts: [Post] {
+    public var sourcePosts: [Post] { catalog.journeys.map(\.sourcePost) }
+    public var productPosts: [Post] {
         // Inspiration slides explain an idea; they are not merchant product
         // photos. Swipe cards therefore keep only verified listing imagery.
         catalog.products.map(\.post)
     }
-    var wrapPosts: [Post] { catalog.wrapKit.map(\.post) }
+    public var wrapPosts: [Post] { catalog.wrapKit.map(\.post) }
     /// Products admitted to taste-learning decks. Every card has a verified
     /// retailer destination and came through the reviewed curation manifest.
-    var challengeProducts: [Post] {
+    public var challengeProducts: [Post] {
         productPosts.filter { post in
             guard let raw = post.productUrl, let url = URL(string: raw) else { return false }
             return post.product.price > 0 && ["http", "https"].contains(url.scheme?.lowercased() ?? "")
         }
     }
 
-    var feedPosts: [Post] {
+    public var feedPosts: [Post] {
         unique(catalog.journeys.flatMap { [$0.sourcePost] + products(for: $0).map(\.post) } + wrapPosts)
     }
 
@@ -148,7 +148,7 @@ final class CuratedGiftStore {
         catalog = decoded
     }
 
-    func search(_ query: String) -> [Post] {
+    public func search(_ query: String) -> [Post] {
         let terms = query.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
         guard !terms.isEmpty else { return productPosts + wrapPosts }
         return (productPosts + wrapPosts).filter { post in
@@ -161,7 +161,7 @@ final class CuratedGiftStore {
         }
     }
 
-    func feed(query: String) -> [Post] {
+    public func feed(query: String) -> [Post] {
         let terms = query.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
         guard !terms.isEmpty else { return feedPosts }
         let journeys = catalog.journeys.filter { journey in
@@ -174,18 +174,18 @@ final class CuratedGiftStore {
         return unique(matched + queryProducts)
     }
 
-    func products(for journey: CuratedGiftJourney) -> [CuratedGiftProduct] {
+    public func products(for journey: CuratedGiftJourney) -> [CuratedGiftProduct] {
         let byId = Dictionary(uniqueKeysWithValues: catalog.products.map { ($0.id, $0) })
         return journey.productIds.compactMap { byId[$0] }
     }
 
-    func journey(containing postId: String) -> CuratedGiftJourney? {
+    public func journey(containing postId: String) -> CuratedGiftJourney? {
         if let journey = catalog.journeys.first(where: { $0.sourcePost.id == postId }) { return journey }
         let productId = postId.replacingOccurrences(of: "curated-product-", with: "")
         return catalog.journeys.first { $0.productIds.contains(productId) }
     }
 
-    func journeys(containingProductId productId: String) -> [CuratedGiftJourney] {
+    public func journeys(containingProductId productId: String) -> [CuratedGiftJourney] {
         catalog.journeys.filter { $0.productIds.contains(productId) }
     }
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // Event detail — what tapping an event row opens (web parity: an event links
 // to gift ideas + group-gift actions instead of being a dead row).

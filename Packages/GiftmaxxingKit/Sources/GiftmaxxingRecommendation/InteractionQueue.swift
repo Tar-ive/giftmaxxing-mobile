@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingCore
 
 // Batched, offline-safe interaction uploader. Every like/save/impression used
 // to be its own Lambda invocation (and the account has a hard concurrency cap
@@ -6,23 +7,44 @@ import Foundation
 // taste profile instantly and are flushed to POST /interactions in batches —
 // one invocation per ~N events instead of one per tap.
 
-actor InteractionQueue {
-    static let shared = InteractionQueue()
+// The queue used to call `APIClient.shared` directly, which is what tied the
+// whole ranking stack to the networking layer. The app injects an uploader at
+// launch instead, so this module tests without a network stack.
+//
+// IMPORTANT: if nothing sets `uploader`, interactions queue forever and every
+// taste signal is silently lost — no crash, no failing test. The debug
+// assertion below is the tripwire for exactly that.
+public protocol InteractionUploading: AnyObject, Sendable {
+    func sendInteractionsBatch(_ batch: [InteractionQueue.PendingInteraction]) async throws
+    func submitMixerEvents(_ events: [[String: Any]], anonymousId: String?) async throws
+}
 
-    struct PendingInteraction: Codable {
-        let userId: String
-        let targetId: String
-        let type: String
-        let queuedAt: Double
+
+public actor InteractionQueue {
+    public static let shared = InteractionQueue()
+
+    /// Set once at launch (see GiftmaxxingApp). Without it nothing uploads.
+    private var uploader: InteractionUploading?
+
+    /// The app injects its networking here at startup.
+    public func setUploader(_ uploader: InteractionUploading) {
+        self.uploader = uploader
+    }
+
+    public struct PendingInteraction: Codable {
+        public let userId: String
+        public let targetId: String
+        public let type: String
+        public let queuedAt: Double
         // Optional context ({mode:"gift", giftType, decisionMs, amount…}) —
         // rides to POST /interactions as `data` so gift-mode events can build
         // per-recipient taste server-side. Optional: old queued files decode.
-        var data: [String: String]?
-        var recommendationId: String?
-        var attributionToken: String?
-        var position: Int?
-        var dwellMs: Double?
-        var forceMixer: Bool?
+        public var data: [String: String]?
+        public var recommendationId: String?
+        public var attributionToken: String?
+        public var position: Int?
+        public var dwellMs: Double?
+        public var forceMixer: Bool?
     }
 
     private var pending: [PendingInteraction] = []
@@ -36,7 +58,7 @@ actor InteractionQueue {
 
     // Stable anonymous identity so server-side taste accrues pre-signup and
     // survives app restarts. A real signed-in user id takes precedence.
-    static var anonymousUserId: String {
+    public static var anonymousUserId: String {
         let key = "gm.anonUserId"
         if let existing = UserDefaults.standard.string(forKey: key) { return existing }
         let fresh = "anon-" + UUID().uuidString.lowercased()
@@ -44,7 +66,7 @@ actor InteractionQueue {
         return fresh
     }
 
-    func enqueue(
+    public func enqueue(
         userId: String?, targetId: String, type: String, data: [String: String]? = nil,
         recommendationId: String? = nil, attributionToken: String? = nil,
         position: Int? = nil, dwellMs: Double? = nil, forceMixer: Bool = false
@@ -76,7 +98,7 @@ actor InteractionQueue {
     }
 
     // Called on app-background/foreground transitions and after threshold hits.
-    func flush() async {
+    public func flush() async {
         loadIfNeeded()
         guard !isFlushing, !pending.isEmpty else { return }
         isFlushing = true
@@ -86,9 +108,13 @@ actor InteractionQueue {
         do {
             let mixer = batch.filter { $0.recommendationId != nil || $0.forceMixer == true }
             let legacy = batch.filter { $0.recommendationId == nil && $0.forceMixer != true }
-            if !legacy.isEmpty { try await APIClient.shared.sendInteractionsBatch(legacy) }
+            guard let uploader else {
+                assertionFailure("InteractionQueue has no uploader — every taste signal is being dropped. Wire it in GiftmaxxingApp.")
+                return
+            }
+            if !legacy.isEmpty { try await uploader.sendInteractionsBatch(legacy) }
             if !mixer.isEmpty {
-                try await APIClient.shared.submitMixerEvents(mixer.map { event in
+                try await uploader.submitMixerEvents(mixer.map { event in
                     var item: [String: Any] = [
                         "eventId": UUID().uuidString,
                         "type": event.type,

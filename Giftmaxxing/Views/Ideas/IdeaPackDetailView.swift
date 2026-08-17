@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // A pack, opened. Two ways out: take the whole thing for one person, or pick
 // the pieces you want. Bundles support both (one item per slot is the pairing's

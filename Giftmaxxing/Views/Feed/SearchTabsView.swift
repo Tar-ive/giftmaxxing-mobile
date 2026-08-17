@@ -2,6 +2,7 @@ import SwiftUI
 import PhotosUI
 import Vision
 import OSLog
+import GiftmaxxingCore
 
 // Search — iOS port of web/app/feed/search/page.tsx: People / Brands /
 // Products / Visual tabs, brand-enriched matching, and photo-based visual

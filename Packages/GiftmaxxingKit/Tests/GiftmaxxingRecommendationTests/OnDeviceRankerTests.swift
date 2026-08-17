@@ -1,5 +1,6 @@
 import XCTest
-@testable import Giftmaxxing
+@testable import GiftmaxxingRecommendation
+import GiftmaxxingCore
 
 // The layered on-device ranker. Assertions use margins comfortably above the
 // random exploration term (W.explore = 0.06) so tests stay deterministic.

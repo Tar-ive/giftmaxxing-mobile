@@ -5,26 +5,26 @@ import Foundation
 // user can browse without any setup. Today each shelf pulls REAL catalog
 // products filtered by its theme (a light "curation by query"); the editorial /
 // power-user curation layer slots in behind the same model later.
-struct CuratedCollection: Identifiable, Hashable {
-    let id: String
-    let title: String
-    let subtitle: String
-    let emoji: String
+public struct CuratedCollection: Identifiable, Hashable {
+    public let id: String
+    public let title: String
+    public let subtitle: String
+    public let emoji: String
     /// Real vector art for the card (AppIcons) — emoji stays for copy only.
-    var symbol: String { AppIcons.collection(id) }
-    let grad: GradientStyle
+    public var symbol: String { AppIcons.collection(id) }
+    public let grad: GradientStyle
     // Theme → feed query. vibes/category seed candidate generation; occasion +
     // recipient bias it; maxPrice is applied client-side so the "Under $X"
     // promise always holds even if the server ignores the budget hint.
-    var vibes: [String] = []
-    var category: String? = nil
-    var occasion: String? = nil
-    var recipient: String? = nil
-    var maxPrice: Double? = nil
+    public var vibes: [String] = []
+    public var category: String? = nil
+    public var occasion: String? = nil
+    public var recipient: String? = nil
+    public var maxPrice: Double? = nil
 
     // Bundled filler shelves. Ordered so occasions + interests + price bands are
     // all represented on the first screen.
-    static let all: [CuratedCollection] = [
+    public static let all: [CuratedCollection] = [
         CuratedCollection(
             id: "anniversary-under-50", title: "Anniversary Gifts Under $50",
             subtitle: "Thoughtful, not pricey", emoji: "💝", grad: .rose,

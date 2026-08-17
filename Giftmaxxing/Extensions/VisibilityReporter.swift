@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // Real on-screen visibility, as a fraction of the view's own height.
 //

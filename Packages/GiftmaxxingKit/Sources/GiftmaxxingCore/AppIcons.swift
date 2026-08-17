@@ -1,4 +1,4 @@
-import SwiftUI
+import Foundation
 
 // The app's icon vocabulary, in one place. Emoji were doing the work of icons
 // (event types, gallery art, the brand mark) — they render inconsistently
@@ -9,9 +9,9 @@ import SwiftUI
 // text, inherit the coral tint, adapt per appearance, and add nothing to the
 // bundle — strictly better than exported PNG/SVG art for this job. Bundle art
 // only if a mark genuinely can't be expressed as a symbol or a Shape.
-enum AppIcons {
+public enum AppIcons {
     /// Occasion → symbol. Keep in sync with GiftEvent.type values.
-    static func event(_ type: String?) -> String {
+    public static func event(_ type: String?) -> String {
         switch (type ?? "").lowercased() {
         case "birthday": return "birthday.cake.fill"
         case "anniversary": return "heart.circle.fill"
@@ -27,7 +27,7 @@ enum AppIcons {
     }
 
     /// Curated-gallery art.
-    static func collection(_ id: String) -> String {
+    public static func collection(_ id: String) -> String {
         switch id {
         case let x where x.contains("golf"): return "figure.golf"
         case let x where x.contains("coffee"): return "cup.and.saucer.fill"
@@ -44,40 +44,8 @@ enum AppIcons {
         }
     }
 
-    static let brand = "gift.fill"
-    static let pool = "banknote.fill"
-    static let circle = "person.2.fill"
-    static let celebrate = "party.popper.fill"
-}
-
-// The brand mark: the coral gift glyph on the brand gradient, replacing the
-// 🎁-as-Text logo DESIGN.md deprecates. One view so splash, Maxi, onboarding
-// and empty states can't drift apart.
-struct BrandGlyph: View {
-    var size: CGFloat = 44
-    /// Filled gradient tile (splash/Maxi) vs. a bare tinted glyph (empty states).
-    var tile = true
-
-    var body: some View {
-        if tile {
-            Image(systemName: AppIcons.brand)
-                .font(.system(size: size * 0.5, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: size, height: size)
-                .background(
-                    LinearGradient(
-                        colors: [Color.coral, Color.gradientEnd],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    in: RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                )
-                .accessibilityHidden(true)
-        } else {
-            Image(systemName: AppIcons.brand)
-                .font(.system(size: size, weight: .medium))
-                .foregroundStyle(Color.coral)
-                .accessibilityHidden(true)
-        }
-    }
+    public static let brand = "gift.fill"
+    public static let pool = "banknote.fill"
+    public static let circle = "person.2.fill"
+    public static let celebrate = "party.popper.fill"
 }

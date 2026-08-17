@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingCore
 
 // Turn a pasted product URL (SHEIN, Target, Walmart, Sephora, HEB, a Shopify
 // store, anything) into a Post you can drop into a Gift Board and send as a

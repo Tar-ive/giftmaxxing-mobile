@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import GiftmaxxingCore
 
 // "Where can I buy THAT?" — run visual search from an image the app already
 // has (a UGC photo, a video's poster frame) instead of only from the camera.

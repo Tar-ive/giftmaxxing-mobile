@@ -1,4 +1,6 @@
 import UIKit
+import GiftmaxxingCore
+import GiftmaxxingRecommendation
 
 // Local-first pools store — iOS port of web/lib/pools.ts behavior. Pools are
 // persisted on-device (web keeps them server-side per signed-in user; until

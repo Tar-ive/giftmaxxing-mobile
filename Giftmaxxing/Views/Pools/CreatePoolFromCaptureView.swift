@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // The share-extension loop, step two: "Start a gift pool" was tapped on a
 // captured Instagram/Pinterest post — prefill a pool with that image, ask

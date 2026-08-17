@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import GiftmaxxingCore
+import GiftmaxxingRecommendation
 
 // Feed orchestration with the hybrid serving split:
 //   server  = candidate generation only (GENERIC pages — no userId, so they are

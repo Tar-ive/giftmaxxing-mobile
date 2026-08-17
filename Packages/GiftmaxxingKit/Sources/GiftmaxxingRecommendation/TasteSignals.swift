@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingCore
 
 // Text-driven facet extraction for arbitrary catalog items. The web app
 // hand-tags its demo catalog (web/lib/recommend.ts PRODUCT_META); the live
@@ -6,10 +7,10 @@ import Foundation
 // coarse category from the item's title/brand/caption with a keyword map.
 // Cheap (runs once per item, memoized by the ranker) and fully offline.
 
-enum TasteSignals {
+public enum TasteSignals {
     // Superset of the web taxonomy (cozy…warm) plus tags that show up in the
     // live pin catalog. Keyword patterns are case-insensitive regexes.
-    static let vibeKeywords: [(vibe: String, pattern: String)] = [
+    public static let vibeKeywords: [(vibe: String, pattern: String)] = [
         ("cozy", "\\b(cozy|blanket|throw|fuzzy|knit|sweater|fleece|plush|slipper|hygge)\\b"),
         ("tech", "\\b(tech|gadget|smart|wireless|bluetooth|charger|usb|led|electronic|keyboard|drone)\\b"),
         ("kitchen", "\\b(kitchen|mug|coffee|tea|matcha|baking|cook|chef|spice|barista|espresso|cocktail kit)\\b"),
@@ -45,12 +46,12 @@ enum TasteSignals {
         "home": "home", "cozy": "home",
     ]
 
-    struct ItemSignals {
-        let vibes: [String]
-        let category: String
+    public struct ItemSignals {
+        public let vibes: [String]
+        public let category: String
     }
 
-    static func extract(from post: Post) -> ItemSignals {
+    public static func extract(from post: Post) -> ItemSignals {
         // Server-enriched facets win when present; text extraction fills the gap.
         let text = [post.product.name, post.product.brand, post.caption]
             .joined(separator: " ")

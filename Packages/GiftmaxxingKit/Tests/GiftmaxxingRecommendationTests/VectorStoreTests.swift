@@ -1,5 +1,6 @@
 import XCTest
-@testable import Giftmaxxing
+@testable import GiftmaxxingRecommendation
+import GiftmaxxingCore
 
 // The on-device vector math that replaced the server's per-request similarity
 // scoring (GET /vectors int8 payloads → cosine against the taste centroid).

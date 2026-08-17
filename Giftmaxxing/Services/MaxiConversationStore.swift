@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingCore
 
 // The Maxi transcript, persisted per account.
 //

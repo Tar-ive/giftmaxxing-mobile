@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // Swipe lists a friend sent you IN the app. Before this, an invite only
 // existed as a link in a DM — easy to miss and easy to lose. Now it waits at

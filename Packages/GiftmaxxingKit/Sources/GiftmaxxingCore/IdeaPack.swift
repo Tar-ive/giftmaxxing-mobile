@@ -12,46 +12,75 @@ import Foundation
 //
 // A gallery is a one-section pack. A bundle is a pack with one section per
 // slot, where each slot offers alternatives for the same idea.
-struct IdeaPack: Identifiable, Hashable {
-    enum Kind: String, Hashable {
+public struct IdeaPack: Identifiable, Hashable {
+    public enum Kind: String, Hashable {
         case gallery   // themed shelf — pick what you like
         case bundle    // things that go together — one pick per slot
     }
 
-    let id: String
-    let kind: Kind
-    let title: String
-    let subtitle: String
+    public let id: String
+    public let kind: Kind
+    public let title: String
+    public let subtitle: String
     /// Bundles carry the reason they exist ("Often suggested together").
-    let why: String?
-    let symbol: String
-    let grad: GradientStyle
-    var coverImage: String?
-    var sections: [IdeaSection]
+    public let why: String?
+    public let symbol: String
+    public let grad: GradientStyle
+    public var coverImage: String?
+    public var sections: [IdeaSection]
 
-    var allItems: [Post] { sections.flatMap(\.items) }
-    var itemCount: Int { allItems.count }
+    public init(
+        id: String,
+        kind: Kind,
+        title: String,
+        subtitle: String,
+        why: String?,
+        symbol: String,
+        grad: GradientStyle,
+        coverImage: String? = nil,
+        sections: [IdeaSection]
+    ) {
+        self.id = id
+        self.kind = kind
+        self.title = title
+        self.subtitle = subtitle
+        self.why = why
+        self.symbol = symbol
+        self.grad = grad
+        self.coverImage = coverImage
+        self.sections = sections
+    }
+
+    public var allItems: [Post] { sections.flatMap(\.items) }
+    public var itemCount: Int { allItems.count }
 
     /// A bundle's point is one thing per slot; a gallery has no such notion,
     /// so "add everything" would be nonsense there.
-    var supportsWholePackAdd: Bool { kind == .bundle }
+    public var supportsWholePackAdd: Bool { kind == .bundle }
 
     /// One representative per slot — what "add the whole pack" commits.
-    var representativeItems: [Post] {
+    public var representativeItems: [Post] {
         kind == .bundle ? sections.compactMap(\.items.first) : allItems
     }
 }
 
-struct IdeaSection: Identifiable, Hashable {
-    let id: String
+public struct IdeaSection: Identifiable, Hashable {
+    public let id: String
     /// Bundles label each slot ("Cozy blanket"); galleries have none.
-    let label: String?
-    let emoji: String?
-    var items: [Post]
+    public let label: String?
+    public let emoji: String?
+    public var items: [Post]
+
+    public init(id: String, label: String?, emoji: String?, items: [Post]) {
+        self.id = id
+        self.label = label
+        self.emoji = emoji
+        self.items = items
+    }
 }
 
 extension IdeaPack {
-    static func from(_ collection: CuratedCollection, items: [Post]) -> IdeaPack {
+    public static func from(_ collection: CuratedCollection, items: [Post]) -> IdeaPack {
         IdeaPack(
             id: "gallery:\(collection.id)",
             kind: .gallery,
@@ -64,29 +93,12 @@ extension IdeaPack {
             sections: [IdeaSection(id: collection.id, label: nil, emoji: nil, items: items)]
         )
     }
-
-    static func from(_ bundle: APIClient.GiftBundle) -> IdeaPack {
-        let sections = bundle.slots.map { slot in
-            IdeaSection(id: slot.id, label: slot.label, emoji: slot.emoji, items: slot.items)
-        }
-        return IdeaPack(
-            id: "bundle:\(bundle.id)",
-            kind: .bundle,
-            title: bundle.slots.map(\.label).joined(separator: " + "),
-            subtitle: RecipientLabel.display(bundle.recipient),
-            why: bundle.why,
-            symbol: "gift.fill",
-            grad: GradientStyle.allCases[abs(bundle.id.hashValue) % GradientStyle.allCases.count],
-            coverImage: sections.first?.items.first?.product.image,
-            sections: sections
-        )
-    }
 }
 
 // The server's bundle key is a raw recipient slug ("mom", "age-teen-13-17").
 // Turning it into something a person would say is client-side so no deploy is
 // needed when a new band ships.
-enum RecipientLabel {
+public enum RecipientLabel {
     private static let known: [String: String] = [
         "mom": "For Mom", "dad": "For Dad", "wife": "For your wife",
         "husband": "For your husband", "girlfriend": "For your girlfriend",
@@ -103,7 +115,7 @@ enum RecipientLabel {
 
     // Age packs are keyed "age-teen-13-17" -> "Ages 13–17". Parsing the range
     // off the slug keeps new bands working without a client update.
-    static func display(_ recipient: String) -> String {
+    public static func display(_ recipient: String) -> String {
         let key = recipient.lowercased()
         if let known = known[key] { return known }
         guard key.hasPrefix("age-") else { return key.capitalized }

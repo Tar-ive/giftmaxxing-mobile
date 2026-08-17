@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // One circle — the group's shared gift calendar (web /circle/<id> parity).
 // Members + their birthdays and the circle's occasions live server-side under

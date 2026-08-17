@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 struct CuratedJourneyRail: View {
     let onSelect: (CuratedGiftJourney) -> Void

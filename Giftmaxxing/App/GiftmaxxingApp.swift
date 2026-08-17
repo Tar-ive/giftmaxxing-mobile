@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import UserNotifications
 import FBSDKCoreKit
+import GiftmaxxingRecommendation
 
 // Rebuild nudge: 2026-07-16 — verify Xcode Cloud auto-trigger on main.
 // SwiftUI apps never receive the APNs registration callbacks without a real
@@ -67,6 +68,12 @@ struct GiftmaxxingApp: App {
         // Route taps on delivered notifications (local reminders + pushes)
         // through PushManager.handleNotification — see its delegate extension.
         UNUserNotificationCenter.current().delegate = PushManager.shared
+
+        // GiftmaxxingRecommendation has no networking of its own — the app
+        // injects the uploader. Without this line every swipe, save and dwell
+        // signal queues forever and is silently lost, with no crash and no
+        // failing test. InteractionQueue.flush() asserts in debug if it's nil.
+        Task { await InteractionQueue.shared.setUploader(APIClient.shared) }
     }
 
     var body: some Scene {

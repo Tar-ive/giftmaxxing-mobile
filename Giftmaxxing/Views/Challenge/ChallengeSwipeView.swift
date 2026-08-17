@@ -1,4 +1,6 @@
 import SwiftUI
+import GiftmaxxingCore
+import GiftmaxxingRecommendation
 
 // Native, in-app challenge swiping — no browser bounce. An invite arriving in
 // a DM, a deep link (giftmaxxing://challenge/<id>), or a pasted invite URL

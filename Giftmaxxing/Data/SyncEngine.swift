@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import SwiftUI
+import GiftmaxxingCore
 
 @MainActor
 final class SyncEngine: ObservableObject {

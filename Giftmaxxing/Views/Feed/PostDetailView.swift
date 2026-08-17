@@ -1,4 +1,6 @@
 import SwiftUI
+import GiftmaxxingCore
+import GiftmaxxingRecommendation
 
 // Post detail sheet — iOS port of the web PostModal (web/components/app/
 // post-modal.tsx): full product image, seller row, price, caption, comments,

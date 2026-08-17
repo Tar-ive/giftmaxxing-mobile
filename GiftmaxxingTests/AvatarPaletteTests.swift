@@ -1,6 +1,7 @@
 import XCTest
 import SwiftUI
 @testable import Giftmaxxing
+import GiftmaxxingCore
 
 final class AvatarPaletteTests: XCTestCase {
 

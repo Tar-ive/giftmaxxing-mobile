@@ -52,7 +52,8 @@ playground.xcworkspace
 
 # Swift Package Manager
 .build/
-Packages/
+# NOT Packages/ — that legacy Carthage-era rule would have silently swallowed
+# our own local package. GiftmaxxingKit lives in Packages/ and must be tracked.
 Package.resolved
 *.xcodeproj
 

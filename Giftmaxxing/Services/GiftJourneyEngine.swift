@@ -1,5 +1,6 @@
 import Foundation
 import UserNotifications
+import GiftmaxxingCore
 
 // The AI Gift Journey — intentional gifting by design, as a MIDDLE LAYER (no
 // new screens). For any event far enough out, the engine stages the process —

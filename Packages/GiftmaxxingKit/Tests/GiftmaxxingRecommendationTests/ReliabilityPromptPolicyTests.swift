@@ -1,5 +1,6 @@
 import XCTest
-@testable import Giftmaxxing
+@testable import GiftmaxxingRecommendation
+import GiftmaxxingCore
 
 final class ReliabilityPromptPolicyTests: XCTestCase {
     func testWaitsForFiveCompletedSwipes() {

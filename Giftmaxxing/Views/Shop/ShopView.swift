@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 struct ShopItem: Identifiable {
     let id: String

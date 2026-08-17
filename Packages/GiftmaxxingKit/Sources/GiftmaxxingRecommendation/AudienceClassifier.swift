@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingCore
 
 // Who is this product actually FOR? The catalog's `attrs.audience` tag is
 // missing on most pins (Pinterest-sourced, heavily feminine), so recipient
@@ -7,7 +8,7 @@ import Foundation
 // text with intentionally one-sided keywords; anything ambiguous stays nil
 // (neutral) so unisex gifts (books, mugs, plants) are never excluded.
 // Mirrors inferAudience() in infra/src/handler.mjs — keep the lists in sync.
-enum AudienceClassifier {
+public enum AudienceClassifier {
 
     private static let womenPattern = #"""
     \b(her|hers|woman|women|womens|girl|girls|girly|girlfriend|wife|mom|mama|mother|sister|aunt|auntie|grandma|nana|bride|bridal|bridesmaid|princess|queen|goddess|babe|lady|ladies|feminine)\b|makeup|skincare|lipstick|lip gloss|lip oil|lip tint|lip butter|mascara|eyeshadow|eyelash|nail polish|press.?on nail|manicure|scrunchie|claw clip|hair clip|barrette|handbag|purse|crossbody|shoulder bag|mini bag|baggu|heels\b|floral|rose gold|blush|dainty|bling|glitter|sparkl|kawaii|perfume|parfum|eau de|fragrance|body mist|earring|necklace|pendant|charm bracelet|bralette|leggings?\b|bodysuit|\bdress\b|skirt\b
@@ -27,7 +28,7 @@ enum AudienceClassifier {
     )
 
     // "men" / "women" when the text clearly leans one way, else nil.
-    static func infer(from text: String) -> String? {
+    public static func infer(from text: String) -> String? {
         guard !text.isEmpty else { return nil }
         let range = NSRange(text.startIndex..., in: text)
         let women = womenRegex?.numberOfMatches(in: text, range: range) ?? 0
@@ -38,7 +39,7 @@ enum AudienceClassifier {
     }
 
     // Post text worth classifying: caption + product name.
-    static func infer(for post: Post) -> String? {
+    public static func infer(for post: Post) -> String? {
         infer(from: "\(post.caption) \(post.product.name)")
     }
 }

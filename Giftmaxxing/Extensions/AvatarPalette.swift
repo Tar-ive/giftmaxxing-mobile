@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // Deterministic, vibrant avatar colours derived from the name itself.
 //

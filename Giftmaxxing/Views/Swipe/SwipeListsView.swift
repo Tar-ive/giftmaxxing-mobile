@@ -1,4 +1,6 @@
 import SwiftUI
+import GiftmaxxingCore
+import GiftmaxxingRecommendation
 
 // The "For someone" home: every Gift Board you keep, one per person/occasion
 // (Instagram-collections model). Tap into a board to manage its items, send it

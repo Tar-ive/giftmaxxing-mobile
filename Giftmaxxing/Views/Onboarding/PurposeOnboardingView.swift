@@ -1,4 +1,5 @@
 import SwiftUI
+import GiftmaxxingCore
 
 // Two decisions, then value. Taste learning belongs in the Swipe tab where the
 // action has context; onboarding only establishes who the user shops for and a

@@ -1,4 +1,5 @@
 import Foundation
+import GiftmaxxingCore
 
 // Brand enrichment — port of web/lib/brand-enrichment.ts. Flat platform
 // brands (e.g. "Etsy") become specific seller/brand names parsed from the

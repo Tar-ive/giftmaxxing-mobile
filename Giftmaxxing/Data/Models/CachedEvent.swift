@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import GiftmaxxingCore
 
 @Model
 final class CachedEvent {
