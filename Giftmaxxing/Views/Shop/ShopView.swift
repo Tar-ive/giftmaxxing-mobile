@@ -290,10 +290,8 @@ struct ShopItemCard: View {
 struct ShopItemDetail: View {
     let item: ShopItem
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var appState: AppState
     @State private var browserTarget: BrowserTarget?
     @State private var showListPicker = false
-    @State private var showPoolSheet = false
     @ObservedObject private var swipeLists = SwipeListStore.shared
 
     private var isAmazon: Bool {
@@ -404,47 +402,26 @@ struct ShopItemDetail: View {
                             }
                         }
 
-                        // Gifting rails — same two actions as a feed card: file
-                        // it into a person's swipe list, or open a gift pool
-                        // friends can chip into.
-                        HStack(spacing: 8) {
-                            Button {
-                                showListPicker = true
-                            } label: {
-                                HStack(spacing: 5) {
-                                    Image(systemName: swipeLists.contains(asPost)
-                                          ? "checkmark" : "rectangle.stack.badge.plus")
-                                        .font(.system(size: 12, weight: .semibold))
-                                    Text(swipeLists.contains(asPost) ? "On board" : "Gift board")
-                                        .font(.system(size: 13, weight: .bold))
-                                        .lineLimit(1)
-                                }
-                                .foregroundStyle(Color.coral)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 38)
-                                .background(Color.coralSoft)
-                                .clipShape(Capsule())
+                        // Gifting rail — file this find into a person's Gift
+                        // Board. (Gift pools moved behind the Circles invite.)
+                        Button {
+                            showListPicker = true
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: swipeLists.contains(asPost)
+                                      ? "checkmark" : "rectangle.stack.badge.plus")
+                                    .font(.system(size: 12, weight: .semibold))
+                                Text(swipeLists.contains(asPost) ? "On board" : "Gift board")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .lineLimit(1)
                             }
-                            .buttonStyle(.plain)
-
-                            Button {
-                                showPoolSheet = true
-                            } label: {
-                                HStack(spacing: 5) {
-                                    Image(systemName: "person.2.fill")
-                                        .font(.system(size: 12, weight: .semibold))
-                                    Text("Gift pool")
-                                        .font(.system(size: 13, weight: .bold))
-                                        .lineLimit(1)
-                                }
-                                .foregroundStyle(Color.coral)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 38)
-                                .background(Color.coralSoft)
-                                .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
+                            .foregroundStyle(Color.coral)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 38)
+                            .background(Color.coralSoft)
+                            .clipShape(Capsule())
                         }
+                        .buttonStyle(.plain)
 
                         // The Associates disclosure only applies to Amazon links.
                         if isAmazon {
@@ -465,14 +442,6 @@ struct ShopItemDetail: View {
             }
             .sheet(isPresented: $showListPicker) {
                 SwipeListPickerSheet(post: asPost)
-            }
-            .sheet(isPresented: $showPoolSheet) {
-                CreatePoolFromCaptureView(
-                    image: nil,
-                    sourceURL: item.affiliateUrl,
-                    product: asPost.product
-                )
-                .environmentObject(appState)
             }
         }
     }

@@ -43,6 +43,9 @@ enum AccountLocalState {
     static func clearPrivateStores() {
         // A search history names the people and occasions you shop for.
         RecentSearchStore.shared.clear()
+        // An invite belongs to a person, not to a phone — the next account on
+        // this device starts locked out of Circles again.
+        InviteAccess.shared.lock()
         PoolsStore.shared.clear()
         GroupGiftStore.shared.clear()
         SwipeListStore.shared.clear()

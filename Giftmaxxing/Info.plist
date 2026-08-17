@@ -37,6 +37,8 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>CirclesInviteCodes</key>
+	<string>GIFTCIRCLE,GIFTMAXXING-EARLY</string>
 	<key>CognitoClientId</key>
 	<string>1i1d0pdrgcuh8vces1f4truubd</string>
 	<key>CognitoRegion</key>

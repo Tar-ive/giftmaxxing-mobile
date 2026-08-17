@@ -32,6 +32,10 @@ final class AppState: ObservableObject {
     // the inline join card handles new arrivals (web parity).
     @Published var pendingCircleId: String?
 
+    // Circles (and the rest of the social layer) is invite-only — a locked
+    // user who taps a circle link or the You-tab row gets the code sheet.
+    @Published var showInviteCode = false
+
     // Birthday-freebies notification tap — ContentView presents the perks
     // sheet at root (works from any tab).
     @Published var showBirthdayPerks = false
@@ -60,9 +64,6 @@ final class AppState: ObservableObject {
     // of its own. ContentView renders MaxiFloatingButton and presents MaxiView
     // as a sheet when this is set. The Home search bar's mic sets it too.
     @Published var showMaxi = false
-    // The UGC composer, presented from Home's "+" now that Search owns the
-    // tab slot Post used to hold.
-    @Published var showCreate = false
     // Opening Maxi already focused on someone: the Cart's per-person "Ask Maxi"
     // and a Gift Board both seed the brief so the conversation starts mid-job
     // instead of at "who is this for?".
@@ -103,7 +104,6 @@ final class AppState: ObservableObject {
             && !showMaxi
             && !showSearch
             && !showCreatePoolFromCapture
-            && !showCreate
     }
 
     func suppressMaxiFAB() {
@@ -122,6 +122,13 @@ final class AppState: ObservableObject {
     @Published var pendingActivity = false
 
     func openCircle(_ circleId: String) {
+        guard InviteAccess.shared.isUnlocked else {
+            // Locked: the link is real, the door isn't open yet — ask for the
+            // invite code instead of dropping the user on a missing tab.
+            pendingCircleId = circleId
+            showInviteCode = true
+            return
+        }
         selectedTab = .circles
         pendingCircleId = circleId
     }
@@ -157,13 +164,15 @@ final class AppState: ObservableObject {
     // Route a capture (shared image/URL or tapped screenshot) by intent.
     func handleCapture(image: UIImage?, url: String? = nil, intent: CaptureInbox.Intent = .search) {
         switch intent {
-        case .pool:
+        case .pool where InviteAccess.shared.isUnlocked:
             poolCaptureImage = image
             poolCaptureURL = url
             selectedTab = .feed
             showCreatePoolFromCapture = true
 
-        case .search:
+        // Gift pools are part of the invite-only social layer — a locked user
+        // sharing into the app still gets the thing they came for: search.
+        case .pool, .search:
             if let image {
                 pendingCaptureImage = image
                 pendingCaptureNote = nil
@@ -187,26 +196,35 @@ struct AppUser: Identifiable, Codable {
     var grad: String
 }
 
-// The tab bar IS the product statement (HIG: 3–5 tabs, every core journey
-// visible — nothing important behind a "More" screen):
+// The tab bar IS the product statement — and the statement is "a useful gift
+// SEARCH tool", not a social network:
 //   Home      — the personalized feed (always the landing tab: cold launch,
 //               return from background, and sign-in all reset here)
 //   Swipe     — taste training + Gift Boards (feeds personalization)
-//   Search    — gifts, brands, people, and visual search
-//   Circles   — your people + their dates: circles, events & reminders,
-//               collaborative boards, pools, swipe challenges
+//   Search    — gifts, brands, and visual search (people once invited)
+//   Circles   — INVITE-ONLY (InviteAccess): your people + their dates,
+//               collaborative boards, pools, swipe challenges. Absent from the
+//               tab bar until a code is redeemed, so nobody lands in an empty
+//               room.
 //   You       — the public gifting profile + settings (Shop and Intentional
 //               Discover live here as rows, not tabs)
-// Maxi (the AI concierge) is NOT a tab — it's the floating button over every
-// tab (MaxiFloatingButton, rendered by ContentView), reachable from anywhere
-// without spending a tab slot. The Gift Journey (GiftJourneyEngine) nudges and
-// the Home search bar's mic open the same conversation.
+// Posting (UGC) is gone: creating content was a social-network job, not a
+// gift-finding one. Maxi (the AI concierge) is NOT a tab — it's the floating
+// button over every tab (MaxiFloatingButton, rendered by ContentView). The
+// Gift Journey (GiftJourneyEngine) nudges and the Home search bar's mic open
+// the same conversation.
 enum Tab: String, CaseIterable {
     case feed = "Home"
     case swipe = "Swipe"
     case search = "Search"
     case circles = "Circles"
     case you = "You"
+
+    // What the tab bar actually renders. Circles only exists for invitees;
+    // anything measuring tab slots (CoachMarks) must use this, not allCases.
+    static func visible(inviteUnlocked: Bool) -> [Tab] {
+        inviteUnlocked ? [.feed, .swipe, .search, .circles, .you] : [.feed, .swipe, .search, .you]
+    }
 
     // One stroke system across the bar: outline at rest, filled when selected.
     // Everything was previously filled at every state, which flattened the
@@ -219,10 +237,8 @@ enum Tab: String, CaseIterable {
         switch self {
         case .feed: return selected ? "house.fill" : "house"
         case .swipe: return selected ? "rectangle.stack.fill" : "rectangle.stack"
-        // Search took the centre slot from Post. Posting is an occasional
-        // action; searching for a gift is the thing people open the app to do,
-        // and burying it behind a bar that scrolled away made it unreachable.
-        // Create moved to the "+" in Home's top bar — where Instagram puts it.
+        // Search took the centre slot from Post. Posting is gone entirely now;
+        // searching for a gift is the thing people open the app to do.
         case .search: return selected ? "magnifyingglass.circle.fill" : "magnifyingglass"
         case .circles: return selected ? "person.2.fill" : "person.2"
         case .you: return selected ? "person.crop.circle.fill" : "person.crop.circle"

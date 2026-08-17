@@ -11,6 +11,12 @@ enum SearchTab: String, CaseIterable {
     case brands = "Brands"
     case products = "Products"
     case visual = "Visual"
+
+    // Searching for PEOPLE only makes sense once the social layer is open —
+    // otherwise it's a directory of strangers in a gift-search tool.
+    static func visible(inviteUnlocked: Bool) -> [SearchTab] {
+        inviteUnlocked ? allCases : [.products, .brands, .visual]
+    }
 }
 
 @MainActor
@@ -305,9 +311,8 @@ struct SearchTabsView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var showSourceDialog = false
     @State private var showCamera = false
-    @State private var showChallengeSheet = false
-    @State private var showGroupGiftSheet = false
     @State private var showLibrary = false
+    @ObservedObject private var invites = InviteAccess.shared
     @State private var openDmThreadId: String?
     @State private var showDm = false
 
@@ -346,7 +351,7 @@ struct SearchTabsView: View {
 
                 // Tabs (web TABS row)
                 HStack(spacing: 6) {
-                    ForEach(SearchTab.allCases, id: \.self) { tab in
+                    ForEach(SearchTab.visible(inviteUnlocked: invites.isUnlocked), id: \.self) { tab in
                         Button {
                             viewModel.tab = tab
                         } label: {
@@ -366,8 +371,10 @@ struct SearchTabsView: View {
 
                 ScrollView {
                     switch viewModel.tab {
-                    case .people:
+                    case .people where invites.isUnlocked:
                         peopleList
+                    case .people:
+                        productsGrid
                     case .brands:
                         brandsList
                     case .products:
@@ -399,16 +406,6 @@ struct SearchTabsView: View {
             }
             .sheet(item: $selectedPost) { post in
                 PostDetailView(post: post)
-            }
-            .sheet(isPresented: $showChallengeSheet) {
-                NavigationStack {
-                    ChallengeView(seedImage: viewModel.queryImage, showsClose: true)
-                }
-            }
-            .sheet(isPresented: $showGroupGiftSheet) {
-                NavigationStack {
-                    GroupGiftCreateView(seedImage: viewModel.queryImage)
-                }
             }
             .task {
                 AnalyticsEngine.shared.trackScreenView(screen: "search")
@@ -696,40 +693,9 @@ struct SearchTabsView: View {
                         .foregroundStyle(Color.coral)
                     }
 
-                    // Image-seeded swipe challenge: POST /challenges embeds
-                    // this capture and builds the guest deck around it —
-                    // "would they like THIS?" without showing your hand.
-                    Button {
-                        showChallengeSheet = true
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "person.crop.circle.badge.questionmark")
-                            Text("Would they love it? Challenge them")
-                        }
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(Color.coral)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 9)
-                        .background(Color.coralSoft)
-                        .clipShape(Capsule())
-                    }
-
-                    // Same capture, group mode: the friend crew swipes a deck
-                    // built around this photo and pledges toward the winner.
-                    Button {
-                        showGroupGiftSheet = true
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "person.3.fill")
-                            Text("Gift it together — start a group gift")
-                        }
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(Color.coral)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 9)
-                        .background(Color.coralSoft)
-                        .clipShape(Capsule())
-                    }
+                    // Swipe challenges and group gifts moved behind the Circles
+                    // invite — visual search stays a search result, not a
+                    // social prompt.
                 }
                 .padding(.top, 12)
             } else {

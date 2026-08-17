@@ -9,6 +9,7 @@ struct SwipeListsHomeView: View {
     var horizontalPadding: CGFloat = 20
 
     @ObservedObject private var store = SwipeListStore.shared
+    @ObservedObject private var invites = InviteAccess.shared
     @State private var showNewList = false
     @State private var newListName = ""
     @State private var newRecipientName = ""
@@ -17,7 +18,10 @@ struct SwipeListsHomeView: View {
     var body: some View {
         LazyVStack(spacing: 10) {
             // Boards a co-giver shared with you, waiting to be merged in.
-            SharedBoardsRail()
+            // Co-giving is part of the invite-only social layer.
+            if invites.isUnlocked {
+                SharedBoardsRail()
+            }
 
             if store.lists.isEmpty && !showNewList {
                 VStack(spacing: 14) {
@@ -26,7 +30,7 @@ struct SwipeListsHomeView: View {
                         .foregroundStyle(.secondary)
                     Text("No Gift Boards yet")
                         .font(.displaySmall)
-                    Text("Save finds for someone, send the board, and every swipe tells you buy or don't.")
+                    Text("Keep every idea for one person in one place — notes, prices, and links.")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -200,6 +204,7 @@ struct SwipeListDetailView: View {
     let listId: String
 
     @ObservedObject private var store = SwipeListStore.shared
+    @ObservedObject private var invites = InviteAccess.shared
     @EnvironmentObject private var authManager: AuthManager
     @Environment(\.dismiss) private var dismiss
 
@@ -232,11 +237,16 @@ struct SwipeListDetailView: View {
             if let list {
                 VStack(alignment: .leading, spacing: 16) {
                     header(list)
-                    shareCard(list)
-                    if shareFailed {
-                        Label("Couldn't build the share link — check your connection and try again.", systemImage: "wifi.slash")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
+                    // Sending a board as a swipe deck is a social play — it
+                    // lives with Circles behind the invite. Boards themselves
+                    // (save, note, buy) stay open to everyone.
+                    if invites.isUnlocked {
+                        shareCard(list)
+                        if shareFailed {
+                            Label("Couldn't build the share link — check your connection and try again.", systemImage: "wifi.slash")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     letterCard(list)
                     responsesSection(list)

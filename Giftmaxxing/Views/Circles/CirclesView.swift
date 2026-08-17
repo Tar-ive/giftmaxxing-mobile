@@ -46,6 +46,12 @@ struct CirclesView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    // Swipe decks friends sent you, waiting to be answered.
+                    // (Lived on the Swipe tab before the social layer moved
+                    // behind the Circles invite.)
+                    ChallengeInviteRail()
+                        .padding(.horizontal, -16)
+
                     // Upcoming celebrations, not a month grid. Gifting dates
                     // are sparse and usually months out, so a 31-day calendar
                     // was ~28 empty cells around two dots — and it had to jump

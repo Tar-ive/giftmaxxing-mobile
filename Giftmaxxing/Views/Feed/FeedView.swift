@@ -11,7 +11,6 @@ struct FeedView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedPost: Post?
     @State private var selectedAuthor: PublicPerson?
-    @State private var pledgingPost: Post?
     // "Add to swipe list" opens the Instagram-collections-style picker: choose
     // WHOSE list this find belongs to (or make one) instead of a blind toggle.
     @State private var listPickerPost: Post?
@@ -21,7 +20,7 @@ struct FeedView: View {
     @State private var showIdeas = false
     @State private var showCart = false
     @ObservedObject private var swipeList = SwipeListStore.shared
-    @ObservedObject private var postingStore = UGCPostingStore.shared
+    @ObservedObject private var invites = InviteAccess.shared
     @State private var refreshed = false
     // Two-tier browse taxonomy. Theme selects the query; tag narrows it in
     // place. Both live here rather than in the view model so the bars can
@@ -52,11 +51,6 @@ struct FeedView: View {
             onBookmark: {
                 swipeList.toggleMyGiftIdea(post)
                 viewModel.toggleSave(for: post, context: modelContext)
-            },
-            onPledge: {
-                pledgingPost = post
-                // Pledge = the strongest positive signal the feed has.
-                AnalyticsEngine.shared.trackContentAction(.contentLike, postId: post.id)
             },
             onAddToSwipeList: {
                 listPickerPost = post
@@ -141,15 +135,6 @@ struct FeedView: View {
                 .foregroundStyle(Color.ink)
 
             HStack {
-                Button { appState.showCreate = true } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(Color.ink)
-                        .frame(width: 32, height: 32)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("New post")
 
                 Spacer()
 
@@ -191,11 +176,6 @@ struct FeedView: View {
                                     onSelect: { selectedJourney = $0 },
                                     onSeeAll: { showIdeas = true }
                                 )
-                            }
-
-                            ForEach(postingStore.items) { item in
-                                PendingUGCFeedCard(item: item)
-                                Divider().padding(.horizontal, ThemeSpacing.md)
                             }
 
                             feedContent
@@ -255,24 +235,12 @@ struct FeedView: View {
                 }
             )
         }
-        .onReceive(NotificationCenter.default.publisher(for: .ugcPostReady)) { _ in
-            Task { await viewModel.refreshFeed(context: modelContext) }
-        }
         .sensoryFeedback(.success, trigger: refreshed)
         .sheet(item: $listPickerPost) { post in
             SwipeListPickerSheet(post: post)
         }
         .sheet(item: $cartPickerPost) { post in
             RecipientPickerSheet(posts: [post], source: "feed")
-        }
-        .sheet(item: $pledgingPost) { post in
-            // Pledge → pool creation prefilled with this post's product.
-            CreatePoolFromCaptureView(
-                image: nil,
-                sourceURL: post.productUrl ?? post.url,
-                product: post.product
-            )
-            .environmentObject(appState)
         }
         .task {
             if let remote = try? await APIClient.shared.fetchFeedTaxonomy(), !remote.isEmpty {

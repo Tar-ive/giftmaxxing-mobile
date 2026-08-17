@@ -300,49 +300,31 @@ struct SwipeView: View {
     @EnvironmentObject private var authManager: AuthManager
     @Environment(\.modelContext) private var modelContext
     @StateObject private var viewModel = SwipeViewModel()
-    @State private var context: GiftContext = .me
     @State private var details: Post?
-
-    private enum GiftContext: String, CaseIterable {
-        case me = "My taste"
-        case people = "Friends"
-    }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                contextPicker
-                ChallengeInviteRail()
-                if context == .people {
-                    PeopleHubView()
-                } else {
-                    deck
-                }
+                deck
             }
-            .background(context == .me ? Color.black : Color.cream)
+            .background(Color.black)
             .navigationTitle("Swipe")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarColorScheme(context == .me ? .dark : .light, for: .navigationBar)
-            .toolbarBackground(context == .me ? Color.black : Color.cream, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarBackground(Color.black, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("Swipe").font(.headline).foregroundStyle(context == .me ? .white : Color.ink)
+                    Text("Swipe").font(.headline).foregroundStyle(.white)
                 }
-                if context == .me {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button { Task { await viewModel.loadSurprise() } } label: {
-                            Image(systemName: "dice.fill").foregroundStyle(Color.coral)
-                        }
-                        .accessibilityLabel("Surprise me")
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { Task { await viewModel.loadSurprise() } } label: {
+                        Image(systemName: "dice.fill").foregroundStyle(Color.coral)
                     }
+                    .accessibilityLabel("Surprise me")
                 }
             }
         }
         .sheet(item: $details) { SwipeProductDetails(post: $0) }
-        .onChange(of: context) { _, value in
-            if value == .me { Task { await viewModel.loadCards() } }
-            else { AnalyticsEngine.shared.trackScreenView(screen: "swipe_people") }
-        }
         .task(id: authManager.userId) {
             viewModel.configure(userId: authManager.userId)
             viewModel.recipientSegment = "self"
@@ -353,28 +335,6 @@ struct SwipeView: View {
         }
         .onAppear { appState.suppressMaxiFAB() }
         .onDisappear { appState.unsuppressMaxiFAB() }
-    }
-
-    private var contextPicker: some View {
-        HStack(spacing: 4) {
-            ForEach(GiftContext.allCases, id: \.self) { item in
-                Button { context = item } label: {
-                    Text(item.rawValue)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(context == item
-                            ? (item == .me ? Color.black : Color.ink)
-                            : (context == .me ? Color.white.opacity(0.64) : Color.secondary))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
-                        .background(context == item ? Color.white : Color.clear, in: Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(4)
-        .background(context == .me ? Color.white.opacity(0.14) : Color.ink.opacity(0.08), in: Capsule())
-        .padding(.horizontal, 20)
-        .padding(.vertical, 6)
     }
 
     @ViewBuilder private var deck: some View {

@@ -364,7 +364,10 @@ final class FeedViewModel: ObservableObject {
         let similarities = await vectorSimilarities(for: page.posts)
         let negSimilarities = await negVectorSimilarities(for: page.posts)
 
-        let fresh = page.posts.filter { !servedIds.contains($0.id) }
+        // User-generated posts are out of the product: the app is a gift
+        // search tool, not a place to post. The server may still serve legacy
+        // `ugc` rows, so they're dropped here rather than rendered.
+        let fresh = page.posts.filter { !servedIds.contains($0.id) && $0.source != "ugc" }
         // Record the server's ordering BEFORE the on-device ranker touches it —
         // the pair (serverRank, final position) is what makes the re-rank
         // measurable rather than merely logged.
@@ -400,17 +403,8 @@ final class FeedViewModel: ObservableObject {
             rankedBuffer.removeAll { $0.post.product.price > cap }
         }
         let count = min(n, rankedBuffer.count)
-        var batch = Array(rankedBuffer.prefix(count))
+        let batch = Array(rankedBuffer.prefix(count))
         rankedBuffer.removeFirst(count)
-        let slot = min(2, max(0, batch.count - 1))
-        if let index = batch.firstIndex(where: { $0.post.source == "ugc" }), index > slot {
-            batch.insert(batch.remove(at: index), at: slot)
-        } else if !batch.contains(where: { $0.post.source == "ugc" }),
-                  let index = rankedBuffer.firstIndex(where: { $0.post.source == "ugc" }) {
-            let ugc = rankedBuffer.remove(at: index)
-            if let displaced = batch.popLast() { rankedBuffer.insert(displaced, at: 0) }
-            batch.insert(ugc, at: min(slot, batch.count))
-        }
         return batch.map { candidate in
             servedIds.insert(candidate.post.id)
             var post = candidate.post
@@ -590,7 +584,9 @@ final class FeedViewModel: ObservableObject {
         )
         if let cached = try? context.fetch(descriptor), !cached.isEmpty {
             let age = Date().timeIntervalSince(cached.map(\.cachedAt).max() ?? .distantPast)
-            let values = cached.map { $0.toPost() }
+            // Same rule as the live page: no user-generated posts, including
+            // ones cached before posting was removed.
+            let values = cached.map { $0.toPost() }.filter { $0.source != "ugc" }
             if age <= 24 * 60 * 60 { posts = values }
             if age <= 7 * 24 * 60 * 60 { staleCachedPosts = values }
         }

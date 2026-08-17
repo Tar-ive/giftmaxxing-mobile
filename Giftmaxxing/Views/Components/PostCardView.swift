@@ -58,7 +58,6 @@ struct PostCardView: View {
     var onLike: (() -> Void)?
     var onComment: (() -> Void)?
     var onBookmark: (() -> Void)?
-    var onPledge: (() -> Void)?
     var onAddToSwipeList: (() -> Void)?
     var onProductTap: (() -> Void)?
     var onAuthorTap: (() -> Void)?
@@ -363,7 +362,6 @@ struct PostCardView: View {
                     action: { onBookmark?() }
                 )
                 Spacer(minLength: 4)
-                giftAction(icon: "person.2.fill", label: "Pool", active: false) { onPledge?() }
                 giftAction(
                     icon: inSwipeList ? "rectangle.stack.fill.badge.plus" : "rectangle.stack.badge.plus",
                     label: "Board",
