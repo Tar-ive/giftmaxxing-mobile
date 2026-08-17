@@ -41,13 +41,35 @@ extracting modules 3 and 4.
 
 ## After — Core + Recommendation extracted
 
-_Pending: re-run the identical protocol once `Packages/GiftmaxxingKit` is in place._
+Commit `4cc28c7`. 20 files moved into `Packages/GiftmaxxingKit`; the app target keeps the rest.
+Identical protocol, same machine, same session.
 
 | # | Metric | Runs | Median | vs baseline |
 |---|---|---|---|---|
-| 1 | Clean build | | | |
-| 2 | Incremental — view file | | | |
-| 3 | Incremental — model file (now in the package) | | | |
-| 4 | Incremental — ranker file (now in the package) | | | |
-| 5 | App test cycle | | | |
-| 6 | Module-only tests | | | |
+| 1 | Clean build | 59.4 / 57.7 | **58.6s** | 🔴 +6.5% slower |
+| 2 | Incremental — view file | 9.9 / 8.9 / 10.0 | **9.9s** | 🔴 +15% slower |
+| 3 | Incremental — model file (now in the package) | 7.3 / 4.3 / 3.6 | **4.3s** | 🟢 **47% faster** |
+| 4 | Incremental — ranker file (now in the package) | 3.6 / 3.5 / 3.1 | **3.5s** | 🟢 **55% faster** |
+| 5 | App test cycle | 58.4 / 47.4 | **52.9s** | 🔴 +8% slower |
+| 6 | Module-only tests (`swift test`) | 4.5 / 0.9 / 0.8 | **0.9s** | 🟢 **54× faster than #5** |
+
+### What actually happened
+
+**The prediction was half wrong, in the useful direction.** The baseline showed all incremental
+builds at ~8s and I concluded the module boundary had little left to save. It saved a lot: touching a
+model now costs 4.3s instead of 8.1s, and touching a ranker 3.5s instead of 7.7s, because the package
+target and the app target compile separately rather than the app module recompiling as one unit.
+
+**The costs are real but small.** A clean build is ~3.6s slower and app-only work is ~1.3s slower —
+the price of an extra module boundary and package resolution. Anyone editing views all day pays it.
+
+**Metric 6 is the headline.** The ranking logic — the part with the most test coverage and the most
+subtle failure modes — now runs its 41 tests in **0.9 seconds** with no simulator, against 52.9s for
+the app suite. That is a different kind of loop: you can run it on every save.
+
+### What this says about extracting modules 3 and 4
+
+Do it, but for the right reason. The pattern pays when the moved code is (a) frequently edited and
+(b) heavily tested — Networking qualifies on both, DesignSystem mainly on (a). Nobody should expect a
+faster clean build; expect a faster inner loop on the code you touch most, and a test suite you'll
+actually run.
