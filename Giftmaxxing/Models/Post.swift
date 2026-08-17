@@ -24,6 +24,13 @@ struct Post: Identifiable, Codable, Hashable {
     var occasion: String?
     var category: String?
     var domain: String?
+    /// The image's real width÷height, when the source told us.
+    ///
+    /// Instagram posts arrive with true dimensions, and cropping a 4:5 keepsake
+    /// photo into a different 4:5 or letterboxing a 1:1 into 2:3 both destroy
+    /// the composition the poster actually framed. Nil = unknown; the view
+    /// falls back to measuring or to its editorial default.
+    var aspectRatio: Double?
     var qualityScore: Double?
     var feedEligible: Bool?
     // A gift can be a THING or a YEAR OF SOMETHING (Netflix, Costco, Prime…).
@@ -38,6 +45,8 @@ struct Post: Identifiable, Codable, Hashable {
     // The story behind the gift — a maker's note, anecdote, or craftsmanship
     // detail (server-provided; GiftStory composes an honest fallback).
     var story: String?
+    /// Capabilities verified from the merchant listing.
+    var productFeatures: [String]?
 
     var isService: Bool { giftType == "service" }
 
@@ -50,7 +59,7 @@ struct Post: Identifiable, Codable, Hashable {
         case comments, commentCount, source, url, productUrl, rec, reason
         case recipient, occasion, category, domain, qualityScore, feedEligible
         case giftType, serviceDuration
-        case contentType, mediaUrl, posterUrl, music, story
+        case contentType, mediaUrl, posterUrl, music, story, productFeatures
     }
 
     init(
@@ -83,7 +92,8 @@ struct Post: Identifiable, Codable, Hashable {
         mediaUrl: String? = nil,
         posterUrl: String? = nil,
         music: UGCMusicTrack? = nil,
-        story: String? = nil
+        story: String? = nil,
+        productFeatures: [String]? = nil
     ) {
         self.id = id
         self.user = user
@@ -115,6 +125,7 @@ struct Post: Identifiable, Codable, Hashable {
         self.posterUrl = posterUrl
         self.music = music
         self.story = story
+        self.productFeatures = productFeatures
     }
 }
 

@@ -103,6 +103,13 @@ enum PersonalizationStore {
         UserDefaults.standard.set(true, forKey: legacyKey)
     }
 
+    @discardableResult
+    static func claimGuestOnboarding(identity: String) -> Bool {
+        guard hasOnboarded(identity: nil), !hasOnboarded(identity: identity) else { return false }
+        markOnboarded(identity: identity)
+        return true
+    }
+
     // One-time migration: devices that dismissed the OLD onboarding keep that
     // dismissal for the GUEST identity only — signed-in accounts still get
     // their own first-run consult.

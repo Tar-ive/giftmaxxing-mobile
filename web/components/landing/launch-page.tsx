@@ -185,6 +185,7 @@ export function LaunchPage() {
         <p>Thoughtful gifting, finally figured out.</p>
         <nav aria-label="Footer navigation">
           <Link href="/feed">Open web app</Link>
+          <Link href="/terms">Terms</Link>
           <Link href="/privacy">Privacy</Link>
           <Link href="/support">Support</Link>
         </nav>

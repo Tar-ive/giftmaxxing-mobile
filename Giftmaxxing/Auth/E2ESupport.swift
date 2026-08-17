@@ -22,6 +22,30 @@ enum E2ESupport {
     @MainActor
     static func autoSignInIfRequested(authManager: AuthManager) async {
         #if DEBUG
+        if UserDefaults.standard.bool(forKey: "onboardingScreenshotMode") {
+            // A throwaway identity bypasses any guest/account completion flags
+            // without deleting the developer's real simulator state.
+            let step = UserDefaults.standard.integer(forKey: "onboardingScreenshotStep")
+            authManager.isAuthenticated = true
+            authManager.userId = "onboarding-screenshot-\(step)-\(UUID().uuidString)"
+            authManager.displayName = "Alex"
+            return
+        }
+        if UserDefaults.standard.bool(forKey: "signInScreenshotMode") {
+            authManager.isAuthenticated = false
+            authManager.userId = nil
+            authManager.displayName = nil
+            return
+        }
+        if UserDefaults.standard.bool(forKey: "curatedScreenshotMode")
+            || UserDefaults.standard.bool(forKey: "coachMarksScreenshotMode")
+            || UserDefaults.standard.bool(forKey: "swipeScreenshotMode") {
+            authManager.isAuthenticated = true
+            authManager.userId = "curated-screenshot-viewer"
+            authManager.displayName = "Gift Friend"
+            PersonalizationStore.markOnboarded(identity: authManager.userId)
+            return
+        }
         if UserDefaults.standard.bool(forKey: "profilePreview") || UserDefaults.standard.bool(forKey: "publicProfilePreview") {
             authManager.isAuthenticated = true
             authManager.userId = UserDefaults.standard.bool(forKey: "publicProfilePreview")

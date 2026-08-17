@@ -24,9 +24,20 @@ struct PostDetailView: View {
     @State private var measuredAspect: CGFloat?
 
     private var detailAspectRatio: CGFloat {
-        guard activePost.source == "ugc" else { return MediaAspect.product }
         if activePost.contentType == "ugc_video" { return MediaAspect.vertical }
-        return measuredAspect.map(MediaAspect.snap) ?? MediaAspect.square
+        if CuratedGiftStore.shared.journey(containing: activePost.id) != nil
+            || activePost.source == "curated-product" {
+            return MediaAspect.recommendationCard
+        }
+        // Personal UGC keeps its authored shape. Catalog recommendations keep
+        // the same portrait contract as the two-column discovery card.
+        if let real = activePost.aspectRatio, real > 0.2, real < 3 {
+            return CGFloat(real)
+        }
+        if activePost.source == "ugc", let measured = measuredAspect {
+            return MediaAspect.snap(measured)
+        }
+        return activePost.source == "ugc" ? MediaAspect.square : MediaAspect.recommendationCard
     }
     @State private var comments: [Comment] = []
     @State private var commentDraft = ""
@@ -34,6 +45,9 @@ struct PostDetailView: View {
 
     // The sheet can swap to a similar product in place (swipe-right-for-similar).
     private var activePost: Post { displayedPost ?? post }
+    private var detailContentMode: ContentMode {
+        activePost.source == "ugc" ? .fill : .fit
+    }
 
     var body: some View {
         NavigationStack {
@@ -50,7 +64,7 @@ struct PostDetailView: View {
                                     ForEach(Array(gallery.enumerated()), id: \.offset) { idx, image in
                                         ZStack {
                                             Color.gradient(for: activePost.product.grad)
-                                            CachedAsyncImage(url: image, width: 900)
+                                            CachedAsyncImage(url: image, width: 900, contentMode: detailContentMode)
                                         }
                                         .clipped()
                                         .tag(idx)
@@ -74,10 +88,13 @@ struct PostDetailView: View {
                                 Text(activePost.product.emoji)
                                     .font(.system(size: 80))
                                 if let image = gallery.first {
-                                    CachedAsyncImage(url: image, width: 900) { ratio in
-                                        if activePost.source == "ugc", measuredAspect == nil {
-                                            measuredAspect = ratio
-                                        }
+                                    CachedAsyncImage(url: image, width: 900, contentMode: detailContentMode) { ratio in
+                                        // Measure EVERY post, not just UGC.
+                                        // It is the fallback for anything whose
+                                        // source didn't ship dimensions, and
+                                        // gating it on ugc left every scraped
+                                        // image stuck on the 4:5 default.
+                                        if measuredAspect == nil { measuredAspect = ratio }
                                     }
                                 }
                             }
@@ -89,7 +106,8 @@ struct PostDetailView: View {
 
                     // UGC has no product attached — reverse-image search turns
                     // "love that" into something you can actually buy.
-                    if activePost.source == "ugc" {
+                    if activePost.source == "ugc",
+                       CuratedGiftStore.shared.journey(containing: activePost.id) == nil {
                         ShopThisPostRail(
                             postId: activePost.id,
                             imageUrl: activePost.product.gallery.first ?? activePost.product.image,
@@ -296,7 +314,8 @@ struct PostDetailView: View {
                         // this product, category fallback when offline).
                         if !similar.isEmpty {
                             VStack(alignment: .leading, spacing: 10) {
-                                Text("Similar gifts")
+                                Text(CuratedGiftStore.shared.journey(containing: activePost.id) == nil
+                                     ? "Closely related gifts" : "Products in this post")
                                     .font(.system(size: 13, weight: .bold))
                                     .foregroundStyle(.secondary)
                                     .textCase(.uppercase)
@@ -319,7 +338,7 @@ struct PostDetailView: View {
 
                         // Comments
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Comments")
+                            Text("Community")
                                 .font(.system(size: 13, weight: .bold))
                                 .foregroundStyle(.secondary)
                                 .textCase(.uppercase)
@@ -342,6 +361,11 @@ struct PostDetailView: View {
                                     }
                                     Spacer()
                                 }
+                            }
+                            if comments.isEmpty {
+                                Text("No comments yet. Be the first to share what you think.")
+                                    .font(.bodySmall)
+                                    .foregroundStyle(.secondary)
                             }
                             HStack(spacing: 8) {
                                 TextField("Add a comment…", text: $commentDraft, axis: .vertical)
@@ -416,18 +440,39 @@ struct PostDetailView: View {
         if let response = try? await APIClient.shared.addPostComment(postId: activePost.id, text: text) {
             comments.append(response.item)
             commentDraft = ""
+            AnalyticsEngine.shared.trackContentAction(.contentComment, postId: activePost.id, source: "post_detail")
+            await InteractionQueue.shared.enqueue(
+                userId: AuthManager.shared.userId,
+                targetId: activePost.id,
+                type: "comment"
+            )
         }
     }
 
-    // Vector recs seeded by the product (same kNN the web uses); falls back
-    // to same-category posts from the feed when the vector path is empty.
     private func loadSimilar(for seed: Post) async {
+        if let journey = CuratedGiftStore.shared.journey(containing: seed.id) {
+            similar = CuratedGiftStore.shared.products(for: journey)
+                .map(\.post)
+                .filter { $0.id != seed.id }
+            return
+        }
+        guard seed.source != "ugc" else {
+            similar = []
+            return
+        }
         let api = APIClient.shared
 
         if let response = try? await api.fetchVectorRecommendations(seedKeys: [seed.id], limit: 10),
            let items = response.items, !items.isEmpty {
             similar = items
-                .filter { $0.postId != seed.id }
+                .filter { item in
+                    guard item.postId != seed.id,
+                          item.image != nil,
+                          item.productUrl != nil || item.url != nil else { return false }
+                    let seedTerms = semanticTerms(seed.product.name + " " + seed.product.brand)
+                    let itemTerms = semanticTerms((item.name ?? "") + " " + (item.merchant ?? ""))
+                    return !seedTerms.isDisjoint(with: itemTerms)
+                }
                 .map { item in
                     Post(
                         id: item.postId,
@@ -449,11 +494,13 @@ struct PostDetailView: View {
                 }
             return
         }
+        similar = []
+    }
 
-        // Fallback: same-category picks from the feed.
-        if let page = try? await api.fetchFeed(limit: 30, category: seed.category) {
-            similar = page.posts.filter { $0.id != seed.id }.prefix(10).map { $0 }
-        }
+    private func semanticTerms(_ value: String) -> Set<String> {
+        Set(value.lowercased().split { !$0.isLetter && !$0.isNumber }
+            .map(String.init)
+            .filter { $0.count >= 4 && !["with", "from", "gift", "idea"].contains($0) })
     }
 }
 

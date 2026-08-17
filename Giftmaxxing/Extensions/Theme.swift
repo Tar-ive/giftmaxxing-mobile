@@ -12,22 +12,42 @@ extension Color {
     // (fill 5.08, on cream 4.56, on surface 5.08, on coralSoft 4.58) while
     // staying unmistakably the same coral. Dark mode already passed, so it is
     // unchanged.
-    static let coral = dynamic(light: "#C63F24", dark: "#FF7F63")
-    static let coralEmphasis = dynamic(light: "#A8321B", dark: "#FF9A80")
-    static let cream = dynamic(light: "#F7F2EB", dark: "#141210")
-    static let ink = dynamic(light: "#1A1A1A", dark: "#F5F1EA")
-    static let inkSecondary = dynamic(light: "#6B6560", dark: "#B3ABA1")
-    // #9B948C was 2.69:1 on cream — placeholder text nobody could read.
-    static let inkTertiary = dynamic(light: "#7D7670", dark: "#867E75")
-    static let line = dynamic(light: "#E5E0D8", dark: "#332E28")
-    static let surface = dynamic(light: "#FFFFFF", dark: "#1E1B18")
-    static let surfaceSunken = dynamic(light: "#F1EAE0", dark: "#2A2620")
-    static let coralSoft = dynamic(light: "#FFF0ED", dark: "#3A2620")
-    static let gradientEnd = dynamic(light: "#FF9A76", dark: "#FF9A76")
-    static let onboardingGlow = dynamic(light: "#FFC5A0", dark: "#7A4A33")
-    static let onboardingWash = dynamic(light: "#FFF9F5", dark: "#1A1613")
-    static let success = dynamic(light: "#3E8E5A", dark: "#5FB77F")
-    static let danger = dynamic(light: "#D64545", dark: "#F06B6B")
+    // Each token resolves through the ACTIVE palette (ThemePalette.swift) so
+    // the whole app can be re-themed at runtime. `var` not `let`: a stored
+    // constant would bake in whichever palette happened to be selected at
+    // first access and never change again.
+    static var coral: Color { token(\.coral) }
+    static var coralEmphasis: Color { token(\.coralEmphasis) }
+    static var cream: Color { token(\.cream) }
+    static var ink: Color { token(\.ink) }
+    static var inkSecondary: Color { token(\.inkSecondary) }
+    static var inkTertiary: Color { token(\.inkTertiary) }
+    static var line: Color { token(\.line) }
+    static var surface: Color { token(\.surface) }
+    static var surfaceSunken: Color { token(\.surfaceSunken) }
+    static var coralSoft: Color { token(\.coralSoft) }
+    static var gradientEnd: Color { token(\.gradientEnd) }
+    static var onboardingGlow: Color { token(\.onboardingGlow) }
+    static var onboardingWash: Color { token(\.onboardingWash) }
+    static var success: Color { token(\.success) }
+    static var danger: Color { token(\.danger) }
+
+    private static func token(_ path: KeyPath<Palette, (light: String, dark: String)>) -> Color {
+        // Resolved inside the UIColor provider, so the palette is read at DRAW
+        // time — a theme switch repaints without recreating any view's colors.
+        Color(uiColor: UIColor { traits in
+            var pair = ThemeManager.current[keyPath: path]
+            // A design variant may override the accent (debug menu). Only the
+            // accent — a variant that repainted surfaces would stop being a
+            // card-layout comparison and become a second theme system.
+            if path == \Palette.coral, let accent = DebugSessionManager.active.accentHex {
+                pair = accent
+            }
+            return UIColor(Color(hex: traits.userInterfaceStyle == .dark ? pair.dark : pair.light))
+        })
+    }
+
+    static let onPrimary = Color.white
 
     /// A color that resolves differently in light and dark appearance.
     static func dynamic(light: String, dark: String) -> Color {
@@ -86,11 +106,13 @@ enum ThemeRadius {
 }
 
 enum ThemeSpacing {
+    static let xxs: CGFloat = 4
     static let xs: CGFloat = 8
     static let sm: CGFloat = 12
     static let md: CGFloat = 16
     static let lg: CGFloat = 20
     static let xl: CGFloat = 24
+    static let xxl: CGFloat = 32
 }
 
 enum ThemeElevation {

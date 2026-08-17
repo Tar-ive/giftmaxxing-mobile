@@ -1,0 +1,37 @@
+{
+  "id": "gift-wrapping-ugc-v1",
+  "title": "Wrapping IS the gift",
+  "outputDir": "marketing-assets/video/gift-wrapping-ugc-v1",
+  "identityAnchor": { "mode": "reuse", "path": "marketing-assets/video/gift-rules-ugc-v2/stills/01-forgettable-gifts.png" },
+  "voice": {
+    "voice_name": "Aoede",
+    "audio_profile": "A warm, confident young woman giving practical gift-giving advice to a friend",
+    "accent": "American (Gen)",
+    "style": "Empathetic",
+    "pace": "Natural"
+  },
+  "voiceSceneContext": "A confident, warm creator speaking directly to a phone camera about gift wrapping as part of the gift, TikTok voiceover.",
+  "scenes": [
+    {
+      "name": "01-hook-plain-bag",
+      "caption": { "title": "WRAPPING IS THE GIFT", "subtitle": "Not just packaging." },
+      "voiceoverLine": "Plain gift bags get torn open and forgotten in three seconds.",
+      "imagePrompt": "Retain ONLY the woman's exact identity, hair, and realistic UGC style from Image 1 (ignore her sweater and the closet setting). She now wears a mustard yellow sweater. In a bright apartment, she holds up a plain brown paper gift bag with generic white tissue poking out, looking unimpressed at the phone camera. Natural window light, realistic skin and hands, safe caption space, no readable text.",
+      "motionPrompt": "She glances at the plain bag, gives a small unimpressed head tilt, then sets it aside on a table. Subtle handheld phone drift. Preserve her exact face, hands, sweater, and the bag. Natural UGC motion, no speaking."
+    },
+    {
+      "name": "02-texture-and-detail",
+      "caption": { "title": "ADD TEXTURE. ADD ONE DETAIL.", "subtitle": "Make the reveal part of the memory." },
+      "voiceoverLine": "Add texture, one personal detail, and a clear focal point.",
+      "imagePrompt": "Use Image 1 as the exact identity reference; she wears the same mustard yellow sweater as the prior scene. Close-up on a wooden table, her hands carefully tie natural twine and tuck a single dried flower under the ribbon on a beautifully wrapped kraft-paper box, finishing with a small wax seal. Warm afternoon light, realistic hands, safe caption space, no readable text.",
+      "motionPrompt": "Her hands finish tying the twine bow, tuck the dried flower into place, and press the wax seal down gently. Slow close-up push-in. Preserve her exact hands, the box, ribbon, flower, and wax seal. No speaking."
+    },
+    {
+      "name": "03-the-slow-reveal",
+      "caption": { "title": "MAKE OPENING PART OF THE GIFT.", "subtitle": "That's what they'll remember." },
+      "voiceoverLine": "Make opening part of the gift. That's what they'll remember.",
+      "imagePrompt": "Use Image 1 as the exact identity reference; she wears the same mustard yellow sweater. On a cozy couch, she watches a close friend (an adult woman with short blonde hair, cozy cardigan) slowly untie the twine bow on the wrapped box, savoring the moment with a soft delighted smile rather than tearing into it. Warm evening lamp light, realistic faces and hands, safe caption space, no readable text.",
+      "motionPrompt": "The friend slowly unties the twine bow, lifts the lid slightly, and looks up with a soft delighted smile. Slow natural push-in. Preserve both identities, the box, ribbon, and couch. No speaking, no physical contact."
+    }
+  ]
+}

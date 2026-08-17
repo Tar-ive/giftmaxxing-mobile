@@ -119,33 +119,46 @@ struct AvatarView: View {
     var size: CGFloat = 40
     var imageUrl: String? = nil
     var anonymousFallback = false
+    /// A merchant/brand domain. When there is no uploaded photo, the brand's own
+    /// icon beats two letters — you recognise the Allbirds mark instantly and
+    /// "AL" not at all.
+    var domain: String? = nil
 
-    private var initials: String {
-        let parts = name.split(separator: " ")
-        if parts.count >= 2 {
-            return "\(parts[0].prefix(1))\(parts[1].prefix(1))"
-        }
-        return String(name.prefix(2)).uppercased()
+    private var initials: String { AvatarPalette.initials(for: name) }
+
+    // The photo, or the brand's icon, or nothing (initials show through).
+    private var artworkURL: String? {
+        imageUrl ?? AvatarPalette.brandIconURL(domain: domain)
     }
 
     var body: some View {
         ZStack {
             // The fallback is ALWAYS drawn; the photo sits on top. A broken
             // avatar URL then reveals initials instead of a broken-photo icon.
-            if anonymousFallback && imageUrl == nil { Color.surfaceSunken }
-            else { Color.gradient(for: grad) }
-            if anonymousFallback && imageUrl == nil {
+            if anonymousFallback && artworkURL == nil { Color.surfaceSunken }
+            // Hue is hashed from the name rather than picked from the small
+            // GradientStyle enum, so two people are two colours instead of the
+            // same muted olive.
+            else { AvatarPalette.gradient(for: name) }
+
+            if anonymousFallback && artworkURL == nil {
                 Image(systemName: "person.fill")
                     .font(.system(size: size * 0.52))
                     .foregroundStyle(Color.inkTertiary)
             } else {
                 Text(initials)
-                    .font(.system(size: size * 0.35, weight: .bold, design: .rounded))
+                    .font(.system(size: size * 0.38, weight: .heavy, design: .rounded))
                     .foregroundStyle(.white)
+                    // Two heavy letters on a mid-tone fill still soften at 24px;
+                    // the shadow is what holds the edge.
+                    .shadow(color: .black.opacity(0.22), radius: 1, y: 0.5)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
             }
-            if let imageUrl {
+
+            if let artworkURL {
                 CachedAsyncImage(
-                    url: imageUrl,
+                    url: artworkURL,
                     width: Int(size * 3),
                     showsFailurePlaceholder: false
                 )
@@ -153,5 +166,11 @@ struct AvatarView: View {
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
+        // A 1px inner ring separates the avatar from the surface it sits on.
+        // Without it, a dark-hued avatar melts into a dark background and the
+        // circle stops reading as an object.
+        .overlay {
+            Circle().strokeBorder(.white.opacity(0.12), lineWidth: 1)
+        }
     }
 }

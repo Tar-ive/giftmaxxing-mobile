@@ -22,11 +22,36 @@ final class FeedViewModel: ObservableObject {
     private var exhausted = false
     // Unique per pull-to-refresh; nil for normal (CDN-cacheable) loads.
     private var cacheBuster: String?
+    private var usingMixer = false
+    private var browseThemeId = "for-you"
+    private var browseTagId: String?
+    private var mixerAttribution: [String: String] = [:]
+    private var mixerRecommendation: [String: String] = [:]
+    private var mixerRank: [String: Int] = [:]
+    private var staleCachedPosts: [Post] = []
     private let api = APIClient.shared
 
     // Ranked-but-not-yet-shown candidates (output of the on-device ranker).
     private var rankedBuffer: [RankedCandidate] = []
     private var servedIds = Set<String>()
+
+    // Which ranker put each post on screen, keyed by postId. Consumed by
+    // `attribution(for:at:)` when an impression fires. Without it an outcome
+    // (dwell, tap, save) can't be credited to a ranker: the server generates
+    // candidates one of three ways and the on-device ranker then reorders
+    // them, so every offline comparison was unattributable.
+    private var servingSource: [String: String] = [:]
+    private var serverRank: [String: Int] = [:]
+    private var rerankedOnDevice = Set<String>()
+
+    /// Serving attribution for an impression at `position`.
+    func attribution(for postId: String, at position: Int) -> AnalyticsEngine.ServingAttribution {
+        AnalyticsEngine.ServingAttribution(
+            serverSource: servingSource[postId] ?? "",
+            rerankedOnDevice: rerankedOnDevice.contains(postId),
+            serverRank: serverRank[postId]
+        )
+    }
     // Interaction model phase-2 state: which slots the fast personalized
     // picks landed in, and the in-flight background refine (cancelled on
     // every reload so a stale ranking can't overwrite a fresh page).
@@ -54,6 +79,28 @@ final class FeedViewModel: ObservableObject {
 
     // forceFresh = pull-to-refresh: bust the CDN cache so the server deals a
     // brand-new random window instead of replaying the cached page.
+    // Active browse selection (Tier 1 theme + Tier 2 tag), as query words.
+    // Empty = "For you", i.e. the personalized feed.
+    private(set) var browseQuery: [String] = []
+    private(set) var browseMaxPrice: Double?
+
+    /// Switch the browse taxonomy and reload. Cheap to call — a no-op when
+    /// nothing actually changed, so tapping the active chip doesn't refetch.
+    func setBrowse(theme: FeedTheme, tag: FeedTag?, context: ModelContext?) async {
+        var words: [String] = []
+        if !theme.query.isEmpty { words.append(contentsOf: theme.query.split(separator: " ").map(String.init)) }
+        if let tag { words.append(contentsOf: tag.query.split(separator: " ").map(String.init)) }
+
+        let price = tag?.maxPrice
+        guard words != browseQuery || price != browseMaxPrice || theme.id != browseThemeId || tag?.id != browseTagId else { return }
+        browseQuery = words
+        browseMaxPrice = price
+        browseThemeId = theme.id
+        browseTagId = tag?.id
+        posts = []
+        await loadFeed(context: context, forceFresh: true)
+    }
+
     func loadFeed(context: ModelContext? = nil, forceFresh: Bool = false) async {
         guard !isLoading else { return }
         isLoading = true
@@ -62,6 +109,10 @@ final class FeedViewModel: ObservableObject {
         exhausted = false
         rankedBuffer = []
         servedIds = []
+        usingMixer = false
+        mixerAttribution = [:]
+        mixerRecommendation = [:]
+        mixerRank = [:]
         cacheBuster = forceFresh ? UUID().uuidString : nil
 
         // Instant paint from the SwiftData cache while network + ranking run.
@@ -71,24 +122,24 @@ final class FeedViewModel: ObservableObject {
 
         await refreshTasteCentroid()
         do {
-            // Recommendation-API-first (signed-in): the server builds a taste
-            // centroid from THIS user's interaction history and kNNs the vector
-            // index — richer than what a generic candidate page can carry. Runs
-            // concurrently with the candidate fetch; on a cold start (no
-            // interactions yet → source:"facet" or empty) it contributes
-            // nothing and the generic page stands alone, so the experience is
-            // seamless either way.
-            async let personalizedTask = fetchPersonalizedPicks(forceFresh: forceFresh)
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "curatedScreenshotMode") {
+                let curated = CuratedGiftStore.shared.feed(query: browseQuery.joined(separator: " "))
+                posts = Array(curated.prefix(uiPageSize))
+                exhausted = true
+                isLoading = false
+                return
+            }
+            #endif
             try await fetchAndRankNextPage()
             posts = drain(uiPageSize)
-            weave(personalized: await personalizedTask)
-            // The first card a user sees on every open/refresh should be a
-            // swipeable carousel (a real multi-image product), not a static
-            // single Pinterest photo — and a different one each time.
-            ensureCarouselFirst()
+            if !usingMixer {
+                weave(personalized: await fetchPersonalizedPicks(forceFresh: forceFresh))
+                ensureCarouselFirst()
+            }
             await hydrateLikeStates()
             if let context {
-                cacheResults(posts, context: context)
+                cacheResults(Array((posts + rankedBuffer.map(\.post)).prefix(24)), context: context)
             }
             // Interaction model, phase 2 (intelligent back-end): the fast
             // picks above rendered instantly in cosine order; now ask the
@@ -96,11 +147,16 @@ final class FeedViewModel: ObservableObject {
             // upgrade the below-the-fold slots when it arrives. The user
             // never waits on the model — a cold endpoint just means this
             // pass quietly does nothing.
-            refineTask?.cancel()
-            refineTask = Task { [weak self] in
-                await self?.refinePersonalizedPicks()
+            if !usingMixer {
+                refineTask?.cancel()
+                refineTask = Task { [weak self] in await self?.refinePersonalizedPicks() }
             }
         } catch {
+            if CuratedGiftStore.isPilotEnabled {
+                posts = CuratedGiftStore.shared.feed(query: browseQuery.joined(separator: " "))
+                exhausted = true
+            }
+            if posts.isEmpty, !staleCachedPosts.isEmpty { posts = staleCachedPosts }
             if posts.isEmpty { self.error = error.localizedDescription }
         }
 
@@ -133,29 +189,17 @@ final class FeedViewModel: ObservableObject {
         ),
               response.source == "vector" || response.source == "vector+mtl",
               let items = response.items, !items.isEmpty else { return [] }
-        return items.map { item in
-            Post(
-                id: item.postId,
-                user: item.author ?? "giftmaxxing",
-                time: "",
-                product: Product(
-                    id: item.postId,
-                    name: item.name ?? "Gift idea",
-                    brand: item.merchant ?? item.source ?? "",
-                    price: item.price ?? 0,
-                    grad: .coral,
-                    emoji: "🎁",
-                    image: item.image
-                ),
-                caption: "",
-                likes: 0,
-                productUrl: item.productUrl ?? item.url,
-                reason: item.reason ?? "Picked for you",
-                domain: item.domain,
-                giftType: item.giftType,
-                serviceDuration: item.serviceDuration
-            )
+        let posts = items.map(Post.init(vectorItem:))
+        // Credit the ranker that produced these — "vector" (cosine) or
+        // "vector+mtl" (the trained model). These are NOT re-ranked on device:
+        // weave() places them at fixed slots, so any outcome here is
+        // attributable to the server alone.
+        for (i, p) in posts.enumerated() {
+            servingSource[p.id] = response.source ?? "vector"
+            serverRank[p.id] = i
+            rerankedOnDevice.remove(p.id)
         }
+        return posts
     }
 
     // Interleave personalized picks into the first page (slots 1, 4, 7, …) so
@@ -265,7 +309,44 @@ final class FeedViewModel: ObservableObject {
     // already leans their way — the on-device ranker needs interactions the
     // user doesn't have yet.
     private func fetchAndRankNextPage() async throws {
-        let consultVibes = PersonalizationStore.consultVibes
+        if let page = try? await api.fetchMixerRecommendations(
+            surface: "home", cursor: cursor, limit: networkPageSize,
+            themeId: browseThemeId, tagId: browseTagId, maxPrice: browseMaxPrice,
+            curatedOnly: CuratedGiftStore.isPilotEnabled,
+            excludeItemIds: Array(servedIds)
+        ), !page.posts.isEmpty {
+            usingMixer = true
+            cursor = page.cursor
+            mixerAttribution.merge(page.attributions) { _, new in new }
+            mixerRank.merge(page.ranks) { _, new in new }
+            for post in page.posts { mixerRecommendation[post.id] = page.recommendationId }
+            if page.cursor == nil { exhausted = true }
+            let fresh = page.posts.filter { !servedIds.contains($0.id) }
+            for (index, post) in fresh.enumerated() {
+                servingSource[post.id] = "mixer:\(page.modelVersion)"
+                serverRank[post.id] = index
+            }
+            rankedBuffer.append(contentsOf: fresh.enumerated().map {
+                RankedCandidate(post: $0.element, score: Double(fresh.count - $0.offset), reason: $0.element.reason)
+            })
+            return
+        }
+        if CuratedGiftStore.isPilotEnabled {
+            let curated = CuratedGiftStore.shared.feed(query: browseQuery.joined(separator: " "))
+            exhausted = true
+            rankedBuffer = curated.enumerated().map {
+                servingSource[$0.element.id] = "bundled-curation:\(CuratedGiftStore.shared.catalog.version)"
+                return RankedCandidate(post: $0.element, score: Double(curated.count - $0.offset), reason: $0.element.reason)
+            }
+            return
+        }
+        usingMixer = false
+        // A browse theme/tag REPLACES the personal cold-start vibes: the user
+        // has explicitly said what they want to look at, and blending their
+        // onboarding answers back in would dilute the thing they just asked for.
+        let consultVibes = browseQuery.isEmpty
+            ? PersonalizationStore.consultVibes
+            : browseQuery
         let page = try await api.fetchFeed(
             cursor: cursor,
             limit: networkPageSize,
@@ -283,7 +364,20 @@ final class FeedViewModel: ObservableObject {
         let similarities = await vectorSimilarities(for: page.posts)
         let negSimilarities = await negVectorSimilarities(for: page.posts)
 
-        let fresh = page.posts.filter { !servedIds.contains($0.id) }
+        // User-generated posts are out of the product: the app is a gift
+        // search tool, not a place to post. The server may still serve legacy
+        // `ugc` rows, so they're dropped here rather than rendered.
+        let fresh = page.posts.filter { !servedIds.contains($0.id) && $0.source != "ugc" }
+        // Record the server's ordering BEFORE the on-device ranker touches it —
+        // the pair (serverRank, final position) is what makes the re-rank
+        // measurable rather than merely logged.
+        // GET /feed is always the facet ranker (scorePost); the vector and MTL
+        // paths arrive separately through fetchPersonalizedPicks.
+        for (i, p) in fresh.enumerated() {
+            servingSource[p.id] = "facet"
+            serverRank[p.id] = i
+            rerankedOnDevice.insert(p.id)
+        }
         let ranked = OnDeviceRanker.rank(
             candidates: fresh,
             profile: profile,
@@ -303,18 +397,14 @@ final class FeedViewModel: ObservableObject {
     }
 
     private func drain(_ n: Int) -> [Post] {
-        let count = min(n, rankedBuffer.count)
-        var batch = Array(rankedBuffer.prefix(count))
-        rankedBuffer.removeFirst(count)
-        let slot = min(2, max(0, batch.count - 1))
-        if let index = batch.firstIndex(where: { $0.post.source == "ugc" }), index > slot {
-            batch.insert(batch.remove(at: index), at: slot)
-        } else if !batch.contains(where: { $0.post.source == "ugc" }),
-                  let index = rankedBuffer.firstIndex(where: { $0.post.source == "ugc" }) {
-            let ugc = rankedBuffer.remove(at: index)
-            if let displaced = batch.popLast() { rankedBuffer.insert(displaced, at: 0) }
-            batch.insert(ugc, at: min(slot, batch.count))
+        // "Under $N" tags: the feed endpoint has no price filter, so the cap is
+        // enforced here, before the page is handed to the UI.
+        if let cap = browseMaxPrice {
+            rankedBuffer.removeAll { $0.post.product.price > cap }
         }
+        let count = min(n, rankedBuffer.count)
+        let batch = Array(rankedBuffer.prefix(count))
+        rankedBuffer.removeFirst(count)
         return batch.map { candidate in
             servedIds.insert(candidate.post.id)
             var post = candidate.post
@@ -373,8 +463,7 @@ final class FeedViewModel: ObservableObject {
         impressedIds.insert(post.id)
         Task {
             await TasteProfileStore.shared.record(tasteEvent(.impression, post))
-            // Impressions stay device-only (they exist for de-dup + taste decay);
-            // uploading them would just buy DynamoDB writes for no ranking gain.
+            await enqueueMixerEvent(type: "impression", post: post)
         }
     }
 
@@ -389,6 +478,7 @@ final class FeedViewModel: ObservableObject {
             var event = tasteEvent(.dwell, post)
             event.weightScale = scale
             await TasteProfileStore.shared.record(event)
+            await enqueueMixerEvent(type: "dwell", post: post, dwellMs: dwellMs)
         }
     }
 
@@ -434,7 +524,10 @@ final class FeedViewModel: ObservableObject {
                 await InteractionQueue.shared.enqueue(
                     userId: userId,
                     targetId: post.id,
-                    type: requested ? "like" : "unlike"
+                    type: requested ? "like" : "unlike",
+                    recommendationId: requested ? mixerRecommendation[post.id] : nil,
+                    attributionToken: requested ? mixerAttribution[post.id] : nil,
+                    position: requested ? mixerRank[post.id] : nil
                 )
                 if requested { await seedVector(for: post) }
             } catch {
@@ -465,9 +558,24 @@ final class FeedViewModel: ObservableObject {
         }
         Task {
             await TasteProfileStore.shared.record(tasteEvent(saved ? .save : .unsave, post))
-            await InteractionQueue.shared.enqueue(userId: userId, targetId: post.id, type: saved ? "save" : "unsave")
+            await InteractionQueue.shared.enqueue(
+                userId: userId, targetId: post.id, type: saved ? "save" : "unsave",
+                recommendationId: saved ? mixerRecommendation[post.id] : nil,
+                attributionToken: saved ? mixerAttribution[post.id] : nil,
+                position: saved ? mixerRank[post.id] : nil
+            )
             if saved { await seedVector(for: post) }
         }
+    }
+
+    private func enqueueMixerEvent(type: String, post: Post, dwellMs: Double? = nil) async {
+        guard let recommendationId = mixerRecommendation[post.id] else { return }
+        await InteractionQueue.shared.enqueue(
+            userId: userId, targetId: post.id, type: type,
+            recommendationId: recommendationId,
+            attributionToken: mixerAttribution[post.id],
+            position: mixerRank[post.id], dwellMs: dwellMs
+        )
     }
 
     private func loadFromCache(context: ModelContext) {
@@ -475,13 +583,18 @@ final class FeedViewModel: ObservableObject {
             sortBy: [SortDescriptor(\.feedPosition)]
         )
         if let cached = try? context.fetch(descriptor), !cached.isEmpty {
-            posts = cached.map { $0.toPost() }
+            let age = Date().timeIntervalSince(cached.map(\.cachedAt).max() ?? .distantPast)
+            // Same rule as the live page: no user-generated posts, including
+            // ones cached before posting was removed.
+            let values = cached.map { $0.toPost() }.filter { $0.source != "ugc" }
+            if age <= 24 * 60 * 60 { posts = values }
+            if age <= 7 * 24 * 60 * 60 { staleCachedPosts = values }
         }
     }
 
     private func cacheResults(_ posts: [Post], context: ModelContext) {
         try? context.delete(model: CachedPost.self)
-        for (index, post) in posts.enumerated() {
+        for (index, post) in posts.prefix(24).enumerated() {
             let cached = CachedPost(from: post, position: index)
             context.insert(cached)
         }

@@ -58,14 +58,29 @@ struct PostCardView: View {
     var onLike: (() -> Void)?
     var onComment: (() -> Void)?
     var onBookmark: (() -> Void)?
-    var onPledge: (() -> Void)?
     var onAddToSwipeList: (() -> Void)?
     var onProductTap: (() -> Void)?
     var onAuthorTap: (() -> Void)?
     var onHide: (() -> Void)?
+    /// Manual "put this in someone's cart" — the `…` menu's primary action.
+    var onAddToCart: (() -> Void)?
 
     // Inline gallery position (Instagram-style paging right in the feed).
     @State private var galleryIndex = 0
+    // Auto-advance: a carousel the user never swipes shows one image and the
+    // rest may as well not exist. Starts only once the card has been dwelled
+    // on, and stops the moment they take over.
+    @State private var autoAdvance: Task<Void, Never>?
+    @State private var userTookOver = false
+
+    /// The slide currently on screen — what "Find similar" must search.
+    private var currentGalleryImage: String? {
+        let gallery = post.product.gallery
+        guard gallery.indices.contains(galleryIndex) else {
+            return gallery.first ?? post.product.image
+        }
+        return gallery[galleryIndex]
+    }
     // Real shape of a user upload, measured once the image decodes.
     @State private var measuredAspect: CGFloat?
     // Long-press reveals the gift's story — the alt-text of gifting.
@@ -129,7 +144,16 @@ struct PostCardView: View {
                         ForEach(Array(gallery.enumerated()), id: \.offset) { idx, image in
                             ZStack {
                                 Color.gradient(for: post.product.grad)
-                                CachedAsyncImage(url: image, width: 600)
+                                CachedAsyncImage(
+                                    url: image,
+                                    width: 600,
+                                    contentMode: isCuratedSource ? .fit : .fill
+                                ) { ratio in
+                                    // Measure from the FIRST slide only — a
+                                    // carousel resizing per page would make the
+                                    // feed jump under the reader's thumb.
+                                    if isUGC, idx == 0, measuredAspect == nil { measuredAspect = ratio }
+                                }
                             }
                             .clipped()
                             .tag(idx)
@@ -137,9 +161,18 @@ struct PostCardView: View {
                     }
                     .tabViewStyle(.page(indexDisplayMode: .always))
                     .indexViewStyle(.page(backgroundDisplayMode: .interactive))
+                    .onChange(of: galleryIndex) { old, new in
+                        // A jump of more than one page is a manual swipe; the
+                        // timer only ever moves by one.
+                        if abs(new - old) > 1 || autoAdvance == nil { userTookOver = true }
+                    }
                 } else if let image = post.product.image {
                     Color.gradient(for: post.product.grad)
-                    CachedAsyncImage(url: image, width: 600) { ratio in
+                    CachedAsyncImage(
+                        url: image,
+                        width: 600,
+                        contentMode: isCuratedSource ? .fit : .fill
+                    ) { ratio in
                         if isUGC, measuredAspect == nil { measuredAspect = ratio }
                     }
                 } else {
@@ -174,8 +207,17 @@ struct PostCardView: View {
                         HStack {
                             Spacer()
                             Button {
-                                let image = post.product.gallery.first ?? post.product.image
-                                Task { await VisualSearchLauncher.open(imageUrl: image, in: appState) }
+                                // Search the slide you're LOOKING at. This used
+                                // to always take gallery.first, so paging to
+                                // slide 4 and tapping "Find similar" searched
+                                // slide 1 — results that matched nothing on
+                                // screen.
+                                Task {
+                                    await VisualSearchLauncher.open(
+                                        imageUrl: currentGalleryImage,
+                                        in: appState
+                                    )
+                                }
                             } label: {
                                 HStack(spacing: 6) {
                                     Image(systemName: "sparkle.magnifyingglass")
@@ -320,7 +362,6 @@ struct PostCardView: View {
                     action: { onBookmark?() }
                 )
                 Spacer(minLength: 4)
-                giftAction(icon: "person.2.fill", label: "Pool", active: false) { onPledge?() }
                 giftAction(
                     icon: inSwipeList ? "rectangle.stack.fill.badge.plus" : "rectangle.stack.badge.plus",
                     label: "Board",
@@ -377,7 +418,14 @@ struct PostCardView: View {
             .padding(.bottom, 14)
         }
         .background(Color.surface)
-        .confirmationDialog("Post options", isPresented: $showActions) {
+        // Every post gets real actions here. This dialog used to contain ONLY
+        // "Cancel" for non-UGC posts — and since virtually the whole feed is
+        // non-UGC, SwiftUI rendered a degenerate empty sheet: the "…" looked
+        // broken on almost every card.
+        .confirmationDialog("Post options", isPresented: $showActions, titleVisibility: .hidden) {
+            Button("Add to cart") { onAddToCart?() }
+            Button("Save to a Gift Board") { onAddToSwipeList?() }
+            Button("Not interested") { onHide?() }
             if isUGC, post.ownerId != AuthManager.shared.userId {
                 Button("Report post", role: .destructive) { showReportReasons = true }
                 if let ownerId = post.ownerId {
@@ -414,7 +462,45 @@ struct PostCardView: View {
             guard !Task.isCancelled else { return }
             musicPlayback.play(postId: post.id, track: music)
         }
-        .onDisappear { musicPlayback.stop(postId: post.id) }
+        .onDisappear {
+            musicPlayback.stop(postId: post.id)
+            stopAutoAdvance()
+        }
+        // Auto-advance a carousel once the card has held attention for a beat.
+        // Without it most people see slide 1 and never learn the rest exist —
+        // 65% of the catalog has a gallery, so that is a lot of hidden product.
+        //
+        // Gated on REAL visibility, not onAppear: a LazyVStack builds rows well
+        // before they reach the viewport, so onAppear would advance carousels
+        // the user is nowhere near — they'd arrive at slide 4 of a card they had
+        // not yet seen. Only the card actually in frame advances, and it stops
+        // the moment it scrolls away.
+        .onVisibilityChange(threshold: 0.6) { visible in
+            if visible { startAutoAdvance() } else { stopAutoAdvance() }
+        }
+    }
+
+    private func startAutoAdvance() {
+        guard post.product.gallery.count > 1, !userTookOver, autoAdvance == nil else { return }
+        autoAdvance = Task { @MainActor in
+            // The dwell before the first move is what makes it read as
+            // "showing you more" rather than a jittery animation.
+            try? await Task.sleep(for: .seconds(2.5))
+            while !Task.isCancelled && !userTookOver {
+                let count = post.product.gallery.count
+                guard count > 1 else { return }
+                // Stop at the end rather than looping — a carousel that
+                // never settles is impossible to read.
+                if galleryIndex >= count - 1 { return }
+                withAnimation(.easeInOut(duration: 0.45)) { galleryIndex += 1 }
+                try? await Task.sleep(for: .seconds(2.5))
+            }
+        }
+    }
+
+    private func stopAutoAdvance() {
+        autoAdvance?.cancel()
+        autoAdvance = nil
     }
 
     // A reason worth a line of its own ("Similar to your taste"). Merchant
@@ -444,6 +530,7 @@ struct PostCardView: View {
     }
 
     private var isUGC: Bool { post.source == "ugc" }
+    private var isCuratedSource: Bool { post.id.hasPrefix("curated-source-") }
     private var isPlayingMusic: Bool {
         musicPlayback.activePostId == post.id && musicPlayback.isPlaying
     }
@@ -452,6 +539,7 @@ struct PostCardView: View {
     // image; square until it resolves).
     private var mediaAspectRatio: CGFloat {
         guard isUGC else { return MediaAspect.product }
+        if isCuratedSource { return measuredAspect ?? 3 / 4 }
         if post.contentType == "ugc_video" { return MediaAspect.vertical }
         return measuredAspect.map(MediaAspect.snap) ?? MediaAspect.square
     }

@@ -127,6 +127,7 @@ resource "aws_cloudfront_cache_policy" "api_vectors" {
 resource "aws_cloudfront_distribution" "api" {
   enabled         = true
   is_ipv6_enabled = true
+  http_version    = "http2and3"
   comment         = "${local.prefix} API edge cache"
   price_class     = "PriceClass_100" # NA + EU only — cheapest, fine for dev
 
@@ -184,10 +185,35 @@ resource "aws_cloudfront_distribution" "api" {
     cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
   }
 
+  # Generated packaging renders. Keyed by a hash of the cart, so the object is
+  # immutable once written — cache it hard. Deliberately NOT under
+  # "/packaging/*": that is the POST route, and keeping the prefixes disjoint
+  # means no ordering subtlety between this behavior and the default.
+  ordered_cache_behavior {
+    path_pattern           = "/wrap/public/*"
+    target_origin_id       = "media"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
+  }
+
   # Rights-cleared music masters are stored once and streamed by every post;
   # posts keep only a small track reference instead of duplicating audio.
   ordered_cache_behavior {
     path_pattern           = "/music/public/*"
+    target_origin_id       = "media"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
+  }
+
+  # Versioned, human-reviewed carousel slides and archived retailer galleries.
+  ordered_cache_behavior {
+    path_pattern           = "/curated/*"
     target_origin_id       = "media"
     viewer_protocol_policy = "redirect-to-https"
     allowed_methods        = ["GET", "HEAD", "OPTIONS"]

@@ -1,0 +1,2006 @@
+{
+  "version": "2026-08-11.4",
+  "sourceFile": "human-reviewed editorial discovery: supplied TikTok export, Wishwave, and GiftOffList",
+  "reviewedAt": "2026-08-12T04:40:01.258Z",
+  "retiredJourneySourceIds": [
+    "7670588155153665293",
+    "7670786931785026830",
+    "7670581868282219789",
+    "7670580687371586829",
+    "7670035064398335246"
+  ],
+  "journeys": [
+    {
+      "id": "practical-gifts-for-him",
+      "sourcePostId": "7672135662056869133",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7672135662056869133",
+      "title": "Useful gifts, upgraded",
+      "subtitle": "Recognizable quality without novelty clutter.",
+      "whySelected": "Concrete, photographed products with a clear reason each one earns its place and useful options across price points.",
+      "labels": [
+        "men",
+        "birthday",
+        "practical",
+        "tech",
+        "style"
+      ],
+      "imageCount": 11,
+      "productIds": [
+        "arcteryx-mantis-26",
+        "hermes-un-jardin-sur-le-nil",
+        "ralph-lauren-chino-cap",
+        "apple-watch-se-3"
+      ]
+    },
+    {
+      "id": "luxury-gifts-for-her",
+      "sourcePostId": "7672130969398250765",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7672130969398250765",
+      "title": "Little luxuries for her",
+      "subtitle": "Beauty and keepsake upgrades that feel chosen, not generic.",
+      "whySelected": "The guide shows distinct beauty, fragrance and keepsake ideas rather than relying on a generic gift category.",
+      "labels": [
+        "women",
+        "beauty",
+        "fragrance",
+        "luxury",
+        "birthday"
+      ],
+      "imageCount": 12,
+      "productIds": [
+        "chanel-gabrielle-hair-mist",
+        "aesop-resurrection-hand-balm",
+        "target-mediheal-collagen-mask"
+      ]
+    },
+    {
+      "id": "gifts-for-a-ten-year-old",
+      "sourcePostId": "7672125837486886157",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7672125837486886157",
+      "title": "What a ten-year-old will use",
+      "subtitle": "Creative, social and self-expression gifts for tweens.",
+      "whySelected": "A useful cross-category guide spanning creativity, photos, room decor and age-appropriate beauty.",
+      "labels": [
+        "tween",
+        "girl",
+        "creative",
+        "birthday",
+        "self-expression"
+      ],
+      "imageCount": 11,
+      "productIds": [
+        "target-instax-mini-12",
+        "target-bubble-slam-dunk",
+        "target-mediheal-collagen-mask"
+      ]
+    },
+    {
+      "id": "college-girl-essentials",
+      "sourcePostId": "7672118727348899086",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7672118727348899086",
+      "title": "College essentials she'll keep",
+      "subtitle": "Portable daily upgrades for campus life.",
+      "whySelected": "The post focuses on tested, durable essentials that can become part of a student's everyday routine.",
+      "labels": [
+        "college",
+        "student",
+        "practical",
+        "everyday",
+        "women"
+      ],
+      "imageCount": 7,
+      "productIds": [
+        "fjallraven-kanken",
+        "hydro-flask-32",
+        "target-instax-mini-12"
+      ]
+    },
+    {
+      "id": "gift-giving-diary",
+      "sourcePostId": "7671936750964477197",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7671936750964477197",
+      "title": "Give them proof you remembered",
+      "subtitle": "Start from the person, then choose the object.",
+      "whySelected": "A reusable decision framework that turns observed preferences and shared memories into better gifts.",
+      "labels": [
+        "thoughtful",
+        "personalized",
+        "memory",
+        "guide"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "nomination-composable-bracelet",
+        "michaels-front-opening-shadow-box"
+      ]
+    },
+    {
+      "id": "seven-gifting-mistakes",
+      "sourcePostId": "7671711751519423757",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7671711751519423757",
+      "title": "Seven ways gifts go wrong",
+      "subtitle": "A checklist against generic, rushed gifting.",
+      "whySelected": "It explains why personalization, story, presentation and experience matter before a purchase is made.",
+      "labels": [
+        "guide",
+        "personalized",
+        "presentation",
+        "experience"
+      ],
+      "imageCount": 9,
+      "productIds": [
+        "nomination-composable-bracelet",
+        "michaels-front-opening-shadow-box"
+      ]
+    },
+    {
+      "id": "ways-to-hold-a-memory",
+      "sourcePostId": "7670650943305682190",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670650943305682190",
+      "title": "Four ways to hold a memory",
+      "subtitle": "Turn letters, photos and small keepsakes into the gift.",
+      "whySelected": "Simple, achievable formats for preserving something emotionally specific.",
+      "labels": [
+        "sentimental",
+        "memory",
+        "photo",
+        "diy"
+      ],
+      "imageCount": 4,
+      "productIds": [
+        "michaels-front-opening-shadow-box"
+      ]
+    },
+    {
+      "id": "gifts-by-love-language",
+      "sourcePostId": "7671663894208777485",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7671663894208777485",
+      "title": "Gift by love language",
+      "subtitle": "Match the gesture to how they feel cared for.",
+      "whySelected": "A recipient-first framework that contrasts personalization, comfort, shared time and memory-led gifts.",
+      "labels": [
+        "love-language",
+        "partner",
+        "personalized",
+        "experience"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "nomination-composable-bracelet",
+        "michaels-front-opening-shadow-box",
+        "target-eos-vanilla-cashmere"
+      ]
+    },
+    {
+      "id": "target-basket-under-25",
+      "sourcePostId": "7671430372646767885",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7671430372646767885",
+      "title": "A Target basket around $25",
+      "subtitle": "An affordable basket with scent, comfort and a small treat.",
+      "whySelected": "The guide is store-specific, budget-aware and easy to reproduce in one shopping trip.",
+      "labels": [
+        "target",
+        "basket",
+        "budget",
+        "beauty",
+        "birthday"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "target-mixbar-vanilla-bourbon",
+        "target-eos-vanilla-cashmere",
+        "target-mediheal-collagen-mask"
+      ]
+    },
+    {
+      "id": "specific-person-gift-guide",
+      "sourcePostId": "7671418075136232717",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7671418075136232717",
+      "title": "Start with who they are",
+      "subtitle": "Homebody, foodie, cat lover, night owl, creative or outdoorsy.",
+      "whySelected": "Eight recognizable recipient profiles make the guide useful for narrowing a broad search.",
+      "labels": [
+        "personality",
+        "homebody",
+        "foodie",
+        "creative",
+        "outdoors"
+      ],
+      "imageCount": 10,
+      "productIds": [
+        "fjallraven-kanken",
+        "target-eos-vanilla-cashmere",
+        "nomination-composable-bracelet"
+      ]
+    },
+    {
+      "id": "couple-story-gifts",
+      "sourcePostId": "7670651866773982478",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670651866773982478",
+      "title": "A couple gift needs a story",
+      "subtitle": "Choose something that points back to the two of you.",
+      "whySelected": "It distinguishes meaningful couple gifts from matching objects with no shared context.",
+      "labels": [
+        "couple",
+        "partner",
+        "sentimental",
+        "photo",
+        "story"
+      ],
+      "imageCount": 4,
+      "productIds": [
+        "nomination-composable-bracelet",
+        "michaels-front-opening-shadow-box"
+      ]
+    },
+    {
+      "id": "gift-basket-inspiration",
+      "sourcePostId": "7670946847652908301",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670946847652908301",
+      "title": "Gift basket inspiration",
+      "subtitle": "Build a cohesive mood without repeating one random color.",
+      "whySelected": "Multiple finished baskets provide concrete composition and pairing references.",
+      "labels": [
+        "basket",
+        "birthday",
+        "beauty",
+        "comfort"
+      ],
+      "imageCount": 10,
+      "productIds": [
+        "target-mixbar-vanilla-bourbon",
+        "target-eos-vanilla-cashmere",
+        "target-mediheal-collagen-mask"
+      ]
+    },
+    {
+      "id": "basket-formula",
+      "sourcePostId": "7670641318242077966",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670641318242077966",
+      "title": "Build a basket that isn't random",
+      "subtitle": "One hobby + one upgrade + one comfort + one plan.",
+      "whySelected": "The four-part formula is specific enough to use immediately and broad enough to personalize for any recipient.",
+      "labels": [
+        "basket",
+        "birthday",
+        "beauty",
+        "comfort",
+        "experience"
+      ],
+      "imageCount": 7,
+      "productIds": [
+        "target-fujifilm-quicksnap",
+        "target-eos-vanilla-cashmere",
+        "target-mediheal-collagen-mask"
+      ]
+    },
+    {
+      "id": "sentimental-keepsakes",
+      "sourcePostId": "7670641859131100430",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670641859131100430",
+      "title": "Make the memory the gift",
+      "subtitle": "Start with one shared moment, then personalize it.",
+      "whySelected": "Every slide teaches a reusable personalization move instead of listing generic products.",
+      "labels": [
+        "sentimental",
+        "partner",
+        "anniversary",
+        "personalized",
+        "photo"
+      ],
+      "imageCount": 7,
+      "productIds": [
+        "nomination-composable-bracelet",
+        "michaels-front-opening-shadow-box"
+      ]
+    },
+    {
+      "id": "attention-over-price",
+      "sourcePostId": "7670644980880248077",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670644980880248077",
+      "title": "Attention over price",
+      "subtitle": "Repeat one color, create tiny reveals, handwrite the headline.",
+      "whySelected": "Three concrete presentation rules turn an inexpensive gift into a deliberate experience.",
+      "labels": [
+        "wrapping",
+        "presentation",
+        "diy",
+        "budget",
+        "personalized"
+      ],
+      "imageCount": 6,
+      "productIds": []
+    },
+    {
+      "id": "best-friend-gifts",
+      "sourcePostId": "7670277671624002830",
+      "sourceUrl": "https://www.tiktok.com/@giftmaxxing_/video/7670277671624002830",
+      "title": "Best-friend gifts with a memory",
+      "subtitle": "Self-care, photos, personalization and a shared experience.",
+      "whySelected": "The guide balances tangible keepsakes with an experience the pair can remember together.",
+      "labels": [
+        "best-friend",
+        "birthday",
+        "photo",
+        "experience",
+        "personalized"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "nomination-composable-bracelet",
+        "michaels-front-opening-shadow-box"
+      ]
+    },
+    {
+      "id": "editorial-anniversary-boyfriend",
+      "sourcePostId": "editorial-anniversary-boyfriend",
+      "sourceUrl": "https://www.wishwave.com/guides/anniversary-gifts-for-boyfriend",
+      "title": "romantic gifts he will actually use",
+      "subtitle": "Anniversary gifts that feel personal without becoming shelf clutter.",
+      "whySelected": "A manually reviewed gift genre with original editorial copy, current merchant links, and five independently verified products.",
+      "labels": [
+        "men",
+        "partner",
+        "anniversary",
+        "romantic"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "editorial-anniversary-boyfriend-bestself-intimacy-deck",
+        "editorial-anniversary-boyfriend-coco-hinoki-candle",
+        "editorial-anniversary-boyfriend-front-pocket-wallet",
+        "editorial-anniversary-boyfriend-graza-olive-oil-duo",
+        "editorial-anniversary-boyfriend-clear-cocktail-ice-mold"
+      ]
+    },
+    {
+      "id": "editorial-artist-gifts",
+      "sourcePostId": "editorial-artist-gifts",
+      "sourceUrl": "https://www.wishwave.com/guides/gifts-for-artists",
+      "title": "artist gifts without guessing their medium",
+      "subtitle": "Artist gifts that invite making without pretending you know their exact paint, paper or brush preferences.",
+      "whySelected": "A manually reviewed gift genre with original editorial copy, current merchant links, and five independently verified products.",
+      "labels": [
+        "artist",
+        "creative",
+        "stationery",
+        "hobby"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "editorial-artist-gifts-blackwing-essentials-set",
+        "editorial-artist-gifts-stone-paper-sketchbook",
+        "editorial-artist-gifts-tombow-dual-brush-pens",
+        "editorial-artist-gifts-viviva-colorsheets",
+        "editorial-artist-gifts-original-buddha-board"
+      ]
+    },
+    {
+      "id": "editorial-beer-lover-gifts",
+      "sourcePostId": "editorial-beer-lover-gifts",
+      "sourceUrl": "https://www.wishwave.com/guides/gifts-for-beer-lovers",
+      "title": "beer gifts better than a novelty pint glass",
+      "subtitle": "Five beer gifts that turn the next pour into an experience: better serving, tasting, collecting and even baking.",
+      "whySelected": "A manually reviewed gift genre with original editorial copy, current merchant links, and five independently verified products.",
+      "labels": [
+        "men",
+        "beer",
+        "foodie",
+        "hosting"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "editorial-beer-lover-gifts-fizzics-draftpour",
+        "editorial-beer-lover-gifts-ukeg-go-64",
+        "editorial-beer-lover-gifts-wood-usa-beer-cap-map",
+        "editorial-beer-lover-gifts-beer-flight-deck",
+        "editorial-beer-lover-gifts-cornbread-ale-mix"
+      ]
+    },
+    {
+      "id": "editorial-birdwatcher-gifts",
+      "sourcePostId": "editorial-birdwatcher-gifts",
+      "sourceUrl": "https://www.giftofflist.com/guides/the-best-gifts-for-birdwatchers-what-birders-actually-want",
+      "title": "birding gifts they will actually take outside",
+      "subtitle": "Skip the bird-print mug.",
+      "whySelected": "A manually reviewed gift genre with original editorial copy, current merchant links, and five independently verified products.",
+      "labels": [
+        "outdoors",
+        "birdwatching",
+        "nature",
+        "hobby"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "editorial-birdwatcher-gifts-standard-issue-binoculars",
+        "editorial-birdwatcher-gifts-sibley-field-diary",
+        "editorial-birdwatcher-gifts-foldable-backpack-stool",
+        "editorial-birdwatcher-gifts-230-led-headlamp",
+        "editorial-birdwatcher-gifts-telecular-zoom-lens"
+      ]
+    },
+    {
+      "id": "editorial-coffee-gifts",
+      "sourcePostId": "editorial-coffee-gifts",
+      "sourceUrl": "https://www.wishwave.com/guides/gifts-for-coffee-lovers",
+      "title": "5 gifts that make every morning better",
+      "subtitle": "Coffee gifts for the person who already has opinions about grind size.",
+      "whySelected": "A manually reviewed gift genre with original editorial copy, current merchant links, and five independently verified products.",
+      "labels": [
+        "foodie",
+        "coffee",
+        "morning",
+        "practical"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "editorial-coffee-gifts-baratza-encore",
+        "editorial-coffee-gifts-outin-nano",
+        "editorial-coffee-gifts-hario-v60-set",
+        "editorial-coffee-gifts-trade-coffee-subscription",
+        "editorial-coffee-gifts-espresso-bites"
+      ]
+    },
+    {
+      "id": "editorial-dog-lover-gifts",
+      "sourcePostId": "editorial-dog-lover-gifts",
+      "sourceUrl": "https://www.wishwave.com/guides/gifts-for-dog-lovers",
+      "title": "dog gifts for both ends of the leash",
+      "subtitle": "The best dog-person gifts are useful for the dog, meaningful for the human, or both.",
+      "whySelected": "A manually reviewed gift genre with original editorial copy, current merchant links, and five independently verified products.",
+      "labels": [
+        "pets",
+        "dog",
+        "outdoors",
+        "sentimental"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "editorial-dog-lover-gifts-breed-health-dna-test",
+        "editorial-dog-lover-gifts-front-range-flex-harness",
+        "editorial-dog-lover-gifts-travel-dog-water-bottle",
+        "editorial-dog-lover-gifts-toppl-treat-toy",
+        "editorial-dog-lover-gifts-custom-pet-portrait"
+      ]
+    },
+    {
+      "id": "editorial-graduation-daughter",
+      "sourcePostId": "editorial-graduation-daughter",
+      "sourceUrl": "https://www.wishwave.com/guides/graduation-gifts-for-daughter",
+      "title": "graduation gifts for what comes next",
+      "subtitle": "Graduation gifts that honor the work and support the next chapter: one keepsake, one creative memory-maker and three genuinely useful upgrades.",
+      "whySelected": "A manually reviewed gift genre with original editorial copy, current merchant links, and five independently verified products.",
+      "labels": [
+        "women",
+        "graduation",
+        "student",
+        "travel"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "editorial-graduation-daughter-classic-diploma-frame",
+        "editorial-graduation-daughter-camp-snap-2",
+        "editorial-graduation-daughter-away-carry-on",
+        "editorial-graduation-daughter-daily-planner",
+        "editorial-graduation-daughter-birdie-personal-alarm"
+      ]
+    },
+    {
+      "id": "editorial-hiker-gifts",
+      "sourcePostId": "editorial-hiker-gifts",
+      "sourceUrl": "https://www.giftofflist.com/guides/unique-gifts-for-hikers-25-picks-theyll-actually-use-on-the-trail",
+      "title": "hiker gifts that earn space in the pack",
+      "subtitle": "A hiking gift has to justify its weight.",
+      "whySelected": "A manually reviewed gift genre with original editorial copy, current merchant links, and five independently verified products.",
+      "labels": [
+        "outdoors",
+        "hiking",
+        "fitness",
+        "practical"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "editorial-hiker-gifts-hike-crew-socks",
+        "editorial-hiker-gifts-on-the-go-spf-set",
+        "editorial-hiker-gifts-actik-core-headlamp",
+        "editorial-hiker-gifts-24oz-geopress-purifier",
+        "editorial-hiker-gifts-microspikes-traction"
+      ]
+    },
+    {
+      "id": "editorial-housewarming-gifts",
+      "sourcePostId": "editorial-housewarming-gifts",
+      "sourceUrl": "https://www.wishwave.com/guides/useful-housewarming-gifts",
+      "title": "useful gifts for life after the moving boxes",
+      "subtitle": "Housewarming gifts should make the new place easier, warmer or more theirs.",
+      "whySelected": "A manually reviewed gift genre with original editorial copy, current merchant links, and five independently verified products.",
+      "labels": [
+        "home",
+        "housewarming",
+        "practical",
+        "cozy"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "editorial-housewarming-gifts-always-pan-2-0",
+        "editorial-housewarming-gifts-clean-essentials-kit",
+        "editorial-housewarming-gifts-little-green-cleaner",
+        "editorial-housewarming-gifts-new-home-candle",
+        "editorial-housewarming-gifts-kitchen-cutting-board"
+      ]
+    },
+    {
+      "id": "editorial-nurse-gifts",
+      "sourcePostId": "editorial-nurse-gifts",
+      "sourceUrl": "https://www.wishwave.com/guides/gifts-for-nurses",
+      "title": "gifts that respect a twelve hour shift",
+      "subtitle": "Useful nurse gifts for the shift and the recovery afterward.",
+      "whySelected": "A manually reviewed gift genre with original editorial copy, current merchant links, and five independently verified products.",
+      "labels": [
+        "women",
+        "nurse",
+        "wellness",
+        "practical"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "editorial-nurse-gifts-knee-high-compression-socks",
+        "editorial-nurse-gifts-classic-sport-canteen",
+        "editorial-nurse-gifts-manta-sleep-mask",
+        "editorial-nurse-gifts-hypervolt-go-3",
+        "editorial-nurse-gifts-lord-bergamot-tea"
+      ]
+    },
+    {
+      "id": "editorial-runner-gifts",
+      "sourcePostId": "editorial-runner-gifts",
+      "sourceUrl": "https://www.wishwave.com/guides/gifts-for-runners",
+      "title": "runner gifts that are not another pair of shoes",
+      "subtitle": "Runner gifts are safest when they support the habit without guessing shoe fit.",
+      "whySelected": "A manually reviewed gift genre with original editorial copy, current merchant links, and five independently verified products.",
+      "labels": [
+        "fitness",
+        "runner",
+        "wellness",
+        "tech"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "editorial-runner-gifts-openrun-pro-2",
+        "editorial-runner-gifts-flipbelt-classic",
+        "editorial-runner-gifts-hidden-comfort-socks",
+        "editorial-runner-gifts-forerunner-165",
+        "editorial-runner-gifts-grid-2-0-foam-roller"
+      ]
+    },
+    {
+      "id": "editorial-small-brand-home-gifts",
+      "sourcePostId": "editorial-small-brand-home-gifts",
+      "sourceUrl": "https://www.giftofflist.com/guides/unique-housewarming-gifts-from-small-brands",
+      "title": "housewarming gifts with a maker behind them",
+      "subtitle": "Five small-brand housewarming gifts chosen for daily usefulness, strong design and a real story behind the maker.",
+      "whySelected": "A manually reviewed gift genre with original editorial copy, current merchant links, and five independently verified products.",
+      "labels": [
+        "home",
+        "housewarming",
+        "small-brand",
+        "foodie"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "editorial-small-brand-home-gifts-wylie-hand-blown-vase",
+        "editorial-small-brand-home-gifts-clyde-electric-kettle",
+        "editorial-small-brand-home-gifts-the-artist-series-set",
+        "editorial-small-brand-home-gifts-diaspora-co-cookbook",
+        "editorial-small-brand-home-gifts-mini-hot-pot-set"
+      ]
+    },
+    {
+      "id": "editorial-sustainable-gifts-under-50",
+      "sourcePostId": "editorial-sustainable-gifts-under-50",
+      "sourceUrl": "https://www.giftofflist.com/guides/sustainable-gifts-under-50-the-indie-edit-for-thoughtful-planet-friendly-finds",
+      "title": "considered gifts that stay under fifty",
+      "subtitle": "Five useful under-$50 gifts from independent or design-led brands.",
+      "whySelected": "A manually reviewed gift genre with original editorial copy, current merchant links, and five independently verified products.",
+      "labels": [
+        "sustainable",
+        "budget",
+        "under-50",
+        "small-brand"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "editorial-sustainable-gifts-under-50-faber-literary-tote",
+        "editorial-sustainable-gifts-under-50-sunday-morning-candle",
+        "editorial-sustainable-gifts-under-50-resurrection-hand-balm",
+        "editorial-sustainable-gifts-under-50-daily-stone-lotion-bar",
+        "editorial-sustainable-gifts-under-50-raw-honey-sampler"
+      ]
+    },
+    {
+      "id": "editorial-teacher-gifts",
+      "sourcePostId": "editorial-teacher-gifts",
+      "sourceUrl": "https://www.giftofflist.com/guides/25-unique-teacher-gifts-theyll-actually-use-back-to-school-guide",
+      "title": "teacher gifts beyond another novelty mug",
+      "subtitle": "Useful teacher gifts for planning, carrying, refueling and decompressing.",
+      "whySelected": "A manually reviewed gift genre with original editorial copy, current merchant links, and five independently verified products.",
+      "labels": [
+        "teacher",
+        "stationery",
+        "wellness",
+        "thank-you"
+      ],
+      "imageCount": 6,
+      "productIds": [
+        "editorial-teacher-gifts-citron-swirl-notepad",
+        "editorial-teacher-gifts-weekly-task-planner",
+        "editorial-teacher-gifts-standard-baggu",
+        "editorial-teacher-gifts-nitro-cold-brew-case",
+        "editorial-teacher-gifts-zen-garden-grow-kit"
+      ]
+    }
+  ],
+  "products": [
+    {
+      "id": "nomination-composable-bracelet",
+      "name": "Composable Italian charm bracelet",
+      "brand": "Nomination",
+      "price": 47,
+      "merchant": "Nomination",
+      "productUrl": "https://www.nomination.com/us_en/composable",
+      "image": "bundle:///7670641859131100430-02.jpg",
+      "purchaseMode": "configure",
+      "capabilities": [
+        "bracelet configurator",
+        "home delivery"
+      ],
+      "matchEvidence": "The keepsake guide shows an Italian charm bracelet personalized with photo-booth pictures; this is the original configurable Italian-link system."
+    },
+    {
+      "id": "michaels-front-opening-shadow-box",
+      "name": "8×10 front-opening shadow box",
+      "brand": "Studio Décor",
+      "price": 0,
+      "merchant": "Michaels",
+      "productUrl": "https://www.michaels.com/product/black-front-opening-shadow-box-by-studio-decor-10383116",
+      "image": "bundle:///7670641859131100430-05.jpg",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "add to cart",
+        "store pickup",
+        "shipping"
+      ],
+      "matchEvidence": "The memory guides preserve a handwritten note and small keepsakes in a box; this frame opens from the front for arranging them."
+    },
+    {
+      "id": "target-fujifilm-quicksnap",
+      "name": "QuickSnap Flash 400 camera",
+      "brand": "Fujifilm",
+      "price": 21.99,
+      "merchant": "Target",
+      "productUrl": "https://www.target.com/p/-/A-79898667",
+      "image": "bundle:///7670641318242077966-02.jpg",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "add to cart",
+        "pickup",
+        "same-day delivery",
+        "shipping"
+      ],
+      "matchEvidence": "The basket formula uses a Fujifilm QuickSnap as the anchor hobby; this listing matches the 27-exposure Flash 400."
+    },
+    {
+      "id": "target-eos-vanilla-cashmere",
+      "name": "Vanilla Cashmere body lotion",
+      "brand": "eos",
+      "price": 9.99,
+      "merchant": "Target",
+      "productUrl": "https://www.target.com/p/-/A-79906523",
+      "image": "bundle:///7670641318242077966-03.jpg",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "add to cart",
+        "pickup",
+        "same-day delivery",
+        "shipping"
+      ],
+      "matchEvidence": "The basket guides show eos lotion as a useful comfort or daily-upgrade layer."
+    },
+    {
+      "id": "target-mediheal-collagen-mask",
+      "name": "Collagen Essential sheet mask",
+      "brand": "MEDIHEAL",
+      "price": 1.79,
+      "merchant": "Target",
+      "productUrl": "https://www.target.com/p/-/A-94420730",
+      "image": "bundle:///7670641318242077966-07.jpg",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "add to cart",
+        "pickup",
+        "same-day delivery",
+        "shipping"
+      ],
+      "matchEvidence": "The completed basket visibly includes a MEDIHEAL Collagen Essential Mask in the same single-mask format."
+    },
+    {
+      "id": "arcteryx-mantis-26",
+      "name": "Mantis 26 backpack",
+      "brand": "Arc'teryx",
+      "price": 160,
+      "merchant": "Arc'teryx",
+      "productUrl": "https://arcteryx.com/us/en/shop/mantis-26-backpack-0643",
+      "image": "bundle:///7672135662056869133-07.jpg",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "add to cart",
+        "shipping"
+      ],
+      "matchEvidence": "The practical-gifts guide shows and names an Arc'teryx backpack; this is the official Mantis 26 listing."
+    },
+    {
+      "id": "hermes-un-jardin-sur-le-nil",
+      "name": "Un Jardin sur le Nil eau de toilette",
+      "brand": "Hermès",
+      "price": 91,
+      "merchant": "Hermès",
+      "productUrl": "https://www.hermes.com/us/en/product/un-jardin-sur-le-nil-eau-de-toilette-V26993/",
+      "image": "bundle:///7672135662056869133-08.jpg",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "add to cart",
+        "volume selection",
+        "shipping"
+      ],
+      "matchEvidence": "The practical-gifts guide labels Un Jardin sur le Nil; this is the official US product page."
+    },
+    {
+      "id": "ralph-lauren-chino-cap",
+      "name": "Iconic Cotton Chino Ball Cap",
+      "brand": "Polo Ralph Lauren",
+      "price": 49.5,
+      "merchant": "Ralph Lauren",
+      "productUrl": "https://www.ralphlauren.com/men-accessories-hats-scarves-gloves/the-iconic-cotton-chino-ball-cap/0070142070.html",
+      "image": "bundle:///7672135662056869133-09.jpg",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "color selection",
+        "add to bag",
+        "store finder"
+      ],
+      "matchEvidence": "The guide shows embroidered Polo caps; this official listing matches the cotton-chino silhouette."
+    },
+    {
+      "id": "apple-watch-se-3",
+      "name": "Apple Watch SE 3",
+      "brand": "Apple",
+      "price": 249,
+      "merchant": "Apple",
+      "productUrl": "https://www.apple.com/us/shop/buy-watch/apple-watch-se",
+      "image": "bundle:///7672135662056869133-10.jpg",
+      "purchaseMode": "configure",
+      "capabilities": [
+        "case and band configurator",
+        "store pickup",
+        "delivery"
+      ],
+      "matchEvidence": "The guide recommends Apple Watch as a daily-use upgrade; the linked Apple flow configures the current SE."
+    },
+    {
+      "id": "chanel-gabrielle-hair-mist",
+      "name": "Gabrielle Chanel hair mist",
+      "brand": "Chanel",
+      "price": 85,
+      "merchant": "Chanel",
+      "productUrl": "https://www.chanel.com/us/fragrance/p/120870/gabrielle-chanel-hair-mist/",
+      "image": "bundle:///7672130969398250765-06.jpg",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "add to bag",
+        "complimentary samples",
+        "shipping"
+      ],
+      "matchEvidence": "The luxury-for-her guide shows Gabrielle hair mist; this is Chanel's matching official product page."
+    },
+    {
+      "id": "aesop-resurrection-hand-balm",
+      "name": "Resurrection Aromatique hand balm",
+      "brand": "Aesop",
+      "price": 33,
+      "merchant": "Aesop",
+      "productUrl": "https://www.aesop.com/us/p/body-hand/hand-balms/resurrection-aromatique-hand-balm/",
+      "image": "bundle:///7672130969398250765-03.jpg",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "size selection",
+        "add to cart",
+        "shipping"
+      ],
+      "matchEvidence": "The beauty guide includes elevated body care; this official balm is a useful small-luxury interpretation."
+    },
+    {
+      "id": "target-instax-mini-12",
+      "name": "Instax Mini 12 instant camera",
+      "brand": "Fujifilm",
+      "price": 79.99,
+      "merchant": "Target",
+      "productUrl": "https://www.target.com/p/-/A-88075516",
+      "image": "bundle:///7672125837486886157-04.jpg",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "color selection",
+        "add to cart",
+        "pickup",
+        "shipping"
+      ],
+      "matchEvidence": "The tween and campus guides show instant photography as a social, memory-making gift."
+    },
+    {
+      "id": "target-bubble-slam-dunk",
+      "name": "Slam Dunk hydrating moisturizer",
+      "brand": "Bubble",
+      "price": 14.99,
+      "merchant": "Target",
+      "productUrl": "https://www.target.com/p/-/A-92982135",
+      "image": "bundle:///7672125837486886157-06.jpg",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "add to cart",
+        "pickup",
+        "same-day delivery",
+        "shipping"
+      ],
+      "matchEvidence": "The tween guide includes age-appropriate self-care; this is the matching Bubble moisturizer listing."
+    },
+    {
+      "id": "fjallraven-kanken",
+      "name": "Kånken backpack",
+      "brand": "Fjällräven",
+      "price": 95,
+      "merchant": "Fjällräven",
+      "productUrl": "https://www.fjallraven.com/us/en-us/bags-gear/kanken/kanken-bags/kanken/",
+      "image": "bundle:///7672118727348899086-03.jpg",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "color selection",
+        "add to cart",
+        "shipping"
+      ],
+      "matchEvidence": "The college guide shows a Fjällräven backpack as a durable campus essential; this is the official Kånken page."
+    },
+    {
+      "id": "hydro-flask-32",
+      "name": "32 oz Wide Mouth bottle",
+      "brand": "Hydro Flask",
+      "price": 44.95,
+      "merchant": "Hydro Flask",
+      "productUrl": "https://www.hydroflask.com/32-oz-wide-mouth",
+      "image": "bundle:///7672118727348899086-02.jpg",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "color selection",
+        "add to cart",
+        "shipping"
+      ],
+      "matchEvidence": "The campus essentials guide includes a reusable bottle; this direct listing supports fast color selection and checkout."
+    },
+    {
+      "id": "target-mixbar-vanilla-bourbon",
+      "name": "Vanilla Bourbon eau de parfum",
+      "brand": "Mix:Bar",
+      "price": 19.99,
+      "merchant": "Target",
+      "productUrl": "https://www.target.com/p/-/A-79992288",
+      "image": "bundle:///7671430372646767885-04.jpg",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "add to cart",
+        "pickup",
+        "same-day delivery",
+        "shipping"
+      ],
+      "matchEvidence": "The Target basket includes an affordable fragrance layer; this listing matches the shown Mix:Bar line."
+    },
+    {
+      "id": "editorial-anniversary-boyfriend-bestself-intimacy-deck",
+      "name": "BestSelf Intimacy Deck",
+      "brand": "BestSelf",
+      "price": 27,
+      "merchant": "BestSelf",
+      "productUrl": "https://bestself.co/products/intimacy-deck",
+      "image": "https://cdn.shopify.com/s/files/1/1015/4487/files/intimacy-deck-card-deck-romantic-connection-529185.jpg?v=1758928240",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a date night conversation starter that creates the memory too"
+    },
+    {
+      "id": "editorial-anniversary-boyfriend-coco-hinoki-candle",
+      "name": "Coco Hinoki candle",
+      "brand": "Boy Smells",
+      "price": 44,
+      "merchant": "Boy Smells",
+      "productUrl": "https://boysmells.com/products/coco-fantome-standard-candle-9oz",
+      "image": "https://boysmells.com/cdn/shop/files/BS_PDP_Standard_Candle_Vessel_Coco_Hinoki_e13222f8-53fc-4edd-8478-78280f179a02.png?v=1778776257&width=1024",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "woodsy atmosphere for staying in together"
+    },
+    {
+      "id": "editorial-anniversary-boyfriend-front-pocket-wallet",
+      "name": "Front pocket wallet",
+      "brand": "Popov Leather",
+      "price": 89,
+      "merchant": "Popov Leather",
+      "productUrl": "https://www.popovleather.com/products/leather-front-pocket-wallet",
+      "image": "https://www.popovleather.com/cdn/shop/files/leather-front-pocket-wallet-popov-leather-1121197766.jpg?v=1742587542",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a daily carry made personal with initials or your date"
+    },
+    {
+      "id": "editorial-anniversary-boyfriend-graza-olive-oil-duo",
+      "name": "Graza olive oil duo",
+      "brand": "Graza",
+      "price": 42.98,
+      "merchant": "Graza",
+      "productUrl": "https://www.graza.co/products/duo-glass",
+      "image": "https://cdn.shopify.com/s/files/1/0550/0003/9638/files/IMAGE_1_Duo-Glass_51f38d4e-9da3-42fb-a95d-01f337657ae9.jpg?v=1762307678",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a cook together date night that keeps paying off"
+    },
+    {
+      "id": "editorial-anniversary-boyfriend-clear-cocktail-ice-mold",
+      "name": "Clear cocktail ice mold",
+      "brand": "W&P",
+      "price": 21,
+      "merchant": "W&P",
+      "productUrl": "https://wandp.com/products/silicone-large-clear-cocktail-ice-cube-mold",
+      "image": "https://wandp.com/cdn/shop/products/WP_VM_Peak_Clear_Ice_01_4x5_Web.jpg?v=1762463330",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "bar style ice for the toast at the end of the night"
+    },
+    {
+      "id": "editorial-artist-gifts-blackwing-essentials-set",
+      "name": "Blackwing Essentials Set",
+      "brand": "Blackwing",
+      "price": 50,
+      "merchant": "Blackwing",
+      "productUrl": "https://blackwing602.com/products/blackwing-pencil-essentials-set",
+      "image": "https://blackwing602.com/cdn/shop/files/Essential_Sets-5.jpg?v=1755847519",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a cult-favorite daily drawing tool in a complete set"
+    },
+    {
+      "id": "editorial-artist-gifts-stone-paper-sketchbook",
+      "name": "Stone Paper Sketchbook",
+      "brand": "Karst",
+      "price": 25,
+      "merchant": "Karst",
+      "productUrl": "https://karstgoods.com/products/stone-paper-sketchbook",
+      "image": "https://cdn.shopify.com/s/files/1/1598/4825/files/A6SKETCHBOOK.webp?v=1742465397",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "an ultra-smooth tree-free surface for pen and pencil"
+    },
+    {
+      "id": "editorial-artist-gifts-tombow-dual-brush-pens",
+      "name": "Tombow Dual Brush Pens",
+      "brand": "Tombow",
+      "price": 32.5,
+      "merchant": "Tombow",
+      "productUrl": "https://www.tombowusa.com/products/dual-brush-pen-art-markers-mermaids-10-pack",
+      "image": "https://www.tombowusa.com/cdn/shop/files/tom_56256_01.jpg?v=1762533504",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "dual tips and a ready-made palette for lettering or color"
+    },
+    {
+      "id": "editorial-artist-gifts-viviva-colorsheets",
+      "name": "Viviva Colorsheets",
+      "brand": "Viviva",
+      "price": 22,
+      "merchant": "Viviva",
+      "productUrl": "https://vivivacolors.com/products/original-single-set-16-colors",
+      "image": "https://vivivacolors.com/cdn/shop/files/Amazon_Product_listing.jpg?v=1770030972",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a full watercolor palette that fits in a jacket pocket"
+    },
+    {
+      "id": "editorial-artist-gifts-original-buddha-board",
+      "name": "Original Buddha Board",
+      "brand": "Buddha Board",
+      "price": 37.95,
+      "merchant": "Buddha Board",
+      "productUrl": "https://buddhaboard.com/products/original-buddha-board",
+      "image": "https://buddhaboard.com/cdn/shop/files/OBB_Hero.jpg?v=1768077778",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "paint with water, watch it fade and begin again"
+    },
+    {
+      "id": "editorial-beer-lover-gifts-fizzics-draftpour",
+      "name": "Fizzics DraftPour",
+      "brand": "Fizzics",
+      "price": 99.99,
+      "merchant": "Fizzics",
+      "productUrl": "https://store.fizzics.com/products/fizzics-draftpour",
+      "image": "https://store.fizzics.com/cdn/shop/files/DraftPour-Ice-1.png?v=1777479895",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "turns cans and bottles into a smoother draft-style pour"
+    },
+    {
+      "id": "editorial-beer-lover-gifts-ukeg-go-64",
+      "name": "uKeg Go 64",
+      "brand": "GrowlerWerks",
+      "price": 99.99,
+      "merchant": "GrowlerWerks",
+      "productUrl": "https://growlerwerks.com/products/ukeg-go-64",
+      "image": "https://growlerwerks.com/cdn/shop/files/go64_grey1.png?v=1707346257&width=900",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "keeps a growler pressurized and ready to tap"
+    },
+    {
+      "id": "editorial-beer-lover-gifts-wood-usa-beer-cap-map",
+      "name": "Wood USA Beer Cap Map",
+      "brand": "Beer Cap Maps",
+      "price": 37.5,
+      "merchant": "Beer Cap Maps",
+      "productUrl": "https://www.beercapmaps.com/products/usa-map",
+      "image": "https://cdn.shopify.com/s/files/1/1896/1353/products/Beer_Cap_Map_USA_Hi_Res.JPG?v=1491786516",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "turns favorite bottle caps into wall art with a story"
+    },
+    {
+      "id": "editorial-beer-lover-gifts-beer-flight-deck",
+      "name": "Beer Flight Deck",
+      "brand": "33 Books",
+      "price": 18,
+      "merchant": "33 Books",
+      "productUrl": "https://www.33books.com/products/flight-deck-beer-edition",
+      "image": "https://cdn.shopify.com/s/files/1/0245/5185/files/33-books-fb-image.jpg",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a tasting notebook for comparing four pours side by side"
+    },
+    {
+      "id": "editorial-beer-lover-gifts-cornbread-ale-mix",
+      "name": "Cornbread & Ale mix",
+      "brand": "Soberdough",
+      "price": 10.99,
+      "merchant": "Soberdough",
+      "productUrl": "https://www.soberdough.com/products/cornbread-ale-new",
+      "image": "https://cdn.shopify.com/s/files/1/0231/2365/products/Soberdough-Cornbread.jpg?v=1523123435",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a warm loaf they activate with their favorite beer"
+    },
+    {
+      "id": "editorial-birdwatcher-gifts-standard-issue-binoculars",
+      "name": "Standard Issue Binoculars",
+      "brand": "Nocs Provisions",
+      "price": 99.95,
+      "merchant": "Nocs Provisions",
+      "productUrl": "https://www.nocsprovisions.com/products/standard-issue-8x25-waterproof-binoculars?variant=47377224073495",
+      "image": "https://cdn.shopify.com/s/files/1/0232/3270/8686/files/Standard-NOC-STD-ALP-main-1000x100017527853275014_21d3caac-d61e-4fb3-9540-61e9862773a4.webp?v=1763398235",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "compact waterproof optics for backyard and trail sightings"
+    },
+    {
+      "id": "editorial-birdwatcher-gifts-sibley-field-diary",
+      "name": "Sibley Field Diary",
+      "brand": "Bird Collective",
+      "price": 22,
+      "merchant": "Bird Collective",
+      "productUrl": "https://www.birdcollective.com/products/the-sibley-birder-s-life-list-field-diary",
+      "image": "https://cdn.shopify.com/s/files/1/0251/1126/5366/files/the-sibley-birders-life-list-field-diary-817690.jpg?v=1711473126",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a proper place to record sightings and build a life list"
+    },
+    {
+      "id": "editorial-birdwatcher-gifts-foldable-backpack-stool",
+      "name": "Foldable Backpack Stool",
+      "brand": "Kalsten",
+      "price": 61.99,
+      "merchant": "Kalsten",
+      "productUrl": "https://kalsten.com/products/noxord-foldable-backpack-stool",
+      "image": "https://cdn.shopify.com/s/files/1/0736/8661/4284/files/14578731-f0b2-4b63-3d28-27d4fd5c1800.png?v=1776941291",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a seat and carry bag for longer waits at one viewing spot"
+    },
+    {
+      "id": "editorial-birdwatcher-gifts-230-led-headlamp",
+      "name": "230° LED Headlamp",
+      "brand": "NightBuddy",
+      "price": 34.95,
+      "merchant": "NightBuddy",
+      "productUrl": "https://www.nightbuddy.co/products/nightbuddy%E2%84%A2-230-led-headlamp",
+      "image": "https://cdn.shopify.com/s/files/1/0609/9422/4340/files/10_739a6a6d-7c96-4959-a152-3866b4a496d3.png?v=1762458448",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "wide hands-free light for early starts and late returns"
+    },
+    {
+      "id": "editorial-birdwatcher-gifts-telecular-zoom-lens",
+      "name": "TeleCular Zoom Lens",
+      "brand": "APEXEL",
+      "price": 129.99,
+      "merchant": "APEXEL",
+      "productUrl": "https://www.shopapexel.com/products/telecular-3-series-20-60x-zoom-telephoto-lens",
+      "image": "https://cdn.shopify.com/s/files/1/0069/3161/1701/files/T20-60X_1_1500x1500_ec8875ea-a00a-43ab-94cc-422efce8d06e.webp?v=1776066680",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "pairs long-range observation with phone photography"
+    },
+    {
+      "id": "editorial-coffee-gifts-baratza-encore",
+      "name": "Baratza Encore",
+      "brand": "Baratza",
+      "price": 149.95,
+      "merchant": "Baratza",
+      "productUrl": "https://www.baratza.com/en-us/product/encore-zcg485",
+      "image": "https://assets.breville.com/cdn-cgi/image/width=1000,format=png/ZCG410/ZCG410_Hero_DE.png?pdp",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "the biggest upgrade for anyone still using a blade grinder"
+    },
+    {
+      "id": "editorial-coffee-gifts-outin-nano",
+      "name": "OutIn Nano",
+      "brand": "OutIn",
+      "price": 149.99,
+      "merchant": "OutIn",
+      "productUrl": "https://outin.com/products/nano-portable-espresso-machine-outin-teal",
+      "image": "https://outin.com/cdn/shop/files/0901_nano_5__1.webp?v=1766421638&width=1200",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "real espresso for camping, offices and hotel rooms"
+    },
+    {
+      "id": "editorial-coffee-gifts-hario-v60-set",
+      "name": "Hario V60 set",
+      "brand": "Hario USA",
+      "price": 46.5,
+      "merchant": "Hario USA",
+      "productUrl": "https://www.hario-usa.com/products/v60-craft-pour-over-set-colors",
+      "image": "https://www.hario-usa.com/cdn/shop/files/IMG_9528.jpg?v=1757347285&width=1200",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a complete pour over ritual in one box"
+    },
+    {
+      "id": "editorial-coffee-gifts-trade-coffee-subscription",
+      "name": "Trade coffee subscription",
+      "brand": "Trade Coffee",
+      "price": 66,
+      "merchant": "Trade Coffee",
+      "productUrl": "https://www.drinktrade.com/products/coffee-gift-subscription",
+      "image": "https://www.drinktrade.com/cdn/shop/files/12-month_5e56ee12-9051-4d1d-be3d-15acc03b82bd.png?v=1762289704&width=1200",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "fresh bags matched to how they actually drink coffee"
+    },
+    {
+      "id": "editorial-coffee-gifts-espresso-bites",
+      "name": "Espresso bites",
+      "brand": "Big Island Coffee Roasters",
+      "price": 24,
+      "merchant": "Big Island Coffee Roasters",
+      "productUrl": "https://bigislandcoffeeroasters.com/products/espresso-bites-mixed",
+      "image": "https://bigislandcoffeeroasters.com/cdn/shop/files/Mixed_Espresso_Bites_Big_Island_Coffee_600x.png?v=1782345550",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "coffee they can eat on hikes, drives and long afternoons"
+    },
+    {
+      "id": "editorial-dog-lover-gifts-breed-health-dna-test",
+      "name": "Breed + Health DNA Test",
+      "brand": "Embark",
+      "price": 139,
+      "merchant": "Embark",
+      "productUrl": "https://shop.embarkvet.com/products/breed-and-health-dog-dna-test-kit",
+      "image": "https://cdn.shopify.com/s/files/1/0034/5151/9094/files/DNA_Main_2000x2000_7f5c8368-e7c5-4b75-9cb5-51a0e27accd6.png?v=1774985599",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "turns their dog's breed story into a gift they can explore"
+    },
+    {
+      "id": "editorial-dog-lover-gifts-front-range-flex-harness",
+      "name": "Front Range Flex Harness",
+      "brand": "Ruffwear",
+      "price": 69.99,
+      "merchant": "Ruffwear",
+      "productUrl": "https://ruffwear.com/products/front-range-flex-harness",
+      "image": "https://ruffwear.com/cdn/shop/files/Compressed_PNG-3072_Front-Range-Knit-Harness_Polar-Blue_Main_STUDIO_882x589.png?v=1768501123",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "an adjustable everyday upgrade for shared walks"
+    },
+    {
+      "id": "editorial-dog-lover-gifts-travel-dog-water-bottle",
+      "name": "Travel Dog Water Bottle",
+      "brand": "Springer",
+      "price": 25,
+      "merchant": "Springer",
+      "productUrl": "https://springlandpets.com/products/22oz-classic-dog-travel-water-bottle",
+      "image": "https://springlandpets.com/cdn/shop/files/84.png?v=1760464519&width=1920",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "portable water for walks, parks and road trips"
+    },
+    {
+      "id": "editorial-dog-lover-gifts-toppl-treat-toy",
+      "name": "Toppl Treat Toy",
+      "brand": "West Paw",
+      "price": 20.95,
+      "merchant": "West Paw",
+      "productUrl": "https://www.westpaw.com/products/toppl-teal",
+      "image": "https://www.westpaw.com/cdn/shop/files/FH083TEL_Small_Toppl_Teal_Unpackaged_Front_Spring26.jpg?v=1775059785&width=2000",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a fillable play ritual with three sizes to choose from"
+    },
+    {
+      "id": "editorial-dog-lover-gifts-custom-pet-portrait",
+      "name": "Custom Pet Portrait",
+      "brand": "West & Willow",
+      "price": 48,
+      "merchant": "West & Willow",
+      "productUrl": "https://westandwillow.com/products/custom-desktop-one-pet-portrait",
+      "image": "https://westandwillow.com/cdn/shop/files/Rudy_-_Black.png?v=1729699453",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a personal keepsake that celebrates the dog and their person"
+    },
+    {
+      "id": "editorial-graduation-daughter-classic-diploma-frame",
+      "name": "Classic Diploma Frame",
+      "brand": "Framebridge",
+      "price": 140,
+      "merchant": "Framebridge",
+      "productUrl": "https://www.framebridge.com/products/the-classic-diploma",
+      "image": "https://www.framebridge.com/cdn/shop/files/080817_FA_Sept_Mailer-008.jpg?v=1715203158",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "honors the work without adding another disposable keepsake"
+    },
+    {
+      "id": "editorial-graduation-daughter-camp-snap-2",
+      "name": "Camp Snap 2",
+      "brand": "Camp Snap",
+      "price": 74.95,
+      "merchant": "Camp Snap",
+      "productUrl": "https://www.campsnapphoto.com/products/camp-snap-2",
+      "image": "https://www.campsnapphoto.com/cdn/shop/files/Yellow_Front_3b38c8a7-b0eb-4b5d-bce3-80f6526bd159.png?v=1781102349",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "captures the summer without turning every moment into screen time"
+    },
+    {
+      "id": "editorial-graduation-daughter-away-carry-on",
+      "name": "Away Carry-On",
+      "brand": "Away",
+      "price": 278,
+      "merchant": "Away",
+      "productUrl": "https://www.awaytravel.com/products/carry-on-misty-purple",
+      "image": "https://www.awaytravel.com/cdn/shop/files/PDP_School_PC_CAR_MistyPurple_02.jpg?v=1783436924",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "useful for visits, interviews and the first independent trips"
+    },
+    {
+      "id": "editorial-graduation-daughter-daily-planner",
+      "name": "Daily Planner",
+      "brand": "Day Designer",
+      "price": 68,
+      "merchant": "Day Designer",
+      "productUrl": "https://daydesigner.com/products/2026-27-daily-planner-lemon-floral-sage",
+      "image": "https://daydesigner.com/cdn/shop/files/U90Xo7fw.jpg?v=1772746392",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "adds structure when life no longer comes with a syllabus"
+    },
+    {
+      "id": "editorial-graduation-daughter-birdie-personal-alarm",
+      "name": "Birdie personal alarm",
+      "brand": "Birdie",
+      "price": 34.95,
+      "merchant": "Birdie",
+      "productUrl": "https://www.shesbirdie.com/products/birdie-personal-safety-alarm-3-0",
+      "image": "https://www.shesbirdie.com/cdn/shop/files/birdie_3.0_metallic_rose_gold_short_keychain_3df80161-68b1-4dd4-8104-bed8e647570d.png?v=1773255098&width=1400",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a pocket-sized confidence boost for a new commute or city"
+    },
+    {
+      "id": "editorial-hiker-gifts-hike-crew-socks",
+      "name": "Hike Crew Socks",
+      "brand": "Smartwool",
+      "price": 17.5,
+      "merchant": "Smartwool",
+      "productUrl": "https://www.smartwool.com/en-us/products/hike-crew-socks-sw001614",
+      "image": "https://cdn.shopify.com/s/files/1/0910/5172/1073/files/SW001614100-HERO.jpg?v=1785500828",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a useful merino-blend layer with sizes they can exchange"
+    },
+    {
+      "id": "editorial-hiker-gifts-on-the-go-spf-set",
+      "name": "On The Go SPF Set",
+      "brand": "Supergoop!",
+      "price": 31,
+      "merchant": "Supergoop!",
+      "productUrl": "https://supergoop.com/products/on-the-go-spf-set",
+      "image": "https://cdn.shopify.com/s/files/1/1503/5658/files/OntheGoSPFSet_01.png?v=1741618869",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "portable sun protection for exposed trail days"
+    },
+    {
+      "id": "editorial-hiker-gifts-actik-core-headlamp",
+      "name": "ACTIK CORE Headlamp",
+      "brand": "Petzl",
+      "price": 87.95,
+      "merchant": "Petzl",
+      "productUrl": "https://www.petzl.com/US/en/Sport/Headlamps/ACTIK-CORE",
+      "image": "https://www.petzl.com/sfc/servlet.shepherd/version/download/068Tx000006KwpDIAS",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "rechargeable trail light for early starts and camp chores"
+    },
+    {
+      "id": "editorial-hiker-gifts-24oz-geopress-purifier",
+      "name": "24oz GeoPress Purifier",
+      "brand": "GRAYL",
+      "price": 99.95,
+      "merchant": "GRAYL",
+      "productUrl": "https://grayl.com/products/24oz-geopress-filter-purifier-bottle-covert-edition",
+      "image": "https://cdn.shopify.com/s/files/1/2172/9959/files/GEO_COYOTE_BROWN_STD_1800px_b59f89ab-7244-4fd0-8ea3-5cebfb562fde.png?v=1763347035",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "treats water while doubling as the bottle they carry"
+    },
+    {
+      "id": "editorial-hiker-gifts-microspikes-traction",
+      "name": "MICROspikes Traction",
+      "brand": "Kahtoola",
+      "price": 89.95,
+      "merchant": "Kahtoola",
+      "productUrl": "https://kahtoola.com/traction/microspikes-footwear-traction/",
+      "image": "https://cdn11.bigcommerce.com/s-m69x292sg4/products/115/images/1133/KT02002-KT02003-KT02004-KT02005---MSredSideBot_0046_copy__43268.1766185825.386.513.jpg?c=1",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "packable winter traction for icy routes and trailheads"
+    },
+    {
+      "id": "editorial-housewarming-gifts-always-pan-2-0",
+      "name": "Always Pan 2.0",
+      "brand": "Our Place",
+      "price": 135,
+      "merchant": "Our Place",
+      "productUrl": "https://fromourplace.com/products/always-essential-cooking-pan",
+      "image": "https://fromourplace.com/cdn/shop/products/AP_Spice_1.jpg?v=1772474712",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "one good pan for most weeknight meals"
+    },
+    {
+      "id": "editorial-housewarming-gifts-clean-essentials-kit",
+      "name": "Clean Essentials kit",
+      "brand": "Blueland",
+      "price": 46,
+      "merchant": "Blueland",
+      "productUrl": "https://www.blueland.com/products/the-clean-essentials",
+      "image": "https://cdn.shopify.com/s/files/1/0057/9158/0227/files/Carousel_DTC_Clean_Essentials_Final_2026_01.jpg?crop=center&height=1400&v=1769808426&width=1400",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "refillable cleaning basics for a fresh start"
+    },
+    {
+      "id": "editorial-housewarming-gifts-little-green-cleaner",
+      "name": "Little Green cleaner",
+      "brand": "Bissell",
+      "price": 99.99,
+      "merchant": "Bissell",
+      "productUrl": "https://www.bissell.com/en-us/product/little-green-portable-carpet-upholstery-cleaner-1400B.html",
+      "image": "https://www.bissell.com/dw/image/v2/BDKV_PRD/on/demandware.static/-/Sites-master-catalog-bissell/default/dw2cf2ad67/pwa-hi-res/Product-Images/1400B/1400B_LittleGreen_Packin_1300x1300_9_24.png?sw=1300&sh=1300&sm=fit",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "the practical hero for rugs, couches and inevitable spills"
+    },
+    {
+      "id": "editorial-housewarming-gifts-new-home-candle",
+      "name": "New Home candle",
+      "brand": "Homesick",
+      "price": 29.95,
+      "merchant": "Homesick",
+      "productUrl": "https://homesick.com/products/new-home-candle",
+      "image": "https://homesick.com/cdn/shop/files/HMS.NewHome.Ecom.PDP.2.png?v=1764795894",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a first night ritual that makes the place feel lived in"
+    },
+    {
+      "id": "editorial-housewarming-gifts-kitchen-cutting-board",
+      "name": "Kitchen cutting board",
+      "brand": "Epicurean",
+      "price": 25,
+      "merchant": "Epicurean",
+      "productUrl": "https://www.epicureancs.com/product/kitchen-series-cutting-board/",
+      "image": "https://epicurean.com/cdn/shop/products/KS1.jpg?v=1664636231",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a useful everyday tool that still feels gift worthy"
+    },
+    {
+      "id": "editorial-nurse-gifts-knee-high-compression-socks",
+      "name": "Knee-high compression socks",
+      "brand": "Comrad",
+      "price": 34,
+      "merchant": "Comrad",
+      "productUrl": "https://www.comradsocks.com/products/knee-high-compression-socks-varsity-1",
+      "image": "https://www.comradsocks.com/cdn/shop/files/KHC-PR-79ZQ_lavender_flat.jpg?v=1778172283",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a polished shift staple with multiple sizes and colors"
+    },
+    {
+      "id": "editorial-nurse-gifts-classic-sport-canteen",
+      "name": "Classic Sport Canteen",
+      "brand": "Corkcicle",
+      "price": 40,
+      "merchant": "Corkcicle",
+      "productUrl": "https://corkcicle.com/products/sport-canteen",
+      "image": "https://corkcicle.com/cdn/shop/files/2020GES-2.png?crop=center&height=1024&v=1785869218&width=1024",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "one-handed hydration that fits a long shift"
+    },
+    {
+      "id": "editorial-nurse-gifts-manta-sleep-mask",
+      "name": "Manta Sleep Mask",
+      "brand": "Manta Sleep",
+      "price": 39,
+      "merchant": "Manta Sleep",
+      "productUrl": "https://mantasleep.com/products/manta-sleep-mask",
+      "image": "https://mantasleep.com/cdn/shop/products/1.5-Mask-Buy-Box-1.png?v=1627037557",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a blackout rest ritual for sleep at unusual hours"
+    },
+    {
+      "id": "editorial-nurse-gifts-hypervolt-go-3",
+      "name": "Hypervolt Go 3",
+      "brand": "Hyperice",
+      "price": 149,
+      "merchant": "Hyperice",
+      "productUrl": "https://hyperice.com/products/hypervolt-go-3",
+      "image": "https://hyperice.com/cdn/shop/files/Hypervolt-Go-3-pdp-1_02fe1a55-f0c5-4d9c-ae4c-ae9107f701a6.png?v=1780949006&width=1200",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a compact off-duty recovery tool for tired muscles"
+    },
+    {
+      "id": "editorial-nurse-gifts-lord-bergamot-tea",
+      "name": "Lord Bergamot tea",
+      "brand": "Smith Teamaker",
+      "price": 13.99,
+      "merchant": "Smith Teamaker",
+      "productUrl": "https://www.smithtea.com/products/lord-bergamot",
+      "image": "https://www.smithtea.com/cdn/shop/files/Lord-Bergamot-Ingredient-Image-2023.jpg?v=1762439464",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a calmer post-shift ritual in a giftable tin"
+    },
+    {
+      "id": "editorial-runner-gifts-openrun-pro-2",
+      "name": "OpenRun Pro 2",
+      "brand": "Shokz",
+      "price": 179.95,
+      "merchant": "Shokz",
+      "productUrl": "https://shokz.com/products/openrunpro2",
+      "image": "https://shokz.com/cdn/shop/files/OpenRun_Pro_2-OG-1.webp?v=1772616674&width=1400",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "open-ear audio leaves the surrounding world audible"
+    },
+    {
+      "id": "editorial-runner-gifts-flipbelt-classic",
+      "name": "FlipBelt Classic",
+      "brand": "FlipBelt",
+      "price": 44,
+      "merchant": "FlipBelt",
+      "productUrl": "https://flipbelt.com/products/flipbelt-classic-running-belt",
+      "image": "https://flipbelt.com/cdn/shop/files/5_24258f70-e24f-4ee8-98de-c30fbc0071c2.png?v=1770831935",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "carries a phone and keys without a loose armband"
+    },
+    {
+      "id": "editorial-runner-gifts-hidden-comfort-socks",
+      "name": "Hidden Comfort Socks",
+      "brand": "Balega",
+      "price": 17,
+      "merchant": "Balega",
+      "productUrl": "https://balega.com/products/hidden-comfort-no-show-tab",
+      "image": "https://balega.com/cdn/shop/files/xueedfoc4ytz2b6gucu9_1_4.jpg?v=1741879419",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a cushioned no-show pair that avoids guessing their shoes"
+    },
+    {
+      "id": "editorial-runner-gifts-forerunner-165",
+      "name": "Forerunner 165",
+      "brand": "Garmin",
+      "price": 249.99,
+      "merchant": "Garmin",
+      "productUrl": "https://www.garmin.com/en-US/p/1055469/",
+      "image": "https://res.garmin.com/en/products/010-02863-21/v/cf-lg.jpg",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "training data and route tracking without carrying a phone"
+    },
+    {
+      "id": "editorial-runner-gifts-grid-2-0-foam-roller",
+      "name": "GRID 2.0 Foam Roller",
+      "brand": "TriggerPoint",
+      "price": 74.99,
+      "merchant": "TriggerPoint",
+      "productUrl": "https://tptherapy.com/products/grid-2-0-foam-roller",
+      "image": "https://tptherapy.com/cdn/shop/files/o7ehc6v550ykxbduixqt.jpg?v=1750694295",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a simple recovery tool for post-run routines"
+    },
+    {
+      "id": "editorial-small-brand-home-gifts-wylie-hand-blown-vase",
+      "name": "Wylie Hand-Blown Vase",
+      "brand": "Everlasting Candle Co.",
+      "price": 75.6,
+      "merchant": "Everlasting Candle Co.",
+      "productUrl": "https://everlastingcandleco.com/products/wylie-green-x9-wholesale",
+      "image": "https://everlastingcandleco.com/cdn/shop/products/5G2A0319_62eed180-9b24-4ba6-98f1-8262c317999f.jpg?v=1762530414&width=1024",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a sculptural vessel that works with flowers or candlelight"
+    },
+    {
+      "id": "editorial-small-brand-home-gifts-clyde-electric-kettle",
+      "name": "Clyde Electric Kettle",
+      "brand": "Fellow",
+      "price": 99.95,
+      "merchant": "Fellow",
+      "productUrl": "https://fellowproducts.com/products/clyde-electric-kettle",
+      "image": "https://cdn.shopify.com/s/files/1/0057/6235/1219/files/Web_PDP_ClydeElectricKettle_Black_1.png?v=1773352146",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a counter-worthy upgrade for tea, coffee and hosting"
+    },
+    {
+      "id": "editorial-small-brand-home-gifts-the-artist-series-set",
+      "name": "The Artist Series Set",
+      "brand": "Brightland",
+      "price": 160,
+      "merchant": "Brightland",
+      "productUrl": "https://brightland.co/products/the-artist-series-gift-set",
+      "image": "https://cdn.shopify.com/s/files/1/0020/7978/5023/files/ArtistSeriesGiftSet-1150x1400-1_74ced357-13a6-40b8-964f-6331451a8904.jpg?v=1776360529",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "olive oils that make pantry storage look like an art shelf"
+    },
+    {
+      "id": "editorial-small-brand-home-gifts-diaspora-co-cookbook",
+      "name": "Diaspora Co. Cookbook",
+      "brand": "Diaspora Co.",
+      "price": 35,
+      "merchant": "Diaspora Co.",
+      "productUrl": "https://www.diasporaco.com/products/the-diaspora-co-cookbook",
+      "image": "https://cdn.shopify.com/s/files/1/0108/8867/5428/files/1_9d363324-93f7-4835-baec-8e66a41bc5c6.jpg?v=1772449212",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a signed recipe collection built around diasporic spice traditions"
+    },
+    {
+      "id": "editorial-small-brand-home-gifts-mini-hot-pot-set",
+      "name": "Mini Hot Pot Set",
+      "brand": "Fly By Jing",
+      "price": 75,
+      "merchant": "Fly By Jing",
+      "productUrl": "https://flybyjing.com/products/the-hot-pot-starter-set",
+      "image": "https://cdn.shopify.com/s/files/1/0065/8515/5653/files/FBJ-HotpotStarterSet-Hero-1200x1200.png?v=1778258393",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "turns the new kitchen into a communal dinner plan"
+    },
+    {
+      "id": "editorial-sustainable-gifts-under-50-faber-literary-tote",
+      "name": "Faber Literary Tote",
+      "brand": "Faber",
+      "price": 11,
+      "merchant": "Faber",
+      "productUrl": "https://www.faber.co.uk/product/9780571397983-faber-illustrated-literary-tote-bag/",
+      "image": "https://www.faber.co.uk/wp-content/uploads/2025/04/Faber-Illustrated-Tote-Bag-Blue-credit-Yeshen-Venema-3.jpg",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a useful illustrated carryall for books and everyday errands"
+    },
+    {
+      "id": "editorial-sustainable-gifts-under-50-sunday-morning-candle",
+      "name": "Sunday Morning Candle",
+      "brand": "Homebody Candle Co.",
+      "price": 20,
+      "merchant": "Homebody Candle Co.",
+      "productUrl": "https://www.homebodycandleco.com/products/sunday-morning-candle-tin-homebodycandleco",
+      "image": "https://cdn.shopify.com/s/files/1/0875/2106/files/Sunday_Morning_Candle_Tin_Studio_K6.png?v=1786364680",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a compact coconut-wax ritual with a reusable tin"
+    },
+    {
+      "id": "editorial-sustainable-gifts-under-50-resurrection-hand-balm",
+      "name": "Resurrection Hand Balm",
+      "brand": "Aesop",
+      "price": 35,
+      "merchant": "Aesop",
+      "productUrl": "https://www.aesop.com/hand-body/hand-washes-balms/resurrection-aromatique-hand-balm/BM06.html",
+      "image": "https://www.aesop.com/dw/image/v2/AANG_PRD/on/demandware.static/-/Sites-aesop-us-master-catalog/default/dwcbe841df/images/products/BM06/ContentEnhancement/Aesop_Hand_Resurrection_Aromatique_Hand_Balm_500mL_Web_Front_2000x2000px.jpg?sw=1400&sh=1400&sm=cut&sfrm=png&q=70&bgcolor=fffef2",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a frequently used desk or bag upgrade in aluminum packaging"
+    },
+    {
+      "id": "editorial-sustainable-gifts-under-50-daily-stone-lotion-bar",
+      "name": "Daily Stone Lotion Bar",
+      "brand": "Kate McLeod",
+      "price": 14,
+      "merchant": "Kate McLeod",
+      "productUrl": "https://www.katemcleod.com/products/daily-stone",
+      "image": "https://cdn.shopify.com/s/files/1/0141/1255/5066/files/1-CORE-DAILY-STONE_5546c3fc-dea5-4bfa-9dae-cac618bd4ec8.jpg?v=1762461208",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a waterless lotion bar with a refillable bamboo canister option"
+    },
+    {
+      "id": "editorial-sustainable-gifts-under-50-raw-honey-sampler",
+      "name": "Raw Honey Sampler",
+      "brand": "Jacobsen Salt Co.",
+      "price": 26,
+      "merchant": "Jacobsen Salt Co.",
+      "productUrl": "https://jacobsensalt.com/products/raw-honey-sampler-set",
+      "image": "https://cdn.shopify.com/s/files/1/0894/6416/files/jacobsen-raw-honey-samper-set.jpg?v=1752791062",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "three distinct honey profiles for tea, toast and tasting"
+    },
+    {
+      "id": "editorial-teacher-gifts-citron-swirl-notepad",
+      "name": "Citron Swirl Notepad",
+      "brand": "Moglea",
+      "price": 25,
+      "merchant": "Moglea",
+      "productUrl": "https://moglea.com/products/citron-swirl-pad-small",
+      "image": "https://moglea.com/cdn/shop/files/NOT407_CitronSwirlPadSmall_2048px_1024x1024.jpg?v=1751568017",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a small-batch desk upgrade for notes and quick lists"
+    },
+    {
+      "id": "editorial-teacher-gifts-weekly-task-planner",
+      "name": "Weekly Task Planner",
+      "brand": "Appointed",
+      "price": 32,
+      "merchant": "Appointed",
+      "productUrl": "https://appointed.co/collections/shop-all/products/26-27-weekly-task-planner",
+      "image": "https://cdn.shopify.com/s/files/1/0831/9463/files/26-27_WTP_Hunter.png?v=1776264953",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a structured weekly view for lessons, meetings and life"
+    },
+    {
+      "id": "editorial-teacher-gifts-standard-baggu",
+      "name": "Standard BAGGU",
+      "brand": "BAGGU",
+      "price": 16,
+      "merchant": "BAGGU",
+      "productUrl": "https://baggu.com/products/standard-baggu-wild-plum",
+      "image": "https://cdn.shopify.com/s/files/1/0851/3262/files/448034d32dfddeeaf1c3464950ea8cb6e339d6bb-2048x2560.jpg?v=1782713045",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "an easy extra carryall for papers, supplies and errands"
+    },
+    {
+      "id": "editorial-teacher-gifts-nitro-cold-brew-case",
+      "name": "Nitro Cold Brew Case",
+      "brand": "BLK & Bold",
+      "price": 45.49,
+      "merchant": "BLK & Bold",
+      "productUrl": "https://blkandbold.com/products/blk-bold-nitro-cold-brew-coffee-caramel",
+      "image": "https://cdn.shopify.com/s/files/1/0023/2223/5445/files/bnb_RTD_PackTrayCan__NitroCaramel.jpg?v=1687379939",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a ready-to-grab staff-room or commute refuel"
+    },
+    {
+      "id": "editorial-teacher-gifts-zen-garden-grow-kit",
+      "name": "Zen Garden Grow Kit",
+      "brand": "Buzzy Seeds",
+      "price": 16.99,
+      "merchant": "Buzzy Seeds",
+      "productUrl": "https://buzzyseeds.com/products/zen-garden-grow-kit-lavender-chamomile",
+      "image": "https://cdn.shopify.com/s/files/1/0605/9137/4512/files/96257_Zen_Garden_WSG_F.png?v=1735677814",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "matchEvidence": "a small after-school ritual with lavender and chamomile"
+    }
+  ],
+  "wrapKit": [
+    {
+      "id": "michaels-pink-satin-ribbon",
+      "name": "Pink satin ribbon, 5/8 in × 7 yd",
+      "brand": "Celebrate It",
+      "price": 5.99,
+      "merchant": "Michaels",
+      "productUrl": "https://www.michaels.com/product/58-x-7yd-satin-ribbon-by-celebrate-it-10690155",
+      "image": "bundle:///7670644980880248077-02.jpg",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "add to cart",
+        "buy now",
+        "pickup",
+        "shipping"
+      ],
+      "matchEvidence": "The presentation guide repeats pale satin bows as a color cue; this direct Michaels item matches that material."
+    },
+    {
+      "id": "michaels-large-kraft-gift-box",
+      "name": "Large kraft gift box",
+      "brand": "Celebrate It",
+      "price": 7.99,
+      "merchant": "Michaels",
+      "productUrl": "https://www.michaels.com/product/large-kraft-gift-box-by-celebrate-it-10406362",
+      "image": "bundle:///7670644980880248077-03.jpg",
+      "purchaseMode": "productPage",
+      "capabilities": [
+        "add to cart",
+        "pickup",
+        "shipping"
+      ],
+      "matchEvidence": "The tiny-reveals technique uses simple kraft boxes; this first-party box supports pickup and shipping."
+    },
+    {
+      "id": "michaels-white-tissue-paper",
+      "name": "White tissue paper, 25 sheets",
+      "brand": "Celebrate It",
+      "price": 4.99,
+      "merchant": "Michaels",
+      "productUrl": "https://www.michaels.com/shop/party/gift-packaging/tissue-paper-shredded-filler?Retailers=Michaels&brand=Celebrate+It",
+      "image": "bundle:///7670644980880248077-01.jpg",
+      "purchaseMode": "chooseVariant",
+      "capabilities": [
+        "add to cart",
+        "pickup",
+        "shipping"
+      ],
+      "matchEvidence": "Tissue creates the soft reveal shown throughout the presentation guide."
+    }
+  ]
+}

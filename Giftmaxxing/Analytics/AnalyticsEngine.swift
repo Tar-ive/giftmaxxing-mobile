@@ -142,8 +142,38 @@ final class AnalyticsEngine: ObservableObject {
 
     // MARK: - Feed tracking (Instagram-style)
 
+    // Which ranker actually chose to show this item, and where it ended up.
+    //
+    // Without this, an outcome can't be attributed to a ranker: the server
+    // picks candidates (facet, vector, or vector+MTL) and then the on-device
+    // ranker reorders them, so "this post got a 60s dwell" said nothing about
+    // WHICH system deserved the credit. Every offline comparison we can run is
+    // only as good as this field.
+    struct ServingAttribution {
+        /// What the server said produced the candidate: "facet" | "vector" |
+        /// "vector+mtl" | "featured" | "" when unknown.
+        var serverSource: String
+        /// True when OnDeviceRanker reordered the page before display.
+        var rerankedOnDevice: Bool
+        /// Position the server returned it at, before on-device reordering —
+        /// the pair (serverRank, position) is what makes the re-rank
+        /// measurable rather than merely recorded.
+        var serverRank: Int?
+
+        /// Compact label for grouping: "server:vector+ondevice".
+        var servedBy: String {
+            let base = serverSource.isEmpty ? "server" : "server:\(serverSource)"
+            return rerankedOnDevice ? "\(base)+ondevice" : base
+        }
+    }
+
     // Called when a post enters the visible viewport (onAppear)
-    func trackImpression(postId: String, position: Int, source: String = "feed") {
+    func trackImpression(
+        postId: String,
+        position: Int,
+        source: String = "feed",
+        attribution: ServingAttribution? = nil
+    ) {
         let isRevisit = seenPostIds.contains(postId)
         seenPostIds.insert(postId)
         impressionTimestamps[postId] = Date()
@@ -151,19 +181,28 @@ final class AnalyticsEngine: ObservableObject {
 
         os_signpost(.begin, log: signpostLog, name: "PostDwell", "%{public}s", postId)
 
+        var props: [String: AnyCodableValue] = [
+            "postId": .string(postId),
+            "position": .int(position),
+            "source": .string(source),
+        ]
+        if let attribution {
+            props["servedBy"] = .string(attribution.servedBy)
+            props["serverSource"] = .string(attribution.serverSource)
+            props["rerankedOnDevice"] = .string(attribution.rerankedOnDevice ? "1" : "0")
+            if let rank = attribution.serverRank {
+                props["serverRank"] = .int(rank)
+                // How far the on-device ranker moved it. The whole point of
+                // logging this is to find out whether that movement helps.
+                props["rankDelta"] = .int(position - rank)
+            }
+        }
+
         if isRevisit {
-            track(.feedRevisit, properties: [
-                "postId": .string(postId),
-                "position": .int(position),
-                "source": .string(source),
-            ])
+            track(.feedRevisit, properties: props)
         } else {
-            track(.feedImpression, properties: [
-                "postId": .string(postId),
-                "position": .int(position),
-                "source": .string(source),
-                "sessionId": .string(sessionId),
-            ])
+            props["sessionId"] = .string(sessionId)
+            track(.feedImpression, properties: props)
         }
     }
 
@@ -301,6 +340,16 @@ final class AnalyticsEngine: ObservableObject {
         ])
     }
 
+    func trackProductReliabilityVote(postId: String, vote: String, swipeCount: Int) {
+        track(.productReliabilityVote, properties: [
+            "postId": .string(postId),
+            "vote": .string(vote),
+            "swipeCount": .int(swipeCount),
+            "source": .string("swipe"),
+            "sessionId": .string(sessionId),
+        ])
+    }
+
     // MARK: - Content interactions
 
     func trackContentAction(_ action: AnalyticsEvent.EventType, postId: String, source: String = "feed") {
@@ -368,6 +417,18 @@ final class AnalyticsEngine: ObservableObject {
     func trackMaxiMessage(conversationLength: Int) {
         track(.maxiMessageSent, properties: [
             "conversationLength": .int(conversationLength),
+            "sessionId": .string(sessionId),
+        ])
+    }
+
+    /// Thumbs up/down on a reply's picks. `postIds` lets the exporter join the
+    /// verdict back to the items, so a thumbs-down becomes negative labels on
+    /// exactly what was shown.
+    func trackMaxiRating(rating: Int, postIds: [String]) {
+        track(.maxiRating, properties: [
+            "rating": .int(rating),
+            "productCount": .int(postIds.count),
+            "postIds": .string(postIds.joined(separator: ",")),
             "sessionId": .string(sessionId),
         ])
     }

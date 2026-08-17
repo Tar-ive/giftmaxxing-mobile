@@ -121,6 +121,43 @@ function extractJsonLdImages(html) {
   return out;
 }
 
+function productNodes(html) {
+  const out = [];
+  for (const match of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    let data;
+    try { data = JSON.parse(match[1]); } catch { continue; }
+    const roots = Array.isArray(data) ? data : [data];
+    for (const root of roots) {
+      const nodes = [root, ...(Array.isArray(root?.["@graph"]) ? root["@graph"] : [])];
+      out.push(...nodes.filter((node) => node && [].concat(node["@type"] ?? []).includes("Product")));
+    }
+  }
+  return out;
+}
+
+const plain = (value, max) => String(value ?? "")
+  .replace(/<[^>]+>/g, " ")
+  .replace(/&(?:nbsp|amp|quot|#39);/g, " ")
+  .replace(/\s+/g, " ")
+  .trim()
+  .slice(0, max);
+
+export function extractProductData(html, pageUrl) {
+  const node = productNodes(html)[0] ?? {};
+  const offer = Array.isArray(node.offers) ? node.offers[0] : node.offers ?? {};
+  const brand = typeof node.brand === "string" ? node.brand : node.brand?.name;
+  return {
+    listingUrl: pageUrl,
+    title: plain(node.name, 180) || undefined,
+    brand: plain(brand, 120) || undefined,
+    description: plain(node.description, 280) || undefined,
+    price: Number.isFinite(Number(offer.price)) ? Number(offer.price) : undefined,
+    currency: plain(offer.priceCurrency, 8) || undefined,
+    availability: plain(offer.availability, 120).split("/").pop() || undefined,
+    images: extractGallery(html, pageUrl),
+  };
+}
+
 function extractCdnImages(html, host) {
   const out = [];
   if (/ebay\./i.test(host)) {
@@ -148,6 +185,14 @@ function extractOgImages(html) {
   return out;
 }
 
+function extractImageLinks(html) {
+  const out = [];
+  for (const m of html.matchAll(/<(?:a|img|source)[^>]+(?:href|src|data-src|data-zoom-image)=["']([^"']+)["']/gi)) {
+    if (/\.(?:jpe?g|png|webp)(?:\?|$)/i.test(m[1]) || /scene7\.com\/is\/image/i.test(m[1])) out.push(m[1]);
+  }
+  return out;
+}
+
 export function extractGallery(html, pageUrl) {
   const host = (() => {
     try {
@@ -160,6 +205,7 @@ export function extractGallery(html, pageUrl) {
     ...extractJsonLdImages(html),
     ...extractCdnImages(html, host),
     ...extractOgImages(html),
+    ...extractImageLinks(html),
   ];
   const seen = new Set();
   const images = [];
@@ -301,7 +347,7 @@ export function providerFor(link, keys = { ebay: !!(EBAY_CLIENT_ID && EBAY_CLIEN
 }
 
 // One link → { images } | { error } | { skipped: reason }, via the right provider.
-async function fetchGallery(link) {
+export async function fetchGallery(link) {
   switch (providerFor(link)) {
     case "ebay-api":
       return fetchEbayGallery(link);
@@ -315,7 +361,7 @@ async function fetchGallery(link) {
     default: {
       const { html, error } = await fetchPage(link);
       if (error) return { error };
-      return { images: extractGallery(html, link) };
+      return extractProductData(html, link);
     }
   }
 }

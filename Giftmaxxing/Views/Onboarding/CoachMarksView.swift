@@ -39,20 +39,14 @@ struct CoachMarksView: View {
 
     private static let steps: [Step] = [
         Step(
-            title: "Learn what they love",
-            line: "Swipe for yourself, or send anyone a challenge and read their answers.",
+            title: "Teach it your taste",
+            line: "Every swipe sharpens what the app finds for you.",
             hint: "Tap Swipe",
             target: .tab(.swipe)
         ),
         Step(
-            title: "Your gift calendar",
-            line: "Birthdays and dates live in Circles — Maxi paces each one.",
-            hint: "Tap Circles",
-            target: .tab(.circles)
-        ),
-        Step(
-            title: "Your profile and boards",
-            line: "Your Gift Boards, your sizes, and how recipients really reacted.",
+            title: "Your boards and calendar",
+            line: "Gift Boards, your sizes, and every date you're shopping for.",
             hint: "Tap You",
             target: .tab(.you)
         ),
@@ -130,6 +124,11 @@ struct CoachMarksView: View {
             .ignoresSafeArea()
         }
         .onAppear {
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "coachMarksScreenshotMode") {
+                index = min(max(UserDefaults.standard.integer(forKey: "coachMarksScreenshotStep"), 0), Self.steps.count - 1)
+            }
+            #endif
             pulse = true
             AnalyticsEngine.shared.trackScreenView(screen: "coach_marks")
         }
@@ -202,8 +201,11 @@ struct CoachMarksView: View {
 
         switch step.target {
         case .tab(let tab):
-            let slots = CGFloat(Tab.allCases.count)
-            let slot = CGFloat(Tab.allCases.firstIndex(of: tab) ?? 0)
+            // Measured against the tabs actually rendered — Circles only
+            // exists once an invite code is redeemed.
+            let tabs = Tab.visible(inviteUnlocked: InviteAccess.isUnlockedNow)
+            let slots = CGFloat(tabs.count)
+            let slot = CGFloat(tabs.firstIndex(of: tab) ?? 0)
             let centerX = (slot + 0.5) / slots * fullWidth
             let centerY = fullHeight - safe.bottom - 24
             return CGRect(x: centerX - 34, y: centerY - 34, width: 68, height: 68)

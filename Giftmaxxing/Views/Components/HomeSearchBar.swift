@@ -1,52 +1,33 @@
 import SwiftUI
 
-// Amazon-style home top bar: ONE search pill with the camera (visual search)
-// and mic (talk to Maxi) living INSIDE the field — a single calm row instead
-// of three competing controls.
+// Home's search field.
+//
+// Just a search field. The camera and microphone buttons that used to live
+// inside it are gone: three tap targets in one control made the row read as a
+// toolbar rather than a search box, and neither shortcut was the thing people
+// came to the field to do. Visual search still lives in the search screen this
+// opens; Maxi is a floating button, not a glyph hidden in a text input.
 struct HomeSearchBar: View {
     var onSearchTap: () -> Void
-    var onCameraTap: () -> Void
-    var onMicTap: () -> Void
 
     var body: some View {
-        HStack(spacing: 0) {
-            Button(action: onSearchTap) {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                    Text("Search gifts, brands, people…")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    Spacer(minLength: 0)
-                }
-                .padding(.leading, 12)
-                .frame(maxWidth: .infinity)
-                .frame(height: 40)
-                .contentShape(Rectangle())
+        Button(action: onSearchTap) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Text("Search gifts, brands…")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
             }
-            .buttonStyle(.plain)
-
-            Button(action: onCameraTap) {
-                Image(systemName: "camera.viewfinder")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color.coral)
-                    .frame(width: 38, height: 40)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityLabel("Visual search")
-
-            Button(action: onMicTap) {
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color.coral)
-                    .frame(width: 38, height: 40)
-                    .contentShape(Rectangle())
-                    .padding(.trailing, 2)
-            }
-            .accessibilityLabel("Talk to Maxi")
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity)
+            .frame(height: 40)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .background(Color.cream)
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }

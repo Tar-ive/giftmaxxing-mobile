@@ -77,36 +77,36 @@ private struct ActivityRow: View {
         .padding(.vertical, 6)
     }
 
+    // One vector system. These were emoji — full-colour bitmap glyphs sitting
+    // beside stroked SF Symbols in the same list, which is the heterogeneity
+    // that made the screen look assembled rather than designed. Symbols inherit
+    // weight, optical size and the theme's accent; emoji inherit none of them.
     @ViewBuilder
     private var icon: some View {
         switch item.kind {
         case .maxi, .challenge:
-            iconCircle(emoji: "🎁", background: Color.coral)
+            iconCircle("gift.fill", tint: Color.onPrimary, background: Color.coral)
         case .milestone:
-            iconCircle(emoji: "🏆", background: Color(hex: "#D1FAE5"))
+            iconCircle("trophy.fill", tint: Color.success, background: Color.success.opacity(0.16))
         case .drop:
-            ZStack {
-                Circle().fill(Color.coralSoft)
-                Image(systemName: "chart.line.downtrend.xyaxis")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color.coral)
-            }
-            .frame(width: 44, height: 44)
+            iconCircle("chart.line.downtrend.xyaxis", tint: Color.coral, background: Color.coralSoft)
         case .pool:
-            iconCircle(emoji: "💰", background: Color(hex: "#E0F2FE"))
+            iconCircle("dollarsign.circle.fill", tint: Color.coral, background: Color.coralSoft)
         case .like, .connection, .follow:
             if let user = item.user {
                 AvatarView(name: SocialUsers.name(for: user), grad: SocialUsers.grad(for: user), size: 44)
             } else {
-                iconCircle(emoji: "❤️", background: Color.coralSoft)
+                iconCircle("heart.fill", tint: Color.coral, background: Color.coralSoft)
             }
         }
     }
 
-    private func iconCircle(emoji: String, background: Color) -> some View {
+    private func iconCircle(_ symbol: String, tint: Color, background: Color) -> some View {
         ZStack {
             Circle().fill(background)
-            Text(emoji).font(.system(size: 18))
+            Image(systemName: symbol)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(tint)
         }
         .frame(width: 44, height: 44)
     }

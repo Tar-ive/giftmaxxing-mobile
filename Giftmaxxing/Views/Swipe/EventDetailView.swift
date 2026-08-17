@@ -5,6 +5,7 @@ import SwiftUI
 struct EventDetailView: View {
     let event: GiftEvent
     @EnvironmentObject private var appState: AppState
+    @ObservedObject private var invites = InviteAccess.shared
 
     private var urgencyColor: Color {
         let days = event.daysUntil
@@ -94,37 +95,41 @@ struct EventDetailView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
 
-                    NavigationLink {
-                        GroupGiftCreateView(
-                            prefillRecipient: event.recipientName,
-                            prefillOccasion: event.type
-                        )
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "person.2.fill")
-                            Text("Start a group gift")
+                    // Group gifts and swipe challenges are part of the
+                    // invite-only social layer (Circles).
+                    if invites.isUnlocked {
+                        NavigationLink {
+                            GroupGiftCreateView(
+                                prefillRecipient: event.recipientName,
+                                prefillOccasion: event.type
+                            )
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "person.2.fill")
+                                Text("Start a group gift")
+                            }
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(Color.coral)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.coralSoft)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(Color.coral)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.coralSoft)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                    }
 
-                    NavigationLink {
-                        ChallengeView()
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "paperplane.fill")
-                            Text("Send them a swipe challenge")
+                        NavigationLink {
+                            ChallengeView()
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "paperplane.fill")
+                                Text("Send them a swipe challenge")
+                            }
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(Color.ink)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.cream)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(Color.ink)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.cream)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
                 }
             }

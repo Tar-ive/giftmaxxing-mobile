@@ -16,6 +16,9 @@ import SwiftData
 // were standalone destinations before), so they present as sheets here rather
 // than pushes — no nested-stack double toolbars.
 struct CirclesView: View {
+    // Iconography follows the active design variant — see DebugSessionManager.
+    private var circleIcons: DesignVariant.CircleIconSet { DebugSessionManager.active.circleIcons }
+
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var authManager: AuthManager
     @ObservedObject private var groupGifts = GroupGiftStore.shared
@@ -28,8 +31,13 @@ struct CirclesView: View {
     @State private var showCreateCircle = false
     @State private var showAddEvent = false
     @State private var showJoinByLink = false
+    // DMs moved here from the Home header — Circles is where your people are.
+    @State private var showMessages = false
+    @State private var showActivity = false
+    @State private var activityCount = 0
     @State private var openCircleId: String?
     @State private var openEvent: GiftEvent?
+    @State private var openPool: Pool?
     @State private var circleMoments: [TimelineMoment] = []
     // Circle members with birthdays — feeds the birthday-challenge journey.
     @State private var circleBirthdayPeople: [BirthdayChallengeJourney.Person] = []
@@ -38,12 +46,19 @@ struct CirclesView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    // The calendar IS the screen: sources on top (Me + each
-                    // circle), month grid, then the picked day's moments.
-                    CircleCalendarView(
+                    // Swipe decks friends sent you, waiting to be answered.
+                    // (Lived on the Swipe tab before the social layer moved
+                    // behind the Circles invite.)
+                    ChallengeInviteRail()
+                        .padding(.horizontal, -16)
+
+                    // Upcoming celebrations, not a month grid. Gifting dates
+                    // are sparse and usually months out, so a 31-day calendar
+                    // was ~28 empty cells around two dots — and it had to jump
+                    // to July 2027 to show anything at all.
+                    UpcomingCelebrationsRail(
                         moments: timelineMoments,
-                        sources: calendarSources,
-                        onSelectMoment: { moment in
+                        onSelect: { moment in
                             switch moment.kind {
                             case .personal(let event): openEvent = event
                             case .circle(let circleId): openCircleId = circleId
@@ -51,11 +66,20 @@ struct CirclesView: View {
                         },
                         onAddDate: { showAddEvent = true }
                     )
-                    .padding(.horizontal, -16) // the calendar owns its gutters
+                    .padding(.horizontal, -16) // the rail owns its gutters
 
                     GiftStreakCard()
 
                     circlesSection
+
+                    // In-flight group-gift campaigns, as fundraiser cards with
+                    // the actual goal metrics. These used to sit on Home; they
+                    // belong beside the people they're for.
+                    ActiveGroupPoolsSection(
+                        onOpenPool: { openPool = $0 },
+                        onChat: { _ in showMessages = true }
+                    )
+
                     groupGiftsSection
 
                     // The other two social plays, one card each.
@@ -94,11 +118,66 @@ struct CirclesView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: { showAddEvent = true }) {
-                        Image(systemName: "calendar.badge.plus")
+                        Image(systemName: circleIcons.addEvent)
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(Color.coral)
                     }
+                    .accessibilityLabel("Add a date")
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: { showMessages = true }) {
+                        Image(systemName: circleIcons.messages)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Color.coral)
+                    }
+                    .accessibilityLabel("Messages")
+                }
+                // Activity moved off Home's top bar. Every notification this
+                // app sends is social and event-driven — someone pledged,
+                // someone added to a board, someone's date is close — so it
+                // belongs with the people it's about, not beside a search box.
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: { showActivity = true }) {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "bell")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Color.coral)
+                            if activityCount > 0 {
+                                Text("\(min(activityCount, 9))")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(Color.onPrimary)
+                                    .frame(width: 14, height: 14)
+                                    .background(Color.coral, in: Circle())
+                                    .offset(x: 7, y: -6)
+                            }
+                        }
+                    }
+                    .accessibilityLabel("Activity and invites")
+                }
+            }
+            .sheet(isPresented: $showMessages) {
+                NavigationStack { MessagesView() }
+            }
+            .sheet(isPresented: $showActivity) {
+                NavigationStack {
+                    NotificationsView()
+                        .onDisappear { Task { await refreshActivityBadge() } }
+                }
+            }
+            .task { await refreshActivityBadge() }
+            .onChange(of: appState.pendingActivity) { _, pending in
+                guard pending else { return }
+                showActivity = true
+                appState.pendingActivity = false
+            }
+            .sheet(item: $openPool) { pool in
+                PoolDetailView(poolId: pool.id)
+            }
+            // A message push (or any openMessages() intent) lands here.
+            .onChange(of: appState.pendingMessages) { _, pending in
+                guard pending else { return }
+                showMessages = true
+                appState.pendingMessages = false
             }
             .sheet(isPresented: $showPools) { PoolsView() }
             .sheet(isPresented: $showFriends) {
@@ -138,6 +217,12 @@ struct CirclesView: View {
                     openCircleId = pending
                     appState.pendingCircleId = nil
                 }
+                // A message push can land before this view exists, so onChange
+                // alone would miss it.
+                if appState.pendingMessages {
+                    showMessages = true
+                    appState.pendingMessages = false
+                }
                 if eventsModel.events.isEmpty {
                     await eventsModel.loadEvents(context: modelContext)
                 }
@@ -145,7 +230,6 @@ struct CirclesView: View {
                 // in before building the calendar.
                 await circleStore.syncFromServer(userId: authManager.userId)
                 await loadCircleMoments()
-                await ReminderScheduler.requestPermissionIfNeeded()
                 await resyncBirthdayJourney()
             }
             .onChange(of: circleStore.circles.count) { _, _ in
@@ -162,6 +246,16 @@ struct CirclesView: View {
 
     // ── Coming up: a Luma-style timeline — every future moment, yours and
     // your circles', grouped by month so the future is scrollable ────────────
+
+    /// Incoming friend requests + unseen challenge activity. Moved here from
+    /// Home's top bar along with the bell itself.
+    private func refreshActivityBadge() async {
+        let userId = authManager.userId ?? InteractionQueue.anonymousUserId
+        async let pending = try? APIClient.shared.listFriends(userId: userId, status: "pending")
+        async let unseen = try? APIClient.shared.fetchConnections(userId: userId, unseenOnly: true)
+        let incoming = (await pending ?? []).filter { $0.isPending && ($0.incoming ?? ($0.requestedBy != userId)) }
+        activityCount = incoming.count + (await unseen ?? []).count
+    }
 
     private var timelineMoments: [TimelineMoment] {
         var items = eventsModel.upcomingEvents.map { event -> TimelineMoment in
@@ -181,18 +275,6 @@ struct CirclesView: View {
         }
         items += circleMoments
         return items.sorted { ($0.days, $0.title) < ($1.days, $1.title) }
-    }
-
-    // Calendar sources: your own milestones plus every circle you're in.
-    private var calendarSources: [CircleCalendarView.CalendarSource] {
-        [CircleCalendarView.CalendarSource(id: "me", name: "Me", emoji: nil)]
-            + circleStore.circles.map {
-                CircleCalendarView.CalendarSource(
-                    id: $0.circleId,
-                    name: $0.name,
-                    emoji: $0.emoji
-                )
-            }
     }
 
     // Birthdays and anniversaries roll forward to their next occurrence, so
@@ -328,7 +410,7 @@ struct CirclesView: View {
                     showCreateCircle = true
                 } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: "person.3.fill").foregroundStyle(Color.coral)
+                        Image(systemName: circleIcons.circle).foregroundStyle(Color.coral)
                             .font(.system(size: 26))
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Start a circle")
@@ -409,7 +491,7 @@ struct CirclesView: View {
             NavigationLink(destination: GroupGiftCreateView()) {
                 HStack {
                     Spacer()
-                    Image(systemName: "person.3.fill")
+                    Image(systemName: circleIcons.circle)
                     Text("Start a collaborative board").font(.labelBold)
                     Spacer()
                 }
@@ -427,11 +509,12 @@ struct CirclesView: View {
 // showing up for your people does.
 struct GiftStreakCard: View {
     @ObservedObject private var thoughtfulness = ThoughtfulnessStore.shared
+    private var circleIcons: DesignVariant.CircleIconSet { DebugSessionManager.active.circleIcons }
 
     var body: some View {
         let streak = thoughtfulness.monthlyStreak
         HStack(spacing: 12) {
-            Image(systemName: "flame.fill")
+            Image(systemName: circleIcons.streak)
                 .font(.system(size: 22))
                 .foregroundStyle(streak > 0 ? Color.coral : Color.inkSecondary)
                 .frame(width: 44, height: 44)
@@ -536,6 +619,48 @@ struct TimelineMoment: Identifiable {
     let date: Date
     let days: Int
     let kind: Kind
+
+    /// Same person, same day. One human's birthday is ONE moment even when they
+    /// sit in three of your circles — the list was printing a row per circle,
+    /// so "Saksham's birthday · turning 23" appeared twice in a three-row list.
+    var identityKey: String {
+        let day = Int(date.timeIntervalSince1970 / 86_400)
+        return "\(title.lowercased())#\(day)"
+    }
+}
+
+extension Array where Element == TimelineMoment {
+    /// Collapse duplicates of the same person+day, keeping the first and
+    /// rewriting the subtitle to name every circle it came from.
+    func dedupedByPerson() -> [TimelineMoment] {
+        var order: [String] = []
+        var grouped: [String: [TimelineMoment]] = [:]
+        for moment in self {
+            let key = moment.identityKey
+            if grouped[key] == nil { order.append(key) }
+            grouped[key, default: []].append(moment)
+        }
+        return order.compactMap { key -> TimelineMoment? in
+            guard let group = grouped[key], let first = group.first else { return nil }
+            guard group.count > 1 else { return first }
+            // Distinct labels only — the same circle twice is still one circle.
+            var seen = Set<String>()
+            let labels = group.map(\.sourceLabel).filter { seen.insert($0).inserted }
+            let joined = labels.count <= 2
+                ? labels.joined(separator: " · ")
+                : "\(labels.count) circles"
+            return TimelineMoment(
+                id: first.id,
+                emoji: first.emoji,
+                title: first.title,
+                sourceLabel: joined,
+                hasReminder: group.contains(where: \.hasReminder),
+                date: first.date,
+                days: first.days,
+                kind: first.kind
+            )
+        }
+    }
 }
 
 // Compact row for an active group gift (mirrors GroupGiftViews' private row).

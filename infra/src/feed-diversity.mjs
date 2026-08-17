@@ -1,3 +1,43 @@
+// Collapse colourway/size variants to one card per real product.
+//
+// Shopify `/products.json` lists every variant as its own product, so the feed
+// served "Men's Strider - Natural Black (Blizzard Sole)", "- Medium Grey
+// (Blizzard Sole)", "- Rugged Beige (Stony Cream Sole)" … as separate cards.
+// Diversity spacing can't help: they are different titles under the same brand,
+// so they read as a wall of one shoe — the single loudest reason the feed feels
+// like a store dump rather than a gift feed.
+//
+// The variant marker is the retailer convention itself: everything after the
+// first " - " or " | " separator is the colourway/fit ("Crossover Polo | Sage
+// Signature Fit"). Key on brand + the stem before it, keep the first (best
+// ranked) and drop the rest. Titles with no separator are their own stem, so
+// distinct products are never merged.
+export function collapseVariants(items) {
+  if (!Array.isArray(items) || items.length < 2) return items;
+  const seen = new Set();
+  const out = [];
+  for (const item of items) {
+    const key = variantKey(item);
+    if (key && seen.has(key)) continue;
+    if (key) seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+export function variantKey(item) {
+  const title = String(item?.product?.name ?? item?.title ?? item?.caption ?? "");
+  const brand = String(item?.product?.brand ?? item?.author ?? item?.merchant ?? "").toLowerCase().trim();
+  // Split on a SPACED separator only: "Wonder Oven Baker's Kit – 3-piece" is a
+  // description, but so is anything after it — while "Non-Stick" and "T-Shirt"
+  // keep their unspaced hyphens intact.
+  const stem = title.split(/\s+[-–|]\s+/)[0].toLowerCase().replace(/\s+/g, " ").trim();
+  if (!stem || !brand) return null;
+  // A stem that IS the whole title carries no variant marker — two products
+  // genuinely named the same thing under one brand are duplicates anyway.
+  return `${brand}::${stem}`;
+}
+
 // Greedy diversity spacing for ranked feed pages (MMR-lite).
 //
 // The catalog is dominated by a few big Shopify inventories (shoes, gym
@@ -19,6 +59,9 @@ export function interleaveAuthors(items, {
   catRun = 2, catPerWindow = 5,
 } = {}) {
   if (!Array.isArray(items) || items.length <= maxRun) return items;
+  // Collapse first: spacing near-identical variants apart still shows the same
+  // shoe five times, just further down the page.
+  items = collapseVariants(items);
   const authorOf = (p) => p.author || p.sourceUser || p.merchant || "";
   const catOf = (p) => String(p.category ?? p.product?.category ?? "").toLowerCase();
 

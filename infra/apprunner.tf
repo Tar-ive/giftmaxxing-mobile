@@ -118,32 +118,38 @@ resource "aws_apprunner_service" "api" {
 
         # Same environment as the api Lambda (lambda.tf) so behavior is identical.
         runtime_environment_variables = merge({
-          PORT               = "8080"
-          USERS_TABLE        = aws_dynamodb_table.users.name
-          POSTS_TABLE        = aws_dynamodb_table.posts.name
-          UGC_REPORTS_TABLE  = aws_dynamodb_table.ugc_reports.name
-          MEDIA_BUCKET       = aws_s3_bucket.media.id
-          INTERACTIONS_TABLE = aws_dynamodb_table.interactions.name
-          KNOWLEDGE_TABLE    = aws_dynamodb_table.knowledge.name
-          CONNECTIONS_TABLE  = aws_dynamodb_table.connections.name
-          CHALLENGES_TABLE   = aws_dynamodb_table.challenges.name
-          POOLS_TABLE        = aws_dynamodb_table.pools.name
-          FRIENDS_TABLE      = aws_dynamodb_table.friends.name
-          EVENTS_TABLE       = aws_dynamodb_table.events.name
-          GRAPH_TABLE        = aws_dynamodb_table.graph.name
-          CONFIG_TABLE       = aws_dynamodb_table.config.name
-          ANALYTICS_TABLE    = aws_dynamodb_table.analytics.name
-          DEVICES_TABLE      = aws_dynamodb_table.devices.name
+          PORT                     = "8080"
+          USERS_TABLE              = aws_dynamodb_table.users.name
+          POSTS_TABLE              = aws_dynamodb_table.posts.name
+          UGC_REPORTS_TABLE        = aws_dynamodb_table.ugc_reports.name
+          MEDIA_BUCKET             = aws_s3_bucket.media.id
+          INTERACTIONS_TABLE       = aws_dynamodb_table.interactions.name
+          KNOWLEDGE_TABLE          = aws_dynamodb_table.knowledge.name
+          CONNECTIONS_TABLE        = aws_dynamodb_table.connections.name
+          CHALLENGES_TABLE         = aws_dynamodb_table.challenges.name
+          POOLS_TABLE              = aws_dynamodb_table.pools.name
+          FRIENDS_TABLE            = aws_dynamodb_table.friends.name
+          EVENTS_TABLE             = aws_dynamodb_table.events.name
+          GRAPH_TABLE              = aws_dynamodb_table.graph.name
+          CONFIG_TABLE             = aws_dynamodb_table.config.name
+          ANALYTICS_TABLE          = aws_dynamodb_table.analytics.name
+          CATALOG_ENTITIES_TABLE   = aws_dynamodb_table.catalog_entities.name
+          CATALOG_EDGES_TABLE      = aws_dynamodb_table.catalog_edges.name
+          TASTE_PROFILES_TABLE     = aws_dynamodb_table.taste_profiles.name
+          RECOMMENDER_MODEL_BUCKET = aws_s3_bucket.recommender_ml.id
+          RECOMMENDER_MODEL_KEY    = "models/active.json"
+          DEVICES_TABLE            = aws_dynamodb_table.devices.name
           # Without this, pushConfigured() is false and EVERY push silently
           # no-ops. lambda.tf always had it; App Runner didn't — and App Runner
           # is what the app actually reaches through CloudFront, so no push has
           # ever been delivered (0 SNS endpoints against 9 registered tokens).
           SNS_PLATFORM_APP_ARN = join("", aws_sns_platform_application.ios_push[*].arn)
 
-          AUTH_ENFORCE       = var.auth_enforce ? "1" : "0"
-          ADMIN_API_SECRET   = var.admin_api_secret
-          CLERK_ISSUER       = var.clerk_issuer
-          SESSION_JWT_SECRET = var.session_jwt_secret
+          AUTH_ENFORCE          = var.auth_enforce ? "1" : "0"
+          API_SIGNATURE_ENFORCE = var.api_signature_enforce ? "1" : "0"
+          ADMIN_API_SECRET      = var.admin_api_secret
+          CLERK_ISSUER          = var.clerk_issuer
+          SESSION_JWT_SECRET    = var.session_jwt_secret
           # iOS-app identities (mirrors lambda.tf — see handler.mjs verifiers).
           COGNITO_ISSUER         = "https://${aws_cognito_user_pool.mobile.endpoint}"
           COGNITO_CLIENT_ID      = aws_cognito_user_pool_client.ios.id
@@ -174,7 +180,16 @@ resource "aws_apprunner_service" "api" {
 
           MAXI_DAILY_LIMIT = tostring(var.maxi_daily_limit)
           FEED_SHARDS      = tostring(var.feed_shards)
+
+          # Packaging (POST /packaging). CloudFront's default behavior points
+          # here, so this — not Lambda — is the path that actually serves it,
+          # which matters: image generation runs well past Lambda's 10s cap.
+          PACKAGING_IMAGE_MODEL_ID = var.packaging_image_model_id
+          PACKAGING_IMAGE_REGION   = var.packaging_image_region
+          PACKAGING_IMAGES         = var.packaging_images ? "1" : "0"
+          PACKAGING_DAILY_LIMIT    = tostring(var.packaging_daily_limit)
           },
+          try(trimspace(var.packaging_vision_model_id), "") == "" ? {} : { PACKAGING_VISION_MODEL_ID = var.packaging_vision_model_id },
           try(trimspace(var.login_reset_url), "") == "" ? {} : { LOGIN_RESET_URL = var.login_reset_url },
           try(trimspace(var.login_email_from), "") == "" ? {} : { LOGIN_EMAIL_FROM = var.login_email_from },
         )

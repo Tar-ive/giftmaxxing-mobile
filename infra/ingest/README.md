@@ -124,6 +124,41 @@ domains (`facebook.com`, …), and out-of-stock/stale products; dedup is by pin 
 **and** image signature. Diversity comes from facet-tagged seeds + per-board /
 per-merchant caps.
 
+## Apify Pinterest carousel
+
+`ingest-carousel.mjs` turns a curated Apify Pinterest dataset into individual
+source posts plus one attributed `product.images` carousel. `--upload` archives
+the source images in S3 before the idempotent `/seed` upsert.
+
+```bash
+npm run ingest:carousel:dry
+npm run ingest:carousel                 # needs AWS auth + ADMIN_API_SECRET
+node ingest-carousel.mjs --file carousels/my-carousel.json --upload
+```
+
+The bundled example is `carousels/bestie-birthday.json`; each slide keeps its
+Pinterest URL, creator, and Apify run/dataset provenance.
+
+For repeatable multi-query runs, `ingest-apify-pinterest.mjs` fetches a completed
+Apify run, scores every pin, rejects weak/listicle/social/duplicate results,
+archives accepted images behind the existing CloudFront media origin, writes a
+full curation report to S3, and upserts coherent carousels into DynamoDB. It is
+dry-run by default:
+
+```bash
+AWS_PROFILE=dev_sso_giftmaxxing npm run ingest:apify:pinterest -- \
+  --run <APIFY_RUN_ID> --report reports/apify-pinterest.json
+
+AWS_PROFILE=dev_sso_giftmaxxing npm run ingest:apify:pinterest -- \
+  --run <APIFY_RUN_ID> --picks carousels/reviewed-picks.json \
+  --report reports/apify-pinterest.json --apply
+```
+
+The apply step also prepends the new carousel IDs to `featured#feed`, so the
+existing `/feed` API and iOS app serve them without a client release.
+`--picks` is the optional human editorial checkpoint after automated scoring;
+it maps carousel slugs to approved pin IDs and preserves their order.
+
 ## Real retailer products (Sephora, Urban Outfitters, …) — end to end
 
 To pull only **actual product pages with links and prices** from trusted stores

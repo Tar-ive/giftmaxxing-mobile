@@ -29,6 +29,7 @@ export type Product = {
   grad: Grad;
   emoji: string;
   image?: string | null; // real product/preview image (Reddit-sourced posts)
+  images?: string[]; // additional carousel slides
 };
 
 export const PRODUCTS: Product[] = [

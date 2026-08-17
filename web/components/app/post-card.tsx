@@ -38,9 +38,13 @@ export function PostCard({ post }: { post: Post }) {
   const commentTotal = commentCountOf(post);
   const [draft, setDraft] = useState("");
   const [burst, setBurst] = useState(false);
-  const [imgFailed, setImgFailed] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const [failedImages, setFailedImages] = useState<Set<string>>(() => new Set());
   const lastTap = useRef(0);
   const articleRef = useRef<HTMLElement>(null);
+  const mediaRef = useRef<HTMLDivElement>(null);
+  const allImages = [...new Set([post.product.image, ...(post.product.images ?? [])].filter(Boolean) as string[])];
+  const gallery = allImages.filter((image) => !failedImages.has(image));
 
   // Report an impression once the card has dwelled in view (~50% visible for
   // 800ms). The store forwards it to the backend, which then excludes this item
@@ -84,9 +88,9 @@ export function PostCard({ post }: { post: Post }) {
     lastTap.current = now;
   };
 
-  // A broken/blocked product image (a dead scrape URL) makes for an ugly card,
-  // so hide the whole post rather than showing an empty placeholder.
-  if (post.product.image && imgFailed) return null;
+  // A broken gallery slide is skipped; hide the card only when every remote
+  // image failed.
+  if (allImages.length > 0 && gallery.length === 0) return null;
 
   return (
     <article ref={articleRef} className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
@@ -128,16 +132,62 @@ export function PostCard({ post }: { post: Post }) {
         style={{ background: GRADIENTS[post.product.grad] }}
         onClick={onMediaClick}
       >
-        <span className="text-[96px]">{post.product.emoji}</span>
-        {post.product.image && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={hiResImage(post.product.image)}
-            alt={post.product.name}
-            loading="lazy"
-            className="absolute inset-0 h-full w-full object-cover"
-            onError={() => setImgFailed(true)}
-          />
+        {gallery.length ? (
+          <div
+            ref={mediaRef}
+            className="absolute inset-0 flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            onScroll={(event) => {
+              const width = event.currentTarget.clientWidth;
+              if (width) setGalleryIndex(Math.round(event.currentTarget.scrollLeft / width));
+            }}
+          >
+            {gallery.map((image, index) => (
+              <div key={image} className="relative min-w-full snap-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={hiResImage(image)}
+                  alt={`${post.product.name} — image ${index + 1}`}
+                  loading="lazy"
+                  className="h-full w-full object-cover"
+                  onError={() => setFailedImages((failed) => new Set(failed).add(image))}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <span className="text-[96px]">{post.product.emoji}</span>
+        )}
+
+        {gallery.length > 1 && (
+          <>
+            <span className="absolute right-3 top-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white">
+              {Math.min(galleryIndex + 1, gallery.length)}/{gallery.length}
+            </span>
+            {galleryIndex > 0 && (
+              <button
+                aria-label="Previous image"
+                className="absolute left-2 grid h-8 w-8 place-items-center rounded-full bg-black/45 text-2xl text-white"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  mediaRef.current?.scrollTo({ left: (galleryIndex - 1) * mediaRef.current.clientWidth, behavior: "smooth" });
+                }}
+              >
+                ‹
+              </button>
+            )}
+            {galleryIndex < gallery.length - 1 && (
+              <button
+                aria-label="Next image"
+                className="absolute right-2 grid h-8 w-8 place-items-center rounded-full bg-black/45 text-2xl text-white"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  mediaRef.current?.scrollTo({ left: (galleryIndex + 1) * mediaRef.current.clientWidth, behavior: "smooth" });
+                }}
+              >
+                ›
+              </button>
+            )}
+          </>
         )}
 
         {/* product tag chip */}

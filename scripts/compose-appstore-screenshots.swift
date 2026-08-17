@@ -18,30 +18,37 @@ try FileManager.default.createDirectory(at: output, withIntermediateDirectories:
 let shots = [
     Shot(
         file: "01-home.png",
-        title: "Gifts they’ll\nactually love.",
-        subtitle: "Personalized finds, curated for every person.",
+        title: "Inspiration,\ncarefully curated.",
+        subtitle: "Start with gift ideas a human has actually reviewed.",
         background: NSColor(calibratedRed: 0.969, green: 0.949, blue: 0.922, alpha: 1),
         foreground: NSColor(calibratedWhite: 0.10, alpha: 1)
     ),
     Shot(
-        file: "02-swipe.png",
-        title: "Swipe until\nit feels right.",
-        subtitle: "Decide for yourself, someone special, or the whole group.",
+        file: "02-guide.png",
+        title: "Find the\nreal products.",
+        subtitle: "Go from a saved idea to verified things you can buy.",
         background: NSColor(calibratedWhite: 0.075, alpha: 1),
         foreground: .white
     ),
     Shot(
-        file: "03-gallery.png",
-        title: "Every occasion,\nalready curated.",
-        subtitle: "Beautiful shelves by moment, recipient, and budget.",
+        file: "03-products.png",
+        title: "Buy from the\nright place.",
+        subtitle: "See the exact store, price, and fastest purchase path.",
         background: NSColor(calibratedRed: 1, green: 0.941, blue: 0.925, alpha: 1),
         foreground: NSColor(calibratedWhite: 0.10, alpha: 1)
     ),
     Shot(
-        file: "04-circles.png",
-        title: "Group gifts,\nminus the chaos.",
-        subtitle: "Remember the date, invite your people, and pick together.",
+        file: "04-wrap.png",
+        title: "Finish it\nthoughtfully.",
+        subtitle: "Add a wrapping kit that completes the idea.",
         background: NSColor(calibratedRed: 0.965, green: 0.955, blue: 0.945, alpha: 1),
+        foreground: NSColor(calibratedWhite: 0.10, alpha: 1)
+    ),
+    Shot(
+        file: "05-cart.png",
+        title: "One plan,\nacross every store.",
+        subtitle: "Keep products, wrap, and purchase progress together.",
+        background: NSColor(calibratedRed: 0.969, green: 0.949, blue: 0.922, alpha: 1),
         foreground: NSColor(calibratedWhite: 0.10, alpha: 1)
     ),
 ]

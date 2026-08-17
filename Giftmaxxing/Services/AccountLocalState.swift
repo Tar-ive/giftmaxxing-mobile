@@ -41,10 +41,22 @@ enum AccountLocalState {
 
     @MainActor
     static func clearPrivateStores() {
+        // A search history names the people and occasions you shop for.
+        RecentSearchStore.shared.clear()
+        // An invite belongs to a person, not to a phone — the next account on
+        // this device starts locked out of Circles again.
+        InviteAccess.shared.lock()
         PoolsStore.shared.clear()
         GroupGiftStore.shared.clear()
         SwipeListStore.shared.clear()
         ThoughtfulnessStore.shared.clear()
+        // What you're buying, and the conversation about who you're buying it
+        // for — both name the previous account's people.
+        CartStore.shared.clear()
+        MaxiConversationStore.shared.clear()
+        // The view model holds the transcript in memory too — clearing only the
+        // store would leave the previous account's conversation on screen.
+        MaxiViewModel.shared.resetToGreeting()
         // Persona texts on the public profile editor.
         UserDefaults.standard.removeObject(forKey: "gifting_tagline")
         UserDefaults.standard.removeObject(forKey: "gifting_philosophy")

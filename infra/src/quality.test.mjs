@@ -149,3 +149,38 @@ test("isMajorUSRetailer matches big-box domains incl. subdomains", () => {
   assert.equal(isMajorUSRetailer("ebay.com"), false);
   assert.equal(isMajorUSRetailer(""), false);
 });
+
+// Supplies, fitments and event paper goods — everything below carries price +
+// retailer + PDP path, so only the caption gate stops it. Every title here was
+// observed live in the swipe deck.
+test("classifyPin drops household supplies, tyres, fixtures and event stationery", () => {
+  const junk = [
+    "Zep Antibacterial 32 -fl oz Lemon Disinfectant Liquid All-Purpose Cleaner",
+    'Fuel Maverick 15" Wheels Black 32" Outlaw Max Tires Honda Pioneer',
+    "Gold Clothing Racks, Metal Clothes Rack With 8 Straight Arms",
+    "We Couldn't Wait Reception Invitation - Elopement Announcement",
+    "Tide Laundry Detergent 92 oz",
+    "Save the Date Magnets",
+    "Window Blinds 34in Cordless",
+  ];
+  for (const title of junk) {
+    const r = classifyPin({ title, domain: "lowes.com", price: 25, link: "https://lowes.com/p/1" });
+    assert.equal(r.feedEligible, false, `should drop: ${title}`);
+    assert.equal(r.contentType, "non_gift", title);
+  }
+});
+
+test("classifyPin keeps gifts the supply rules sit close to", () => {
+  const keep = [
+    "Thank You Card Set - letterpress",          // a boxed set IS a gift
+    "Blind Box Mystery Figure - Series 3",       // not window blinds
+    "Home made porcelain mug",
+    "Turkish Rug Bench, Handmade Furniture, Living Room Bench",
+    "Pebble Lighter - Exclusive - Rust",
+    "Handknit Chunky Cardigan, Bubble Sleeves, Upcycled Yarn",
+  ];
+  for (const title of keep) {
+    const r = classifyPin({ title, domain: "etsy.com", price: 40, link: "https://etsy.com/listing/1" });
+    assert.equal(r.feedEligible, true, `should keep: ${title}`);
+  }
+});

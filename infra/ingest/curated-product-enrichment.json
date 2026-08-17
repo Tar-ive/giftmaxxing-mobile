@@ -1,0 +1,1388 @@
+{
+  "schemaVersion": "1.0.0",
+  "catalogVersion": "2026-08-11.4",
+  "generatedAt": "2026-08-13T20:11:59.893Z",
+  "storage": "s3://giftmaxxing-dev-media/curated/2026-08-11.4/products",
+  "summary": {
+    "products": 86,
+    "galleries": 59,
+    "images": 224
+  },
+  "products": [
+    {
+      "id": "aesop-resurrection-hand-balm",
+      "listingUrl": "https://www.aesop.com/us/p/body-hand/hand-balms/resurrection-aromatique-hand-balm/",
+      "provider": "html",
+      "status": "no_gallery",
+      "images": [],
+      "features": [
+        "size selection",
+        "add to cart",
+        "shipping"
+      ],
+      "verifiedAt": "2026-08-13T17:01:01.122Z",
+      "error": "HTTP 403"
+    },
+    {
+      "id": "apple-watch-se-3",
+      "listingUrl": "https://www.apple.com/us/shop/buy-watch/apple-watch-se",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/apple-watch-se-3/01.jpg",
+        "/curated/2026-08-11.3/products/apple-watch-se-3/02.jpg"
+      ],
+      "features": [
+        "case and band configurator",
+        "store pickup",
+        "delivery"
+      ],
+      "verifiedAt": "2026-08-13T17:01:03.411Z"
+    },
+    {
+      "id": "arcteryx-mantis-26",
+      "listingUrl": "https://arcteryx.com/us/en/shop/mantis-26-backpack-0643",
+      "provider": "html",
+      "status": "no_gallery",
+      "images": [],
+      "features": [
+        "add to cart",
+        "shipping"
+      ],
+      "verifiedAt": "2026-08-13T17:01:00.910Z",
+      "error": "HTTP 429"
+    },
+    {
+      "id": "chanel-gabrielle-hair-mist",
+      "listingUrl": "https://www.chanel.com/us/fragrance/p/120870/gabrielle-chanel-hair-mist/",
+      "provider": "html",
+      "status": "no_gallery",
+      "images": [],
+      "features": [
+        "add to bag",
+        "complimentary samples",
+        "shipping"
+      ],
+      "verifiedAt": "2026-08-13T17:01:01.036Z",
+      "error": "HTTP 403"
+    },
+    {
+      "id": "editorial-anniversary-boyfriend-bestself-intimacy-deck",
+      "listingUrl": "https://bestself.co/products/intimacy-deck",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-bestself-intimacy-deck/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-bestself-intimacy-deck/02.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:05.039Z"
+    },
+    {
+      "id": "editorial-anniversary-boyfriend-clear-cocktail-ice-mold",
+      "listingUrl": "https://wandp.com/products/silicone-large-clear-cocktail-ice-cube-mold",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-clear-cocktail-ice-mold/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-clear-cocktail-ice-mold/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-clear-cocktail-ice-mold/03.jpg",
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-clear-cocktail-ice-mold/04.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:05.962Z"
+    },
+    {
+      "id": "editorial-anniversary-boyfriend-coco-hinoki-candle",
+      "listingUrl": "https://boysmells.com/products/coco-fantome-standard-candle-9oz",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-coco-hinoki-candle/01.png",
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-coco-hinoki-candle/02.png",
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-coco-hinoki-candle/03.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:05.346Z"
+    },
+    {
+      "id": "editorial-anniversary-boyfriend-front-pocket-wallet",
+      "listingUrl": "https://www.popovleather.com/products/leather-front-pocket-wallet",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-front-pocket-wallet/01.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:04.724Z"
+    },
+    {
+      "id": "editorial-anniversary-boyfriend-graza-olive-oil-duo",
+      "listingUrl": "https://www.graza.co/products/duo-glass",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-graza-olive-oil-duo/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-graza-olive-oil-duo/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-graza-olive-oil-duo/03.jpg",
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-graza-olive-oil-duo/04.jpg",
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-graza-olive-oil-duo/05.jpg",
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-graza-olive-oil-duo/06.jpg",
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-graza-olive-oil-duo/07.jpg",
+        "/curated/2026-08-11.3/products/editorial-anniversary-boyfriend-graza-olive-oil-duo/08.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:05.554Z"
+    },
+    {
+      "id": "editorial-artist-gifts-blackwing-essentials-set",
+      "listingUrl": "https://blackwing602.com/products/blackwing-pencil-essentials-set",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-artist-gifts-blackwing-essentials-set/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-artist-gifts-blackwing-essentials-set/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-artist-gifts-blackwing-essentials-set/03.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:06.037Z"
+    },
+    {
+      "id": "editorial-artist-gifts-original-buddha-board",
+      "listingUrl": "https://buddhaboard.com/products/original-buddha-board",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-artist-gifts-original-buddha-board/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-artist-gifts-original-buddha-board/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-artist-gifts-original-buddha-board/03.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:06.862Z"
+    },
+    {
+      "id": "editorial-artist-gifts-stone-paper-sketchbook",
+      "listingUrl": "https://karstgoods.com/products/stone-paper-sketchbook",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-artist-gifts-stone-paper-sketchbook/01.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:06.267Z"
+    },
+    {
+      "id": "editorial-artist-gifts-tombow-dual-brush-pens",
+      "listingUrl": "https://www.tombowusa.com/products/dual-brush-pen-art-markers-mermaids-10-pack",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-artist-gifts-tombow-dual-brush-pens/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-artist-gifts-tombow-dual-brush-pens/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-artist-gifts-tombow-dual-brush-pens/03.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:06.460Z"
+    },
+    {
+      "id": "editorial-artist-gifts-viviva-colorsheets",
+      "listingUrl": "https://vivivacolors.com/products/original-single-set-16-colors",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-artist-gifts-viviva-colorsheets/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-artist-gifts-viviva-colorsheets/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-artist-gifts-viviva-colorsheets/03.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:06.722Z"
+    },
+    {
+      "id": "editorial-beer-lover-gifts-beer-flight-deck",
+      "listingUrl": "https://www.33books.com/products/flight-deck-beer-edition",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-beer-lover-gifts-beer-flight-deck/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-beer-lover-gifts-beer-flight-deck/02.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:07.626Z"
+    },
+    {
+      "id": "editorial-beer-lover-gifts-cornbread-ale-mix",
+      "listingUrl": "https://www.soberdough.com/products/cornbread-ale-new",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-beer-lover-gifts-cornbread-ale-mix/01.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:07.685Z"
+    },
+    {
+      "id": "editorial-beer-lover-gifts-fizzics-draftpour",
+      "listingUrl": "https://store.fizzics.com/products/fizzics-draftpour",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-beer-lover-gifts-fizzics-draftpour/01.png",
+        "/curated/2026-08-11.3/products/editorial-beer-lover-gifts-fizzics-draftpour/02.png",
+        "/curated/2026-08-11.3/products/editorial-beer-lover-gifts-fizzics-draftpour/03.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:07.512Z"
+    },
+    {
+      "id": "editorial-beer-lover-gifts-ukeg-go-64",
+      "listingUrl": "https://growlerwerks.com/products/ukeg-go-64",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-beer-lover-gifts-ukeg-go-64/01.png",
+        "/curated/2026-08-11.3/products/editorial-beer-lover-gifts-ukeg-go-64/02.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:07.514Z"
+    },
+    {
+      "id": "editorial-beer-lover-gifts-wood-usa-beer-cap-map",
+      "listingUrl": "https://www.beercapmaps.com/products/usa-map",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-beer-lover-gifts-wood-usa-beer-cap-map/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-beer-lover-gifts-wood-usa-beer-cap-map/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-beer-lover-gifts-wood-usa-beer-cap-map/03.jpg",
+        "/curated/2026-08-11.3/products/editorial-beer-lover-gifts-wood-usa-beer-cap-map/04.jpg",
+        "/curated/2026-08-11.3/products/editorial-beer-lover-gifts-wood-usa-beer-cap-map/05.jpg",
+        "/curated/2026-08-11.3/products/editorial-beer-lover-gifts-wood-usa-beer-cap-map/06.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:07.755Z"
+    },
+    {
+      "id": "editorial-birdwatcher-gifts-230-led-headlamp",
+      "listingUrl": "https://www.nightbuddy.co/products/nightbuddy%E2%84%A2-230-led-headlamp",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-birdwatcher-gifts-230-led-headlamp/01.png",
+        "/curated/2026-08-11.3/products/editorial-birdwatcher-gifts-230-led-headlamp/02.png",
+        "/curated/2026-08-11.3/products/editorial-birdwatcher-gifts-230-led-headlamp/03.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:08.522Z"
+    },
+    {
+      "id": "editorial-birdwatcher-gifts-foldable-backpack-stool",
+      "listingUrl": "https://kalsten.com/products/noxord-foldable-backpack-stool",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-birdwatcher-gifts-foldable-backpack-stool/01.png",
+        "/curated/2026-08-11.3/products/editorial-birdwatcher-gifts-foldable-backpack-stool/02.png",
+        "/curated/2026-08-11.3/products/editorial-birdwatcher-gifts-foldable-backpack-stool/03.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:08.416Z"
+    },
+    {
+      "id": "editorial-birdwatcher-gifts-sibley-field-diary",
+      "listingUrl": "https://www.birdcollective.com/products/the-sibley-birder-s-life-list-field-diary",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-birdwatcher-gifts-sibley-field-diary/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-birdwatcher-gifts-sibley-field-diary/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-birdwatcher-gifts-sibley-field-diary/03.jpg",
+        "/curated/2026-08-11.3/products/editorial-birdwatcher-gifts-sibley-field-diary/04.jpg",
+        "/curated/2026-08-11.3/products/editorial-birdwatcher-gifts-sibley-field-diary/05.jpg",
+        "/curated/2026-08-11.3/products/editorial-birdwatcher-gifts-sibley-field-diary/06.jpg",
+        "/curated/2026-08-11.3/products/editorial-birdwatcher-gifts-sibley-field-diary/07.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:08.944Z"
+    },
+    {
+      "id": "editorial-birdwatcher-gifts-standard-issue-binoculars",
+      "listingUrl": "https://www.nocsprovisions.com/products/standard-issue-8x25-waterproof-binoculars?variant=47377224073495",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-birdwatcher-gifts-standard-issue-binoculars/01.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:08.122Z"
+    },
+    {
+      "id": "editorial-birdwatcher-gifts-telecular-zoom-lens",
+      "listingUrl": "https://www.shopapexel.com/products/telecular-3-series-20-60x-zoom-telephoto-lens",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-birdwatcher-gifts-telecular-zoom-lens/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-birdwatcher-gifts-telecular-zoom-lens/02.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:08.695Z"
+    },
+    {
+      "id": "editorial-coffee-gifts-baratza-encore",
+      "listingUrl": "https://www.baratza.com/en-us/product/encore-zcg485",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-coffee-gifts-baratza-encore/01.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:08.792Z"
+    },
+    {
+      "id": "editorial-coffee-gifts-espresso-bites",
+      "listingUrl": "https://bigislandcoffeeroasters.com/products/espresso-bites-mixed",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-coffee-gifts-espresso-bites/01.png",
+        "/curated/2026-08-11.3/products/editorial-coffee-gifts-espresso-bites/02.png",
+        "/curated/2026-08-11.3/products/editorial-coffee-gifts-espresso-bites/03.png",
+        "/curated/2026-08-11.3/products/editorial-coffee-gifts-espresso-bites/04.png",
+        "/curated/2026-08-11.3/products/editorial-coffee-gifts-espresso-bites/05.png",
+        "/curated/2026-08-11.3/products/editorial-coffee-gifts-espresso-bites/06.png",
+        "/curated/2026-08-11.3/products/editorial-coffee-gifts-espresso-bites/07.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:10.955Z"
+    },
+    {
+      "id": "editorial-coffee-gifts-hario-v60-set",
+      "listingUrl": "https://www.hario-usa.com/products/v60-craft-pour-over-set-colors",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-coffee-gifts-hario-v60-set/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-coffee-gifts-hario-v60-set/02.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:09.561Z"
+    },
+    {
+      "id": "editorial-coffee-gifts-outin-nano",
+      "listingUrl": "https://outin.com/products/nano-portable-espresso-machine-outin-teal",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-coffee-gifts-outin-nano/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-coffee-gifts-outin-nano/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-coffee-gifts-outin-nano/03.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:09.405Z"
+    },
+    {
+      "id": "editorial-coffee-gifts-trade-coffee-subscription",
+      "listingUrl": "https://www.drinktrade.com/products/coffee-gift-subscription",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-coffee-gifts-trade-coffee-subscription/01.png",
+        "/curated/2026-08-11.3/products/editorial-coffee-gifts-trade-coffee-subscription/02.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:10.381Z"
+    },
+    {
+      "id": "editorial-dog-lover-gifts-breed-health-dna-test",
+      "listingUrl": "https://shop.embarkvet.com/products/breed-and-health-dog-dna-test-kit",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-dog-lover-gifts-breed-health-dna-test/01.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:09.713Z"
+    },
+    {
+      "id": "editorial-dog-lover-gifts-custom-pet-portrait",
+      "listingUrl": "https://westandwillow.com/products/custom-desktop-one-pet-portrait",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-dog-lover-gifts-custom-pet-portrait/01.png",
+        "/curated/2026-08-11.3/products/editorial-dog-lover-gifts-custom-pet-portrait/02.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:11.835Z"
+    },
+    {
+      "id": "editorial-dog-lover-gifts-front-range-flex-harness",
+      "listingUrl": "https://ruffwear.com/products/front-range-flex-harness",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-dog-lover-gifts-front-range-flex-harness/01.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:10.935Z"
+    },
+    {
+      "id": "editorial-dog-lover-gifts-toppl-treat-toy",
+      "listingUrl": "https://www.westpaw.com/products/toppl-teal",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-dog-lover-gifts-toppl-treat-toy/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-dog-lover-gifts-toppl-treat-toy/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-dog-lover-gifts-toppl-treat-toy/03.jpg",
+        "/curated/2026-08-11.3/products/editorial-dog-lover-gifts-toppl-treat-toy/04.jpg",
+        "/curated/2026-08-11.3/products/editorial-dog-lover-gifts-toppl-treat-toy/05.jpg",
+        "/curated/2026-08-11.3/products/editorial-dog-lover-gifts-toppl-treat-toy/06.jpg",
+        "/curated/2026-08-11.3/products/editorial-dog-lover-gifts-toppl-treat-toy/07.jpg",
+        "/curated/2026-08-11.3/products/editorial-dog-lover-gifts-toppl-treat-toy/08.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:11.560Z"
+    },
+    {
+      "id": "editorial-dog-lover-gifts-travel-dog-water-bottle",
+      "listingUrl": "https://springlandpets.com/products/22oz-classic-dog-travel-water-bottle",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-dog-lover-gifts-travel-dog-water-bottle/01.png",
+        "/curated/2026-08-11.3/products/editorial-dog-lover-gifts-travel-dog-water-bottle/02.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:11.022Z"
+    },
+    {
+      "id": "editorial-graduation-daughter-away-carry-on",
+      "listingUrl": "https://www.awaytravel.com/products/carry-on-misty-purple",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-away-carry-on/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-away-carry-on/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-away-carry-on/03.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:12.723Z"
+    },
+    {
+      "id": "editorial-graduation-daughter-birdie-personal-alarm",
+      "listingUrl": "https://www.shesbirdie.com/products/birdie-personal-safety-alarm-3-0",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-birdie-personal-alarm/01.png",
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-birdie-personal-alarm/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-birdie-personal-alarm/03.jpg",
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-birdie-personal-alarm/04.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:12.927Z"
+    },
+    {
+      "id": "editorial-graduation-daughter-camp-snap-2",
+      "listingUrl": "https://www.campsnapphoto.com/products/camp-snap-2",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-camp-snap-2/01.png",
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-camp-snap-2/02.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:14.378Z"
+    },
+    {
+      "id": "editorial-graduation-daughter-classic-diploma-frame",
+      "listingUrl": "https://www.framebridge.com/products/the-classic-diploma",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-classic-diploma-frame/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-classic-diploma-frame/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-classic-diploma-frame/03.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:12.298Z"
+    },
+    {
+      "id": "editorial-graduation-daughter-daily-planner",
+      "listingUrl": "https://daydesigner.com/products/2026-27-daily-planner-lemon-floral-sage",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-daily-planner/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-daily-planner/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-daily-planner/03.jpg",
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-daily-planner/04.jpg",
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-daily-planner/05.jpg",
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-daily-planner/06.jpg",
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-daily-planner/07.jpg",
+        "/curated/2026-08-11.3/products/editorial-graduation-daughter-daily-planner/08.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:12.979Z"
+    },
+    {
+      "id": "editorial-hiker-gifts-24oz-geopress-purifier",
+      "listingUrl": "https://grayl.com/products/24oz-geopress-filter-purifier-bottle-covert-edition",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-hiker-gifts-24oz-geopress-purifier/01.png",
+        "/curated/2026-08-11.3/products/editorial-hiker-gifts-24oz-geopress-purifier/02.png",
+        "/curated/2026-08-11.3/products/editorial-hiker-gifts-24oz-geopress-purifier/03.png",
+        "/curated/2026-08-11.3/products/editorial-hiker-gifts-24oz-geopress-purifier/04.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:15.934Z"
+    },
+    {
+      "id": "editorial-hiker-gifts-actik-core-headlamp",
+      "listingUrl": "https://www.petzl.com/US/en/Sport/Headlamps/ACTIK-CORE",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-hiker-gifts-actik-core-headlamp/01.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:16.679Z"
+    },
+    {
+      "id": "editorial-hiker-gifts-hike-crew-socks",
+      "listingUrl": "https://www.smartwool.com/en-us/products/hike-crew-socks-sw001614",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-hiker-gifts-hike-crew-socks/01.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:14.157Z"
+    },
+    {
+      "id": "editorial-hiker-gifts-microspikes-traction",
+      "listingUrl": "https://kahtoola.com/traction/microspikes-footwear-traction/",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-hiker-gifts-microspikes-traction/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-hiker-gifts-microspikes-traction/02.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:15.958Z"
+    },
+    {
+      "id": "editorial-hiker-gifts-on-the-go-spf-set",
+      "listingUrl": "https://supergoop.com/products/on-the-go-spf-set",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-hiker-gifts-on-the-go-spf-set/01.png",
+        "/curated/2026-08-11.3/products/editorial-hiker-gifts-on-the-go-spf-set/02.png",
+        "/curated/2026-08-11.3/products/editorial-hiker-gifts-on-the-go-spf-set/03.png",
+        "/curated/2026-08-11.3/products/editorial-hiker-gifts-on-the-go-spf-set/04.png",
+        "/curated/2026-08-11.3/products/editorial-hiker-gifts-on-the-go-spf-set/05.png",
+        "/curated/2026-08-11.3/products/editorial-hiker-gifts-on-the-go-spf-set/06.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:16.705Z"
+    },
+    {
+      "id": "editorial-housewarming-gifts-always-pan-2-0",
+      "listingUrl": "https://fromourplace.com/products/always-essential-cooking-pan",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-housewarming-gifts-always-pan-2-0/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-housewarming-gifts-always-pan-2-0/02.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:15.751Z"
+    },
+    {
+      "id": "editorial-housewarming-gifts-clean-essentials-kit",
+      "listingUrl": "https://www.blueland.com/products/the-clean-essentials",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-housewarming-gifts-clean-essentials-kit/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-housewarming-gifts-clean-essentials-kit/02.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:17.168Z"
+    },
+    {
+      "id": "editorial-housewarming-gifts-kitchen-cutting-board",
+      "listingUrl": "https://www.epicureancs.com/product/kitchen-series-cutting-board/",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-housewarming-gifts-kitchen-cutting-board/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-housewarming-gifts-kitchen-cutting-board/02.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:17.614Z"
+    },
+    {
+      "id": "editorial-housewarming-gifts-little-green-cleaner",
+      "listingUrl": "https://www.bissell.com/en-us/product/little-green-portable-carpet-upholstery-cleaner-1400B.html",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-housewarming-gifts-little-green-cleaner/01.png",
+        "/curated/2026-08-11.3/products/editorial-housewarming-gifts-little-green-cleaner/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-housewarming-gifts-little-green-cleaner/03.jpg",
+        "/curated/2026-08-11.3/products/editorial-housewarming-gifts-little-green-cleaner/04.jpg",
+        "/curated/2026-08-11.3/products/editorial-housewarming-gifts-little-green-cleaner/05.jpg",
+        "/curated/2026-08-11.3/products/editorial-housewarming-gifts-little-green-cleaner/06.jpg",
+        "/curated/2026-08-11.3/products/editorial-housewarming-gifts-little-green-cleaner/07.jpg",
+        "/curated/2026-08-11.3/products/editorial-housewarming-gifts-little-green-cleaner/08.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:16.891Z"
+    },
+    {
+      "id": "editorial-housewarming-gifts-new-home-candle",
+      "listingUrl": "https://homesick.com/products/new-home-candle",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-housewarming-gifts-new-home-candle/01.png",
+        "/curated/2026-08-11.3/products/editorial-housewarming-gifts-new-home-candle/02.png",
+        "/curated/2026-08-11.3/products/editorial-housewarming-gifts-new-home-candle/03.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:21.338Z"
+    },
+    {
+      "id": "editorial-nurse-gifts-classic-sport-canteen",
+      "listingUrl": "https://corkcicle.com/products/sport-canteen",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-nurse-gifts-classic-sport-canteen/01.png",
+        "/curated/2026-08-11.3/products/editorial-nurse-gifts-classic-sport-canteen/02.png",
+        "/curated/2026-08-11.3/products/editorial-nurse-gifts-classic-sport-canteen/03.png",
+        "/curated/2026-08-11.3/products/editorial-nurse-gifts-classic-sport-canteen/04.png",
+        "/curated/2026-08-11.3/products/editorial-nurse-gifts-classic-sport-canteen/05.png",
+        "/curated/2026-08-11.3/products/editorial-nurse-gifts-classic-sport-canteen/06.png",
+        "/curated/2026-08-11.3/products/editorial-nurse-gifts-classic-sport-canteen/07.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:20.350Z"
+    },
+    {
+      "id": "editorial-nurse-gifts-hypervolt-go-3",
+      "listingUrl": "https://hyperice.com/products/hypervolt-go-3",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-nurse-gifts-hypervolt-go-3/01.png",
+        "/curated/2026-08-11.3/products/editorial-nurse-gifts-hypervolt-go-3/02.png",
+        "/curated/2026-08-11.3/products/editorial-nurse-gifts-hypervolt-go-3/03.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:20.748Z"
+    },
+    {
+      "id": "editorial-nurse-gifts-knee-high-compression-socks",
+      "listingUrl": "https://www.comradsocks.com/products/knee-high-compression-socks-varsity-1",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-nurse-gifts-knee-high-compression-socks/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-nurse-gifts-knee-high-compression-socks/02.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:17.504Z"
+    },
+    {
+      "id": "editorial-nurse-gifts-lord-bergamot-tea",
+      "listingUrl": "https://www.smithtea.com/products/lord-bergamot",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-nurse-gifts-lord-bergamot-tea/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-nurse-gifts-lord-bergamot-tea/02.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:21.091Z"
+    },
+    {
+      "id": "editorial-nurse-gifts-manta-sleep-mask",
+      "listingUrl": "https://mantasleep.com/products/manta-sleep-mask",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-nurse-gifts-manta-sleep-mask/01.png",
+        "/curated/2026-08-11.3/products/editorial-nurse-gifts-manta-sleep-mask/02.png",
+        "/curated/2026-08-11.3/products/editorial-nurse-gifts-manta-sleep-mask/03.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:21.597Z"
+    },
+    {
+      "id": "editorial-runner-gifts-flipbelt-classic",
+      "listingUrl": "https://flipbelt.com/products/flipbelt-classic-running-belt",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-runner-gifts-flipbelt-classic/01.png",
+        "/curated/2026-08-11.3/products/editorial-runner-gifts-flipbelt-classic/02.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:22.828Z"
+    },
+    {
+      "id": "editorial-runner-gifts-forerunner-165",
+      "listingUrl": "https://www.garmin.com/en-US/p/1055469/",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-runner-gifts-forerunner-165/01.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:21.690Z"
+    },
+    {
+      "id": "editorial-runner-gifts-grid-2-0-foam-roller",
+      "listingUrl": "https://tptherapy.com/products/grid-2-0-foam-roller",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-runner-gifts-grid-2-0-foam-roller/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-runner-gifts-grid-2-0-foam-roller/02.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:22.284Z"
+    },
+    {
+      "id": "editorial-runner-gifts-hidden-comfort-socks",
+      "listingUrl": "https://balega.com/products/hidden-comfort-no-show-tab",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-runner-gifts-hidden-comfort-socks/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-runner-gifts-hidden-comfort-socks/02.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:22.032Z"
+    },
+    {
+      "id": "editorial-runner-gifts-openrun-pro-2",
+      "listingUrl": "https://shokz.com/products/openrunpro2",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-runner-gifts-openrun-pro-2/01.png",
+        "/curated/2026-08-11.3/products/editorial-runner-gifts-openrun-pro-2/02.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:21.959Z"
+    },
+    {
+      "id": "editorial-small-brand-home-gifts-clyde-electric-kettle",
+      "listingUrl": "https://fellowproducts.com/products/clyde-electric-kettle",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-clyde-electric-kettle/01.png",
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-clyde-electric-kettle/02.png",
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-clyde-electric-kettle/03.png",
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-clyde-electric-kettle/04.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:23.821Z"
+    },
+    {
+      "id": "editorial-small-brand-home-gifts-diaspora-co-cookbook",
+      "listingUrl": "https://www.diasporaco.com/products/the-diaspora-co-cookbook",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-diaspora-co-cookbook/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-diaspora-co-cookbook/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-diaspora-co-cookbook/03.jpg",
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-diaspora-co-cookbook/04.jpg",
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-diaspora-co-cookbook/05.jpg",
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-diaspora-co-cookbook/06.jpg",
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-diaspora-co-cookbook/07.jpg",
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-diaspora-co-cookbook/08.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:25.101Z"
+    },
+    {
+      "id": "editorial-small-brand-home-gifts-mini-hot-pot-set",
+      "listingUrl": "https://flybyjing.com/products/the-hot-pot-starter-set",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-mini-hot-pot-set/01.png",
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-mini-hot-pot-set/02.png",
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-mini-hot-pot-set/03.png",
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-mini-hot-pot-set/04.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:23.573Z"
+    },
+    {
+      "id": "editorial-small-brand-home-gifts-the-artist-series-set",
+      "listingUrl": "https://brightland.co/products/the-artist-series-gift-set",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-the-artist-series-set/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-the-artist-series-set/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-the-artist-series-set/03.jpg",
+        "/curated/2026-08-11.3/products/editorial-small-brand-home-gifts-the-artist-series-set/04.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:23.097Z"
+    },
+    {
+      "id": "editorial-small-brand-home-gifts-wylie-hand-blown-vase",
+      "listingUrl": "https://everlastingcandleco.com/products/wylie-green-x9-wholesale",
+      "provider": "html",
+      "status": "no_gallery",
+      "images": [],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:22.130Z"
+    },
+    {
+      "id": "editorial-sustainable-gifts-under-50-daily-stone-lotion-bar",
+      "listingUrl": "https://www.katemcleod.com/products/daily-stone",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-sustainable-gifts-under-50-daily-stone-lotion-bar/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-sustainable-gifts-under-50-daily-stone-lotion-bar/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-sustainable-gifts-under-50-daily-stone-lotion-bar/03.jpg",
+        "/curated/2026-08-11.3/products/editorial-sustainable-gifts-under-50-daily-stone-lotion-bar/04.jpg",
+        "/curated/2026-08-11.3/products/editorial-sustainable-gifts-under-50-daily-stone-lotion-bar/05.jpg",
+        "/curated/2026-08-11.3/products/editorial-sustainable-gifts-under-50-daily-stone-lotion-bar/06.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:25.351Z"
+    },
+    {
+      "id": "editorial-sustainable-gifts-under-50-faber-literary-tote",
+      "listingUrl": "https://www.faber.co.uk/product/9780571397983-faber-illustrated-literary-tote-bag/",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-sustainable-gifts-under-50-faber-literary-tote/01.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:24.939Z"
+    },
+    {
+      "id": "editorial-sustainable-gifts-under-50-raw-honey-sampler",
+      "listingUrl": "https://jacobsensalt.com/products/raw-honey-sampler-set",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-sustainable-gifts-under-50-raw-honey-sampler/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-sustainable-gifts-under-50-raw-honey-sampler/02.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:25.955Z"
+    },
+    {
+      "id": "editorial-sustainable-gifts-under-50-resurrection-hand-balm",
+      "listingUrl": "https://www.aesop.com/hand-body/hand-washes-balms/resurrection-aromatique-hand-balm/BM06.html",
+      "provider": "html",
+      "status": "no_gallery",
+      "images": [],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:23.818Z",
+      "error": "HTTP 403"
+    },
+    {
+      "id": "editorial-sustainable-gifts-under-50-sunday-morning-candle",
+      "listingUrl": "https://www.homebodycandleco.com/products/sunday-morning-candle-tin-homebodycandleco",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-sustainable-gifts-under-50-sunday-morning-candle/01.png",
+        "/curated/2026-08-11.3/products/editorial-sustainable-gifts-under-50-sunday-morning-candle/02.png",
+        "/curated/2026-08-11.3/products/editorial-sustainable-gifts-under-50-sunday-morning-candle/03.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:30.800Z"
+    },
+    {
+      "id": "editorial-teacher-gifts-citron-swirl-notepad",
+      "listingUrl": "https://moglea.com/products/citron-swirl-pad-small",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-teacher-gifts-citron-swirl-notepad/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-teacher-gifts-citron-swirl-notepad/02.jpg",
+        "/curated/2026-08-11.3/products/editorial-teacher-gifts-citron-swirl-notepad/03.jpg",
+        "/curated/2026-08-11.3/products/editorial-teacher-gifts-citron-swirl-notepad/04.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:27.232Z"
+    },
+    {
+      "id": "editorial-teacher-gifts-nitro-cold-brew-case",
+      "listingUrl": "https://blkandbold.com/products/blk-bold-nitro-cold-brew-coffee-caramel",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-teacher-gifts-nitro-cold-brew-case/01.jpg",
+        "/curated/2026-08-11.3/products/editorial-teacher-gifts-nitro-cold-brew-case/02.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:27.521Z"
+    },
+    {
+      "id": "editorial-teacher-gifts-standard-baggu",
+      "listingUrl": "https://baggu.com/products/standard-baggu-wild-plum",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-teacher-gifts-standard-baggu/01.jpg"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:27.223Z"
+    },
+    {
+      "id": "editorial-teacher-gifts-weekly-task-planner",
+      "listingUrl": "https://appointed.co/collections/shop-all/products/26-27-weekly-task-planner",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-teacher-gifts-weekly-task-planner/01.png",
+        "/curated/2026-08-11.3/products/editorial-teacher-gifts-weekly-task-planner/02.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:27.348Z"
+    },
+    {
+      "id": "editorial-teacher-gifts-zen-garden-grow-kit",
+      "listingUrl": "https://buzzyseeds.com/products/zen-garden-grow-kit-lavender-chamomile",
+      "provider": "html",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.3/products/editorial-teacher-gifts-zen-garden-grow-kit/01.png",
+        "/curated/2026-08-11.3/products/editorial-teacher-gifts-zen-garden-grow-kit/02.png",
+        "/curated/2026-08-11.3/products/editorial-teacher-gifts-zen-garden-grow-kit/03.png"
+      ],
+      "features": [
+        "merchant product page",
+        "online purchase"
+      ],
+      "verifiedAt": "2026-08-13T17:01:35.891Z"
+    },
+    {
+      "id": "fjallraven-kanken",
+      "listingUrl": "https://www.fjallraven.com/us/en-us/bags-gear/kanken/kanken-bags/kanken/",
+      "provider": "html",
+      "status": "no_gallery",
+      "images": [],
+      "features": [
+        "color selection",
+        "add to cart",
+        "shipping"
+      ],
+      "verifiedAt": "2026-08-13T17:01:02.893Z",
+      "error": "HTTP 403"
+    },
+    {
+      "id": "hermes-un-jardin-sur-le-nil",
+      "listingUrl": "https://www.hermes.com/us/en/product/un-jardin-sur-le-nil-eau-de-toilette-V26993/",
+      "provider": "html",
+      "status": "no_gallery",
+      "images": [],
+      "features": [
+        "add to cart",
+        "volume selection",
+        "shipping"
+      ],
+      "verifiedAt": "2026-08-13T17:01:00.740Z",
+      "error": "HTTP 403"
+    },
+    {
+      "id": "hydro-flask-32",
+      "listingUrl": "https://www.hydroflask.com/32-oz-wide-mouth",
+      "provider": "manual-official",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.4/products/hydro-flask-32/01.jpg",
+        "/curated/2026-08-11.4/products/hydro-flask-32/02.png"
+      ],
+      "title": "32 oz Wide Mouth Bottle",
+      "brand": "Hydro Flask",
+      "description": "A leakproof insulated stainless-steel bottle with a wide opening for ice and all-day temperature control.",
+      "descriptionSource": "retailer_listing",
+      "features": [
+        "24 hours cold and 12 hours hot",
+        "TempShield double-wall vacuum insulation",
+        "leakproof when closed",
+        "durable stainless steel",
+        "ice-cube friendly Wide Mouth opening"
+      ],
+      "observedText": "32 oz Wide Mouth bottle",
+      "mediaSource": "retailer_listing",
+      "verifiedAt": "2026-08-13T20:11:59.736Z"
+    },
+    {
+      "id": "michaels-front-opening-shadow-box",
+      "listingUrl": "https://www.michaels.com/product/black-front-opening-shadow-box-by-studio-decor-10383116",
+      "provider": "html",
+      "status": "no_gallery",
+      "images": [],
+      "features": [
+        "add to cart",
+        "store pickup",
+        "shipping"
+      ],
+      "verifiedAt": "2026-08-13T17:01:00.686Z",
+      "error": "HTTP 403"
+    },
+    {
+      "id": "nomination-composable-bracelet",
+      "listingUrl": "https://www.nomination.com/us_en/composable",
+      "provider": "html",
+      "status": "no_gallery",
+      "images": [],
+      "features": [
+        "bracelet configurator",
+        "home delivery"
+      ],
+      "verifiedAt": "2026-08-13T17:01:00.668Z"
+    },
+    {
+      "id": "ralph-lauren-chino-cap",
+      "listingUrl": "https://www.ralphlauren.com/men-accessories-hats-scarves-gloves/the-iconic-cotton-chino-ball-cap/0070142070.html",
+      "provider": "manual-official",
+      "status": "gallery_verified",
+      "images": [
+        "/curated/2026-08-11.4/products/ralph-lauren-chino-cap/01.jpg",
+        "/curated/2026-08-11.4/products/ralph-lauren-chino-cap/02.jpg",
+        "/curated/2026-08-11.4/products/ralph-lauren-chino-cap/03.jpg"
+      ],
+      "title": "The Iconic Cotton Chino Ball Cap",
+      "brand": "Polo Ralph Lauren",
+      "description": "A classic cotton-chino cap with Ralph Lauren's embroidered Pony and an adjustable back strap.",
+      "descriptionSource": "retailer_listing",
+      "features": [
+        "cotton chino twill",
+        "signature embroidered Pony",
+        "adjustable buckled strap",
+        "embroidered Polo back logo"
+      ],
+      "observedText": "Ralph Lauren's baseball caps have an amazing shape. They are flattering and versatile for daily outfits.",
+      "mediaSource": "retailer_listing",
+      "verifiedAt": "2026-08-13T20:11:59.893Z"
+    },
+    {
+      "id": "target-bubble-slam-dunk",
+      "listingUrl": "https://www.target.com/p/-/A-92982135",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/target-bubble-slam-dunk/01.jpg"
+      ],
+      "features": [
+        "add to cart",
+        "pickup",
+        "same-day delivery",
+        "shipping"
+      ],
+      "verifiedAt": "2026-08-13T17:01:03.471Z"
+    },
+    {
+      "id": "target-eos-vanilla-cashmere",
+      "listingUrl": "https://www.target.com/p/-/A-79906523",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/target-eos-vanilla-cashmere/01.jpg"
+      ],
+      "features": [
+        "add to cart",
+        "pickup",
+        "same-day delivery",
+        "shipping"
+      ],
+      "verifiedAt": "2026-08-13T17:01:02.283Z"
+    },
+    {
+      "id": "target-fujifilm-quicksnap",
+      "listingUrl": "https://www.target.com/p/-/A-79898667",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/target-fujifilm-quicksnap/01.jpg"
+      ],
+      "features": [
+        "add to cart",
+        "pickup",
+        "same-day delivery",
+        "shipping"
+      ],
+      "verifiedAt": "2026-08-13T17:01:02.296Z"
+    },
+    {
+      "id": "target-instax-mini-12",
+      "listingUrl": "https://www.target.com/p/-/A-88075516",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/target-instax-mini-12/01.jpg"
+      ],
+      "features": [
+        "color selection",
+        "add to cart",
+        "pickup",
+        "shipping"
+      ],
+      "verifiedAt": "2026-08-13T17:01:02.994Z"
+    },
+    {
+      "id": "target-mediheal-collagen-mask",
+      "listingUrl": "https://www.target.com/p/-/A-94420730",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/target-mediheal-collagen-mask/01.jpg"
+      ],
+      "features": [
+        "add to cart",
+        "pickup",
+        "same-day delivery",
+        "shipping"
+      ],
+      "verifiedAt": "2026-08-13T17:01:02.284Z"
+    },
+    {
+      "id": "target-mixbar-vanilla-bourbon",
+      "listingUrl": "https://www.target.com/p/-/A-79992288",
+      "provider": "html",
+      "status": "single_image",
+      "images": [
+        "/curated/2026-08-11.3/products/target-mixbar-vanilla-bourbon/01.jpg"
+      ],
+      "features": [
+        "add to cart",
+        "pickup",
+        "same-day delivery",
+        "shipping"
+      ],
+      "verifiedAt": "2026-08-13T17:01:04.583Z"
+    }
+  ]
+}

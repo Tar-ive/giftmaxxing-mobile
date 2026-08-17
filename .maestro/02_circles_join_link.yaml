@@ -12,6 +12,9 @@ tags:
     arguments:
       e2eEmail: ${E2E_EMAIL}
       e2ePassword: ${E2E_PASSWORD}
+      # Circles ships invite-only (InviteAccess); the DEBUG-only hook opens it
+      # for automation instead of typing a code.
+      e2eUnlockCircles: true
 
 # Consult only shows for identities without an onboarded cloud profile.
 - extendedWaitUntil:
@@ -28,7 +31,7 @@ tags:
     visible: "Circles"
     timeout: 15000
 - tapOn: "Circles"
-- assertVisible: "Your people, their moments"
+- assertVisible: "YOUR CIRCLES"
 
 # Garbage in → friendly error, not a crash. (Scroll first — the calendar
 # section can push this row below the fold, and Maestro taps at off-screen

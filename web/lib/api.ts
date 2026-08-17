@@ -127,6 +127,7 @@ type ApiPost = {
     grad?: string;
     emoji?: string;
     image?: string | null;
+    images?: string[];
   };
 };
 
@@ -161,6 +162,7 @@ export function mapApiPost(api: ApiPost): Post {
       grad: asGrad(p.grad),
       emoji: p.emoji ?? "🎁",
       image: hiResImage(p.image) || null,
+      images: (p.images ?? []).map(hiResImage).filter(Boolean),
     },
     caption: api.caption ?? "",
     likes: Number(api.likes) || 0,

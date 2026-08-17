@@ -1,9 +1,8 @@
 # App Store screenshot capture — run on an iPhone 16 Pro Max simulator
 # (6.9", 1320×2868 → APP_IPHONE_69). Drives the signed-in app through the
-# five marquee surfaces and saves PNGs to build/appstore-shots/.
-# Usage (repo root):
-#   maestro --device <PRO_MAX_UDID> test \
-#     -e E2E_EMAIL=... -e E2E_PASSWORD=... scripts/appstore-screenshots.yaml
+# curated commerce pilot and saves PNGs to build/appstore-shots/.
+# Usage (repo root, Debug build):
+#   ~/.maestro/bin/maestro --device <PRO_MAX_UDID> test scripts/appstore-screenshots.yaml
 appId: com.giftmaxxing.ios
 name: appstore — screenshot capture
 tags:
@@ -14,8 +13,7 @@ tags:
     permissions:
       notifications: allow
     arguments:
-      e2eEmail: ${E2E_EMAIL}
-      e2ePassword: ${E2E_PASSWORD}
+      curatedScreenshotMode: "YES"
 
 - extendedWaitUntil:
     optional: true
@@ -37,41 +35,64 @@ tags:
     timeout: 6000
 - takeScreenshot: build/appstore-shots/01-home
 
-- tapOn: "Swipe"
+- tapOn: "Open Make the memory the gift"
 - extendedWaitUntil:
-    optional: true
-    visible: "never-matches-just-waiting"
-    timeout: 5000
-- takeScreenshot: build/appstore-shots/02-swipe
-
-# Shop left the tab bar (lives in You→Shop) — the marquee commerce surface
-# is now a curated gift gallery. The rail's shelf titles are static
-# (CuratedCollection.all); the anniversary shelf is first.
-- tapOn: "Home"
-- tapOn: "Anniversary Gifts Under $50"
-- extendedWaitUntil:
-    optional: true
-    visible: "never-matches-just-waiting"
-    timeout: 6000
-- takeScreenshot: build/appstore-shots/03-gallery
-- tapOn:
-    point: "6%,7%"   # back chevron
-
-- tapOn: "Circles"
-- extendedWaitUntil:
-    visible: "Your people, their moments"
+    visible: "View source post"
     timeout: 10000
 - extendedWaitUntil:
     optional: true
     visible: "never-matches-just-waiting"
-    timeout: 3000
-- takeScreenshot: build/appstore-shots/04-circles
+    timeout: 2000
+- takeScreenshot: build/appstore-shots/02-guide
 
-# The Maxi FAB is gone (Maxi lives behind the Home search-bar mic now) — the
-# fifth marquee surface is the You tab (gifting profile / boards / journey).
-- tapOn: "You"
+- swipe:
+    start: 50%, 82%
+    end: 50%, 24%
+    duration: 700
+- extendedWaitUntil:
+    visible: "Products in the idea"
+    timeout: 5000
 - extendedWaitUntil:
     optional: true
     visible: "never-matches-just-waiting"
-    timeout: 4000
-- takeScreenshot: build/appstore-shots/05-you
+    timeout: 1500
+- takeScreenshot: build/appstore-shots/03-products
+
+- swipe:
+    start: 50%, 82%
+    end: 50%, 20%
+    duration: 700
+- swipe:
+    start: 50%, 82%
+    end: 50%, 20%
+    duration: 700
+- swipe:
+    start: 50%, 82%
+    end: 50%, 20%
+    duration: 700
+- swipe:
+    start: 50%, 82%
+    end: 50%, 20%
+    duration: 700
+- extendedWaitUntil:
+    visible: "Add the wrap kit"
+    timeout: 5000
+- extendedWaitUntil:
+    optional: true
+    visible: "never-matches-just-waiting"
+    timeout: 1500
+- takeScreenshot: build/appstore-shots/04-wrap
+
+- tapOn: "Back"
+- extendedWaitUntil:
+    visible: "Cart, 5 to buy"
+    timeout: 5000
+- tapOn: "Cart, 5 to buy"
+- extendedWaitUntil:
+    visible: "Cart"
+    timeout: 5000
+- extendedWaitUntil:
+    optional: true
+    visible: "never-matches-just-waiting"
+    timeout: 1500
+- takeScreenshot: build/appstore-shots/05-cart

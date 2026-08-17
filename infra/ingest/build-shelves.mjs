@@ -73,11 +73,159 @@ const SHELVES = [
     theme: "minimalist design object: clean lines, premium simple everyday item, understated quality" },
 ];
 
+// Age-group idea packs.
+//
+// The Reddit KNOWLEDGE base is keyed by RELATIONSHIP (mom, wife, coworker…) —
+// only "kids" and "teen" are age-shaped, so there is nothing to mine for "what
+// do you get a 9-year-old". These bands are hand-authored and then run through
+// the SAME resolveBundleSlot() machinery as the mined bundles: each slot label
+// is Titan-embedded, kNN'd against the catalog, and quality/brand-filtered. So
+// the items are as real as everywhere else — only the idea is editorial.
+//
+// Slot labels are written as PRODUCT CAPTIONS, never containing "gift" — see
+// the note above SHELVES for why that word poisons the embedding.
+//
+// Each slot ALSO carries `match` keywords, and this is not optional. Measured
+// against the live index: "over ear wireless headphones" returns "Wine Glass"
+// at distance 0.428, while a genuinely correct match — "kids art supplies" ->
+// "Handy Watercolor Travel Kit" — sits FARTHER away at 0.438. Distance
+// therefore cannot separate signal from noise here, so no threshold tuning
+// would have helped. The cause is known (CLOUD.md §13): the index is built from
+// image+marketing-title, so text->image matching is loose, and very short
+// generic titles ("Villa", "Newborn", "Sunset Beach", "Gift card") behave as hub
+// vectors that sit near EVERY text query. A lexical check is the cheap,
+// deterministic thing that actually works: kNN proposes, keywords dispose.
+//
+// A slot that matches nothing resolves EMPTY, and a band with fewer than two
+// filled slots is dropped. That is the intended behaviour — it means the
+// catalog genuinely has no products for that idea, and an empty shelf is
+// better than a shelf of wine glasses labelled "Ages 5–8".
+const AGE_PACKS = [
+  {
+    key: "age-kids-5-8",
+    label: "Ages 5–8",
+    why: "What actually lands with early-elementary kids",
+    childSafe: true,
+    slots: [
+      { key: "blocks", label: "wooden building blocks construction set for children", emoji: "🧱",
+        match: ["block", "building set", "lego", "duplo", "wooden toy", "play set", "megablok"] },
+      { key: "book", label: "illustrated children's picture story book hardcover", emoji: "📚",
+        match: ["book", "storybook", "story book"] },
+      { key: "art", label: "kids art supplies set crayons markers sketch pad", emoji: "🎨",
+        match: ["art", "crayon", "marker", "watercolor", "watercolour", "sketch", "paint", "pencil", "coloring", "colouring", "doodle"] },
+      { key: "outdoor", label: "kids scooter helmet outdoor play", emoji: "🛴",
+        match: ["scooter", "helmet", "skate", "bike", "bicycle", "ride on", "walkie talkie"] },
+    ],
+  },
+  {
+    key: "age-tween-9-12",
+    label: "Ages 9–12",
+    why: "The in-between years, handled",
+    childSafe: true,
+    slots: [
+      { key: "stem", label: "science experiment kit crystal growing robotics for kids", emoji: "🔬",
+        match: ["science", "experiment", "robot", "microscope", "telescope", "inventor", "chemistry", "science kit"] },
+      { key: "craft", label: "friendship bracelet making kit beads jewelry craft", emoji: "🧶",
+        match: ["bracelet", "bead", "craft", "macrame", "friendship", "braider", "loom", "knit", "crochet"] },
+      { key: "active", label: "skateboard roller skates for kids", emoji: "🛹",
+        match: ["skateboard", "roller skate", "skates", "scooter", "longboard"] },
+      { key: "handheld", label: "handheld electronic game console for kids", emoji: "🎮",
+        match: ["console", "gaming", "game boy", "nintendo", "handheld", "arcade", "controller"] },
+    ],
+  },
+  {
+    key: "age-teen-13-17",
+    label: "Ages 13–17",
+    why: "Teen-approved, not try-hard",
+    childSafe: true,
+    slots: [
+      { key: "audio", label: "over ear wireless headphones", emoji: "🎧",
+        match: ["headphone", "earbud", "earphone", "airpod", "headset"] },
+      { key: "camera", label: "instant print camera with film", emoji: "📸",
+        match: ["camera", "polaroid", "instax", "digicam", "camcorder", "film roll"] },
+      { key: "room", label: "LED strip lights bedroom decor", emoji: "💡",
+        match: ["led", "neon", "string light", "lamp", "lighting", "light up", "stage light"] },
+      { key: "skin", label: "skincare set cleanser moisturizer sunscreen", emoji: "🧴",
+        match: ["skincare", "skin care", "cleanser", "moisturizer", "moisturiser", "serum", "sunscreen", "face mask", "skin renewal"] },
+    ],
+  },
+  {
+    key: "age-young-adult-18-25",
+    label: "Ages 18–25",
+    why: "First-apartment energy",
+    slots: [
+      { key: "coffee", label: "espresso maker pour over coffee brewer", emoji: "☕️",
+        match: ["coffee", "espresso", "pour over", "french press", "moka", "aeropress", "brewer", "barista"] },
+      { key: "speaker", label: "portable bluetooth speaker waterproof", emoji: "🔊",
+        match: ["speaker", "soundbar", "bluetooth speaker", "boombox"] },
+      { key: "cozy", label: "soft throw blanket for a small apartment", emoji: "🛋️",
+        match: ["blanket", "throw", "quilt", "duvet", "afghan"] },
+      { key: "carry", label: "laptop backpack canvas leather", emoji: "🎒",
+        match: ["backpack", "rucksack", "laptop bag", "tote", "duffel", "duffle", "messenger bag"] },
+    ],
+  },
+  {
+    key: "age-adult-26-39",
+    label: "Ages 26–39",
+    why: "Upgrades to the things they already use daily",
+    slots: [
+      { key: "kitchen", label: "cast iron skillet dutch oven cookware", emoji: "🍳",
+        match: ["skillet", "cast iron", "dutch oven", "cookware", "saucepan", "frying pan", "cutting board", "chef knife"] },
+      { key: "sleep", label: "weighted blanket silk pillowcase", emoji: "🌙",
+        match: ["pillowcase", "pillow case", "weighted blanket", "sleep mask", "silk sleep", "duvet", "bedding"] },
+      { key: "carry", label: "leather dopp kit toiletry bag", emoji: "🧳",
+        match: ["toiletry", "dopp", "wash bag", "travel pouch", "organizer case", "organiser case", "travel case"] },
+      { key: "bar", label: "cocktail shaker bar tool set glassware", emoji: "🍸",
+        match: ["cocktail", "shaker", "barware", "bar set", "decanter", "whiskey glass", "coupe glass", "tumbler set"] },
+    ],
+  },
+  {
+    key: "age-40-54",
+    label: "Ages 40–54",
+    why: "Small luxuries they'd never buy themselves",
+    slots: [
+      { key: "recover", label: "massage gun heated neck shoulder wrap", emoji: "💆",
+        match: ["massage", "massager", "theragun", "heating pad", "neck wrap", "shoulder wrap", "foam roller"] },
+      { key: "audio", label: "record player turntable vinyl", emoji: "🎶",
+        match: ["vinyl", "record player", "turntable", "phonograph"] },
+      { key: "outdoor", label: "gardening tool set kneeler pruning shears", emoji: "🌱",
+        match: ["garden", "pruning", "shears", "secateurs", "planter", "trowel", "seed", "propagation"] },
+      { key: "wine", label: "wine decanter aerator glass set", emoji: "🍷",
+        match: ["wine", "decanter", "aerator", "sommelier", "corkscrew"] },
+    ],
+  },
+  {
+    key: "age-55-plus",
+    label: "Ages 55+",
+    why: "Comfort, craft, and time outdoors",
+    slots: [
+      { key: "warm", label: "cashmere merino wool scarf gloves", emoji: "🧣",
+        match: ["scarf", "glove", "mitten", "beanie", "cashmere", "merino", "shawl"] },
+      { key: "puzzle", label: "jigsaw puzzle board game for adults", emoji: "🧩",
+        match: ["puzzle", "jigsaw", "board game", "crossword", "sudoku"] },
+      { key: "frame", label: "digital photo frame wifi", emoji: "🖼️",
+        match: ["photo frame", "picture frame", "digital frame", "photo collage", "photo album", "keepsake frame"] },
+      { key: "tea", label: "loose leaf tea sampler teapot", emoji: "🍵",
+        match: ["tea", "teapot", "matcha", "infuser", "kettle"] },
+    ],
+  },
+];
+
+// Age-gated categories must never resolve into a child band. Mirrors
+// knowledge.mjs's ADULT_ONLY guard, applied here by title since these slots
+// don't come from the mined lexicon.
+const ADULT_ONLY_RE = /\b(wine|whisk(?:e)?y|bourbon|scotch|vodka|gin|rum|tequila|liqueur|champagne|prosecco|beer|cocktail|barware|decanter|flask|cigar|lighter|vape)\b/i;
+
 const SHELF_SIZE = 60;
 const BRAND_CAP = 8;     // per shelf — no store owns a gallery
 const GIFTBOX_CAP = 6;   // generic "Gift Box/Set/Bundle" listings per shelf
 const MAX_DISTANCE = 0.62; // same relevance gate as /visual-search — beyond
                            // this the kNN neighbors are "nearest" but unrelated
+// Keyword-gated (age-pack) slots use a looser cap on purpose: the keyword IS
+// the relevance test there, and measurement showed correct matches sitting
+// FARTHER out than junk ones, so a tight distance bound only discards good
+// items. This is a backstop against the truly unrelated tail, not a filter.
+const AGE_MAX_DISTANCE = 0.75;
 const BUNDLE_SLOT_ITEMS = 4;
 const BUNDLES_PER_RECIPIENT = 3;
 
@@ -157,17 +305,44 @@ async function curateShelf(shelf, dry) {
   }
 }
 
-async function resolveBundleSlot(idea) {
+// kNN proposes, keywords dispose. Only applied when a slot declares `match`
+// (age packs) — the Reddit-mined bundles are unchanged.
+//
+// WORD BOUNDARIES, not substrings: a plain `includes` let "Easter Party" and
+// "Heart Pendant" satisfy the "art" slot, and "Puzzled Past Advent Calendar"
+// satisfy "puzzle". A trailing optional "s" is allowed so "glove" still matches
+// "Gloves" — the common case this would otherwise break.
+const slotRe = (k) =>
+  new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}s?\\b`, "i");
+
+function matchesSlot(title, keywords) {
+  if (!keywords?.length) return true;
+  const t = String(title ?? "");
+  return keywords.some((k) => slotRe(k).test(t));
+}
+
+async function resolveBundleSlot(idea, { childSafe = false } = {}) {
   // Embed the idea NOUN only — appending "gift" drags in generic gift boxes.
   const vec = await embedText(idea.label);
-  const hits = await knn(vec, 40);
+  // Keyword-gated slots cast a much wider net and let the keywords do the
+  // filtering: the right product is often ranked below a pile of hub-vector
+  // junk, so a topK of 40 never reaches it. Slots without keywords keep the
+  // original narrow-and-close behaviour.
+  const gated = Boolean(idea.match?.length);
+  const hits = await knn(vec, gated ? 400 : 40);
+  const distanceCap = gated ? AGE_MAX_DISTANCE : MAX_DISTANCE;
   const seenBrands = new Set();
   const seenTitles = new Set();
   const itemIds = [];
   for (const v of hits) {
-    if (typeof v.distance === "number" && v.distance > MAX_DISTANCE) break;
+    if (typeof v.distance === "number" && v.distance > distanceCap) break;
     const m = v.metadata ?? {};
     if (!eligible(v) || isDeadListing(m)) continue;
+    // A kNN neighbour of "kids art supplies" can still be a wine-themed craft
+    // kit. Nothing age-gated reaches a child band.
+    if (childSafe && ADULT_ONLY_RE.test(String(m.title ?? ""))) continue;
+    // The relevance gate that distance can't provide — see AGE_PACKS.
+    if (!matchesSlot(m.title, idea.match)) continue;
     const tk = titleKey(m);
     if (tk && seenTitles.has(tk)) continue;
     const brand = m.sourceUser || m.domain || v.key;
@@ -208,6 +383,12 @@ async function buildBundles(dry) {
       }));
     }
   }
+
+  // Age packs share the index, so they MUST be resolved before it's written —
+  // the index is rewritten wholesale from `recipients`, and anything missing
+  // from this array silently disappears from the /bundles sampler.
+  await buildAgePacks(dry, recipients);
+
   if (!dry) {
     await ddb.send(new PutCommand({
       TableName: CONFIG_TABLE,
@@ -215,6 +396,41 @@ async function buildBundles(dry) {
     }));
   }
   console.log(`bundles built for ${recipients.length} recipients`);
+}
+
+// Hand-authored age bands, resolved to real products through the same kNN path
+// as the mined bundles. Written as ordinary `bundles#<key>` rows so GET
+// /bundles serves them with no server change at all.
+async function buildAgePacks(dry, recipientsOut) {
+  for (const pack of AGE_PACKS) {
+    const slots = [];
+    for (const slot of pack.slots) {
+      slots.push(await resolveBundleSlot(slot, { childSafe: pack.childSafe }));
+    }
+    const filled = slots.filter((s) => s.itemIds.length);
+    console.log(
+      `  ${pack.key}: ${filled.length}/${pack.slots.length} slots (${filled.map((s) => s.key).join(" + ") || "none"})`
+    );
+    // /bundles drops anything with fewer than 2 resolvable slots, so don't
+    // write a row that can never be served.
+    if (filled.length < 2) {
+      console.warn(`    skipped — only ${filled.length} slot(s) resolved`);
+      continue;
+    }
+    if (!dry) {
+      await ddb.send(new PutCommand({
+        TableName: CONFIG_TABLE,
+        Item: {
+          key: `bundles#${pack.key}`,
+          type: "bundles",
+          recipient: pack.key,
+          bundles: [{ why: `${pack.label} · ${pack.why}`, score: 1, slots: filled }],
+          updatedAt: Date.now(),
+        },
+      }));
+    }
+    recipientsOut.push(pack.key);
+  }
 }
 
 const args = new Set(process.argv.slice(2));

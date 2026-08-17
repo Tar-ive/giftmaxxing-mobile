@@ -54,6 +54,8 @@ data "aws_iam_policy_document" "media_cloudfront" {
       "${aws_s3_bucket.media.arn}/ugc/public/*",
       "${aws_s3_bucket.media.arn}/avatars/public/*",
       "${aws_s3_bucket.media.arn}/music/public/*",
+      "${aws_s3_bucket.media.arn}/wrap/public/*",
+      "${aws_s3_bucket.media.arn}/curated/*",
     ]
     principals {
       type        = "Service"

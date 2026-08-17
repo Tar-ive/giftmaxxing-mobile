@@ -20,13 +20,15 @@ const VALID_EVENT_TYPES = new Set([
   "session_start", "session_end", "session_resume", "session_background",
   "feed_impression", "feed_dwell", "feed_scroll", "feed_scroll_depth", "feed_revisit",
   "content_like", "content_unlike", "content_save", "content_unsave",
-  "content_share", "content_tap", "content_comment",
+  "content_share", "content_tap", "content_comment", "custom_message",
   "swipe_card_shown", "swipe_right", "swipe_left",
   "swipe_decision_time", "swipe_velocity", "swipe_hesitation", "swipe_deck_complete", "swipe_undo",
+  "product_reliability_vote",
   "tab_switch", "screen_view",
   "product_view", "product_affiliate_click",
   "search_query", "search_result_tap",
   "maxi_conversation_start", "maxi_message_sent", "maxi_response_received", "maxi_product_tap",
+  "maxi_rating",
 ]);
 
 const json = (statusCode, body) => ({
@@ -117,6 +119,17 @@ async function ingestAnalytics(body) {
             postId: truncate(evt.postId, 128),
             position: typeof evt.position === "number" ? evt.position : undefined,
             source: truncate(evt.source, 32),
+            // Serving attribution — WHICH ranker put this item on screen.
+            // Without these, an outcome (dwell, tap, save) cannot be credited
+            // to a ranker: the server generates candidates three different ways
+            // and the on-device ranker then reorders them. `serverRank` paired
+            // with `position` is what makes the on-device re-rank measurable
+            // rather than merely recorded.
+            servedBy: truncate(evt.servedBy, 48),
+            serverSource: truncate(evt.serverSource, 32),
+            rerankedOnDevice: truncate(evt.rerankedOnDevice, 4),
+            serverRank: typeof evt.serverRank === "number" ? evt.serverRank : undefined,
+            rankDelta: typeof evt.rankDelta === "number" ? evt.rankDelta : undefined,
             // Dwell/timing metrics (Instagram-style)
             dwellMs: evt.dwellMs,
             dwellBucket: evt.dwellBucket,
@@ -148,6 +161,11 @@ async function ingestAnalytics(body) {
             productUrl: truncate(evt.productUrl, 512),
             query: truncate(evt.query, 256),
             resultCount: typeof evt.resultCount === "number" ? evt.resultCount : undefined,
+            // Maxi thumbs up/down: the verdict plus the items it applies to,
+            // so the exporter can turn one tap into per-item labels.
+            rating: typeof evt.rating === "number" ? evt.rating : undefined,
+            productCount: typeof evt.productCount === "number" ? evt.productCount : undefined,
+            postIds: truncate(evt.postIds, 1024),
             // TTL: auto-delete after 90 days
             expiresAt: Math.floor(timestamp / 1000) + 90 * 86400,
           },

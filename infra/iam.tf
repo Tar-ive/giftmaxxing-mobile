@@ -54,6 +54,11 @@ data "aws_iam_policy_document" "ddb_access" {
       "${aws_dynamodb_table.graph.arn}/index/*",
       aws_dynamodb_table.analytics.arn,
       "${aws_dynamodb_table.analytics.arn}/index/*",
+      aws_dynamodb_table.catalog_entities.arn,
+      "${aws_dynamodb_table.catalog_entities.arn}/index/*",
+      aws_dynamodb_table.catalog_edges.arn,
+      "${aws_dynamodb_table.catalog_edges.arn}/index/*",
+      aws_dynamodb_table.taste_profiles.arn,
       # Account deletion (purgeAccount) batch-deletes the user's push-token
       # rows; the mobile_push policy (sns-apns.tf) lacks BatchWriteItem/Scan
       # and is not attached to the App Runner role at all.
@@ -142,6 +147,24 @@ data "aws_iam_policy_document" "bedrock_access" {
       [for m in local.maxi_model_ids : "arn:aws:bedrock:*::foundation-model/${replace(m, "us.", "")}"]
     )
   }
+
+  # Packaging (POST /packaging) renders one image of the suggested wrap.
+  #
+  # This is scoped to packaging_image_region, NOT var.region: Bedrock retired
+  # Amazon Nova Canvas mid-flight ("marked by provider as Legacy and you have
+  # not been actively using the model in the last 30 days") and us-east-1 has no
+  # ACTIVE text-to-image model left — every Stability model there edits an
+  # existing image rather than generating one. The render leg therefore calls
+  # us-west-2. Region is wildcarded on the second ARN so switching the model or
+  # region is a variable change, not a policy rewrite.
+  statement {
+    sid     = "InvokePackagingImageModel"
+    actions = ["bedrock:InvokeModel"]
+    resources = [
+      "arn:aws:bedrock:${var.packaging_image_region}::foundation-model/${var.packaging_image_model_id}",
+      "arn:aws:bedrock:${var.packaging_image_region}:${data.aws_caller_identity.current.account_id}:inference-profile/*",
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "bedrock_access" {
@@ -175,6 +198,9 @@ data "aws_iam_policy_document" "ugc_api_media" {
       "${aws_s3_bucket.media.arn}/ugc/public/*",
       "${aws_s3_bucket.media.arn}/avatars/raw/*",
       "${aws_s3_bucket.media.arn}/avatars/public/*",
+      # Generated packaging renders (POST /packaging). Model output only —
+      # never a user upload — so it goes straight to the public prefix.
+      "${aws_s3_bucket.media.arn}/wrap/public/*",
     ]
   }
 

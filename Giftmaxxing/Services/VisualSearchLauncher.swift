@@ -129,9 +129,12 @@ struct ShopThisPostRail: View {
     private func load() async {
         defer { isLoading = false }
         // Server-side, computed once and cached on the post.
-        if let postId, let cached = try? await APIClient.shared.fetchShoppable(postId: postId) {
-            matches = cached
-            if !cached.isEmpty { return }
+        if let postId {
+            // A post-scoped response is authoritative, including an empty one.
+            // Falling through to a loose visual search here was the source of
+            // unrelated "Shop this look" products.
+            matches = (try? await APIClient.shared.fetchShoppable(postId: postId)) ?? []
+            return
         }
         guard let base64 = await VisualSearchLauncher.payload(for: imageUrl) else { return }
         let response = try? await APIClient.shared.fetchVisualSearch(

@@ -1,0 +1,37 @@
+{
+  "id": "gift-basket-ugc-v1",
+  "title": "The gift basket nobody returns",
+  "outputDir": "marketing-assets/video/gift-basket-ugc-v1",
+  "identityAnchor": { "mode": "reuse", "path": "marketing-assets/video/gift-rules-ugc-v2/stills/01-forgettable-gifts.png" },
+  "voice": {
+    "voice_name": "Aoede",
+    "audio_profile": "A warm, confident young woman giving practical gift-giving advice to a friend",
+    "accent": "American (Gen)",
+    "style": "Empathetic",
+    "pace": "Natural"
+  },
+  "voiceSceneContext": "A confident, warm creator speaking directly to a phone camera about building a thoughtful gift basket, TikTok voiceover.",
+  "scenes": [
+    {
+      "name": "01-hook-random-basket",
+      "caption": { "title": "THE GIFT BASKET NOBODY RETURNS...", "subtitle": "but nobody remembers either." },
+      "voiceoverLine": "Random gift baskets get a polite thank you and nothing else.",
+      "imagePrompt": "Retain ONLY the woman's exact identity, hair, and realistic UGC style from Image 1 (ignore her sweater and the closet setting). She now wears a light gray cardigan. In a bright apartment living room, she holds a generic drugstore gift basket wrapped in plain cellophane, arm slightly extended, looking unconvinced at the phone camera. Natural window light, realistic skin and hands, safe caption space, no readable text or branding.",
+      "motionPrompt": "She turns the generic basket slightly, gives a small unimpressed shrug, then sets it down on a table. Subtle handheld phone drift. Preserve her exact face, hands, cardigan, and the basket. Natural UGC motion, no speaking."
+    },
+    {
+      "name": "02-assembling-the-formula",
+      "caption": { "title": "ONE COMFORT. ONE TREAT. ONE USEFUL THING.", "subtitle": "One personal detail. One handwritten note." },
+      "voiceoverLine": "One comfort item, one treat, one useful thing, one personal detail, and a handwritten note.",
+      "imagePrompt": "Use Image 1 as the exact identity reference; she wears the same light gray cardigan as the prior scene. On a wooden table, she leans over an open woven basket, carefully placing a soft candle, a small treat box, and a folded handwritten note on top of other items, mid-arrangement. Warm afternoon light, realistic hands and skin, safe caption space, no readable text on the note.",
+      "motionPrompt": "She places the handwritten note gently on top of the basket, adjusts a ribbon, and leans back to admire the finished arrangement with a satisfied nod. Gentle handheld push-in. Preserve her exact identity, cardigan, basket, and every item. No speaking."
+    },
+    {
+      "name": "03-the-reaction",
+      "caption": { "title": "THAT'S THE DIFFERENCE.", "subtitle": "Random isn't thoughtful. Intentional is." },
+      "voiceoverLine": "That's the difference. Random isn't thoughtful. Intentional is.",
+      "imagePrompt": "Use Image 1 as the exact identity reference; she wears the same light gray cardigan. On a cozy couch, she watches a close friend (an adult woman with curly red hair, casual sweater) open the finished basket and pull out the handwritten note, reading it with a genuinely moved, delighted smile. Warm living room light, realistic faces and hands, safe caption space, no readable text.",
+      "motionPrompt": "The friend reads the note, presses a hand to her chest, and looks up with a warm, touched smile toward the woman beside her. Slow natural push-in. Preserve both identities, the basket, note, and couch. No speaking, no physical contact, no exaggerated expression."
+    }
+  ]
+}

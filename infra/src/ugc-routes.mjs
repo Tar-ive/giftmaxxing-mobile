@@ -113,6 +113,13 @@ async function createUpload(body, ownerId) {
   }
   const caption = String(body.caption ?? "").trim();
   if (!caption || caption.length > 2200) return json(400, { error: "caption must be 1-2200 characters" });
+  const productLinks = (Array.isArray(body.productLinks) ? body.productLinks : []).slice(0, 8).map((value) => ({
+    name: String(value?.name ?? "").trim().slice(0, 160),
+    url: String(value?.url ?? "").trim().slice(0, 1200),
+  }));
+  if (productLinks.some((link) => !link.name || !/^https?:\/\/[^\s]+$/i.test(link.url))) {
+    return json(400, { error: "product links require a name and an http(s) URL" });
+  }
 
   const postId = randomUUID();
   const ownerKey = safeOwner(ownerId);
@@ -145,6 +152,7 @@ async function createUpload(body, ownerId) {
     createdAt: now,
     updatedAt: now,
     caption,
+    productLinks,
     source: "ugc",
     mediaType: media.length > 1 ? "carousel" : primary.mediaType,
     mimeType: primary.mimeType,
@@ -157,6 +165,7 @@ async function createUpload(body, ownerId) {
     visibility: user.Item?.visibility ?? "public",
     status: "processing",
     processingStatus: "UPLOAD_PENDING",
+    productPipelineStatus: "AWAITING_MEDIA",
     moderationStatus: "PENDING",
     likes: 0,
     comments: 0,

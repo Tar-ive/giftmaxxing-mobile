@@ -1,0 +1,28 @@
+name: Weekly App Store release
+
+on:
+  # Thursday morning leaves Friday staffed for monitoring and rollback.
+  # 15:00 UTC = 10:00 America/Chicago during daylight time, 09:00 otherwise.
+  schedule:
+    - cron: '0 15 * * 4'
+  workflow_dispatch:
+
+concurrency:
+  group: app-store-production-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Release approved version
+        env:
+          ASC_APP_ID: '6788124639'
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: node scripts/app-store-release.mjs --release

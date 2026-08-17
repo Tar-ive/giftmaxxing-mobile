@@ -18,6 +18,11 @@ actor InteractionQueue {
         // rides to POST /interactions as `data` so gift-mode events can build
         // per-recipient taste server-side. Optional: old queued files decode.
         var data: [String: String]?
+        var recommendationId: String?
+        var attributionToken: String?
+        var position: Int?
+        var dwellMs: Double?
+        var forceMixer: Bool?
     }
 
     private var pending: [PendingInteraction] = []
@@ -39,7 +44,11 @@ actor InteractionQueue {
         return fresh
     }
 
-    func enqueue(userId: String?, targetId: String, type: String, data: [String: String]? = nil) {
+    func enqueue(
+        userId: String?, targetId: String, type: String, data: [String: String]? = nil,
+        recommendationId: String? = nil, attributionToken: String? = nil,
+        position: Int? = nil, dwellMs: Double? = nil, forceMixer: Bool = false
+    ) {
         loadIfNeeded()
         let uid = userId ?? Self.anonymousUserId
         pending.append(PendingInteraction(
@@ -47,7 +56,12 @@ actor InteractionQueue {
             targetId: targetId,
             type: type,
             queuedAt: Date().timeIntervalSince1970,
-            data: data
+            data: data,
+            recommendationId: recommendationId,
+            attributionToken: attributionToken,
+            position: position,
+            dwellMs: dwellMs,
+            forceMixer: forceMixer
         ))
         if pending.count > Self.queueCap {
             pending.removeFirst(pending.count - Self.queueCap)
@@ -70,7 +84,25 @@ actor InteractionQueue {
 
         let batch = Array(pending.prefix(100))
         do {
-            try await APIClient.shared.sendInteractionsBatch(batch)
+            let mixer = batch.filter { $0.recommendationId != nil || $0.forceMixer == true }
+            let legacy = batch.filter { $0.recommendationId == nil && $0.forceMixer != true }
+            if !legacy.isEmpty { try await APIClient.shared.sendInteractionsBatch(legacy) }
+            if !mixer.isEmpty {
+                try await APIClient.shared.submitMixerEvents(mixer.map { event in
+                    var item: [String: Any] = [
+                        "eventId": UUID().uuidString,
+                        "type": event.type,
+                        "itemId": event.targetId,
+                        "timestamp": Int(event.queuedAt * 1000),
+                        "recommendationId": event.recommendationId ?? "",
+                    ]
+                    if let token = event.attributionToken { item["attributionToken"] = token }
+                    if let position = event.position { item["position"] = position }
+                    if let dwellMs = event.dwellMs { item["dwellMs"] = dwellMs }
+                    if let data = event.data { item["context"] = data }
+                    return item
+                }, anonymousId: mixer.first?.userId)
+            }
             pending.removeFirst(min(batch.count, pending.count))
             persist()
         } catch {

@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package giftmaxxing.api.v2;
+
+// Signed transport envelope. `json` is the canonical v2 request or response
+// payload; signing the serialized envelope protects the exact bytes in transit.
+message ApiEnvelope {
+  bytes json = 1;
+  string request_id = 2;
+  int64 server_time_ms = 3;
+}

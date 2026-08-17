@@ -1,0 +1,205 @@
+openapi: 3.1.0
+info:
+  title: Giftmaxxing Recommender Mixer v2
+  version: 2.0.0
+servers:
+  - url: https://d21osnvwewgoao.cloudfront.net
+paths:
+  /v2/recommendations:
+    post:
+      summary: Rank catalog items for one product surface
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/x-protobuf:
+            schema: { $ref: '#/components/schemas/ApiEnvelope' }
+      responses:
+        '200':
+          description: Ranked page
+          content:
+            application/x-protobuf:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required for requested profile }
+        '403': { description: Subject profile not authorized }
+  /v2/items/{id}:
+    get:
+      summary: Resolve one active typed item
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Item
+          content: { application/json: { schema: { type: object, properties: { item: { $ref: '#/components/schemas/Item' } } } } }
+        '404': { description: Not found }
+  /v2/feed-taxonomy:
+    get:
+      summary: Home themes and UI pills
+      responses:
+        '200':
+          description: Versioned taxonomy
+          content: { application/json: { schema: { type: object } } }
+  /v2/events/batch:
+    post:
+      summary: Record attributed recommendation behavior
+      security: [{ bearerAuth: [] }, {}]
+      requestBody:
+        required: true
+        content:
+          application/x-protobuf:
+            schema: { $ref: '#/components/schemas/ApiEnvelope' }
+      responses:
+        '202': { description: Accepted }
+  /v2/device-keys/register:
+    post:
+      summary: Register the authenticated installation's P-256 public key
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [keyId, publicKey]
+              properties:
+                keyId: { type: string }
+                publicKey: { type: string, description: Base64 X9.63 P-256 public key }
+      responses:
+        '201': { description: Registered }
+  /v2/recipient-leaderboard:
+    post:
+      summary: Rank reviewed products by positive swipes for a recipient segment
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/x-protobuf:
+            schema: { $ref: '#/components/schemas/ApiEnvelope' }
+      responses:
+        '200':
+          description: Ranked products over a 90-day window
+          content:
+            application/x-protobuf:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+  /internal/v2/catalog/records/batch:
+    post:
+      summary: Normalize and write trusted catalog records
+      security: [{ adminToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                records: { type: array, maxItems: 50, items: { type: object } }
+      responses:
+        '200': { description: Written }
+        '403': { description: Admin required }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    adminToken: { type: apiKey, in: header, name: x-admin-token }
+  schemas:
+    ApiEnvelope:
+      type: string
+      format: binary
+      description: Protobuf ApiEnvelope from docs/proto/api-envelope.proto. The json field contains the schema documented for the endpoint.
+    RecommendationRequest:
+      type: object
+      required: [surface]
+      properties:
+        surface: { type: string, enum: [home, search, challenge_learn, challenge_recommend] }
+        subject:
+          type: object
+          properties:
+            profileIds: { type: array, maxItems: 5, items: { type: string } }
+            blend: { type: string, enum: [individual, group] }
+        context:
+          type: object
+          properties:
+            themeId: { type: string }
+            tagId: { type: string }
+            occasionId: { type: string }
+        query:
+          type: object
+          properties:
+            text: { type: string, maxLength: 200 }
+            imageBase64: { type: string }
+            seedItemIds: { type: array, maxItems: 20, items: { type: string } }
+        constraints:
+          type: object
+          properties:
+            curatedOnly:
+              type: boolean
+              description: Admit only approved Giftmaxxing-curated items from the active reviewed collection version.
+            kinds:
+              type: array
+              items: { type: string, enum: [product, service, ugc_post, story, generated_media] }
+            categoryIds: { type: array, items: { type: string } }
+            labelIds: { type: array, items: { type: string } }
+            price: { type: object }
+        page:
+          type: object
+          properties: { limit: { type: integer, minimum: 1, maximum: 50 }, cursor: { type: string } }
+        session:
+          type: object
+          properties: { id: { type: string }, excludeItemIds: { type: array, items: { type: string } } }
+    RecommendationResponse:
+      type: object
+      required: [recommendationId, surface, policyVersion, modelVersion, taxonomyVersion, profileVersion, items]
+      properties:
+        recommendationId: { type: string }
+        surface: { type: string }
+        policyVersion: { type: string }
+        modelVersion: { type: string }
+        taxonomyVersion: { type: string }
+        curationVersion: { type: [string, 'null'] }
+        profileVersion: { type: integer }
+        nextCursor: { type: [string, 'null'] }
+        items:
+          type: array
+          items:
+            type: object
+            required: [item, rank, reason, attributionToken, source]
+            properties:
+              item: { $ref: '#/components/schemas/Item' }
+              rank: { type: integer }
+              reason: { type: object, properties: { code: { type: string }, label: { type: string } } }
+              attributionToken: { type: string }
+              source: { type: string }
+    Item:
+      type: object
+      required: [entityId, entityType, schemaVersion, kind, status, title, commerce]
+      properties:
+        entityId: { type: string }
+        entityType: { const: item }
+        schemaVersion: { type: integer }
+        kind: { type: string, enum: [product, service, ugc_post, story, generated_media] }
+        status: { type: string }
+        title: { type: string }
+        summary: { type: string }
+        media: { type: array, items: { type: object } }
+        creator: { type: object }
+        provenance: { type: object }
+        taxonomy: { type: object }
+        commerce:
+          type: object
+          required: [shoppability]
+          properties:
+            shoppability: { type: string, enum: [direct, bridged, inspiration_only] }
+            offers: { type: array, items: { type: object } }
+        quality: { type: object }
+    BehaviorEvent:
+      type: object
+      required: [eventId, type, itemId]
+      properties:
+        eventId: { type: string }
+        type: { type: string, enum: [impression, dwell, search_tap, like, comment, save, hide, offer_click, purchase, challenge_yes, challenge_no, challenge_uncertain] }
+        itemId: { type: string }
+        subjectProfileId: { type: string }
+        recommendationId: { type: string }
+        attributionToken: { type: string }
+        position: { type: integer }
+        dwellMs: { type: integer }

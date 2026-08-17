@@ -36,6 +36,15 @@ struct ChallengeView: View {
     @State private var includeDate = false
     @State private var date = Date()
 
+    // Intent. All optional — sending with none of it behaves exactly as before.
+    // What it buys: the deck is retrieved from these words instead of from the
+    // occasion alone, so the recipient's swipes are about THEM rather than
+    // about whatever the catalog happened to surface for "birthday".
+    @State private var relationship: String?
+    @State private var budgetBand: ChallengeIntentCard.BudgetBand?
+    @State private var interests: Set<String> = []
+    @State private var avoid: Set<String> = []
+
     // Deck theme: seeding with ONE concrete gift keeps the whole deck coherent
     // (the server packs it with twins + same-vibe items), so their swipes
     // answer "would they like THIS kind of thing?" — colors, style and all.
@@ -85,9 +94,42 @@ struct ChallengeView: View {
     private var fallbackSeedText: String {
         let occasionLabel = Self.occasions.first { $0.id == occasion }?.label ?? "gift"
         var parts = ["\(occasionLabel) gift ideas"]
-        let vibes = PersonalizationStore.consultVibes.prefix(4)
-        if !vibes.isEmpty { parts.append(vibes.joined(separator: ", ")) }
+
+        // Stated intent outranks the sender's own onboarding vibes: this deck is
+        // for the RECIPIENT, and the sender's taste is a poor proxy for theirs.
+        if let relationship { parts.append("for my \(relationship.lowercased())") }
+        if !interests.isEmpty {
+            parts.append(interests.sorted().joined(separator: ", ").lowercased())
+        }
+        if let budgetBand { parts.append(budgetBand.label.lowercased()) }
+
+        if interests.isEmpty {
+            let vibes = PersonalizationStore.consultVibes.prefix(4)
+            if !vibes.isEmpty { parts.append(vibes.joined(separator: ", ")) }
+        }
         return parts.joined(separator: " — ")
+    }
+
+    /// Cheap value that changes whenever any intent control does.
+    private var intentSignature: String {
+        [
+            relationship ?? "",
+            budgetBand?.rawValue ?? "",
+            interests.sorted().joined(separator: ","),
+            avoid.sorted().joined(separator: ","),
+        ].joined(separator: "|")
+    }
+
+    /// Structured intent for the server. Unknown keys are ignored by the current
+    /// deployment, so this ships ahead of the server half and starts logging the
+    /// signal now — the labels are the point.
+    private var intentPayload: [String: Any] {
+        var payload: [String: Any] = [:]
+        if let relationship { payload["relationship"] = relationship.lowercased() }
+        if let budgetBand { payload["budgetMax"] = budgetBand.maxPrice }
+        if !interests.isEmpty { payload["interests"] = interests.sorted() }
+        if !avoid.isEmpty { payload["avoid"] = avoid.sorted() }
+        return payload
     }
 
     private var inviteURL: URL? {
@@ -109,36 +151,41 @@ struct ChallengeView: View {
         isCreating = true
         defer { isCreating = false }
 
-        var imageBase64: String?
-        if let seedImage {
-            imageBase64 = seedImage.resized(maxDimension: 512)
-                .jpegData(compressionQuality: 0.8)?
-                .base64EncodedString()
+        let profile = await TasteProfileStore.shared.snapshot()
+        let remote = try? await APIClient.shared.fetchChallengeLearningDeck(
+            profileIds: authManager.userId.map { ["taste:\($0)"] } ?? []
+        )
+        let candidates = (remote?.posts.count ?? 0) >= 2
+            ? remote!.posts
+            : CuratedGiftStore.shared.challengeProducts
+        let deck = Array(OnDeviceRanker.rank(
+            candidates: candidates,
+            profile: profile,
+            context: RankingContext(recipient: nil, consultVibes: PersonalizationStore.consultVibes, mindset: GiftMindset.current())
+        ).map(\.post).prefix(14))
+        guard deck.count >= 2 else { serverUnavailable = true; return }
+        let cards: [[String: Any]] = deck.map { post in
+            var card: [String: Any] = [
+                "postId": post.id, "name": post.product.name, "price": post.product.price,
+                "giftType": "product", "url": post.productUrl ?? "",
+            ]
+            if let image = post.product.image { card["image"] = image }
+            if let category = post.category { card["category"] = category }
+            if let domain = post.domain { card["domain"] = domain }
+            return card
         }
-        // Seed priority: chosen gift > captured photo > taste-key centroid >
-        // a text seed. A brand-new account has no swipes yet, so the taste
-        // keys are empty — that used to short-circuit into "deck builder
-        // unreachable" without ever calling the server. The text seed keeps
-        // the real deck builder in play for first-time senders.
-        var seedKeys: [String] = []
-        if imageBase64 == nil && seedPostId == nil {
-            seedKeys = await TasteProfileStore.shared.snapshot().seedKeys
-        }
-        let seedText: String? = (imageBase64 == nil && seedPostId == nil && seedKeys.isEmpty)
-            ? fallbackSeedText
-            : nil
 
         do {
             let response = try await APIClient.shared.createChallenge(
                 senderId: senderId,
-                seedImageBase64: seedPostId == nil ? imageBase64 : nil,
-                seedPostId: seedPostId,
-                seedKeys: seedKeys.isEmpty ? nil : seedKeys,
-                seedText: seedText,
+                seedKeys: deck.map(\.id),
                 inviterName: inviterName,
                 to: theirName,
                 occasion: occasion == "other" ? nil : occasion,
-                date: dateString
+                date: dateString,
+                deckMode: "exact",
+                cards: cards,
+                intent: intentPayload.isEmpty ? nil : intentPayload
             )
             challengeId = response.challengeId
             serverUnavailable = false
@@ -241,35 +288,18 @@ struct ChallengeView: View {
                 }
 
                 // Personalize card
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("PERSONALIZE YOUR CHALLENGE")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.secondary)
-
-                    TextField("Your name (e.g. Alex)", text: $yourName)
-                        .textFieldStyle(.roundedBorder)
-                    TextField("Who's it for? (e.g. Sam)", text: $theirName)
-                        .textFieldStyle(.roundedBorder)
-
-                    Picker("Occasion", selection: $occasion) {
-                        ForEach(Self.occasions, id: \.id) { occ in
-                            Text("\(occ.emoji) \(occ.label)").tag(occ.id)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .tint(Color.coral)
-
-                    Toggle("Add the event date", isOn: $includeDate)
-                        .font(.bodyMedium)
-                    if includeDate {
-                        DatePicker("Event date", selection: $date, displayedComponents: .date)
-                            .datePickerStyle(.compact)
-                            .font(.bodyMedium)
-                    }
-                }
-                .padding(16)
-                .background(Color.cream)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+                ChallengePersonalizeCard(
+                    yourName: $yourName,
+                    theirName: $theirName,
+                    occasion: $occasion,
+                    includeDate: $includeDate,
+                    date: $date,
+                    relationship: $relationship,
+                    budgetBand: $budgetBand,
+                    interests: $interests,
+                    avoid: $avoid,
+                    occasions: Self.occasions
+                )
 
                 // Share — two-step: build the deck server-side (POST
                 // /challenges → challengeId in the link), then hand off to the
@@ -385,6 +415,11 @@ struct ChallengeView: View {
         .onChange(of: yourName) { _, _ in challengeId = nil; postedChallengeIdToDm = nil }
         .onChange(of: theirName) { _, _ in challengeId = nil; postedChallengeIdToDm = nil }
         .onChange(of: occasion) { _, _ in challengeId = nil; postedChallengeIdToDm = nil }
+        // A deck built before the intent was set no longer matches it. ONE
+        // observer over a combined signature, not four chained ones — every
+        // modifier on this body is part of the same type-check expression, and
+        // four more tipped it past the compiler's budget.
+        .onChange(of: intentSignature) { _, _ in challengeId = nil }
         .onChange(of: includeDate) { _, _ in challengeId = nil; postedChallengeIdToDm = nil }
         .onChange(of: date) { _, _ in challengeId = nil; postedChallengeIdToDm = nil }
         .onAppear {
@@ -588,5 +623,67 @@ private struct SeedPickCard: View {
             }
         }
         .buttonStyle(.plain)
+    }
+}
+
+
+// Extracted from ChallengeView as its OWN type, not a computed property.
+//
+// A `private var foo: some View` is still solved as part of the enclosing body's
+// expression, so pulling the block out that way did not help — the compiler kept
+// reporting "unable to type-check this expression in reasonable time" once the
+// intent controls were added. A separate struct gets its own type-check scope,
+// which is the only thing that actually splits the work.
+struct ChallengePersonalizeCard: View {
+    @Binding var yourName: String
+    @Binding var theirName: String
+    @Binding var occasion: String
+    @Binding var includeDate: Bool
+    @Binding var date: Date
+    @Binding var relationship: String?
+    @Binding var budgetBand: ChallengeIntentCard.BudgetBand?
+    @Binding var interests: Set<String>
+    @Binding var avoid: Set<String>
+    let occasions: [(id: String, label: String, emoji: String)]
+
+    var body: some View {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("PERSONALIZE YOUR CHALLENGE")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.secondary)
+
+                TextField("Your name (e.g. Alex)", text: $yourName)
+                    .textFieldStyle(.roundedBorder)
+                TextField("Who's it for? (e.g. Sam)", text: $theirName)
+                    .textFieldStyle(.roundedBorder)
+
+                Picker("Occasion", selection: $occasion) {
+                    ForEach(occasions, id: \.id) { occ in
+                        Text("\(occ.emoji) \(occ.label)").tag(occ.id)
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(Color.coral)
+
+                Toggle("Add the event date", isOn: $includeDate)
+                    .font(.bodyMedium)
+                if includeDate {
+                    DatePicker("Event date", selection: $date, displayedComponents: .date)
+                        .datePickerStyle(.compact)
+                        .font(.bodyMedium)
+                }
+
+                Divider()
+
+                ChallengeIntentCard(
+                    relationship: $relationship,
+                    budgetBand: $budgetBand,
+                    interests: $interests,
+                    avoid: $avoid
+                )
+            }
+            .padding(16)
+            .background(Color.cream)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }

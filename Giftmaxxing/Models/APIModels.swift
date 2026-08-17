@@ -26,6 +26,7 @@ struct APIPost: Codable {
     var merchant: String?
     var price: Double?
     var vibes: [String]?
+    let aspectRatio: Double?
     var qualityScore: Double?
     var contentType: String?
     var mediaUrl: String?
@@ -40,6 +41,7 @@ struct APIPost: Codable {
     // Maker's note / anecdote / craftsmanship detail (Shopify ingests carry
     // the product description; long-press on the feed image reveals it).
     var story: String?
+    var productFeatures: [String]?
 }
 
 struct UGCPost: Identifiable, Codable, Hashable {
@@ -57,13 +59,21 @@ struct UGCPost: Identifiable, Codable, Hashable {
     var posterUrl: String?
     var music: UGCMusicTrack? = nil
     var processingStatus: String
+    var productPipelineStatus: String? = nil
     var moderationStatus: String
     var moderationReason: [String]?
     var recommendationLabels: [UGCLabel]?
+    var productLinks: [UGCProductLink]?
     var createdAt: Double
 
     var id: String { postId }
     var isTerminal: Bool { ["READY", "REJECTED", "FAILED"].contains(processingStatus) }
+}
+
+struct UGCProductLink: Identifiable, Codable, Hashable {
+    var name: String
+    var url: String
+    var id: String { url }
 }
 
 struct UGCMusicTrack: Identifiable, Codable, Hashable {
@@ -165,6 +175,54 @@ struct FeedResponse: Codable {
     var cursor: String?
 }
 
+struct MixerMedia: Codable { var url: String; var role: String? }
+struct MixerOffer: Codable {
+    var offerId: String?; var merchant: String?; var url: String?
+    var price: Double?; var currency: String?; var availability: String?
+}
+struct MixerCommerce: Codable { var shoppability: String; var offers: [MixerOffer]? }
+struct MixerTaxonomy: Codable { var primaryCategoryId: String?; var labelIds: [String]? }
+struct MixerCreator: Codable { var id: String?; var name: String? }
+struct MixerProvenance: Codable { var type: String?; var provider: String?; var sourceUrl: String? }
+struct MixerQuality: Codable { var score: Double?; var giftable: Bool? }
+struct MixerCatalogItem: Codable {
+    var entityId: String; var kind: String; var title: String; var summary: String?
+    var media: [MixerMedia]?; var creator: MixerCreator?; var provenance: MixerProvenance?
+    var taxonomy: MixerTaxonomy?; var commerce: MixerCommerce; var quality: MixerQuality?
+    var features: [String]?
+    var legacyPost: APIPost?
+}
+struct MixerReason: Codable { var code: String; var label: String }
+struct MixerResult: Codable {
+    var item: MixerCatalogItem; var rank: Int; var reason: MixerReason
+    var attributionToken: String; var source: String
+}
+struct MixerResponse: Codable {
+    var recommendationId: String; var surface: String; var policyVersion: String
+    var modelVersion: String; var taxonomyVersion: String; var profileVersion: Int
+    var items: [MixerResult]; var nextCursor: String?
+}
+struct RemoteFeedTag: Codable { var id: String; var title: String; var terms: [String]; var maxPrice: Double? }
+struct RemoteFeedTheme: Codable { var id: String; var title: String; var terms: [String]; var tags: [RemoteFeedTag] }
+struct FeedTaxonomyResponse: Codable { var version: String; var themes: [RemoteFeedTheme] }
+
+struct RecipientLeaderboardItem: Identifiable {
+    let rank: Int
+    let voterCount: Int
+    let post: Post
+    var id: String { post.id }
+}
+
+struct RecipientLeaderboardRow: Codable {
+    var rank: Int
+    var voterCount: Int
+    var item: MixerCatalogItem
+}
+
+struct RecipientLeaderboardResponse: Codable {
+    var items: [RecipientLeaderboardRow]
+}
+
 struct VectorItem: Identifiable, Codable {
     var postId: String
     var author: String?
@@ -181,6 +239,56 @@ struct VectorItem: Identifiable, Codable {
     var serviceDuration: String?
 
     var id: String { postId }
+}
+
+extension Post {
+    /// A kNN neighbour rendered as a feed post. Shared by every surface that
+    /// consumes /recommendations (Home picks, Ideas → For you, Maxi) so a
+    /// vector pick looks identical wherever it lands.
+    init(vectorItem item: VectorItem) {
+        self.init(
+            id: item.postId,
+            user: item.author ?? "giftmaxxing",
+            time: "",
+            product: Product(
+                id: item.postId,
+                name: item.name ?? "Gift idea",
+                brand: item.merchant ?? item.source ?? "",
+                price: item.price ?? 0,
+                grad: .coral,
+                emoji: "🎁",
+                image: item.image
+            ),
+            caption: "",
+            likes: 0,
+            productUrl: item.productUrl ?? item.url,
+            reason: item.reason ?? "Picked for you",
+            domain: item.domain,
+            giftType: item.giftType,
+            serviceDuration: item.serviceDuration
+        )
+    }
+}
+
+// POST /packaging — a wrap plan for one recipient's pile, written by a vision
+// model that has actually looked at the products, plus one rendered image of
+// the result. `imageUrl` is nil when image generation is unavailable (model
+// access, the cost breaker, or a render failure) — the plan still stands.
+struct PackagingPlanResponse: Codable {
+    var plan: PackagingPlan?
+    var imageUrl: String?
+    var cached: Bool?
+}
+
+struct PackagingPlan: Codable {
+    var title: String?
+    var vibe: String?
+    var materials: [String]?
+    var steps: [String]?
+    /// Hex strings, three of them — rendered as swatches.
+    var palette: [String]?
+    /// A short handwritten-note suggestion the giver can adopt verbatim.
+    var noteIdea: String?
 }
 
 // int8-quantized vector as the server packs it (same scheme as GET /vectors).
@@ -356,6 +464,9 @@ struct UserProfile: Codable {
     var visibility: String?
     // Per-account Gift Boards, synced so they survive sign-out / new devices.
     var giftBoards: [SwipeList]?
+    // The per-person cart, synced the same way (CartStore). PUT /me merges
+    // patches, so boards and cart write independently without clobbering.
+    var cart: [CartSection]?
     // The public gifting persona (also served to friends via /people).
     var tagline: String?
     var philosophy: String?

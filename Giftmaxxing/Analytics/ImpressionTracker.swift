@@ -9,6 +9,9 @@ struct ImpressionTracker: ViewModifier {
     let postId: String
     let position: Int
     let source: String
+    /// Which ranker put this on screen. Carried through so a dwell or tap can
+    /// be credited to the system that chose the item.
+    var attribution: AnalyticsEngine.ServingAttribution? = nil
     // Fires with the measured dwell (ms) when the view leaves the viewport —
     // lets the taste profile weight impressions by attention, not just count
     // them (analytics collected dwell for months; ranking never used it).
@@ -23,7 +26,8 @@ struct ImpressionTracker: ViewModifier {
                 AnalyticsEngine.shared.trackImpression(
                     postId: postId,
                     position: position,
-                    source: source
+                    source: source,
+                    attribution: attribution
                 )
             }
             .onDisappear {
@@ -44,9 +48,11 @@ extension View {
         postId: String,
         position: Int,
         source: String = "feed",
+        attribution: AnalyticsEngine.ServingAttribution? = nil,
         onDwell: ((Double) -> Void)? = nil
     ) -> some View {
-        modifier(ImpressionTracker(postId: postId, position: position, source: source, onDwell: onDwell))
+        modifier(ImpressionTracker(postId: postId, position: position, source: source,
+                                   attribution: attribution, onDwell: onDwell))
     }
 }
 

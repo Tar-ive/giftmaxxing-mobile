@@ -62,12 +62,17 @@ struct AnalyticsEvent: Codable, Identifiable {
         case swipeDeckComplete = "swipe_deck_complete"
         case challengeAbandoned = "challenge_abandoned"
         case swipeUndo = "swipe_undo"
+        case productReliabilityVote = "product_reliability_vote"
 
         // Maxi AI
         case maxiConversationStart = "maxi_conversation_start"
         case maxiMessageSent = "maxi_message_sent"
         case maxiResponseReceived = "maxi_response_received"
         case maxiProductTap = "maxi_product_tap"
+        // Thumbs up/down on a set of Maxi picks — a label on what the ranker
+        // actually served, and the only signal that says the ANSWER missed
+        // rather than one item missing.
+        case maxiRating = "maxi_rating"
 
         // Navigation
         case tabSwitch = "tab_switch"

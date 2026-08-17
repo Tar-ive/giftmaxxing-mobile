@@ -123,7 +123,11 @@ final class MessagesStore: ObservableObject {
     private func respondAsMaxi(to text: String, in chatId: String) {
         Task {
             if maxiCatalog.isEmpty {
-                maxiCatalog = (try? await APIClient.shared.fetchRecommendations(limit: 30).posts) ?? []
+                if CuratedGiftStore.isPilotEnabled {
+                    maxiCatalog = CuratedGiftStore.shared.productPosts + CuratedGiftStore.shared.wrapPosts
+                } else {
+                    maxiCatalog = (try? await APIClient.shared.fetchRecommendations(limit: 30).posts) ?? []
+                }
             }
             let cleaned = text
                 .replacingOccurrences(of: "@maxi", with: "", options: [.caseInsensitive])

@@ -121,6 +121,48 @@ variable "maxi_model_id" {
   default     = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 }
 
+# ── Packaging (POST /packaging): the wrap plan + its rendered image ───────────
+# The PLAN is written by a multimodal model that reads the actual product
+# photos — Nova Lite by default, which is already access-granted and already in
+# the Bedrock IAM allowlist because it serves Maxi. The IMAGE needs Nova Canvas,
+# which requires a one-time model-access grant in the Bedrock console; until
+# that lands, keep packaging_images = false and the route ships plans only.
+variable "packaging_vision_model_id" {
+  description = "Bedrock model id used to WRITE the packaging plan from the product photos. Empty = reuse maxi_base_model_id."
+  type        = string
+  default     = ""
+}
+
+variable "packaging_image_model_id" {
+  description = "Bedrock text-to-image model for the packaging render. Amazon (nova-canvas/titan-image) and Stability request shapes are both handled; the handler branches on the id prefix."
+  type        = string
+  default     = "stability.stable-image-core-v1:1"
+}
+
+# Aug 2026: Bedrock retired Nova Canvas ("marked by provider as Legacy and you
+# have not been actively using the model in the last 30 days") and us-east-1
+# has NO active text-to-image model left — every Stability model there is an
+# editing model (inpaint/upscale/background), not a generator. us-west-2 has
+# stable-image-core / sd3-5-large / stable-image-ultra, so the render leg alone
+# crosses regions. Everything else stays in var.region.
+variable "packaging_image_region" {
+  description = "Region for the packaging image model. Separate from var.region because us-east-1 has no active text-to-image model."
+  type        = string
+  default     = "us-west-2"
+}
+
+variable "packaging_images" {
+  description = "Render packaging images. Leave false until Bedrock model access for packaging_image_model_id is granted — the plan ships either way."
+  type        = bool
+  default     = false
+}
+
+variable "packaging_daily_limit" {
+  description = "Per-principal packaging requests per UTC day (abuse guard, not a usage cap). 0 disables."
+  type        = number
+  default     = 20
+}
+
 # ── Maxi budgets (POST /maxi): per-interaction token caps + monthly Bedrock $ cap
 variable "maxi_max_tokens" {
   description = "Maxi per-call OUTPUT token cap (Bedrock Converse maxTokens)."
@@ -219,6 +261,12 @@ variable "feed_shards" {
 # ── API authentication (see handler.mjs auth gate) ───────────────────────────
 variable "auth_enforce" {
   description = "Enforce API auth in the handler (Clerk JWT or x-admin-token). Ship the auth code with this false, deploy the token-sending client, then flip true. Set false again for an INSTANT rollback (one apply, no code change)."
+  type        = bool
+  default     = false
+}
+
+variable "api_signature_enforce" {
+  description = "Require signed application/x-protobuf envelopes on the mobile v2 POST API. Enable only after the signed iOS build is broadly installed; false keeps older App Store clients compatible."
   type        = bool
   default     = false
 }

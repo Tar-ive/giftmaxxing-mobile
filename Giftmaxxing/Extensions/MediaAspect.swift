@@ -9,12 +9,27 @@ enum MediaAspect {
     static let square: CGFloat = 1.0
     /// Product (non-UGC) imagery keeps the editorial 4:5 portrait crop.
     static let product: CGFloat = 4.0 / 5.0
+    /// RedNote-style discovery cards share one portrait frame. A single ratio
+    /// keeps both columns aligned and prevents the same item changing shape
+    /// between the feed and its detail view.
+    static let recommendationCard: CGFloat = 3.0 / 4.0
+
+    /// Widescreen uploads (16:9 screenshots, screen recordings, 4-up collages)
+    /// keep their real shape. They used to snap to square, which cropped the
+    /// top and bottom off — on a collage that means slicing through the images
+    /// and any caption text baked into them.
+    static let landscape: CGFloat = 16.0 / 9.0
 
     /// Snap a measured width/height ratio onto the supported shapes.
-    /// Meaningfully taller than square → vertical; everything else → square.
+    /// Meaningfully taller than square → vertical; meaningfully wider →
+    /// landscape; everything in between → square.
     static func snap(_ ratio: CGFloat) -> CGFloat {
         guard ratio.isFinite, ratio > 0 else { return square }
-        return ratio < 0.9 ? vertical : square
+        if ratio < 0.9 { return vertical }
+        // 1.25 is the midpoint between square and 4:3 — anything past it is
+        // clearly a wide image and is better letter-boxed than cropped.
+        if ratio > 1.25 { return min(ratio, landscape) }
+        return square
     }
 
     static func snap(width: CGFloat, height: CGFloat) -> CGFloat {

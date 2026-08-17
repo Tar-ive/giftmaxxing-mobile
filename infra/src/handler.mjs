@@ -23,14 +23,34 @@ import { SageMakerRuntimeClient, InvokeEndpointCommand } from "@aws-sdk/client-s
 import { CognitoIdentityProviderClient, InitiateAuthCommand } from "@aws-sdk/client-cognito-identity-provider";
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { createHash } from "node:crypto";
+import { GetObjectCommand, S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { classifyPin, isMajorUSRetailer } from "./quality.mjs";
+import {
+  cartSignature,
+  packagingCacheKey,
+  publicKeyFor,
+  seedFrom,
+  buildVisionPrompt,
+  buildCanvasPrompt,
+  normalizePlan,
+} from "./packaging.mjs";
 import { interleaveAuthors, interleaveUGC } from "./feed-diversity.mjs";
+import { prependFeatured } from "./featured-feed.mjs";
 import { sendPushToUser } from "./push.mjs";
 import { mobileRoutes } from "./mobile-routes.mjs";
 import { analyticsRoutes } from "./analytics-routes.mjs";
+import { recommenderV2Routes } from "./recommender-v2.mjs";
+import {
+  MAXI_TOOL_DEFINITIONS,
+  effectiveCatalogPrice,
+  isCheaperRequest,
+  normalizeMaxiToolInput,
+  shownProductPriceCeiling,
+} from "./maxi-tools.mjs";
 import { birthdayFreebiesRoute } from "./birthday-freebies.mjs";
 import { friendsRoutes } from "./friends-routes.mjs";
 import { publicPostsForProfile, purgeUserAvatar, purgeUserUGC, ugcRoutes } from "./ugc-routes.mjs";
+import { protobufResponse, registerDeviceKey, verifySignedEnvelope } from "./api-signature.mjs";
 import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
@@ -50,6 +70,8 @@ const CONFIG = process.env.CONFIG_TABLE;
 const FRIENDS = process.env.FRIENDS_TABLE;
 const ANALYTICS = process.env.ANALYTICS_TABLE;
 const DEVICES = process.env.DEVICES_TABLE;
+const TASTE_PROFILES = process.env.TASTE_PROFILES_TABLE;
+const API_SIGNATURE_ENFORCE = process.env.API_SIGNATURE_ENFORCE === "1";
 const COGNITO_CLIENT_ID = process.env.COGNITO_CLIENT_ID || "";
 const LOGIN_RESET_URL = process.env.LOGIN_RESET_URL || "";
 const LOGIN_EMAIL_FROM = process.env.LOGIN_EMAIL_FROM || "";
@@ -181,6 +203,7 @@ function isPublicRoute(method, path) {
   if (method === "OPTIONS") return true;
   if (method === "POST" && path === "/login") return true;
   if (method === "GET") {
+    if (path === "/v2/feed-taxonomy" || /^\/v2\/items\/[^/]+$/.test(path)) return true;
     if (path === "/feed" || path === "/recommendations" || path === "/pins") return true;
     if (path === "/recipients" || path === "/ideas") return true;
     // Curated gallery membership + Reddit-mined gift bundles — public catalog
@@ -202,6 +225,7 @@ function isPublicRoute(method, path) {
   // Behavioral analytics ingestion — events arrive before sign-in completes
   // (and from guests), keyed by userId/anonymousId inside the payload.
   if (method === "POST" && path === "/mobile/analytics") return true;
+  if (method === "POST" && (path === "/v2/recommendations" || path === "/v2/events/batch")) return true;
   // APNs token registration — arrives before sign-in completes (guests/anon
   // senders need pushes for challenge responses); token is opaque + harmless.
   if (method === "POST" && path === "/mobile/device") return true;
@@ -416,6 +440,16 @@ async function authorizeRequest(event, method, path) {
   return { ok: false };
 }
 
+const SIGNED_PROTOBUF_PATHS = new Set([
+  "/v2/recommendations",
+  "/v2/events/batch",
+  "/v2/recipient-leaderboard",
+]);
+
+function isSignedProtobufPath(method, path) {
+  return method === "POST" && SIGNED_PROTOBUF_PATHS.has(path);
+}
+
 // ── Cost guard: tiered degradation flag (DynamoDB config table) ──────────────
 // The breaker Lambda writes a { level } onto the feature-flags item (Phase 3):
 //   • "active"   — everything on.
@@ -484,7 +518,7 @@ const s3v = VECTOR_BUCKET ? new S3VectorsClient({}) : null;
 // quality-gated). Backs /galleries/{id} and /bundles — their CONFIG rows
 // store postId lists, not documents, so the posts stay the single source
 // of truth for price/image/link freshness.
-async function hydratePosts(ids, limit = 60) {
+async function hydratePosts(ids, limit = 60, qualityGate = true) {
   const wanted = [...new Set(ids)].slice(0, Math.min(limit, 100));
   if (!wanted.length) return [];
   const found = new Map();
@@ -503,7 +537,34 @@ async function hydratePosts(ids, limit = 60) {
       const q = feedClassification(p);
       return { ...p, contentType: q.contentType, qualityScore: q.qualityScore, feedEligible: q.feedEligible };
     })
-    .filter((p) => p.feedEligible);
+    .filter((p) => !qualityGate || p.feedEligible);
+}
+
+// Editorial feed pins are configured in DynamoDB so content can be promoted or
+// removed without another deploy. They intentionally bypass the catalog's
+// listicle filter: a curated multi-slide gift guide is the supported format.
+let featuredFeedCache = { at: 0, items: [] };
+async function featuredFeedPosts() {
+  if (!CONFIG) return [];
+  const now = Date.now();
+  if (now - featuredFeedCache.at < 60_000) return featuredFeedCache.items;
+  try {
+    const out = await ddb.send(new GetCommand({ TableName: CONFIG, Key: { key: "featured#feed" } }));
+    const posts = await hydratePosts(out.Item?.itemIds ?? [], 10, false);
+    featuredFeedCache = {
+      at: now,
+      items: posts.map((post) => ({
+        ...post,
+        rec: true,
+        reason: post.reason || "Featured gift guide",
+        feedEligible: true,
+      })),
+    };
+  } catch (error) {
+    console.warn("featured feed lookup failed:", error.message);
+    featuredFeedCache = { at: now, items: [] };
+  }
+  return featuredFeedCache.items;
 }
 
 // MTL value model (SageMaker serverless endpoint, infra/ml). When configured,
@@ -566,6 +627,192 @@ async function embedText(text) {
   return JSON.parse(Buffer.from(out.body).toString("utf8")).embedding;
 }
 
+// ── Packaging: a wrap plan for one recipient's pile ──────────────────────────
+//
+// The cart is grouped by PERSON, so at checkout we know exactly what's going
+// into one bundle. A vision model looks at those actual product photos and
+// writes a wrap plan for them specifically; Nova Canvas renders one picture of
+// the result. Both are cached forever against a signature of the cart, because
+// image generation is the only genuinely expensive call in this API — the same
+// cart must never be rendered twice.
+//
+// Pure helpers (signature, prompts, plan normalization) live in packaging.mjs
+// and are unit-tested; this half is the AWS wiring.
+const PACKAGING_MEDIA_BUCKET = process.env.MEDIA_BUCKET;
+// Nova Lite: multimodal (accepts image input), already access-granted and
+// already in the Bedrock IAM allowlist because it serves /maxi. Only the image
+// MODEL below needs a new grant.
+const PACKAGING_VISION_MODEL =
+  process.env.PACKAGING_VISION_MODEL_ID ||
+  process.env.MAXI_BASE_MODEL_ID ||
+  "us.amazon.nova-lite-v1:0";
+// Image generation is REGION-SPLIT from everything else.
+//
+// Amazon Nova Canvas was the only text-to-image model in us-east-1, and Bedrock
+// cut it off mid-flight: "This Model is marked by provider as Legacy and you
+// have not been actively using the model in the last 30 days." It worked in the
+// morning and was denied by the afternoon, account-wide. There is no ACTIVE
+// generator left in us-east-1 — every Stability model there is an EDITING model
+// (inpaint / upscale / background). us-west-2 has real generators, so the
+// render leg alone calls across regions; nothing else moves.
+const PACKAGING_IMAGE_MODEL = process.env.PACKAGING_IMAGE_MODEL_ID || "stability.stable-image-core-v1:1";
+const PACKAGING_IMAGE_REGION = process.env.PACKAGING_IMAGE_REGION || "us-west-2";
+// Off by default: Nova Canvas needs a console model-access grant. Until it's
+// granted, the plan ships without a picture rather than 500ing.
+const PACKAGING_IMAGES = process.env.PACKAGING_IMAGES === "1";
+// Reading the real product photos is what makes the plan specific rather than
+// generic. Remote retailer CDNs can be slow or hostile, so it's separately
+// switchable and hard-bounded.
+const PACKAGING_VISION_IMAGES = process.env.PACKAGING_VISION_IMAGES !== "0";
+const PACKAGING_MAX_IMAGES = 3;
+const PACKAGING_IMAGE_FETCH_MS = 4000;
+const PACKAGING_DAILY_LIMIT = Number(process.env.PACKAGING_DAILY_LIMIT || 20);
+// Nova Canvas standard 1024x1024, list price. VERIFY against Bedrock pricing —
+// this only feeds the shared Maxi monthly budget counter.
+const PACKAGING_IMAGE_COST_USD = Number(process.env.PACKAGING_IMAGE_COST_USD || 0.04);
+const PACKAGING_CACHE_TTL_DAYS = 180;
+
+const s3 = PACKAGING_MEDIA_BUCKET ? new S3Client({}) : null;
+async function postImageBytes(url) {
+  if (/^https?:\/\//i.test(url)) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`image fetch ${response.status}`);
+    return Buffer.from(await response.arrayBuffer());
+  }
+  if (!s3 || !PACKAGING_MEDIA_BUCKET) throw new Error("media store unavailable");
+  const object = await s3.send(new GetObjectCommand({
+    Bucket: PACKAGING_MEDIA_BUCKET,
+    Key: String(url).replace(/^\//, ""),
+  }));
+  return Buffer.from(await object.Body.transformToByteArray());
+}
+// Separate client: the image model lives in another region (see above).
+const bedrockImages = new BedrockRuntimeClient({ region: PACKAGING_IMAGE_REGION });
+
+// Fetch up to N product photos so the planner can SEE what it's wrapping.
+// Any failure just means a text-only plan — never an error.
+async function fetchProductImages(items) {
+  if (!PACKAGING_VISION_IMAGES) return [];
+  const urls = items
+    .map((i) => i?.image)
+    .filter((u) => typeof u === "string" && /^https?:\/\//i.test(u))
+    .slice(0, PACKAGING_MAX_IMAGES);
+  if (!urls.length) return [];
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PACKAGING_IMAGE_FETCH_MS);
+  try {
+    const settled = await Promise.allSettled(
+      urls.map(async (url) => {
+        const res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) throw new Error(`image ${res.status}`);
+        const type = String(res.headers.get("content-type") || "");
+        const format = /png/i.test(type) ? "png" : /webp/i.test(type) ? "webp" : "jpeg";
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        // Bedrock caps image payloads; skip anything unreasonable.
+        if (bytes.byteLength > 3_500_000) throw new Error("image too large");
+        return { image: { format, source: { bytes } } };
+      })
+    );
+    return settled.filter((s) => s.status === "fulfilled").map((s) => s.value);
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// items + context -> a normalized plan (or null if the model didn't produce a
+// usable one). Exported shape matches PackagingPlan on the client.
+async function buildPackagingPlan(items, ctx) {
+  const imageBlocks = await fetchProductImages(items);
+  const content = [...imageBlocks, { text: buildVisionPrompt(items, ctx) }];
+  const res = await bedrock.send(
+    new ConverseCommand({
+      modelId: PACKAGING_VISION_MODEL,
+      messages: [{ role: "user", content }],
+      inferenceConfig: { maxTokens: 700, temperature: 0.5 },
+    })
+  );
+  const text = (res.output?.message?.content ?? [])
+    .filter((b) => b.text)
+    .map((b) => b.text)
+    .join("\n");
+  return {
+    plan: normalizePlan(text),
+    usage: { inputTokens: res.usage?.inputTokens || 0, outputTokens: res.usage?.outputTokens || 0 },
+  };
+}
+
+// Render the plan and park it in S3 under the cart signature. Returns the
+// RELATIVE path — the client prefixes its own base URL (same convention as
+// UGC media), so this works through CloudFront without hard-coding a domain.
+const NEGATIVE_PROMPT = "text, words, watermark, logo, brand name, people, hands, faces";
+
+// Amazon and Stability take different request shapes and Bedrock gives no
+// abstraction over them, so branch on the model id rather than hard-coding one
+// vendor — swapping back is then a variable change, as it was for Titan.
+function imageRequestBody(modelId, prompt, sig) {
+  if (modelId.startsWith("stability.")) {
+    return {
+      prompt,
+      negative_prompt: NEGATIVE_PROMPT,
+      mode: "text-to-image",
+      aspect_ratio: "1:1",
+      output_format: "png",
+      // Stability's seed space is wider than Nova's; same cart -> same picture.
+      seed: seedFrom(sig) % 4294967294,
+    };
+  }
+  // Amazon Nova Canvas / Titan Image shape.
+  return {
+    taskType: "TEXT_IMAGE",
+    textToImageParams: { text: prompt, negativeText: NEGATIVE_PROMPT },
+    imageGenerationConfig: {
+      numberOfImages: 1,
+      width: 1024,
+      height: 1024,
+      cfgScale: 7.5,
+      quality: "standard",
+      seed: seedFrom(sig),
+    },
+  };
+}
+
+async function renderPackagingImage(plan, sig, brands) {
+  if (!PACKAGING_IMAGES || !s3) return null;
+  const prompt = buildCanvasPrompt(plan, brands);
+  const out = await bedrockImages.send(
+    new InvokeModelCommand({
+      modelId: PACKAGING_IMAGE_MODEL,
+      contentType: "application/json",
+      accept: "application/json",
+      body: JSON.stringify(imageRequestBody(PACKAGING_IMAGE_MODEL, prompt, sig)),
+    })
+  );
+  const body = JSON.parse(Buffer.from(out.body).toString("utf8"));
+  // Stability reports a content-filter block here rather than erroring.
+  const finish = body?.finish_reasons?.[0];
+  if (finish) {
+    console.warn("packaging render filtered:", finish);
+    return null;
+  }
+  const b64 = body?.images?.[0];
+  if (!b64) return null;
+
+  const key = publicKeyFor(sig);
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: PACKAGING_MEDIA_BUCKET,
+      Key: key,
+      Body: Buffer.from(b64, "base64"),
+      ContentType: "image/png",
+      CacheControl: "public, max-age=31536000, immutable",
+    })
+  );
+  return `/${key}`;
+}
+
 const json = (statusCode, body, headers = {}) => ({
   statusCode,
   headers: { "content-type": "application/json", ...headers },
@@ -602,6 +849,57 @@ function inferAudience(text) {
   if (men > women) return "men";
   return null;
 }
+
+/**
+ * Does this post belong to the requested browse category at all?
+ *
+ * MEASURED PROBLEM. `vibes` was only ever a scoring nudge — worth at most 0.25
+ * against social proof's 0.35 — so a popular untagged item beat a perfectly
+ * tagged one. Live check: `vibes=coffee` returned "Island Girl Backless Sweater
+ * Top" and "Morgan Wallen Tee"; `vibes=matcha` returned 0 matcha items out of
+ * 22 ranked. The pills changed the results (different scoring noise) without
+ * ever changing the SUBJECT, which is exactly what a user notices.
+ *
+ * A browse pill is a statement of intent, not a preference. It scopes.
+ */
+function matchesBrowse(p, { vibes = [], category }) {
+  if (!vibes.length && !category) return true;
+  if (category && String(p.category || "").toLowerCase() === String(category).toLowerCase()) return true;
+  if (vibes.length && Array.isArray(p.vibes) && p.vibes.some((v) => vibes.includes(v))) return true;
+  // Image labels (Rekognition) and the title are the fallback: the vibe
+  // vocabulary is a closed set of ~40 tags and misses plenty of real subjects.
+  const haystack = `${p.product?.name ?? ""} ${p.category ?? ""} ${(p.imageLabels || []).join(" ")}`.toLowerCase();
+  return vibes.some((v) => {
+    const t = String(v).toLowerCase();
+    return t.length >= 4 && new RegExp(`\\b${t}s?\\b`).test(haystack);
+  });
+}
+
+/**
+ * Put on-topic items first, and only pad with the rest when the category is
+ * too thin to fill a page. A hard filter would blank the feed for any pill the
+ * catalog barely covers; leading with the matches gets the subject right
+ * without ever returning an empty screen.
+ */
+function scopeToBrowse(list, opts, minimum = 12) {
+  if (!opts?.vibes?.length && !opts?.category) return list;
+  const onTopic = [], offTopic = [];
+  for (const p of list) {
+    // TAG the item rather than only ordering it. The first version returned
+    // on-topic items first and every call site then did `.sort(by _score)`,
+    // which shuffled the off-topic padding straight back to the top — measured
+    // 0% relevance on cozy / makeup / tech even after the scoping "worked".
+    // Sorts must use `_onTopic` as the primary key.
+    p._onTopic = matchesBrowse(p, opts) ? 1 : 0;
+    (p._onTopic ? onTopic : offTopic).push(p);
+  }
+  if (onTopic.length >= minimum) return onTopic;
+  return [...onTopic, ...offTopic];
+}
+
+/** Ranked order that respects the browse scope. */
+const byBrowseThenScore = (a, b) =>
+  ((b._onTopic ?? 0) - (a._onTopic ?? 0)) || (b._score - a._score);
 
 function scorePost(p, { vibes = [], recipient, occasion, category, budget, eventBoost = 0, now = Date.now() } = {}) {
   let s = 0;
@@ -958,56 +1256,10 @@ function deckSnapshot(it, band) {
     category: it.category,
     domain: it.domain,
     url: it.url,
-    // Products vs services split so guests render service cards correctly and
-    // the verdict can report "they're a services person" (giftTypeSplit).
-    giftType: it.giftType === "service" ? "service" : "product",
-    ...(it.serviceDuration ? { serviceDuration: it.serviceDuration } : {}),
+    giftType: "product",
     band,
     distance: it._distance,
   };
-}
-
-// A couple of gift-able SERVICES (a year of Netflix, a Costco membership, …)
-// mixed into every challenge deck as probes. Whether the guest swipes yes on
-// services vs products is itself a taste read (verdict.giftTypeSplit) — "they'd
-// rather get a membership than a thing" makes gifting materially easier.
-// Sourced from the posts byCategory GSI (category "services", written by
-// infra/ingest/ingest-catalog.mjs); returns [] when none are seeded yet.
-async function fetchServiceCards(count = 3) {
-  if (!POSTS || count <= 0) return [];
-  try {
-    const out = await ddb.send(
-      new QueryCommand({
-        TableName: POSTS,
-        IndexName: "byCategory",
-        KeyConditionExpression: "category = :c",
-        ExpressionAttributeValues: { ":c": "services" },
-        Limit: 24,
-      })
-    );
-    const rows = (out.Items ?? []).filter((p) => p.giftType === "service");
-    // Cheap shuffle so repeat challenges don't always probe the same services.
-    for (let i = rows.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [rows[i], rows[j]] = [rows[j], rows[i]];
-    }
-    return rows.slice(0, count).map((p) => ({
-      postId: p.postId,
-      name: p.product?.name || p.caption || "",
-      image: p.product?.image || null,
-      price: Number(p.price ?? p.product?.price) || 0,
-      priceDisplay: p.priceDisplay ?? null,
-      category: p.category || "services",
-      domain: p.domain || null,
-      url: p.productUrl || p.url || "",
-      giftType: "service",
-      ...(p.serviceDuration ? { serviceDuration: p.serviceDuration } : {}),
-      band: "probe",
-    }));
-  } catch (e) {
-    console.warn("fetchServiceCards failed (deck ships without services):", e.message);
-    return [];
-  }
 }
 
 // kNN around the seed, quality-filtered, then a banded diversity pass:
@@ -1015,15 +1267,6 @@ async function fetchServiceCards(count = 3) {
 // capped per merchant + category, then shuffled so the deck order never leaks
 // the similarity gradient to the guest.
 async function buildChallengeDeck(seedVector, { size = CHALLENGE_DECK_SIZE, excludeKeys = [] } = {}) {
-  // Reserve ~20% of the deck for service probes (2–3 cards at default size).
-  // They come from the catalog, not the kNN, so the vibe/twin bands keep their
-  // meaning; if no services are seeded yet the deck fills entirely from kNN.
-  const serviceTarget = Math.max(0, Math.min(3, Math.round(size * 0.2)));
-  const serviceCards = (await fetchServiceCards(serviceTarget)).filter(
-    (c) => !excludeKeys.includes(c.postId)
-  );
-  size = Math.max(4, size - serviceCards.length);
-
   const out = await s3v.send(
     new QueryVectorsCommand({
       vectorBucketName: VECTOR_BUCKET,
@@ -1043,7 +1286,8 @@ async function buildChallengeDeck(seedVector, { size = CHALLENGE_DECK_SIZE, excl
       it._band = d < CHALLENGE_BAND_TWIN ? "twin" : d < CHALLENGE_BAND_VIBE ? "vibe" : "probe";
       return it;
     })
-    .filter((it) => it.feedEligible && it.image);
+    .filter((it) => it.feedEligible && it.image && it.giftType === "product"
+      && it.source === "curated-product" && it.url && it.price > 0);
 
   const quota = { twin: Math.round(size * 0.3), vibe: Math.round(size * 0.4), probe: size };
   const picked = [];
@@ -1066,15 +1310,6 @@ async function buildChallengeDeck(seedVector, { size = CHALLENGE_DECK_SIZE, excl
   }
   // Backfill closest-first if any band under-delivered.
   for (const it of candidates) admit(it, it._band, false);
-
-  // Service probes join the pool before the shuffle so their position never
-  // gives them away (dedup on postId in case a service also matched the kNN).
-  for (const card of serviceCards) {
-    if (!pickedKeys.has(card.postId)) {
-      picked.push(card);
-      pickedKeys.add(card.postId);
-    }
-  }
 
   // Fisher-Yates so twins aren't clustered at the front of the deck.
   for (let i = picked.length - 1; i > 0; i--) {
@@ -1463,7 +1698,14 @@ const MAXI_SHOPPING_MODEL_ID =
   process.env.MAXI_SHOPPING_MODEL_ID || process.env.MAXI_MODEL_ID || "us.anthropic.claude-haiku-4-5-20251001-v1:0";
 
 // Tools that, once the agent reaches for them, mean we're in a shopping flow.
-const MAXI_SHOPPING_TOOLS = new Set(["add_to_cart", "checkout"]);
+// The brief tools are here because running a multi-turn brief — remembering
+// what's filled, asking for exactly one missing thing, not re-interviewing — is
+// precisely the tool discipline the cheap base tier is worst at.
+const MAXI_SHOPPING_TOOLS = new Set([
+  "catalog_read",
+  "cart_write",
+  "cart_read",
+]);
 
 // Transactional intent in the user's message. Mirrors the offline responder's
 // regexes (web/lib/maxi.ts) so the router and the fallback agree on "shopping".
@@ -1580,9 +1822,11 @@ function _secondsUntilUtcMidnight() {
   const next = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
   return Math.max(1, Math.ceil((next - now) / 1000));
 }
-async function checkMaxiRateLimit(principal) {
-  if (!CONFIG || MAXI_DAILY_LIMIT <= 0 || !principal) return { ok: true };
-  const key = `maxi-rate#${_utcDay()}#${principal}`;
+// Generic so every expensive AI route shares one implementation (Maxi chats,
+// packaging renders) instead of each growing its own counter.
+async function checkDailyLimit(scope, principal, limit) {
+  if (!CONFIG || limit <= 0 || !principal) return { ok: true };
+  const key = `${scope}#${_utcDay()}#${principal}`;
   const expiresAt = Math.floor(Date.now() / 1000) + 2 * 86400; // self-purge after 2 days
   try {
     const out = await ddb.send(
@@ -1596,34 +1840,40 @@ async function checkMaxiRateLimit(principal) {
       })
     );
     const count = Number(out.Attributes?.count) || 0;
-    if (count > MAXI_DAILY_LIMIT) return { ok: false, count, retryAfterSec: _secondsUntilUtcMidnight() };
+    if (count > limit) return { ok: false, count, retryAfterSec: _secondsUntilUtcMidnight() };
     return { ok: true, count };
   } catch (e) {
-    console.warn("checkMaxiRateLimit failed (fail-open):", e.message);
+    console.warn(`checkDailyLimit(${scope}) failed (fail-open):`, e.message);
     return { ok: true };
   }
 }
 
-const MAXI_SYSTEM = `You are Maxi, the gift concierge inside Giftmaxxing. You help people find, shortlist, and (simulated) check out gifts, and you remember their taste and the people they shop for.
+const checkMaxiRateLimit = (principal) => checkDailyLimit("maxi-rate", principal, MAXI_DAILY_LIMIT);
 
-Voice: warm, concise, a little playful — 1 to 3 sentences. You may be read aloud, so avoid markdown tables and long lists; at most one tasteful emoji.
+const MAXI_SYSTEM = `You are Maxi, Giftmaxxing's concise gift concierge. Help the user understand inspiration photos, choose from the approved curated catalog, remember useful preferences, track dates, and manage the app cart.
 
-IMPORTANT — identity rules:
-- The user's first name is provided in the system prompt below (if known). ALWAYS use that name when addressing the user.
-- get_profile returns the user's OWN profile. The "yourName" field is the user's own name. The "recipients" list contains OTHER people the user shops for — never confuse a recipient's name with the user's name.
-- list_connections returns friends/contacts ("soft profiles") — these are OTHER people, NOT the user. Their "friendName" field is the friend's name.
-- relationship_graph returns "otherPeople" — these are OTHER people in the user's gifting network, NOT the user themselves.
-- If the user asks "what is my name?" or similar, respond with the name from the system prompt or from get_profile's "yourName" field. NEVER return a connection's or recipient's name as the user's name.
+Voice: warm and direct, 1 to 3 sentences. Ask at most one question per turn. Product cards render separately, so never recite an inventory.
 
-Use tools, don't guess:
-- Find gifts by budget / vibe / recipient / category with find_gifts.
-- "Deals on what I buy/restock most", "reorder", "buy again": call order_history FIRST to find the user's most-restocked categories, THEN call find_deals for those categories, then briefly summarize the best deals (the product cards render automatically). find_deals also handles any "find a deal / what's on sale" request.
-- Look up Reddit-mined ideas for a recipient with gift_ideas, or list types with list_recipients.
-- Recall who they shop for and key dates with get_profile, upcoming_events, list_connections, relationship_graph — and proactively flag a date that's near.
-- When the user states a durable fact (a budget, a like/dislike, who they shop for), call remember_fact. When they give a concrete dated occasion, call save_event so reminders fire.
-- add_to_cart and checkout are SIMULATED — say so honestly; never imply a real charge or shipment.
+You have exactly seven tools. Use them this way:
+- memory_read: before asking for a preference, recipient detail, or constraint that may already be known.
+- memory_write: immediately after the user explicitly gives a durable preference or recipient fact. Never store a transient command.
+- calender_refer: for upcoming dates, deadlines, birthdays, anniversaries, or "what is next?".
+- calender_update: only after the user supplies or confirms a concrete title and YYYY-MM-DD date.
+- catalog_read: for EVERY product recommendation, refinement, price request, and question about what appears in a catalog photo. It is the only source of product truth.
+- cart_read: before answering what is in the cart, comparing against it, or checking duplicates.
+- cart_write: only after explicit add intent, with exact postIds returned by catalog_read or listed on screen.
 
-After find_gifts or gift_ideas, briefly say what you found; the products render automatically, so don't recite every price in prose. Ground all product claims in tool results — never invent prices, brands, or links. If a tool returns nothing, say so and offer an alternative.`;
+Catalog rules:
+- Recommend only products returned by catalog_read. Never invent a product, price, brand, visual detail, or ID.
+- "Cheaper" means every new result must cost strictly less than the cheapest product currently shown. Call catalog_read again and honor its enforced ceiling.
+- If catalog_read returns no relevant items, say that plainly. Do not fill space with unrelated products.
+- The catalog may return visualContext describing what is visible in each photo; use it when explaining the image.
+
+Action rules:
+- Never claim that you saved memory, updated a date, or added to cart unless the matching tool returned ok.
+- The cart is grouped by recipient. Pass recipient whenever known.
+- "Add all" means one cart_write call using all exact on-screen postIds.
+- Address the user by the supplied first name when known, and never mistake a recipient for the user.`;
 
 async function recallMemories(userId, limit = 8) {
   if (!GRAPH || !userId) return [];
@@ -1662,6 +1912,225 @@ async function saveMemory(userId, kind, text) {
   );
 }
 
+// ── Gift briefs ──────────────────────────────────────────────────────────────
+//
+// A brief is the shopping job itself: who it's for, the occasion, the budget,
+// what they're into, what's already been given. It's what turns Maxi from a
+// search box into something that can pick up where it left off — the model
+// asks for ONE missing field at a time and stops asking once it's filled.
+//
+// Stored on the user's own GRAPH partition beside memories and orders, with a
+// DETERMINISTIC sort key (unlike MEM#<gid>) so saving is an idempotent upsert
+// and reading one back is a single GetCommand. purgeAccount already deletes the
+// whole partition, so briefs need no separate deletion path.
+const briefSlug = (name) =>
+  String(name ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40);
+
+const BRIEF_FIELDS = [
+  "recipientName",
+  "relationship",
+  "occasion",
+  "date",
+  "budgetMin",
+  "budgetMax",
+  "interests",
+  "avoid",
+  "alreadyGiven",
+];
+
+function shapeBrief(item) {
+  if (!item) return null;
+  const out = {};
+  for (const field of BRIEF_FIELDS) {
+    if (item[field] !== undefined && item[field] !== null) out[field] = item[field];
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+async function getBrief(userId, recipientName) {
+  if (!GRAPH || !userId) return null;
+  const slug = briefSlug(recipientName);
+  if (!slug) return latestBrief(userId);
+  try {
+    const out = await ddb.send(
+      new GetCommand({ TableName: GRAPH, Key: { pk: userId, sk: `BRIEF#${slug}` } })
+    );
+    return shapeBrief(out.Item);
+  } catch (e) {
+    console.warn("getBrief failed:", e.message);
+    return null;
+  }
+}
+
+async function latestBrief(userId) {
+  if (!GRAPH || !userId) return null;
+  try {
+    const out = await ddb.send(
+      new QueryCommand({
+        TableName: GRAPH,
+        KeyConditionExpression: "pk = :u AND begins_with(sk, :p)",
+        ExpressionAttributeValues: { ":u": userId, ":p": "BRIEF#" },
+        Limit: 8,
+      })
+    );
+    const items = (out.Items ?? []).sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+    return shapeBrief(items[0]);
+  } catch (e) {
+    console.warn("latestBrief failed:", e.message);
+    return null;
+  }
+}
+
+// Merge-upsert: the model learns fields one at a time, so a save must never
+// wipe what an earlier turn established.
+async function saveBrief(userId, input) {
+  if (!GRAPH || !userId) return null;
+  const slug = briefSlug(input?.recipientName);
+  if (!slug) return null;
+
+  const existing = await getBrief(userId, input.recipientName);
+  const merged = { ...(existing ?? {}) };
+  for (const field of BRIEF_FIELDS) {
+    const value = input[field];
+    if (value === undefined || value === null || value === "") continue;
+    merged[field] = Array.isArray(value) ? value.slice(0, 10).map((v) => String(v).slice(0, 60)) : value;
+  }
+  merged.recipientName = String(input.recipientName).slice(0, 60);
+
+  await ddb.send(
+    new PutCommand({
+      TableName: GRAPH,
+      Item: { pk: userId, sk: `BRIEF#${slug}`, kind: "brief", ...merged, updatedAt: Date.now() },
+    })
+  );
+  return merged;
+}
+
+// ── Conversation persistence ─────────────────────────────────────────────────
+//
+// The transcript used to live in exactly two places, neither of them a store:
+// CloudWatch (a log — not queryable per user, not deletable per user) and the
+// device's UserDefaults (lost on reinstall, wiped on account switch). So the
+// record of what Maxi told someone survived nowhere durable.
+//
+// Turns go on the user's OWN graph partition beside their memories, briefs and
+// orders. That placement is the point:
+//   • purgeAccount() already wipes this partition, so account deletion (App
+//     Store 5.1.1(v)) covers chat history with no extra code — a separate
+//     table would have silently leaked it;
+//   • the GRAPH IAM grant already exists;
+//   • sk sorts chronologically, so reading a conversation back is one Query;
+//   • expiresAt gives retention control without a cleanup job.
+const CHAT_TTL_DAYS = Number(process.env.MAXI_CHAT_TTL_DAYS || 180);
+
+async function saveChatTurn(userId, turn) {
+  if (!GRAPH || !userId) return;
+  const now = Date.now();
+  try {
+    await ddb.send(
+      new PutCommand({
+        TableName: GRAPH,
+        Item: {
+          pk: userId,
+          sk: `CHAT#${now}#${gid()}`,
+          kind: "chat",
+          at: now,
+          // Same scrubbing as the log and the model payload.
+          user: scrubPII(String(turn.user ?? "")).slice(0, 2000),
+          say: scrubPII(String(turn.say ?? "")).slice(0, 4000),
+          model: turn.model ?? null,
+          tools: turn.tools ?? [],
+          actions: turn.actions ?? [],
+          // Enough to reconstruct the cards without re-querying the catalog.
+          pins: (turn.pins ?? []).slice(0, 10).map((p) => ({
+            postId: p.postId,
+            title: String(p.title ?? "").slice(0, 90),
+            price: typeof p.price === "number" ? p.price : null,
+            image: p.image ?? null,
+            brand: p.brand ?? null,
+          })),
+          reconciled: !!turn.reconciled,
+          costUsd: turn.costUsd ?? 0,
+          expiresAt: Math.floor(now / 1000) + CHAT_TTL_DAYS * 86400,
+        },
+      })
+    );
+  } catch (e) {
+    // Never fail a reply because we couldn't file it.
+    console.warn("saveChatTurn failed:", e.message);
+  }
+}
+
+async function listChatTurns(userId, limit = 40) {
+  if (!GRAPH || !userId) return [];
+  try {
+    const out = await ddb.send(
+      new QueryCommand({
+        TableName: GRAPH,
+        KeyConditionExpression: "pk = :u AND begins_with(sk, :p)",
+        ExpressionAttributeValues: { ":u": userId, ":p": "CHAT#" },
+        ScanIndexForward: false, // newest first, then reversed for display
+        Limit: Math.min(limit, 100),
+      })
+    );
+    return (out.Items ?? [])
+      .map((i) => ({
+        at: i.at,
+        user: i.user,
+        say: i.say,
+        pins: i.pins ?? [],
+        tools: i.tools ?? [],
+        actions: i.actions ?? [],
+      }))
+      .reverse();
+  } catch (e) {
+    console.warn("listChatTurns failed:", e.message);
+    return [];
+  }
+}
+
+// What the brief still needs, in the order to ask for it. Returned from
+// save_gift_brief so the model doesn't have to reason about what's missing —
+// it's the difference between "ask one thing at a time" being a hope and being
+// a fact the tool hands back.
+function missingBriefFields(brief) {
+  const missing = [];
+  if (!brief.occasion) missing.push("occasion");
+  if (!brief.date) missing.push("date");
+  if (!brief.budgetMax && !brief.budgetMin) missing.push("budget");
+  if (!brief.interests?.length) missing.push("interests");
+  if (!brief.alreadyGiven?.length) missing.push("alreadyGiven");
+  return missing;
+}
+
+// The user's Gift Boards, read from the same USERS.giftBoards field the iOS
+// SwipeListStore syncs. Read-only on purpose: the client owns boards, so the
+// agent ADDS via an action (see add_to_board) rather than writing here and
+// racing the client's debounced push.
+async function listGiftBoards(userId) {
+  if (!USERS || !userId) return { boards: [] };
+  try {
+    const out = await ddb.send(new GetCommand({ TableName: USERS, Key: { userId } }));
+    const boards = Array.isArray(out.Item?.giftBoards) ? out.Item.giftBoards : [];
+    return {
+      boards: boards.slice(0, 25).map((b) => ({
+        id: b.id,
+        name: b.name,
+        recipientName: b.recipientName ?? null,
+        occasion: b.occasion ?? null,
+        count: Array.isArray(b.posts) ? b.posts.length : 0,
+      })),
+    };
+  } catch (e) {
+    console.warn("listGiftBoards failed:", e.message);
+    return { boards: [] };
+  }
+}
+
 function maxiProduct(p) {
   const price = p.price ?? p.product?.price;
   return {
@@ -1671,6 +2140,10 @@ function maxiProduct(p) {
     brand: p.product?.brand || p.merchant || p.brand || null,
     image: p.product?.image || p.image || p.imageUrl || null,
     category: p.category || p.product?.category || null,
+    visualContext: String(
+      p.visualContext || p.story || p.caption || p.matchEvidence
+      || [p.product?.name, p.product?.brand, p.category].filter(Boolean).join(", ")
+    ).slice(0, 280) || null,
   };
 }
 
@@ -1776,7 +2249,108 @@ async function getCatalogByCategory(category) {
   return items;
 }
 
-async function toolFindGifts({ budget, category, recipient, vibes, limit }) {
+// The seeds a user's taste centroid is built from — the same rows and the same
+// interaction types GET /recommendations uses, extracted so the two can't drift.
+async function seedTargetsFor(userId) {
+  if (!INTERACTIONS || !userId) return { liked: [], excluded: new Set() };
+  try {
+    const out = await ddb.send(
+      new QueryCommand({
+        TableName: INTERACTIONS,
+        KeyConditionExpression: "userId = :u",
+        ExpressionAttributeValues: { ":u": userId },
+      })
+    );
+    const rows = out.Items ?? [];
+    return {
+      liked: rows
+        .filter((i) => ["like", "save", "pledge", "board_add"].includes(i.type))
+        .map((i) => i.target)
+        .filter(Boolean),
+      excluded: new Set(rows.map((i) => i.target).filter(Boolean)),
+    };
+  } catch (e) {
+    console.warn("seedTargetsFor failed:", e.message);
+    return { liked: [], excluded: new Set() };
+  }
+}
+
+// Maxi searched a 600-item recency slice with the old facet ranker while the
+// feed used semantic kNN over the whole catalog — so the concierge gave
+// measurably worse picks than the surface it sits on top of. This puts them on
+// the same stack: the brief becomes a sentence, Titan embeds it into the same
+// space the catalog images live in, and the user's own taste centroid pulls the
+// result toward what they actually like. The facet path stays as the fallback
+// for cold starts, a disabled breaker, or an empty result.
+const FIND_GIFTS_MAX_DISTANCE = 0.62; // same relevance gate as /visual-search
+const FIND_GIFTS_BRAND_CAP = 2;
+
+// Never the word "gift": the catalog is full of generic "Gift Box/Set"
+// listings whose embeddings sit right on top of gift-language queries, so a
+// query containing it returns the same self-care boxes every time. Same
+// hard-won lesson as build-shelves.mjs.
+function buildGiftQuery({ interests, vibes, category, occasion, recipient }) {
+  return [
+    (interests ?? []).join(", "),
+    (vibes ?? []).join(", "),
+    category,
+    occasion ? `for a ${occasion}` : null,
+    recipient && !occasion ? `for a ${recipient}` : null,
+  ]
+    .filter((part) => part && String(part).trim())
+    .join(", ")
+    .slice(0, 200);
+}
+
+async function vectorFindGifts(query, { userId, budget, limit, excluded }) {
+  if (!s3v || !(await aiEnabled())) return null;
+
+  const queryVector = query ? await embedText(query) : null;
+  const { liked } = userId ? await seedTargetsFor(userId) : { liked: [] };
+  const tasteVector = liked.length ? await getCentroid(liked.slice(0, 20)) : null;
+
+  // Blend intent with taste: what they asked for leads, who they are steers.
+  let vector = queryVector;
+  if (queryVector && tasteVector && queryVector.length === tasteVector.length) {
+    vector = queryVector.map((v, i) => v * 0.6 + tasteVector[i] * 0.4);
+  } else if (!queryVector) {
+    vector = tasteVector;
+  }
+  if (!vector) return null;
+
+  const out = await s3v.send(
+    new QueryVectorsCommand({
+      vectorBucketName: VECTOR_BUCKET,
+      indexName: VECTOR_INDEX,
+      topK: limit * 6,
+      queryVector: { float32: vector },
+      returnMetadata: true,
+      returnDistance: true,
+    })
+  );
+
+  const brandCounts = new Map();
+  const items = [];
+  for (const v of out.vectors ?? []) {
+    if (typeof v.distance === "number" && v.distance > FIND_GIFTS_MAX_DISTANCE) break;
+    if (excluded?.has(v.key)) continue;
+    const item = vecToItem(v);
+    if (!item.feedEligible || item.source !== "curated-product") continue;
+    if (budget && typeof item.price === "number" && item.price > budget) continue;
+
+    // No single store gets to own the answer.
+    const brand = item.merchant || item.domain || item.source || v.key;
+    const seen = brandCounts.get(brand) ?? 0;
+    if (seen >= FIND_GIFTS_BRAND_CAP) continue;
+    brandCounts.set(brand, seen + 1);
+
+    items.push(maxiProduct(item));
+    if (items.length >= limit) break;
+  }
+  return items.length ? items : null;
+}
+
+async function toolFindGifts({ budget, category, recipient, vibes, interests, limit }, ctx = {}) {
   const n = Math.min(Number(limit) || 6, 10);
   const opts = {
     vibes: Array.isArray(vibes) ? vibes : parseList(vibes),
@@ -1784,16 +2358,39 @@ async function toolFindGifts({ budget, category, recipient, vibes, limit }) {
     category: category || undefined,
     budget: Number(budget) || undefined,
   };
+  const interestList = Array.isArray(interests) ? interests : parseList(interests);
+
+  // Semantic first — the same ranking stack the feed runs on.
+  try {
+    const query = buildGiftQuery({
+      interests: interestList,
+      vibes: opts.vibes,
+      category: opts.category,
+      occasion: ctx.brief?.occasion,
+      recipient: opts.recipient,
+    });
+    const vectorItems = await vectorFindGifts(query, {
+      userId: ctx.userId,
+      budget: opts.budget,
+      limit: n,
+      excluded: ctx.excluded,
+    });
+    if (vectorItems) return { items: vectorItems, count: vectorItems.length, source: "vector" };
+  } catch (e) {
+    console.warn("vector find_gifts failed, falling back to facets:", e.message);
+  }
+
   // Category given -> deep category pool (byCategory GSI); else the recency cache.
   let pool = opts.category ? await getCatalogByCategory(opts.category) : await getCatalog();
   if (!pool.length) pool = await getCatalog();
+  pool = pool.filter((p) => p.source === "curated-product" && p.feedEligible !== false);
   if (opts.budget) pool = pool.filter((p) => { const pr = p.price ?? p.product?.price; return (typeof pr === "number" && pr > 0 ? pr : 1e9) <= opts.budget; });
   const items = pool
     .map((p) => ({ p, s: scorePost(p, opts) }))
     .sort((a, b) => b.s - a.s)
     .slice(0, n)
     .map(({ p }) => maxiProduct(p));
-  return { items, count: items.length };
+  return { items, count: items.length, source: "facet" };
 }
 
 async function toolGiftIdeas({ recipient }) {
@@ -1802,11 +2399,20 @@ async function toolGiftIdeas({ recipient }) {
     new GetCommand({ TableName: KNOWLEDGE, Key: { recipient: String(recipient).toLowerCase() } })
   );
   if (!out.Item) return { ideas: [], bundles: [], note: "no mined data for that recipient" };
+  // Deliberately small and count-free: when this returned 8 ideas each with an
+  // idea COUNT, the model recited the whole inventory back to the user
+  // ("Experiences/Classes: 26 ideas, Flowers: 15 ideas…"), which is a category
+  // listing, not gift advice. Fewer options, no numbers to read out.
   const ideas = (out.Item.ideas ?? [])
-    .slice(0, 8)
-    .map((i) => ({ item: i.item || i.label || i.name, count: i.count }));
-  const bundles = (out.Item.bundles ?? []).slice(0, 4).map((b) => ({ items: (b.items || []).slice(0, 4) }));
-  return { ideas, bundles };
+    .slice(0, 5)
+    .map((i) => i.item || i.label || i.name)
+    .filter(Boolean);
+  const bundles = (out.Item.bundles ?? []).slice(0, 2).map((b) => ({ items: (b.items || []).slice(0, 3) }));
+  return {
+    ideas,
+    bundles,
+    note: "Directions only, not products. Pick the most promising one or two and call find_gifts to get actual buyable items to show.",
+  };
 }
 
 // The KNOWLEDGE table is tiny (~16 recipient partitions) and has no GSI to list
@@ -2124,6 +2730,20 @@ async function toolFindDeals({ categories, budget, limit }) {
 function maxiStepLabel(name, input, out) {
   const o = out || {};
   switch (name) {
+    case "memory_read":
+      return { tool: name, label: "Checked what I remember", detail: `${o.items?.length || 0} relevant note${(o.items?.length || 0) === 1 ? "" : "s"}` };
+    case "memory_write":
+      return { tool: name, label: "Saved that to memory", detail: "" };
+    case "calender_refer":
+      return { tool: name, label: "Checked your upcoming dates", detail: "" };
+    case "calender_update":
+      return { tool: name, label: "Saved the occasion", detail: "" };
+    case "catalog_read":
+      return { tool: name, label: "Read the curated catalog", detail: `${o.count || 0} relevant pick${(o.count || 0) === 1 ? "" : "s"}` };
+    case "cart_read":
+      return { tool: name, label: "Checked your cart", detail: `${o.count || 0} item${(o.count || 0) === 1 ? "" : "s"}` };
+    case "cart_write":
+      return { tool: name, label: `Added ${o.added || 0} to the cart`, detail: o.recipient ? `for ${o.recipient}` : "" };
     case "order_history": {
       const cats = (o.topCategories || []).map((c) => c.label).join(", ");
       return { tool: name, label: "Scanned your past orders", detail: cats ? `Top categories you restock: ${cats}` : "Looking at what you buy most" };
@@ -2133,7 +2753,29 @@ function maxiStepLabel(name, input, out) {
       return { tool: name, label: `Found ${o.count || 0} active deal${(o.count || 0) === 1 ? "" : "s"}`, detail: cats ? `in ${cats}` : "" };
     }
     case "find_gifts":
-      return { tool: name, label: "Searched the catalog", detail: `${o.count || 0} matching pick${(o.count || 0) === 1 ? "" : "s"}` };
+      return {
+        tool: name,
+        label: o.source === "vector" ? "Matched against your taste" : "Searched the catalog",
+        detail: `${o.count || 0} matching pick${(o.count || 0) === 1 ? "" : "s"}`,
+      };
+    case "get_gift_brief":
+      return {
+        tool: name,
+        label: o.brief ? "Picked up where we left off" : "Starting a fresh brief",
+        detail: o.brief?.recipientName ? `for ${o.brief.recipientName}` : "",
+      };
+    case "save_gift_brief":
+      return {
+        tool: name,
+        label: "Noted that",
+        detail: o.brief?.recipientName ? `brief for ${o.brief.recipientName}` : "",
+      };
+    case "list_boards":
+      return { tool: name, label: "Checked your Gift Boards", detail: `${o.boards?.length || 0} board${(o.boards?.length || 0) === 1 ? "" : "s"}` };
+    case "add_to_board":
+      return { tool: name, label: `Saved ${o.added || 0} to ${o.board || "a board"}`, detail: "" };
+    case "packaging_ideas":
+      return { tool: name, label: "Sketched the wrapping", detail: o.plan?.title || "" };
     case "gift_ideas":
       return { tool: name, label: "Pulled gift ideas", detail: input?.recipient ? `for ${input.recipient}` : "" };
     case "get_profile":
@@ -2143,7 +2785,11 @@ function maxiStepLabel(name, input, out) {
     case "list_connections":
       return { tool: name, label: "Checked your people", detail: "" };
     case "add_to_cart":
-      return { tool: name, label: `Added ${o.added || 0} to your cart`, detail: "simulated" };
+      return {
+        tool: name,
+        label: `Added ${o.added || 0} to the cart`,
+        detail: o.recipient ? `for ${o.recipient}` : "",
+      };
     case "checkout":
       return { tool: name, label: "Placed your order", detail: "simulated — no real charge" };
     case "remember_fact":
@@ -2159,7 +2805,7 @@ function maxiStepLabel(name, input, out) {
 const MAXI_TOOLS = [
   {
     name: "find_gifts",
-    description: "Search the gift catalog by budget, category, recipient type, and/or vibes. Returns products that render to the user.",
+    description: "Search the gift catalog by budget, category, recipient type, vibes and/or the recipient's interests. Pass everything you know from the brief — interests especially, since they drive the semantic search. Returns products that render to the user.",
     schema: {
       type: "object",
       properties: {
@@ -2167,7 +2813,66 @@ const MAXI_TOOLS = [
         category: { type: "string", description: "e.g. home, kitchen, jewelry, tech, wellness, plants, art" },
         recipient: { type: "string", description: "recipient type, e.g. mom, dad, friend, partner" },
         vibes: { type: "array", items: { type: "string" }, description: "taste keywords, e.g. cozy, minimal" },
+        interests: {
+          type: "array",
+          items: { type: "string" },
+          description: "concrete things the recipient is into, e.g. pour-over coffee, trail running, ceramics",
+        },
         limit: { type: "number", description: "how many to return (max 10)" },
+      },
+    },
+  },
+  {
+    name: "get_gift_brief",
+    description: "The saved brief for who the user is shopping for — occasion, date, budget, interests, what's already been given. CALL THIS FIRST in any gifting conversation. Omit recipientName to get the most recently updated brief.",
+    schema: { type: "object", properties: { recipientName: { type: "string" } } },
+  },
+  {
+    name: "save_gift_brief",
+    description: "Save what you've learned about this gifting job. Merge-upsert: pass only the fields you just learned, earlier ones are preserved. Call it the moment the user tells you something, not at the end.",
+    schema: {
+      type: "object",
+      properties: {
+        recipientName: { type: "string" },
+        relationship: { type: "string", description: "e.g. partner, parent, sibling, friend, colleague" },
+        occasion: { type: "string" },
+        date: { type: "string", description: "YYYY-MM-DD" },
+        budgetMin: { type: "number" },
+        budgetMax: { type: "number" },
+        interests: { type: "array", items: { type: "string" } },
+        avoid: { type: "array", items: { type: "string" } },
+        alreadyGiven: { type: "array", items: { type: "string" } },
+      },
+      required: ["recipientName"],
+    },
+  },
+  {
+    name: "list_boards",
+    description: "The user's Gift Boards — the per-person collections of ideas they're keeping. Use to see what they've already saved for someone.",
+    schema: { type: "object", properties: {} },
+  },
+  {
+    name: "add_to_board",
+    description: "Save products to one of the user's Gift Boards (ideas to keep, not buying yet). Creates the board if the name is new.",
+    schema: {
+      type: "object",
+      properties: {
+        postIds: { type: "array", items: { type: "string" } },
+        boardName: { type: "string" },
+        recipientName: { type: "string" },
+      },
+      required: ["postIds", "boardName"],
+    },
+  },
+  {
+    name: "packaging_ideas",
+    description: "How to wrap and present a set of gifts together — materials, palette, steps, and a note idea. Offer this once the user has decided what they're giving.",
+    schema: {
+      type: "object",
+      properties: {
+        postIds: { type: "array", items: { type: "string" } },
+        occasion: { type: "string" },
+        recipientName: { type: "string" },
       },
     },
   },
@@ -2228,10 +2933,14 @@ const MAXI_TOOLS = [
   },
   {
     name: "add_to_cart",
-    description: "Add products (by postId) to the user's SIMULATED cart in the browser.",
+    description: "Put products in the user's cart, under a specific person's section. ALWAYS pass recipient — the cart is grouped by who each gift is for, and without it the items land in an unsorted pile the user has to file by hand.",
     schema: {
       type: "object",
-      properties: { postIds: { type: "array", items: { type: "string" } } },
+      properties: {
+        postIds: { type: "array", items: { type: "string" } },
+        recipient: { type: "string", description: "who these are for, e.g. Sarah" },
+        occasion: { type: "string" },
+      },
       required: ["postIds"],
     },
   },
@@ -2260,12 +2969,126 @@ const MAXI_TOOLS = [
 ];
 
 async function runMaxiTool(name, input, ctx) {
-  const i = input || {};
+  const parsed = normalizeMaxiToolInput(name, input);
+  if (!parsed.ok) return { error: parsed.error };
+  const i = parsed.value;
   switch (name) {
+    case "memory_read": {
+      let items = await recallMemories(ctx.userId, i.limit);
+      if (i.query) {
+        const terms = i.query.toLowerCase().split(/\s+/).filter(Boolean);
+        items = items.filter((item) => terms.some((term) => String(item).toLowerCase().includes(term)));
+      }
+      return { items };
+    }
+    case "memory_write": {
+      if (!ctx.userId) return { error: "not signed in — no long-term memory" };
+      const fact = i.recipientName ? `${i.recipientName}: ${i.fact}` : i.fact;
+      await saveMemory(ctx.userId, i.kind, fact);
+      return { ok: true, saved: fact };
+    }
+    case "calender_refer":
+      return toolUpcomingEvents(ctx.userId, i.withinDays);
+    case "calender_update":
+      return toolSaveEvent(ctx.userId, i);
+    case "catalog_read": {
+      const ceiling = effectiveCatalogPrice(i, ctx.priceCeiling);
+      let items = [];
+      if (i.postIds.length && POSTS) {
+        const out = await ddb.send(new BatchGetCommand({
+          RequestItems: { [POSTS]: { Keys: i.postIds.slice(0, 10).map((postId) => ({ postId })) } },
+        }));
+        items = (out.Responses?.[POSTS] || [])
+          .filter((item) => item.source === "curated-product" && item.feedEligible !== false)
+          .map(maxiProduct);
+      } else {
+        const found = await toolFindGifts({
+          budget: ceiling ? Math.max(0.01, ceiling - 0.01) : undefined,
+          category: i.category,
+          vibes: i.vibes,
+          interests: i.query ? [i.query] : [],
+          limit: i.limit,
+        }, ctx);
+        items = found.items || [];
+      }
+      if (ceiling) items = items.filter((item) => Number(item.price) > 0 && Number(item.price) < ceiling);
+      items = items.slice(0, i.limit);
+      ctx.pins.push(...items);
+      return { items, count: items.length, maxPriceExclusive: ceiling || null, source: "approved-curation" };
+    }
+    case "cart_read":
+      return { items: ctx.cartItems, count: ctx.cartItems.length };
+    case "cart_write": {
+      const known = new Set([...(ctx.pins || []), ...(ctx.shownProducts || [])].map((item) => item.postId));
+      const ids = i.postIds.filter((id) => known.has(id));
+      if (!ids.length) return { error: "no valid on-screen catalog postIds" };
+      const recipient = i.recipient || ctx.brief?.recipientName || undefined;
+      ctx.actions.push({
+        type: "add_to_cart",
+        postIds: ids,
+        recipient,
+        occasion: i.occasion || ctx.brief?.occasion || undefined,
+      });
+      return { ok: true, added: ids.length, recipient: recipient || null };
+    }
     case "find_gifts": {
-      const r = await toolFindGifts(i);
+      const r = await toolFindGifts(i, ctx);
       ctx.pins.push(...(r.items || []));
       return r;
+    }
+    case "get_gift_brief": {
+      const brief = await getBrief(ctx.userId, i.recipientName);
+      if (brief) ctx.brief = brief;
+      return brief ? { brief } : { brief: null, note: "no brief yet — ask who it's for" };
+    }
+    case "save_gift_brief": {
+      const brief = await saveBrief(ctx.userId, i);
+      if (brief) ctx.brief = brief;
+      return brief ? { ok: true, brief, missing: missingBriefFields(brief) } : { error: "recipientName required" };
+    }
+    case "list_boards":
+      return listGiftBoards(ctx.userId);
+    case "add_to_board": {
+      // The client owns Gift Boards (local-first, synced through /me), so we
+      // ask it to write rather than racing its debounced push.
+      const ids = Array.isArray(i.postIds) ? i.postIds.map(String).slice(0, 20) : [];
+      if (!ids.length || !i.boardName) return { error: "postIds and boardName required" };
+      ctx.actions.push({
+        type: "add_to_board",
+        postIds: ids,
+        boardName: String(i.boardName).slice(0, 60),
+        recipient: i.recipientName ? String(i.recipientName).slice(0, 60) : undefined,
+      });
+      return { ok: true, added: ids.length, board: i.boardName };
+    }
+    case "packaging_ideas": {
+      const ids = Array.isArray(i.postIds) ? i.postIds.map(String).slice(0, 8) : [];
+      const chosen = ids.length
+        ? (ctx.pins || []).filter((p) => ids.includes(p.postId))
+        : (ctx.cartItems || []);
+      if (!chosen.length) return { error: "no items to wrap — add some to the cart first" };
+      try {
+        const { plan } = await buildPackagingPlan(
+          chosen.map((p) => ({
+            postId: p.postId,
+            title: p.title,
+            image: p.image,
+            category: p.category,
+            price: p.price,
+          })),
+          {
+            occasion: i.occasion ?? ctx.brief?.occasion ?? null,
+            recipientName: i.recipientName ?? ctx.brief?.recipientName ?? null,
+            relationship: ctx.brief?.relationship ?? null,
+          }
+        );
+        if (!plan) return { error: "couldn't sketch a wrap for those" };
+        ctx.actions.push({ type: "show_packaging", postIds: chosen.map((p) => p.postId) });
+        return { plan };
+      } catch (e) {
+        console.warn("packaging_ideas failed:", e.message);
+        return { error: "packaging unavailable right now" };
+      }
     }
     case "gift_ideas":
       return toolGiftIdeas(i);
@@ -2292,7 +3115,16 @@ async function runMaxiTool(name, input, ctx) {
     }
     case "add_to_cart": {
       const ids = Array.isArray(i.postIds) ? i.postIds.map(String) : [];
-      ctx.actions.push({ type: "add_to_cart", postIds: ids });
+      // Carry the recipient so the items land in the right person's section.
+      // Fall back to the brief — the model often knows who it's for from
+      // context and forgets to repeat it in the tool call.
+      const recipient = i.recipient || ctx.brief?.recipientName || undefined;
+      ctx.actions.push({
+        type: "add_to_cart",
+        postIds: ids,
+        recipient: recipient ? String(recipient).slice(0, 60) : undefined,
+        occasion: i.occasion || ctx.brief?.occasion || undefined,
+      });
       // Track items so a later checkout records a real order. Resolve from the
       // products already shown this turn; fall back to a direct lookup.
       for (const id of ids) {
@@ -2638,6 +3470,7 @@ async function purgeAccount(userId) {
     challenges: 0,
     ugcPosts: 0,
     avatarObjects: 0,
+    tasteProfiles: 0,
   };
   // Clear the alias rows before the profile: the scan matches on
   // canonicalUserId, which does not depend on the profile item existing.
@@ -2657,6 +3490,19 @@ async function purgeAccount(userId) {
   summary.graph = await purgeByPartition(GRAPH, "pk", userId, ["pk", "sk"]);
   summary.friends = await purgeByPartition(FRIENDS, "pk", userId, ["pk", "sk"]);
   summary.analytics = await purgeByPartition(ANALYTICS, "userId", userId, ["userId", "sk"]);
+  if (TASTE_PROFILES) {
+    try {
+      let lastKey;
+      do {
+        const out = await ddb.send(new ScanCommand({ TableName: TASTE_PROFILES, FilterExpression: "ownerId = :u OR profileId = :p", ExpressionAttributeValues: { ":u": userId, ":p": `taste:${userId}` }, ExclusiveStartKey: lastKey }));
+        for (const profile of out.Items ?? []) {
+          await ddb.send(new DeleteCommand({ TableName: TASTE_PROFILES, Key: { profileId: profile.profileId } }));
+          summary.tasteProfiles++;
+        }
+        lastKey = out.LastEvaluatedKey;
+      } while (lastKey);
+    } catch (e) { console.warn("purge taste profiles failed:", e.message); }
+  }
   summary.devices = await purgeByPartition(DEVICES, "userId", userId, ["userId", "deviceId"]);
   summary.pools = await purgePoolRows(userId);
   summary.challenges = await purgeOwnedChallenges(userId);
@@ -2678,7 +3524,7 @@ export const handler = async (event) => {
       statusCode: 204,
       headers: {
         "access-control-allow-methods": "GET,POST,PUT,DELETE,OPTIONS",
-        "access-control-allow-headers": "content-type,authorization,x-admin-token",
+        "access-control-allow-headers": "content-type,authorization,x-admin-token,x-api-key-id,x-api-timestamp,x-api-nonce,x-api-signature",
         "access-control-max-age": "3600",
       },
       body: "",
@@ -2709,14 +3555,58 @@ export const handler = async (event) => {
   }
 
   let body = {};
-  try {
-    body = event.body ? JSON.parse(event.body) : {};
-  } catch {
-    return json(400, { error: "invalid JSON body" });
+  let signedRequest = false;
+  const contentType = String(event.headers?.["content-type"] || event.headers?.["Content-Type"] || "").split(";")[0].trim().toLowerCase();
+  if (isSignedProtobufPath(method, path) && (API_SIGNATURE_ENFORCE || contentType === "application/x-protobuf")) {
+    const checked = await verifySignedEnvelope({ ddb, table: CONFIG, event, method, path });
+    if (!checked.ok) return protobufResponse(401, { error: checked.reason || "apisignature" });
+    if (auth?.ok && checked.ownerId && auth.sub !== checked.ownerId) {
+      return protobufResponse(401, { error: "apisignature" });
+    }
+    body = checked.body;
+    signedRequest = true;
+    if (!auth?.ok && checked.ownerId) auth = { ok: true, sub: checked.ownerId, via: "api-signature" };
+  } else {
+    try {
+      const raw = event.body
+        ? Buffer.from(event.body, event.isBase64Encoded ? "base64" : "utf8").toString("utf8")
+        : "";
+      body = raw ? JSON.parse(raw) : {};
+    } catch {
+      return json(400, { error: "invalid JSON body" });
+    }
   }
 
   try {
     if (method === "POST" && path === "/login") return await loginRoute(event, body);
+
+    // One authenticated bootstrap call registers the app's Keychain-backed
+    // public key. Private key material never leaves the device.
+    if (method === "POST" && path === "/v2/device-keys/register") {
+      const deviceAuth = auth?.ok ? auth : await authorizeRequest(event, method, path);
+      const result = await registerDeviceKey({ ddb, table: CONFIG, auth: deviceAuth, body });
+      return json(result.statusCode, result.body);
+    }
+
+    // Recommender Mixer v2 is isolated from the legacy route monolith. Public
+    // catalog requests remain anonymous-capable; a valid bearer/admin token is
+    // parsed best-effort so subject-profile ACLs and event attribution bind to
+    // the server-verified actor rather than a user id supplied in JSON.
+    if (path.startsWith("/v2/") || path.startsWith("/internal/v2/")) {
+      let recommenderAuth = auth;
+      if (!recommenderAuth?.ok && (bearerToken(event) || hasAdminToken(event))) {
+        try {
+          const attempt = await authorizeRequest(event, method, path);
+          if (attempt?.ok) recommenderAuth = attempt;
+        } catch {}
+      }
+      const response = await recommenderV2Routes(method, path, body, qs, { auth: recommenderAuth });
+      if (response) {
+        if (!signedRequest) return response;
+        const payload = response.body ? JSON.parse(response.body) : {};
+        return protobufResponse(response.statusCode, payload, response.headers);
+      }
+    }
 
     // User-generated media is always identity-bound, even while the broader
     // AUTH_ENFORCE migration flag is off. Raw uploads remain private until the
@@ -2829,6 +3719,7 @@ export const handler = async (event) => {
         budget: Number(qs.budget) || undefined,
         eventBoost: Number(qs.eventBoost) || 0,
       };
+      const featured = !start ? await featuredFeedPosts() : [];
 
       // Per-user de-dup: skip anything this viewer has already seen/liked/saved.
       const exclude = await userExclusions(qs.userId);
@@ -2864,8 +3755,37 @@ export const handler = async (event) => {
           // recipient intentionally NOT a filter — soft-ranked in scorePost().
           if (qs.occasion && qs.occasion !== "any") { filters.push("occasion = :o"); baseEav[":o"] = qs.occasion; }
           if (qs.category) { filters.push("category = :c"); baseEav[":c"] = String(qs.category).toLowerCase(); }
+
+          // Filter on the TAG in the query, not after it.
+          //
+          // The candidate window is the most-recent N rows, and the 795
+          // Instagram inspiration posts are the newest in the table — they
+          // flooded it, and none carry vibe tags. Post-hoc scoping therefore
+          // kept finding <12 matches and degrading back to padding, which is
+          // why `cozy` returned lingerie and `headphones` returned heels.
+          //
+          // `contains(vibes, :v)` makes DynamoDB do the work: with FilterExpression
+          // the Limit still caps ROWS READ, so this is paired with the wider
+          // window below rather than replacing it.
+          const browseVibes = parseList(qs.vibes).slice(0, 6);
+          if (browseVibes.length) {
+            const ors = browseVibes.map((v, i) => {
+              baseEav[`:bv${i}`] = v;
+              return `contains(vibes, :bv${i})`;
+            });
+            filters.push(`(${ors.join(" OR ")})`);
+          }
           const keys = feedShardKeys();
-          const perShard = Math.ceil((filters.length ? 600 : 400) / keys.length);
+          // A browse pill needs a MUCH wider candidate window than an
+          // unfiltered feed. Measured: `cozy` is 141 of 4,045 posts (3.5%), so
+          // a 400-row window yields ~14 matches before quality gates — not
+          // enough to fill a page, which is why the scope kept degrading back
+          // to padding. Widen when the user has actually asked for a subject.
+          const browsing = browseVibes.length > 0 || Boolean(qs.category);
+          // With a FilterExpression, Limit caps rows READ not rows returned, so
+          // a browse query has to read deep to find its matches.
+          const windowSize = browsing ? 4000 : filters.length ? 600 : 400;
+          const perShard = Math.ceil(windowSize / keys.length);
           const pages = await Promise.all(
             keys.map((f) =>
               ddb
@@ -2892,16 +3812,21 @@ export const handler = async (event) => {
             if (!q.feedEligible) continue;
             ranked.push({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, feedEligible: true, _score: scorePost(p, opts) + q.qualityScore * 0.4 });
           }
-          const withOwnPosts = includeOwnUGC(ranked, featuredUGC, opts).sort((a, b) => b._score - a._score);
+          const withOwnPosts = scopeToBrowse(includeOwnUGC(ranked, featuredUGC, opts), opts)
+            .sort(byBrowseThenScore);
           const mixed = interleaveUGC(interleaveAuthors(withOwnPosts));
           let offset = start?._offset ?? 0;
           const personalized = qs.recipient && qs.recipient !== "anyone";
           if (!start && !filters.length && !personalized && qs.fresh !== "0" && ranked.length > limit) {
             offset = Math.floor(Math.random() * Math.max(1, ranked.length - limit));
           }
-          const page = mixed.slice(offset, offset + limit);
-          const nextOffset = offset + limit;
-          return json(200, { items: page, cursor: nextOffset < mixed.length ? encodeCursor({ _offset: nextOffset }) : null });
+          const pageSize = Math.max(0, limit - featured.length);
+          const page = mixed.slice(offset, offset + pageSize);
+          const nextOffset = offset + pageSize;
+          return json(200, {
+            items: prependFeatured(page, featured, limit),
+            cursor: nextOffset < mixed.length ? encodeCursor({ _offset: nextOffset }) : null,
+          });
         } catch (err) {
           console.warn("sharded byFeed query failed, falling back to full scan:", err.message);
         }
@@ -2919,9 +3844,23 @@ export const handler = async (event) => {
         // recipient intentionally NOT a filter — soft-ranked in scorePost().
         if (qs.occasion && qs.occasion !== "any") { filters.push("occasion = :o"); eav[":o"] = qs.occasion; }
         if (qs.category) { filters.push("category = :c"); eav[":c"] = qs.category; }
+        // Same tag filter as the sharded path above. THIS is the path that
+        // usually serves a fresh load, and leaving it unfiltered is why browse
+        // relevance kept flapping between calls: two of the three /feed paths
+        // scoped and one did not, so which one ran decided whether `cozy`
+        // returned candles or Gymshark shorts.
+        const browseVibes = parseList(qs.vibes).slice(0, 6);
+        if (browseVibes.length) {
+          const ors = browseVibes.map((v, i) => {
+            eav[`:bv${i}`] = v;
+            return `contains(vibes, :bv${i})`;
+          });
+          filters.push(`(${ors.join(" OR ")})`);
+        }
         // Over-read: the quality + de-dup filters below remove listicles/guides
         // (~37%) and already-seen items, so fetch a wider window than the page.
-        const fetchN = filters.length ? 150 : Math.min(Math.max(limit * 4, 80), 150);
+        // A tag filter needs far more headroom — Limit caps rows READ.
+        const fetchN = browseVibes.length ? 600 : filters.length ? 150 : Math.min(Math.max(limit * 4, 80), 150);
         // Variety: on a fresh (uncursored, unfiltered) load, jump to RANDOM
         // spots in the catalog instead of always the newest head. Posts
         // adjacent in createdAt are the SAME ingest batch (one store's whole
@@ -3008,8 +3947,11 @@ export const handler = async (event) => {
           }
           if (!lastKey) break;    // reached the end of the range
         }
-        const withOwnPosts = includeOwnUGC(eligible, featuredUGC, opts).sort((a, b) => b._score - a._score);
-        return json(200, { items: interleaveUGC(interleaveAuthors(withOwnPosts)).slice(0, limit), cursor: encodeCursor(lastKey) });
+        const withOwnPosts = scopeToBrowse(includeOwnUGC(eligible, featuredUGC, opts), opts)
+          .sort(byBrowseThenScore);
+        const pageSize = Math.max(0, limit - featured.length);
+        const page = interleaveUGC(interleaveAuthors(withOwnPosts)).slice(0, pageSize);
+        return json(200, { items: prependFeatured(page, featured, limit), cursor: encodeCursor(lastKey) });
       } catch (err) {
         // byFeed GSI not deployed yet (or transient error) -> legacy fallback.
         console.warn("byFeed query failed, falling back to full scan:", err.message);
@@ -3026,17 +3968,20 @@ export const handler = async (event) => {
         allItems.push(...(out.Items ?? []));
         scanKey = out.LastEvaluatedKey;
       } while (scanKey);
-      const ranked = allItems
-        .map((p) => ({ p, q: feedClassification(p) }))
-        .filter((x) => x.q.feedEligible && !exclude.posts.has(x.p.postId) && !exclude.authors.has(x.p.ownerId))
-        .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 }))
-        .sort((a, b) => b._score - a._score);
+      const ranked = scopeToBrowse(
+        allItems
+          .map((p) => ({ p, q: feedClassification(p) }))
+          .filter((x) => x.q.feedEligible && !exclude.posts.has(x.p.postId) && !exclude.authors.has(x.p.ownerId))
+          .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 })),
+        opts
+      ).sort(byBrowseThenScore);
       const rankedMixed = interleaveUGC(interleaveAuthors(includeOwnUGC(ranked, featuredUGC, opts)));
       const offset = start?._offset ?? 0;
-      const page = rankedMixed.slice(offset, offset + limit);
-      const nextOffset = offset + limit;
+      const pageSize = Math.max(0, limit - featured.length);
+      const page = rankedMixed.slice(offset, offset + pageSize);
+      const nextOffset = offset + pageSize;
       const cursor = nextOffset < ranked.length ? encodeCursor({ _offset: nextOffset }) : null;
-      return json(200, { items: page, cursor });
+      return json(200, { items: prependFeatured(page, featured, limit), cursor });
     }
 
     // GET /posts/{id}
@@ -3053,29 +3998,38 @@ export const handler = async (event) => {
       if (Array.isArray(item.shoppable)) return json(200, { items: item.shoppable, cached: true });
       if (!s3v || !(await aiEnabled())) return json(200, { items: [] });
 
-      const imageUrl = item.mediaUrl || item.posterUrl || item.product?.image;
-      if (!imageUrl) return json(200, { items: [] });
+      const imageUrls = [...new Set([
+        ...(item.mediaUrls ?? []), item.mediaUrl, item.posterUrl, item.product?.image,
+      ].filter(Boolean))].slice(0, 6);
+      if (!imageUrls.length) return json(200, { items: [] });
 
       let matches = [];
       try {
-        const res = await fetch(imageUrl);
-        if (!res.ok) throw new Error(`image fetch ${res.status}`);
-        const buf = Buffer.from(await res.arrayBuffer());
-        const queryVector = await embedImage(buf.toString("base64"), item.caption);
-        const knn = await s3v.send(
-          new QueryVectorsCommand({
+        const perImage = await Promise.all(imageUrls.map(async (imageUrl, index) => {
+          const buf = await postImageBytes(imageUrl);
+          const result = item.mediaResults?.[String(index)] ?? {};
+          const labels = result.labels?.map((label) => label.name).join(" ") || "";
+          const text = Array.isArray(result.text) ? result.text.join(" ") : "";
+          const queryVector = await embedImage(buf.toString("base64"), [item.caption, labels, text].filter(Boolean).join(" "));
+          return s3v.send(new QueryVectorsCommand({
             vectorBucketName: VECTOR_BUCKET,
             indexName: VECTOR_INDEX,
             topK: 24,
             queryVector: { float32: queryVector },
             returnMetadata: true,
             returnDistance: true,
-          })
-        );
-        matches = (knn.vectors ?? [])
-          .filter((v) => (v.distance ?? 1) <= VISUAL_SEARCH_MAX_DISTANCE)
+          }));
+        }));
+        const best = new Map();
+        for (const vector of perImage.flatMap((result) => result.vectors ?? [])) {
+          if ((vector.distance ?? 1) > Math.min(VISUAL_SEARCH_MAX_DISTANCE, 0.4)) continue;
+          const current = best.get(vector.key);
+          if (!current || vector.distance < current.distance) best.set(vector.key, vector);
+        }
+        matches = [...best.values()]
+          .sort((a, b) => a.distance - b.distance)
           .map((v) => vecToItem(v))
-          .filter((it) => it && classifyPin(it).feedEligible !== false)
+          .filter((it) => it && it.productUrl && classifyPin(it).feedEligible !== false)
           .slice(0, 8)
           .map((it) => ({
             postId: it.postId,
@@ -3487,13 +4441,15 @@ export const handler = async (event) => {
       };
       const out = await ddb.send(new ScanCommand(scan));
       const items = interleaveAuthors(
-        (out.Items ?? [])
-          .filter((p) => !excludedTargets.has(p.postId) && p.author !== userId)
-          .filter(giftTypeOk)
-          .map((p) => ({ p, q: feedClassification(p) }))
-          .filter((x) => x.q.feedEligible)
-          .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 }))
-          .sort((a, b) => b._score - a._score)
+        scopeToBrowse(
+          (out.Items ?? [])
+            .filter((p) => !excludedTargets.has(p.postId) && p.author !== userId)
+            .filter(giftTypeOk)
+            .map((p) => ({ p, q: feedClassification(p) }))
+            .filter((x) => x.q.feedEligible)
+            .map(({ p, q }) => ({ ...p, contentType: q.contentType, qualityScore: q.qualityScore, _score: scorePost(p, opts) + q.qualityScore * 0.4 })),
+          opts
+        ).sort(byBrowseThenScore)
       ).slice(0, limit);
 
       return json(200, { items, cursor: encodeCursor(out.LastEvaluatedKey), source: "facet" });
@@ -3782,7 +4738,8 @@ export const handler = async (event) => {
       if (!CHALLENGES) return json(503, { error: "challenges not configured" });
       const senderId = String(body.senderId || "").slice(0, 80);
       if (!senderId) return json(400, { error: "senderId required" });
-      if (!s3v || !(await aiEnabled())) {
+      const exactDeck = body.deckMode === "exact";
+      if (!exactDeck && (!s3v || !(await aiEnabled()))) {
         return json(503, { error: "temporarily disabled (cost guard)" });
       }
       const seed = body.seed ?? {};
@@ -3790,7 +4747,6 @@ export const handler = async (event) => {
       // "exact" decks (shared swipe lists): the guest swipes EXACTLY the items
       // the sender curated — no lookalike padding, no hidden seed card, no
       // service probes. Their yes/no per card IS the deliverable.
-      const exactDeck = body.deckMode === "exact";
 
       // Resolve the seed vector: an uploaded image (share-extension flow), one
       // catalog pin, or a set of taste keys (centroid).
@@ -3852,7 +4808,7 @@ export const handler = async (event) => {
         const clientCards = new Map();
         for (const c of Array.isArray(body.cards) ? body.cards.slice(0, 40) : []) {
           const id = String(c?.postId || "").slice(0, 120);
-          if (!id) continue;
+          if (!id.startsWith("curated-product-") || c?.giftType === "service") continue;
           const price = Number(c.price) || 0;
           clientCards.set(id, {
             postId: id,
@@ -3863,8 +4819,7 @@ export const handler = async (event) => {
             category: String(c.category || "").slice(0, 40),
             domain: String(c.domain || "").slice(0, 120),
             url: sanitizeUrl(c.url) ?? "",
-            giftType: c.giftType === "service" ? "service" : "product",
-            ...(c.serviceDuration ? { serviceDuration: String(c.serviceDuration).slice(0, 40) } : {}),
+            giftType: "product",
             // "list" (not "seed"): every card is the ask, so no single card may
             // trigger the directSeedSwipe verdict override.
             band: "list",
@@ -5298,15 +6253,68 @@ export const handler = async (event) => {
       const nameLine = typeof body.name === "string" && body.name ? `\n\nThe user's first name is ${body.name}. Always address them by this name. Do NOT confuse this with names from connections, recipients, or the relationship graph — those are other people.` : "";
       const signedOut = userId
         ? ""
-        : "\n\nThe user is signed out: get_profile, upcoming_events, list_connections, relationship_graph, save_event, and remember_fact are unavailable — help with catalog search only and gently suggest signing in to unlock memory.";
-      const sys = MAXI_SYSTEM + nameLine + signedOut + memBlock;
+        : "\n\nThe user is signed out: memory_read, memory_write, calender_refer, and calender_update cannot persist account data. catalog_read and the client cart still work; gently suggest signing in only when memory or dates are needed.";
+
+      // Inject the open brief rather than trusting the model to fetch it. The
+      // cheap base tier drops tool calls under pressure, and a forgotten brief
+      // means re-interviewing a user who already answered — the single worst
+      // failure mode this feature has.
+      // Products the client currently has on screen from EARLIER turns. Only
+      // text crosses turns, so without this the agent has no idea what "add
+      // all to cart" or "the second one" refers to — it would answer as if it
+      // had acted while calling nothing, and the item never reached the cart.
+      const shownProducts = (Array.isArray(body.shownProducts) ? body.shownProducts : [])
+        .filter((p) => p && p.postId)
+        .slice(-12)
+        .map((p) => ({
+          postId: String(p.postId),
+          title: String(p.title || "").slice(0, 80),
+          price: Number(p.price) > 0 ? Number(p.price) : null,
+          brand: String(p.brand || "").slice(0, 80) || null,
+          category: String(p.category || "").slice(0, 80) || null,
+          visualContext: String(p.visualContext || "").slice(0, 280) || null,
+        }));
+      const shownBlock = shownProducts.length
+        ? `\n\nProducts currently on screen (use these exact IDs with cart_write; catalog_read can explain their photos):\n${shownProducts
+            .map((p, i) => `${i + 1}. ${p.title}${p.price ? ` — $${p.price}` : ""} [${p.postId}]${p.visualContext ? `; photo: ${p.visualContext}` : ""}`)
+            .join("\n")}`
+        : "";
+
+      const cartItems = (Array.isArray(body.cartItems) ? body.cartItems : [])
+        .filter((item) => item && item.postId)
+        .slice(0, 40)
+        .map((item) => ({
+          postId: String(item.postId), title: String(item.title || "").slice(0, 90),
+          price: Number(item.price) > 0 ? Number(item.price) : null,
+          recipient: String(item.recipient || "").slice(0, 60) || null,
+          quantity: Math.max(1, Math.min(Number(item.quantity) || 1, 25)),
+        }));
+
+      const openBrief = await latestBrief(userId);
+      const briefBlock = openBrief
+        ? `\n\nOpen gift brief — resume it, and do NOT re-ask anything already filled in here:\n${JSON.stringify(scrubPII(openBrief))}\nStill missing: ${missingBriefFields(openBrief).join(", ") || "nothing — go find gifts"}.`
+        : "";
+
+      const sys = MAXI_SYSTEM + nameLine + signedOut + memBlock + briefBlock + shownBlock;
 
       const toolConfig = {
-        tools: MAXI_TOOLS.map((t) => ({
+        tools: MAXI_TOOL_DEFINITIONS.map((t) => ({
           toolSpec: { name: t.name, description: t.description, inputSchema: { json: t.schema } },
         })),
       };
-      const tctx = { userId, pins: [], actions: [], cartItems: [], steps: [] };
+      const tctx = {
+        userId,
+        pins: [],
+        actions: [],
+        cartItems,
+        shownProducts,
+        priceCeiling: isCheaperRequest(userText) ? shownProductPriceCeiling(shownProducts) : undefined,
+        steps: [],
+        brief: openBrief,
+        // Things the user has already interacted with — kept out of find_gifts
+        // so the concierge doesn't keep re-proposing what they've seen.
+        excluded: userId ? (await seedTargetsFor(userId)).excluded : new Set(),
+      };
       // Model routing: cheap Amazon Nova by default; Claude Haiku once an agentic
       // shopping experience is triggered (intent now, or a cart/checkout tool below).
       // In DEGRADED mode we pin the cheap base model + cap the tool loop to shed cost.
@@ -5388,18 +6396,218 @@ export const handler = async (event) => {
       // so only the final, user-facing reply shows (Claude doesn't emit these).
       say = say.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "").replace(/<\/?thinking>/gi, "").trim();
 
+      // Fail closed on action claims. A model sentence never mutates the cart;
+      // only a validated cart_write call can do that.
+      const reconciled = false;
+      const claimsCartAdd = /\b(added|adding|put|added them|i've added)\b[^.!?]{0,60}\b(to )?(your |the |their |her |his )?(cart|basket)\b/i.test(say);
+      const alreadyAdded = tctx.actions.some((a) => a.type === "add_to_cart");
+      if (claimsCartAdd && !alreadyAdded) {
+        say = "I didn't change your cart yet. Tell me which exact item to add, and I'll put it in the right person's cart.";
+      }
+
       const seen = new Set();
       const pins = tctx.pins
         .filter((p) => p && p.postId && !seen.has(p.postId) && seen.add(p.postId))
         .slice(0, 10);
+      // ── Session transcript (one JSONL record per turn) ──────────────────
+      //
+      // The usage line above records tokens and cost, which tells you nothing
+      // about WHY a turn went wrong: whether the model called a tool, what it
+      // claimed, what the client was actually told to do. Debugging "it said it
+      // added to my cart but the cart is empty" from token counts is guesswork.
+      // One structured line per turn makes it answerable — pull them with
+      // `node infra/ingest/maxi-sessions.mjs`. PII-scrubbed like everything
+      // else we log or send to the model.
+      const finalSay = say || "Hmm, I didn't quite catch that — tell me a budget or who it's for and I'll find something.";
+      console.log(
+        "maxi session " +
+          JSON.stringify({
+            at: new Date().toISOString(),
+            userId,
+            model: modelId,
+            tier: isShopping ? "shopping" : "base",
+            degraded,
+            user: scrubPII(userText).slice(0, 400),
+            say: scrubPII(finalSay).slice(0, 900),
+            // What it actually DID, versus what it said.
+            tools: tctx.steps.map((s) => s.tool),
+            actions: tctx.actions.map((a) => ({
+              type: a.type,
+              n: a.postIds?.length ?? 0,
+              recipient: a.recipient ?? null,
+            })),
+            pins: pins.length,
+            shown: shownProducts.length,
+            brief: tctx.brief
+              ? { recipient: tctx.brief.recipientName, occasion: tctx.brief.occasion ?? null }
+              : null,
+            reconciled,
+            usedIn,
+            usedOut,
+            costUsd: Math.round(usedCost * 1e5) / 1e5,
+          })
+      );
+
+      // Durable copy on the user's own partition — see saveChatTurn.
+      await saveChatTurn(userId, {
+        user: userText,
+        say: finalSay,
+        model: modelId,
+        tools: tctx.steps.map((s) => s.tool),
+        actions: tctx.actions,
+        pins,
+        reconciled,
+        costUsd: Math.round(usedCost * 1e5) / 1e5,
+      });
+
       return json(200, {
-        say: say || "Hmm, I didn't quite catch that — tell me a budget or who it's for and I'll find something.",
+        say: finalSay,
         pins,
         actions: tctx.actions,
         steps: tctx.steps,
+        // The client shows this as a chip above the conversation, so the user
+        // can see (and correct) what Maxi thinks the job is.
+        brief: tctx.brief ?? null,
         source: "agent",
+        ...(reconciled ? { reconciled: true } : {}),
         usage: { inputTokens: usedIn, outputTokens: usedOut, costUsd: Math.round(costUsd * 1e5) / 1e5 },
       });
+    }
+
+    // GET /maxi/history?userId=&limit=  -> { items:[{at,user,say,pins,…}] }
+    //
+    // The conversation follows the ACCOUNT, not the device. Without this the
+    // transcript lived only in UserDefaults and died on reinstall or a new
+    // phone — the concierge would forget everything it had told you, which is
+    // the one thing it is supposed to be good at. Auth-gated like /me: a
+    // transcript names the people you shop for.
+    if (method === "GET" && path === "/maxi/history") {
+      const userId = String(qs.userId || "").trim();
+      if (!userId) return json(400, { error: "userId required" });
+      const items = await listChatTurns(userId, Number(qs.limit) || 40);
+      return json(200, { items }, { "cache-control": "no-store" });
+    }
+
+    // POST /packaging  { userId?, items:[{postId,title,image,category,price}],
+    //                    occasion?, recipientName?, relationship? }
+    // -> { sig, plan, imageUrl, cached }
+    //
+    // How to wrap ONE recipient's pile. A vision model reads the actual product
+    // photos and writes the plan; Nova Canvas renders one picture of it. Both
+    // are cached against a signature of the cart, so a repeat visit is free and
+    // instant. The plan is the payload — the image is a bonus, and every
+    // failure path still returns the plan.
+    if (method === "POST" && path === "/packaging") {
+      const level = await getDegradeLevel();
+      if (level === "paused") return json(503, { error: "packaging is napping (cost guard)" });
+
+      const items = (Array.isArray(body.items) ? body.items : [])
+        .filter((i) => i && (i.postId || i.title))
+        .slice(0, 8)
+        .map((i) => ({
+          postId: String(i.postId || ""),
+          title: String(i.title || "").slice(0, 120),
+          image: typeof i.image === "string" ? i.image : null,
+          category: i.category ? String(i.category).slice(0, 40) : null,
+          price: typeof i.price === "number" && i.price > 0 ? i.price : null,
+        }));
+      if (!items.length) return json(400, { error: "items required" });
+
+      const ctx = {
+        occasion: body.occasion ? String(body.occasion).slice(0, 60) : null,
+        recipientName: body.recipientName ? String(body.recipientName).slice(0, 60) : null,
+        relationship: body.relationship ? String(body.relationship).slice(0, 40) : null,
+      };
+      const sig = cartSignature(items, ctx);
+      const cacheKey = packagingCacheKey(sig);
+
+      // Cache first — the whole cost model depends on this hitting.
+      try {
+        const hit = await ddb.send(new GetCommand({ TableName: CONFIG, Key: { key: cacheKey } }));
+        if (hit.Item?.plan) {
+          return json(200, {
+            sig,
+            plan: hit.Item.plan,
+            imageUrl: hit.Item.imageUrl ?? null,
+            cached: true,
+          });
+        }
+      } catch (e) {
+        console.warn("packaging cache read failed (continuing):", e.message);
+      }
+
+      if (!(await aiEnabled())) {
+        return json(503, { error: "packaging temporarily unavailable" });
+      }
+
+      // Abuse guard, not a usage cap — same shape as the Maxi limiter.
+      const auth = await authorizeRequest(event, method, path);
+      const principal =
+        auth?.via === "admin"
+          ? null
+          : auth?.sub || body.userId || event.requestContext?.http?.sourceIp || null;
+      if (principal && PACKAGING_DAILY_LIMIT > 0) {
+        const rl = await checkDailyLimit("pkg-rate", principal, PACKAGING_DAILY_LIMIT);
+        if (!rl.ok) {
+          return json(429, {
+            error: "rate_limited",
+            scope: "packaging_daily",
+            limit: PACKAGING_DAILY_LIMIT,
+            retryAfterSec: rl.retryAfterSec,
+          });
+        }
+      }
+
+      let plan = null;
+      let usage = { inputTokens: 0, outputTokens: 0 };
+      try {
+        const built = await buildPackagingPlan(items, ctx);
+        plan = built.plan;
+        usage = built.usage;
+      } catch (e) {
+        console.warn("packaging plan failed:", e.name, e.message);
+        return json(502, { error: "planner_unavailable" });
+      }
+      if (!plan) return json(502, { error: "planner_unavailable" });
+
+      // Degraded mode skips the expensive half; the plan still ships.
+      let imageUrl = null;
+      if (level !== "degraded") {
+        try {
+          const brands = items.map((i) => i.title.split(/\s+/)[0]).filter(Boolean);
+          imageUrl = await renderPackagingImage(plan, sig, brands);
+        } catch (e) {
+          console.warn("packaging render failed (plan still returned):", e.name, e.message);
+        }
+      }
+
+      // Bill against the SAME monthly Bedrock budget Maxi uses — one cap, not two.
+      const planCost = maxiStepCostUsd(PACKAGING_VISION_MODEL, usage.inputTokens, usage.outputTokens);
+      await recordMaxiUsage(
+        usage.inputTokens,
+        usage.outputTokens,
+        planCost + (imageUrl ? PACKAGING_IMAGE_COST_USD : 0)
+      );
+
+      try {
+        await ddb.send(
+          new PutCommand({
+            TableName: CONFIG,
+            Item: {
+              key: cacheKey,
+              type: "packaging",
+              plan,
+              imageUrl,
+              updatedAt: Date.now(),
+              expiresAt: Math.floor(Date.now() / 1000) + PACKAGING_CACHE_TTL_DAYS * 86400,
+            },
+          })
+        );
+      } catch (e) {
+        console.warn("packaging cache write failed:", e.message);
+      }
+
+      return json(200, { sig, plan, imageUrl, cached: false });
     }
 
     return json(404, { error: `no route for ${method} ${path}` });

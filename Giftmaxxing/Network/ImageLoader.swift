@@ -34,7 +34,7 @@ actor ImageLoader {
         let task = Task<UIImage?, Never> {
             guard let imageUrl = buildURL(base: url, width: width) else { return nil }
             do {
-                let (data, _) = try await session.data(from: imageUrl)
+                let data = try await imageData(from: imageUrl)
                 guard let image = UIImage(data: data) else { return nil }
                 cache.setObject(image, forKey: cacheKey, cost: data.count)
                 return image
@@ -59,7 +59,7 @@ actor ImageLoader {
             let task = Task<UIImage?, Never> {
                 guard let imageUrl = buildURL(base: url, width: width) else { return nil }
                 do {
-                    let (data, _) = try await session.data(from: imageUrl)
+                    let data = try await imageData(from: imageUrl)
                     guard let image = UIImage(data: data) else { return nil }
                     cache.setObject(image, forKey: cacheKey, cost: data.count)
                     return image
@@ -80,6 +80,13 @@ actor ImageLoader {
     }
 
     private func buildURL(base: String, width: Int?) -> URL? {
+        if base.hasPrefix("bundle:///") {
+            let filename = String(base.dropFirst("bundle:///".count))
+            let resource = (filename as NSString).deletingPathExtension
+            let ext = (filename as NSString).pathExtension
+            return Bundle.main.url(forResource: resource, withExtension: ext, subdirectory: "Curated")
+                ?? Bundle.main.url(forResource: resource, withExtension: ext)
+        }
         guard var url = URL(string: base) else { return nil }
         if let width, let cloudFrontBase = cloudFrontURL(for: base) {
             var components = URLComponents(url: cloudFrontBase, resolvingAgainstBaseURL: false)
@@ -90,6 +97,11 @@ actor ImageLoader {
             url = components?.url ?? url
         }
         return url
+    }
+
+    private func imageData(from url: URL) async throws -> Data {
+        if url.isFileURL { return try Data(contentsOf: url) }
+        return try await session.data(from: url).0
     }
 
     // A board thumbnail and a swipe card can share a source URL but need
