@@ -53,6 +53,8 @@
 	<string>e8e3e5a5b3f37fbbbbf638177cd0b68c</string>
 	<key>FacebookDisplayName</key>
 	<string>Giftmaxxing</string>
+	<key>GitCommit</key>
+	<string>$(GIT_COMMIT)</string>
 	<key>GoogleOAuthClientID</key>
 	<string>641193240796-iu86sunkraeuf5ks755ipcf10kvutugv.apps.googleusercontent.com</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

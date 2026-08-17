@@ -57,9 +57,15 @@ targets:
         # Comma separated, case/space/dash insensitive — add a cohort code
         # here and regenerate. See Giftmaxxing/Services/InviteAccess.swift.
         CirclesInviteCodes: "GIFTCIRCLE,GIFTMAXXING-EARLY"
+        # Which commit produced this binary. Passed at archive time
+        # (GIT_COMMIT=$(git rev-parse --short HEAD)); "unknown" for local
+        # simulator builds. Shown in You → Settings so a tester's report names
+        # the exact code they ran.
+        GitCommit: $(GIT_COMMIT)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.giftmaxxing.ios
+        GIT_COMMIT: unknown
         MARKETING_VERSION: "1.1.3"
         CURRENT_PROJECT_VERSION: "146"
         VERSIONING_SYSTEM: apple-generic

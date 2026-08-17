@@ -882,6 +882,7 @@ struct MoreView: View {
                         MoreRow(icon: "questionmark.circle.fill", title: "Help & Support", subtitle: "Contact us, FAQs") { SupportView() }
                         MoreRow(icon: "hand.raised.fill", title: "Privacy Policy", subtitle: "Your data rights") { PrivacyView() }
                     }
+                    buildStamp
                 }
                 .padding(14)
             }
@@ -898,6 +899,21 @@ struct MoreView: View {
                     .environmentObject(appState)
             }
         }
+    }
+
+    // Version, build, and the commit that produced this binary — so a bug
+    // report names the exact code the tester ran.
+    private var buildStamp: some View {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        let commit = info?["GitCommit"] as? String ?? "unknown"
+        return Text("Giftmaxxing \(version) (\(build)) · \(commit)")
+            .font(.caption2)
+            .foregroundStyle(Color.inkTertiary)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 8)
+            .textSelection(.enabled)
     }
 
     private func settingsButton(
