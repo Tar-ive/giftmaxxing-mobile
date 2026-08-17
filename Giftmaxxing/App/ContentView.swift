@@ -15,6 +15,8 @@ struct ContentView: View {
     // Board-save feedback: the toast + the one-time Swipe-tab callout.
     @StateObject private var boardToasts = BoardToastCenter.shared
     @State private var showBoardsHint = false
+    // Invite gate for Circles + the rest of the social layer.
+    @ObservedObject private var invites = InviteAccess.shared
 
     // Accounts are required: the cover dismisses only via real auth. E2E builds
     // sign in headlessly via launch arguments (see E2ESupport.swift).
@@ -45,17 +47,16 @@ struct ContentView: View {
                     }
                     .tag(Tab.swipe)
 
-                UGCCreateView()
-                    .tabItem {
-                        Label(Tab.create.rawValue, systemImage: Tab.create.icon)
-                    }
-                    .tag(Tab.create)
-
-                CirclesView()
-                    .tabItem {
-                        Label(Tab.circles.rawValue, systemImage: Tab.circles.icon)
-                    }
-                    .tag(Tab.circles)
+                // Circles — the whole social layer — is invite-only. Without a
+                // redeemed code the tab doesn't exist at all (You → "Circles"
+                // opens the code sheet).
+                if invites.isUnlocked {
+                    CirclesView()
+                        .tabItem {
+                            Label(Tab.circles.rawValue, systemImage: Tab.circles.icon)
+                        }
+                        .tag(Tab.circles)
+                }
 
                 Group {
                     #if DEBUG
@@ -153,9 +154,9 @@ struct ContentView: View {
                         withAnimation(.snappy) { showBoardsHint = false }
                         appState.openBoardsHome()
                     }
-                    // Anchored over the You tab — 5th of 5 slots (90% width),
-                    // just above the ~49pt tab bar.
-                    .position(x: geo.size.width * 0.9, y: geo.size.height - 70)
+                    // Anchored over the You tab — always the last slot, whose
+                    // centre depends on whether Circles is unlocked.
+                    .position(x: geo.size.width * youTabCenterFraction, y: geo.size.height - 70)
                 }
                 .zIndex(7)
                 .onChange(of: appState.selectedTab) { _, tab in
@@ -205,6 +206,18 @@ struct ContentView: View {
         }
         .sheet(isPresented: $appState.showMaxi) {
             MaxiView()
+        }
+        .sheet(isPresented: $appState.showInviteCode) {
+            InviteCodeSheet()
+        }
+        // A code redeemed (or an account switch that re-locked things) must
+        // never leave the user parked on a tab that no longer renders.
+        .onChange(of: invites.isUnlocked) { _, unlocked in
+            if unlocked {
+                if appState.pendingCircleId != nil { appState.selectedTab = .circles }
+            } else if appState.selectedTab == .circles {
+                appState.selectedTab = .feed
+            }
         }
         .fullScreenCover(isPresented: $appState.showSearch) {
             SearchTabsView()
@@ -269,7 +282,7 @@ struct ContentView: View {
             if let tab = UserDefaults.standard.string(forKey: "screenshotTab") {
                 switch tab {
                 case "swipe": appState.selectedTab = .swipe
-                case "circles": appState.selectedTab = .circles
+                case "circles" where invites.isUnlocked: appState.selectedTab = .circles
                 case "you": appState.selectedTab = .you
                 default: break
                 }
@@ -310,10 +323,6 @@ struct ContentView: View {
                 return
             }
             guard url.scheme == "giftmaxxing" else { return }
-            if url.host == "create" {
-                appState.selectedTab = .create
-                return
-            }
             drainCaptureInbox()
         }
         .sheet(item: Binding(
@@ -323,6 +332,12 @@ struct ContentView: View {
             ChallengeSwipeView(challengeId: ref.id)
                 .environmentObject(authManager)
         }
+    }
+
+    // Centre of the last tab slot, as a fraction of screen width.
+    private var youTabCenterFraction: CGFloat {
+        let tabs = Tab.visible(inviteUnlocked: invites.isUnlocked)
+        return (CGFloat(tabs.count) - 0.5) / CGFloat(tabs.count)
     }
 
     @MainActor

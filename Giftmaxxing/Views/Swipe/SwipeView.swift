@@ -258,17 +258,9 @@ struct SwipeView: View {
     @StateObject private var viewModel = SwipeViewModel()
     @Environment(\.modelContext) private var modelContext
 
-    // One swiping mechanic, two directions:
-    //   • You     — self-gifting. Your own swipes train the taste model that
-    //               powers every recommendation in the app.
-    //   • People  — the challenge hub: everyone you gift for, their swipe
-    //               results when they've answered, a share/nudge when they
-    //               haven't (PeopleHubView). Gift Boards live on the You tab.
-    private enum GiftContext: String, CaseIterable {
-        case me = "You"
-        case people = "People"
-    }
-    @State private var context: GiftContext = .me
+    // One swiping mechanic, one job: your own swipes train the taste model
+    // that powers every recommendation in the app. (The "People" challenge hub
+    // left with the rest of the social layer — Gift Boards live on You.)
 
     // First-deck gesture rehearsal — cleared by the first real swipe commit.
     @State private var showRehearsal = !SwipeRehearsal.seen
@@ -276,28 +268,16 @@ struct SwipeView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                contextPicker
-
-                // Swipe lists friends sent you, waiting to be answered.
-                ChallengeInviteRail()
-
-                if context == .people {
-                    PeopleHubView()
-                } else {
-                    // The rehearsal cue overlays the DECK only. Sitting on the
-                    // whole VStack, its repeating keyframe animation swallowed
-                    // taps on the segment picker above it.
-                    deckBody
-                        .overlay(alignment: .center) {
-                            if showRehearsal, viewModel.currentCard != nil, !viewModel.isLoading {
-                                // Keep the cue over the CARD: unbounded, it
-                                // drifted onto the progress row and smeared
-                                // across the yes/no buttons.
-                                SwipeRehearsalCue()
-                                    .padding(.bottom, 150)
-                            }
+                // The rehearsal cue overlays the DECK only — unbounded it
+                // drifted onto the progress row and smeared across the
+                // yes/no buttons.
+                deckBody
+                    .overlay(alignment: .center) {
+                        if showRehearsal, viewModel.currentCard != nil, !viewModel.isLoading {
+                            SwipeRehearsalCue()
+                                .padding(.bottom, 150)
                         }
-                }
+                    }
             }
             .background(Color.cream)
             .navigationBarTitleDisplayMode(.inline)
@@ -309,16 +289,14 @@ struct SwipeView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     // The deliberate detour: deal a deck from OUTSIDE the
                     // predicted taste cluster.
-                    if context == .me {
-                        Button {
-                            Task { await viewModel.loadSurprise() }
-                        } label: {
-                            Image(systemName: "dice.fill")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(Color.coral)
-                        }
-                        .accessibilityLabel("Surprise me — ideas outside your usual taste")
+                    Button {
+                        Task { await viewModel.loadSurprise() }
+                    } label: {
+                        Image(systemName: "dice.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Color.coral)
                     }
+                    .accessibilityLabel("Surprise me — ideas outside your usual taste")
                 }
             }
         }
@@ -329,14 +307,6 @@ struct SwipeView: View {
                 withAnimation(.easeOut(duration: 0.3)) { showRehearsal = false }
             }
         }
-        .onChange(of: context) { _, newContext in
-            switch newContext {
-            case .me:
-                Task { await viewModel.loadCards() }
-            case .people:
-                AnalyticsEngine.shared.trackScreenView(screen: "swipe_people")
-            }
-        }
         .task {
             viewModel.userId = authManager.userId
             if viewModel.cards.isEmpty {
@@ -344,46 +314,8 @@ struct SwipeView: View {
                 await viewModel.loadCards()
             }
         }
-        .onAppear {
-            appState.suppressMaxiFAB()
-            #if DEBUG
-            if UserDefaults.standard.string(forKey: "screenshotTab") == "swipe",
-               UserDefaults.standard.bool(forKey: "screenshotPeople") {
-                context = .people
-            }
-            #endif
-        }
+        .onAppear { appState.suppressMaxiFAB() }
         .onDisappear { appState.unsuppressMaxiFAB() }
-    }
-
-    // Context picker — who is this swiping session for?
-    private var contextPicker: some View {
-        HStack(spacing: 0) {
-            ForEach(GiftContext.allCases, id: \.self) { ctx in
-                Button {
-                    context = ctx
-                } label: {
-                    Text(ctx.rawValue)
-                        .font(.system(size: 16, weight: context == ctx ? .semibold : .regular))
-                        .foregroundStyle(Color.ink)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            context == ctx ? Color.surface : Color.clear,
-                            in: Capsule()
-                        )
-                }
-                .buttonStyle(.plain)
-                .contentShape(Rectangle())
-                .accessibilityAddTraits(context == ctx ? .isSelected : [])
-            }
-        }
-        .padding(4)
-        .background(Color.ink.opacity(0.08), in: Capsule())
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Swipe context")
-        .padding(.horizontal, 20)
-        .padding(.top, 6)
     }
 
     @ViewBuilder
@@ -650,23 +582,6 @@ struct SwipeCompleteView: View {
                     .padding(.vertical, 14)
                     .background(Color.coral)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
-            }
-            .padding(.horizontal, 40)
-
-            // Post-task conversion moment (mirrors the web reveal): you just
-            // learned YOUR taste — now capture a friend's.
-            NavigationLink(destination: ChallengeView()) {
-                HStack(spacing: 6) {
-                    Image(systemName: "paperplane.fill")
-                        .font(.system(size: 14))
-                    Text("Challenge a friend to swipe")
-                        .font(.system(size: 15, weight: .bold))
-                }
-                .foregroundStyle(Color.coral)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 13)
-                .background(Color.coral.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
             }
             .padding(.horizontal, 40)
 

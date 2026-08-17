@@ -38,6 +38,12 @@ struct CirclesView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    // Swipe decks friends sent you, waiting to be answered.
+                    // (Lived on the Swipe tab before the social layer moved
+                    // behind the Circles invite.)
+                    ChallengeInviteRail()
+                        .padding(.horizontal, -16)
+
                     // The calendar IS the screen: sources on top (Me + each
                     // circle), month grid, then the picked day's moments.
                     CircleCalendarView(

@@ -41,6 +41,9 @@ enum AccountLocalState {
 
     @MainActor
     static func clearPrivateStores() {
+        // An invite belongs to a person, not to a phone — the next account on
+        // this device starts locked out of Circles again.
+        InviteAccess.shared.lock()
         PoolsStore.shared.clear()
         GroupGiftStore.shared.clear()
         SwipeListStore.shared.clear()

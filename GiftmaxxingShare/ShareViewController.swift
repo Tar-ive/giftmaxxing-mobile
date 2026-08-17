@@ -5,10 +5,9 @@ import OSLog
 // "Send to Giftmaxxing" — the Instagram/Pinterest → gift-giving bridge.
 //
 // Receives an image (screenshot, photo, saved pin) or a URL from any app's
-// share sheet, resolves a preview, then asks what to do with it — the start
-// of the gifting loop, not a silent save:
-//   • Find similar gifts  → visual search in the app
-//   • Start a gift pool   → pool creation prefilled with the capture
+// share sheet, resolves a preview, then hands it to visual search in the app —
+// the start of the gifting loop, not a silent save. (The "Start a gift pool"
+// action left with the invite-only social layer.)
 final class ShareViewController: UIViewController {
     private let appGroupID = "group.com.giftmaxxing.ios"
     private let log = Logger(subsystem: "com.giftmaxxing.ios.share", category: "capture")
@@ -23,7 +22,6 @@ final class ShareViewController: UIViewController {
     private let subtitleLabel = UILabel()
     private let spinner = UIActivityIndicatorView(style: .medium)
     private let searchButton = UIButton(type: .system)
-    private let poolButton = UIButton(type: .system)
     private let cancelButton = UIButton(type: .system)
 
     private let coral = UIColor(red: 1.0, green: 0.42, blue: 0.32, alpha: 1.0)
@@ -115,10 +113,6 @@ final class ShareViewController: UIViewController {
 
     @objc private func searchTapped() {
         commit(intent: "search", doneMessage: "Taking you to your matches…")
-    }
-
-    @objc private func poolTapped() {
-        commit(intent: "pool", doneMessage: "Setting up your pool…")
     }
 
     @objc private func cancelTapped() {
@@ -302,9 +296,6 @@ final class ShareViewController: UIViewController {
         configure(searchButton, title: "🔍  Find similar gifts", filled: true)
         searchButton.addTarget(self, action: #selector(searchTapped), for: .touchUpInside)
 
-        configure(poolButton, title: "🤝  Start a gift pool", filled: false)
-        poolButton.addTarget(self, action: #selector(poolTapped), for: .touchUpInside)
-
         cancelButton.setTitle("Not now", for: .normal)
         cancelButton.setTitleColor(.secondaryLabel, for: .normal)
         cancelButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
@@ -314,7 +305,7 @@ final class ShareViewController: UIViewController {
         // Buttons disabled until the capture resolves.
         setButtons(enabled: false)
 
-        [previewView, titleLabel, subtitleLabel, spinner, searchButton, poolButton, cancelButton].forEach {
+        [previewView, titleLabel, subtitleLabel, spinner, searchButton, cancelButton].forEach {
             card.addSubview($0)
         }
 
@@ -344,12 +335,7 @@ final class ShareViewController: UIViewController {
             searchButton.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -18),
             searchButton.heightAnchor.constraint(equalToConstant: 46),
 
-            poolButton.topAnchor.constraint(equalTo: searchButton.bottomAnchor, constant: 8),
-            poolButton.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 18),
-            poolButton.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -18),
-            poolButton.heightAnchor.constraint(equalToConstant: 46),
-
-            cancelButton.topAnchor.constraint(equalTo: poolButton.bottomAnchor, constant: 6),
+            cancelButton.topAnchor.constraint(equalTo: searchButton.bottomAnchor, constant: 6),
             cancelButton.centerXAnchor.constraint(equalTo: card.centerXAnchor),
             cancelButton.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -12),
         ])
@@ -368,9 +354,7 @@ final class ShareViewController: UIViewController {
 
     private func setButtons(enabled: Bool) {
         searchButton.isEnabled = enabled
-        poolButton.isEnabled = enabled
         searchButton.alpha = enabled ? 1 : 0.5
-        poolButton.alpha = enabled ? 1 : 0.5
     }
 
     // MARK: - States

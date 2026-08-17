@@ -12,7 +12,7 @@ struct MoreView: View {
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var thoughtfulness = ThoughtfulnessStore.shared
     @ObservedObject private var boards = SwipeListStore.shared
-    @ObservedObject private var pools = PoolsStore.shared
+    @ObservedObject private var invites = InviteAccess.shared
     @State private var showSignIn = false
     @State private var visibility = "public"
     @State private var savingVisibility = false
@@ -25,12 +25,12 @@ struct MoreView: View {
     @State private var avatarUrl: String?
     @State private var avatarError: String?
     @State private var isUploadingAvatar = false
-    @State private var ugcPosts: [UGCPost] = []
-    @State private var selectedUGCPost: UGCPost?
     @State private var showSettings = false
+    @State private var showEvents = false
     @ObservedObject private var appearance = AppearanceStore.shared
-    // In-page tabbed navigation (Instagram-profile pattern): 0 = posts grid,
-    // 1 = gift ideas for {first name} + sizes, 2 = Gift Boards.
+    // In-page tabbed navigation (Instagram-profile pattern): 0 = gift ideas
+    // for {first name} + sizes, 1 = Gift Boards. (The posts grid left with
+    // UGC — this app doesn't do posting.)
     @State private var activeTab = 0
     @Namespace private var tabUnderline
     // Board deep link from the post-save toast ("View").
@@ -81,10 +81,6 @@ struct MoreView: View {
         boards.lists.filter { $0.challengeId == nil }
     }
 
-    private var giftsGiven: Int {
-        boards.lists.filter { $0.challengeId != nil }.count + pools.pools.count
-    }
-
     // Recipient satisfaction: aggregate yes-rate across everyone who swiped
     // a board/challenge this user sent. nil until real responses exist.
     private var satisfaction: Int? {
@@ -92,10 +88,6 @@ struct MoreView: View {
         let total = connections.compactMap(\.totalSwipes).reduce(0, +)
         guard total >= 3 else { return nil }
         return Int((Double(yes) / Double(total) * 100).rounded())
-    }
-
-    private var liveUGCPosts: [UGCPost] {
-        ugcPosts.filter { $0.processingStatus == "READY" }
     }
 
     var body: some View {
@@ -109,8 +101,6 @@ struct MoreView: View {
                     profileTabStrip
                     switch activeTab {
                     case 0:
-                        ugcPostsSection
-                    case 1:
                         ownerGiftListSection
                         ownerSizesSection
                     default:
@@ -183,9 +173,6 @@ struct MoreView: View {
         .sheet(item: $signatureGift) { gift in
             SignatureGiftStorySheet(gift: gift)
         }
-        .sheet(item: $selectedUGCPost) { post in
-            UGCProfilePostSheet(post: post)
-        }
         .onChange(of: avatarSelection) { _, item in
             guard let item else { return }
             Task { await uploadAvatar(item) }
@@ -211,14 +198,12 @@ struct MoreView: View {
                         profileVibes = profile.interests ?? profileVibes
                         profileDislikes = profile.dislikes ?? profileDislikes
                         profileGiftNote = profile.giftNote ?? profileGiftNote
-                        ugcPosts = profile.posts ?? []
                     }
                     return
                 }
                 #endif
                 connections = (try? await APIClient.shared.fetchConnections(userId: userId)) ?? []
                 friendCount = (try? await APIClient.shared.listFriends(userId: userId, status: "accepted").count) ?? 0
-                ugcPosts = (try? await APIClient.shared.fetchMyUGCPosts()) ?? []
                 if let profile = try? await APIClient.shared.fetchMe(userId: userId) {
                     visibility = profile.visibility == "private" ? "private" : "public"
                     avatarUrl = profile.imageUrl
@@ -367,9 +352,8 @@ struct MoreView: View {
     // switched in place (activeTab) instead of stacked down the page.
     private var profileTabStrip: some View {
         HStack(spacing: 0) {
-            profileTab(index: 0, icon: "square.grid.3x3", label: "Your posts")
-            profileTab(index: 1, icon: "gift", label: "Gift ideas for \(firstName)")
-            profileTab(index: 2, icon: "rectangle.stack", label: "Gift Boards")
+            profileTab(index: 0, icon: "gift", label: "Gift ideas for \(firstName)")
+            profileTab(index: 1, icon: "rectangle.stack", label: "Gift Boards")
         }
         .sensoryFeedback(.selection, trigger: activeTab)
     }
@@ -412,12 +396,12 @@ struct MoreView: View {
     // specific board, push its detail.
     private func consumePendingBoardRoute() {
         if let boardId = appState.pendingBoardId {
-            activeTab = 2
+            activeTab = 1
             presentedBoard = BoardRef(id: boardId)
             appState.pendingBoardId = nil
             appState.pendingBoardsHome = false
         } else if appState.pendingBoardsHome {
-            activeTab = 2
+            activeTab = 1
             appState.pendingBoardsHome = false
         }
     }
@@ -562,67 +546,6 @@ struct MoreView: View {
         .padding(16)
         .background(Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
-    }
-
-    private var ugcPostsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                MoreSectionHeader(title: "Your posts")
-                Spacer()
-                if !ugcPosts.isEmpty {
-                    Text("\(liveUGCPosts.count) live")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.inkSecondary)
-                }
-            }
-
-            if liveUGCPosts.isEmpty {
-                HStack(spacing: 12) {
-                    Image(systemName: "square.grid.3x3")
-                        .font(.title2)
-                        .foregroundStyle(Color.coral)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Your live gift finds will appear here")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Color.ink)
-                        Text("Create a post to start your profile gallery.")
-                            .font(.caption)
-                            .foregroundStyle(Color.inkSecondary)
-                    }
-                    Spacer()
-                }
-                .padding(14)
-                .background(Color.surface)
-                .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.lg, style: .continuous))
-            } else {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 3), count: 3), spacing: 3) {
-                    ForEach(liveUGCPosts) { post in
-                        Button { selectedUGCPost = post } label: {
-                            ZStack {
-                                Color.surfaceSunken
-                                CachedAsyncImage(
-                                    url: post.posterUrl ?? (post.mediaType == "image" ? post.mediaUrl : nil),
-                                    width: 260
-                                )
-                                if post.mediaType == "video" {
-                                    Image(systemName: "play.fill")
-                                        .font(.caption.weight(.bold))
-                                        .foregroundStyle(.white)
-                                        .padding(7)
-                                        .background(.black.opacity(0.55))
-                                        .clipShape(Circle())
-                                }
-                            }
-                            .aspectRatio(1, contentMode: .fill)
-                            .clipped()
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Open post: \(post.caption)")
-                    }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: ThemeRadius.md, style: .continuous))
-            }
-        }
     }
 
     private func uploadAvatar(_ item: PhotosPickerItem) async {
@@ -819,12 +742,49 @@ struct MoreView: View {
                     VStack(spacing: 2) {
                         MoreSectionHeader(title: "Profile")
                         MoreRow(icon: "sparkles", title: "Edit taste", subtitle: "Sizes, vibes, dislikes") { TasteInterviewView() }
-                        MoreRow(icon: "person.2.fill", title: "Friends", subtitle: "Discover, connect, message") { FriendsView() }
+                        // Friends/DMs are part of the invite-only social layer.
+                        if invites.isUnlocked {
+                            MoreRow(icon: "person.2.fill", title: "Friends", subtitle: "Discover, connect, message") { FriendsView() }
+                        }
                     }
                     VStack(spacing: 2) {
                         MoreSectionHeader(title: "Explore")
                         MoreRow(icon: "bag.fill", title: "Shop", subtitle: "Curated picks") { ShopView() }
                         MoreRow(icon: "leaf.fill", title: "Intentional Discover", subtitle: "Ranked by meaning") { DiscoverView() }
+                        // Birthdays and occasions used to live on the Circles
+                        // tab; they're personal planning, not a social feature,
+                        // so they stay reachable without an invite.
+                        settingsButton(
+                            icon: "calendar",
+                            title: "Gift calendar",
+                            subtitle: "Birthdays, anniversaries, reminders"
+                        ) { showEvents = true }
+                        // The only door into the social half of the app.
+                        if invites.isUnlocked {
+                            settingsButton(
+                                icon: "person.3.fill",
+                                title: "Circles",
+                                subtitle: "Unlocked — find it in the tab bar"
+                            ) {
+                                showSettings = false
+                                appState.selectedTab = .circles
+                            }
+                        } else {
+                            settingsButton(
+                                icon: "lock.fill",
+                                title: "Circles",
+                                subtitle: "Invite-only: shared calendars, pools, group gifts"
+                            ) {
+                                showSettings = false
+                                // Let the settings sheet finish dismissing —
+                                // two sheet transitions in the same runloop
+                                // tick swallow the second presentation.
+                                Task { @MainActor in
+                                    try? await Task.sleep(for: .milliseconds(350))
+                                    appState.showInviteCode = true
+                                }
+                            }
+                        }
                     }
                     VStack(spacing: 2) {
                         MoreSectionHeader(title: "Settings")
@@ -923,6 +883,12 @@ struct MoreView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { showSettings = false } }
+            }
+            // EventsView owns a NavigationStack, so it presents rather than
+            // pushes (no nested-stack double toolbar).
+            .sheet(isPresented: $showEvents) {
+                EventsView()
+                    .environmentObject(appState)
             }
         }
     }
