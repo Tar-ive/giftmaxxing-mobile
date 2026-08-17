@@ -21,28 +21,30 @@ xcodebuild test -project Giftmaxxing.xcodeproj -scheme Giftmaxxing -only-testing
 npm --prefix infra/src test           # backend (node:test) — run before ANY infra deploy
 ```
 
-97 tests total: 41 in the package, 56 in the app. If that number drops, you lost a test.
+97 tests total: 43 in the package (macOS-native, ~1s), 54 in the app simulator suite.
+DesignSystem is UIKit-backed, so its tests run in the app suite rather than `swift test`. If that number drops, you lost a test.
 
 ## Layout
 
 | Path | What it is |
 |---|---|
 | `Giftmaxxing/` | The iOS app target — views, stores, app state |
-| `Packages/GiftmaxxingKit/` | Local Swift package: `GiftmaxxingCore` (models) and `GiftmaxxingRecommendation` (on-device ranking) |
+| `Packages/GiftmaxxingKit/` | Local Swift package: `GiftmaxxingCore` (models), `GiftmaxxingRecommendation` (on-device ranking), `GiftmaxxingNetworking` (APIClient), `GiftmaxxingDesignSystem` (tokens + components, iOS-only) |
 | `GiftmaxxingShare/` | Share extension — the Instagram/Pinterest → visual search bridge |
 | `infra/` | Terraform + the Lambda/App Runner handler (`infra/src/`) and ingest scripts (`infra/ingest/`) |
 | `web/` | Next.js app on Vercel — see `web/AGENTS.md` |
 
 ## Rules that are not negotiable
 
-**Modules may never import the app target.** `GiftmaxxingCore` and `GiftmaxxingRecommendation` are
-consumed by the app, never the reverse. If a module needs app behavior, define a protocol in the
+**Modules may never import the app target.** All four package modules are consumed by the app, never
+the reverse, and each depends only on `GiftmaxxingCore`. If a module needs app behavior, define a protocol in the
 module and conform to it in the app — as `InteractionUploading` does. A layering mistake must stay a
 compile error.
 
 **Design tokens only.** Every color, font, radius, spacing and shadow resolves through
-`Giftmaxxing/Extensions/Theme.swift`. No hex strings, no `.font(.system(size:))` in a view. A missing
-token means extending `Theme.swift` **and** `DESIGN.md` in the same PR. Read `DESIGN.md` before UI work.
+`GiftmaxxingDesignSystem` (`Theme.swift`). No hex strings, no `.font(.system(size:))` in a view. A missing
+token means extending `Theme.swift` **and** `DESIGN.md` in the same PR, and its name must not
+collide with a SwiftUI built-in (`Font.caption` did, and silently lost). Read `DESIGN.md` before UI work.
 
 **Never auto-merge into `main`.** Open PRs as drafts. A human merges, or the user says "merge #N".
 An agent merging without that ask is a bug, not a workflow.

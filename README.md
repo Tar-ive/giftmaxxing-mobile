@@ -27,9 +27,9 @@
 | Path | What's in it |
 |---|---|
 | `Giftmaxxing/` | The iOS app: views, stores, app state |
-| `Packages/GiftmaxxingKit/` | Local Swift package — `GiftmaxxingCore` (models), `GiftmaxxingRecommendation` (on-device ranking). **Never imports the app target.** |
+| `Packages/GiftmaxxingKit/` | Local Swift package — `GiftmaxxingCore` (models), `GiftmaxxingRecommendation` (ranking), `GiftmaxxingNetworking` (API), `GiftmaxxingDesignSystem` (tokens + components). **Never imports the app target.** |
 | `GiftmaxxingShare/` | Share extension: any app's share sheet → visual search |
-| `GiftmaxxingTests/` | App-target tests (56). Package tests live with the package (41). |
+| `GiftmaxxingTests/` | App-target tests (54). Package tests live with the package (43). |
 | `infra/` | Terraform, the Lambda/App Runner handler (`src/`), ingest scripts (`ingest/`), ML (`ml/`) |
 | `web/` | Next.js app |
 | `docs/` | Everything below |

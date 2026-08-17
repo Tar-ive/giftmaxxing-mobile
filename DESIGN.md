@@ -7,7 +7,8 @@ description: >
   soft continuous corners, spring motion with haptics. This file is the single
   source of truth for all UI work: coding agents MUST resolve every color, font,
   radius, spacing and shadow through the tokens below, which are exposed in
-  Swift by Giftmaxxing/Extensions/Theme.swift and Extensions/ThemePalette.swift.
+  Swift by Packages/GiftmaxxingKit/Sources/GiftmaxxingDesignSystem (Theme.swift,
+  ThemePalette.swift). Import GiftmaxxingDesignSystem to use them.
   Values here are the SHIPPED palette (warmBoutique); seven alternates exist and
   every token resolves through whichever palette is active at draw time.
 colors:
@@ -38,7 +39,7 @@ typography:
   bodyLarge:     { size: 16pt, weight: regular }
   bodyMedium:    { size: 14pt, weight: regular }
   bodySmall:     { size: 12pt, weight: regular }
-  caption:       { size: 11pt, weight: medium }
+  captionMedium: { size: 11pt, weight: medium }   # NOT `caption` — SwiftUI owns that name
   labelBold:     { size: 14pt, weight: bold }
 rounded:          # ThemeRadius
   sm: 8px         # thumbnails, small controls
@@ -68,13 +69,17 @@ Four rules. They are the reason this file exists.
 1. **Never hardcode a value.** No hex strings, no `.font(.system(size:))`, no
    magic radii, spacings or shadows in a view file. Resolve through the tokens.
 2. **A missing token is a PR to this file.** Need a colour, size or radius that
-   isn't here? Extend `Theme.swift` (and `ThemePalette.swift` if it's a colour)
+   isn't here? Extend `Theme.swift` (and `ThemePalette.swift` if it's a colour) in
+   `Packages/GiftmaxxingKit/Sources/GiftmaxxingDesignSystem/`
    **and** this document in the same PR. Never inline the one-off.
 3. **A new colour must ship light AND dark, in all eight palettes, and clear
    WCAG AA (4.5:1)** against the surface it sits on in both appearances. That
    contract is stated in `ThemePalette.swift` and is not negotiable.
-4. **Shared components only.** If two screens need it, it belongs in
-   `Giftmaxxing/Views/Components/` or as a `ButtonStyle` in `Theme.swift`.
+4. **Shared components only.** If two screens need it, it belongs in the
+   `GiftmaxxingDesignSystem` module — and if it can't go there because it reads
+   `AppState` or a store, that coupling is the thing to fix.
+5. **A token may not share a name with a SwiftUI built-in** (see the naming rule
+   below). Check `Font`, `Color` and `View` before naming one.
 
 ## How a colour actually resolves
 
@@ -147,10 +152,20 @@ If you introduce a palette, measure the same four ratios.
   being snapped square, which used to slice the top and bottom off collages.
 - **`AppIcons`** — the app-icon set; not a UI token surface.
 
+**One naming rule, learned the hard way.** A token must not share a name with a
+SwiftUI built-in. `Font.caption` did: inside a single module ours quietly won,
+but once the tokens moved into `GiftmaxxingDesignSystem` the two became
+ambiguous, and the resolution that *did* compile silently picked SwiftUI's
+dynamic caption over our 11pt medium — at 89 call sites. It is now
+`Font.captionMedium`. Check any new token name against SwiftUI's `Font`, `Color`
+and `View` members before adding it.
+
 ## Components
 
-Shared components live in `Giftmaxxing/Views/Components/`; styles live in
-`Theme.swift`. **If two screens need it, it's a component.**
+Shared components live in `GiftmaxxingDesignSystem`; styles live in its
+`Theme.swift`. Four components stayed in the app target because they read
+`AppState`, `APIClient`, `AuthManager` or `SwipeListStore`: `PostCardView`,
+`SwipeListPickerSheet`, `BoardSavedToast`, `ScreenshotShopRail`. **If two screens need it, it's a component.**
 
 **Built and in use:**
 
