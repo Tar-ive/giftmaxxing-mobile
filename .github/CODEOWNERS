@@ -1,0 +1,16 @@
+# The instruction and architecture files agents execute against. Agents may
+# propose changes; a human approves them. See "Maintaining this file" in
+# AGENTS.md for when these are allowed to change at all.
+/AGENTS.md      @Tar-ive
+/CLAUDE.md      @Tar-ive
+/CLOUD.md       @Tar-ive
+/DESIGN.md      @Tar-ive
+/DEPLOY.md      @Tar-ive
+/README.md      @Tar-ive
+/web/AGENTS.md  @Tar-ive
+
+# Release plumbing: a wrong edit here ships the wrong binary.
+/project.yml                  @Tar-ive
+/scripts/exportOptions.plist  @Tar-ive
+/scripts/app-store-release.mjs @Tar-ive
+/.github/workflows/           @Tar-ive

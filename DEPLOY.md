@@ -1,191 +1,137 @@
-# DEPLOY.md — Agent Deployment Playbook for Giftmaxxing
+# DEPLOY.md — how Giftmaxxing ships
 
-> **What this is.** A step-by-step prompt for an AI coding agent (Devin, Claude Code,
-> Cursor, etc.) to deploy the pending changes that surface Pinterest images in the
-> feed alongside Reddit posts. Follow every step in order. Do not skip steps.
+Three deploy targets, three processes. Everything here has been run on this machine; if a command
+doesn't work, fix the command or fix this file.
 
----
-
-## Prerequisites
-
-You need **AWS credentials** with permissions for:
-- Lambda (`lambda:UpdateFunctionCode`, `lambda:GetFunction`)
-- DynamoDB (`dynamodb:Scan`, `dynamodb:BatchWriteItem`, `dynamodb:GetItem`)
-- S3 (`s3:GetObject` on `giftmaxxing-dev-media`)
-- Terraform state (S3 backend or local, depending on setup)
-
-**Region:** `us-east-1`  
-**Account:** `445056752928`  
-**Repo:** `github.com/Tar-ive/giftmaxxing`
+> **CI is dead.** Every GitHub Actions workflow — including the ubuntu-only web CI — fails in about
+> four seconds because Actions billing is blocked. Nothing auto-deploys and no PR gets automated
+> checks. Restoring billing at [github.com/settings/billing](https://github.com/settings/billing) is
+> the prerequisite for going back to the workflow path in `docs/testflight-deployment.md`.
 
 ---
 
-## Step 1: Merge the open PRs
+## 1. iOS → TestFlight (the live process)
 
-There are two PRs that need to be merged into `main` in order:
+Run from a Mac with Xcode. The App Store Connect key must be at
+`~/.appstoreconnect/private_keys/AuthKey_254ZRKZ2HP.p8`.
 
-1. **PR #1** — [feat: swap Home and Drops](https://github.com/Tar-ive/giftmaxxing/pull/1)
-   - Moves the IdeasExplorer (recipient picker + gift ideas) from Home (`/feed`) to Drops (`/feed/drops`)
-   - Restores the infinite-scroll recommendation feed on the Home page
-   - Vercel preview build passes
-
-2. **PR #3** — [feat: ingest Pinterest pins into feed](https://github.com/Tar-ive/giftmaxxing/pull/3)
-   - Adds `infra/ingest/ingest-pins.mjs` (Pinterest → DynamoDB ingest script)
-   - Updates `infra/src/handler.mjs` (over-samples DynamoDB scan for proper source blending)
-   - Fixes store race condition in `web/components/app/store.tsx`
-   - Updates `CLOUD.md` roadmap
-   - Vercel preview build passes
-
-Merge both PRs (squash merge is fine). The Vercel frontend will auto-deploy on push to `main`.
+### Preflight — never skip
 
 ```bash
-gh pr merge 1 --squash
-gh pr merge 3 --squash
+git switch main && git pull --ff-only            # ship from main only
+xcodegen generate
+xcodebuild -project Giftmaxxing.xcodeproj -scheme Giftmaxxing \
+  -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build
+swift test --package-path Packages/GiftmaxxingKit
+xcodebuild test -project Giftmaxxing.xcodeproj -scheme Giftmaxxing -only-testing:GiftmaxxingTests \
+  -destination 'platform=iOS Simulator,id=9F1AFADE-7F36-433C-9C68-F9D39E8D279E'
+```
+
+97 tests must pass (41 package + 56 app).
+
+### Version
+
+Bump `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`, then `xcodegen generate`.
+Check what already exists first — build numbers are unique per app, and shipping a *lower* marketing
+version files the build under an older TestFlight train and reads as a downgrade to testers:
+
+```bash
+python3 scripts/asc-api.py '/v1/builds?filter[app]=6788124639&sort=-uploadedDate&limit=5&fields[builds]=version,uploadedDate,processingState'
+```
+
+### Archive — stamp the commit
+
+```bash
+SHA=$(git rev-parse --short HEAD)
+xcodebuild archive -project Giftmaxxing.xcodeproj -scheme Giftmaxxing -configuration Release \
+  -destination 'generic/platform=iOS' -archivePath /tmp/Giftmaxxing-<BUILD>.xcarchive \
+  -allowProvisioningUpdates \
+  -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_254ZRKZ2HP.p8 \
+  -authenticationKeyID 254ZRKZ2HP -authenticationKeyIssuerID 77c91aba-1d1e-431d-b9a3-a4dadd970467 \
+  CURRENT_PROJECT_VERSION=<BUILD> GIT_COMMIT=$SHA -quiet
+```
+
+`GIT_COMMIT` becomes the `GitCommit` Info.plist key, shown in You → Settings. Without it you cannot
+answer "which commit is this build?" later — which is exactly the hole that made tracing 1.1.2 take
+a session-log excavation.
+
+### Export — export *is* the upload
+
+```bash
+PATH=/usr/bin:/bin:/usr/sbin:/sbin xcodebuild -exportArchive \
+  -archivePath /tmp/Giftmaxxing-<BUILD>.xcarchive \
+  -exportOptionsPlist scripts/exportOptions.plist \
+  -exportPath /tmp/Giftmaxxing-<BUILD>-export \
+  -allowProvisioningUpdates \
+  -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_254ZRKZ2HP.p8 \
+  -authenticationKeyID 254ZRKZ2HP -authenticationKeyIssuerID 77c91aba-1d1e-431d-b9a3-a4dadd970467
+```
+
+`scripts/exportOptions.plist` sets `destination: upload`, so this step uploads to App Store Connect —
+there is no separate altool/Transporter call. The sanitized `PATH` keeps Homebrew's Python off the
+upload path. `manageAppVersionAndBuildNumber` lets Apple pick the next free build number, so manual
+and scripted uploads can interleave.
+
+Then poll until the build is `VALID` (2–5 minutes):
+
+```bash
+python3 scripts/asc-api.py '/v1/builds?filter[app]=6788124639&sort=-uploadedDate&limit=3&fields[builds]=version,processingState'
+```
+
+This puts the build in **TestFlight only**. It does not create an App Store version and does not
+submit anything for review.
+
+### Expiring a bad build
+
+```bash
+python3 scripts/asc-api.py "/v1/builds/<BUILD_ID>" PATCH \
+  '{"data":{"type":"builds","id":"<BUILD_ID>","attributes":{"expired":true}}}'
 ```
 
 ---
 
-## Step 2: Deploy the Lambda (required for feed blending)
+## 2. iOS → App Store
 
-The handler change in PR #3 (over-sampling scan) needs a Lambda redeployment. The Lambda
-is managed by Terraform in `infra/`.
-
-### Option A: Terraform apply (recommended)
+`scripts/app-store-release.mjs` releases the newest version sitting in `PENDING_DEVELOPER_RELEASE`,
+enables Apple's phased rollout, and **tags the released commit `v<version>`**:
 
 ```bash
-cd infra/
+node scripts/app-store-release.mjs              # dry run — prints the candidate, changes nothing
+node scripts/app-store-release.mjs --release    # releases + tags + pushes the tag
+```
 
-# Install the S3 Vectors SDK that gets bundled with the Lambda zip
-cd src && npm ci && cd ..
+Cadence and gates: `docs/release-cadence.md` (Thursday releases, manual release type). Historical
+releases `v1.0.1`–`v1.1.2` were tagged retroactively, with commits inferred from build upload times
+because those builds predate the `GitCommit` stamp.
 
-# Plan and apply
-terraform init
-terraform plan -out=tfplan
+---
+
+## 3. Backend → AWS
+
+```bash
+cd infra
+npm --prefix src ci                 # the Lambda bundle needs @aws-sdk/client-s3vectors
+npm --prefix src test               # must pass before you apply
+terraform init && terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
-This will:
-- Re-zip `infra/src/` (handler.mjs + node_modules) into `infra/build/api.zip`
-- Update the Lambda function `giftmaxxing-dev-api` with the new code
-- The `source_code_hash` change triggers the update automatically
+A healthy plan is **0 to add, 0 to destroy** (in-place `source_code_hash` updates are expected). If
+it wants to create ~98 resources, the backend/state is misconfigured — stop.
 
-### Option B: Manual Lambda update (if Terraform state is not available)
+**Terraform is only half a deploy.** The same handler also runs as a container behind CloudFront, so
+after applying: rebuild and push the ECR image, then `aws apprunner start-deployment`. Skipping this
+leaves Lambda and App Runner serving different code.
 
-```bash
-cd infra/src && npm ci && cd ..
+Auth is AWS SSO: `aws sso login --profile <name>`, then export `AWS_PROFILE` and
+`AWS_REGION=us-east-1`. Full portable runbook: `infra/DEPLOY-ANYWHERE.md`.
 
-# Zip the Lambda code
-cd src && zip -r ../build/api.zip . && cd ..
-
-# Update the Lambda function directly
-aws lambda update-function-code \
-  --function-name giftmaxxing-dev-api \
-  --zip-file fileb://build/api.zip \
-  --region us-east-1
-```
+Verify: `curl -s .../healthz` and one real `/feed` page.
 
 ---
 
-## Step 3: Verify Pinterest pins are in DynamoDB
+## 4. Web → Vercel
 
-The 72 Pinterest pins have already been ingested into the `posts` table via the `/seed`
-API endpoint. Verify they exist:
-
-```bash
-# Check a known pin by ID
-curl -s "https://tvyu8gqmki.execute-api.us-east-1.amazonaws.com/posts/pin-155303888285821723" | python3 -m json.tool | head -5
-```
-
-Expected: a JSON object with `"postId": "pin-155303888285821723"`, `"source": "Pinterest/etsy"`, and an `image` URL pointing to `i.pinimg.com/originals/...`.
-
-If the pins are NOT in DynamoDB (e.g., the table was wiped), re-run the ingest:
-
-```bash
-cd infra/ingest
-
-# 1. Regenerate the Pinterest RSS manifest (no AWS creds needed)
-node pinterest-rss.mjs --dry-run
-
-# 2. Ingest into DynamoDB via the /seed API endpoint (no AWS creds needed)
-node ingest-pins.mjs
-```
-
-This scrapes 72 pins from etsy/marthastewart/uncommongoods public RSS feeds, transforms
-them into the same post schema as Reddit items, and POSTs them to the `/seed` endpoint.
-
----
-
-## Step 4: Verify the feed shows Pinterest images
-
-After the Lambda is deployed, test the feed:
-
-```bash
-curl -s "https://tvyu8gqmki.execute-api.us-east-1.amazonaws.com/feed?limit=20" | \
-  python3 -c "
-import json, sys
-d = json.load(sys.stdin)
-items = d.get('items', [])
-pinterest = [i for i in items if 'pin-' in i.get('postId', '')]
-reddit = [i for i in items if i not in pinterest]
-print(f'Total: {len(items)}, Pinterest: {len(pinterest)}, Reddit: {len(reddit)}')
-for p in pinterest[:3]:
-    print(f'  {p[\"postId\"]}: {p[\"source\"]} — {p.get(\"caption\",\"\")[:60]}')
-"
-```
-
-**Expected:** A mix of Pinterest and Reddit posts on page 1 (e.g., 5-8 Pinterest out of 20).
-
-If Pinterest posts only appear on page 2+, the Lambda has NOT been redeployed yet (the
-old handler scans only `limit` items instead of `4 * limit`).
-
----
-
-## Step 5: Verify the deployed frontend
-
-After PRs are merged and Vercel auto-deploys:
-
-1. Open **https://giftmaxxing.vercel.app/feed** — should show an infinite-scroll feed
-   with PostCards (mix of Reddit and Pinterest images). Pinterest items have
-   `Pinterest/etsy` or similar as the source, and images from `i.pinimg.com`.
-
-2. Open **https://giftmaxxing.vercel.app/feed/drops** — should show the IdeasExplorer
-   (recipient picker → ranked gift ideas with Reddit discussion evidence).
-
-3. Check browser console for errors — there should be none.
-
----
-
-## Architecture summary
-
-```
-Pinterest RSS feeds (etsy, marthastewart, uncommongoods)
-  │
-  ├─► pinterest-rss.mjs ─► S3 media bucket (images/)
-  │                          │
-  │                          ├─► embed.mjs ─► S3 Vectors (pins index, 1024-d cosine)
-  │                          │                  │
-  │                          │                  └─► /recommendations (kNN vector path)
-  │                          │
-  ├─► ingest-pins.mjs ─► DynamoDB posts table ─► /feed (scan + scorePost ranking)
-  │
-Reddit scraped data (reddit-gifts.json)
-  │
-  └─► ingest.mjs ─► DynamoDB posts table ─► /feed (same table, blended by ranker)
-```
-
-The `/feed` handler over-samples (scans 4x the request limit, min 80) so the `scorePost`
-ranker sees items from both Reddit and Pinterest partitions, then returns the top N.
-
----
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
-|---|---|---|
-| Feed shows only Reddit posts on page 1 | Lambda not redeployed | Run Step 2 |
-| Feed shows no posts at all | DynamoDB table empty or API down | Check `curl /feed` directly; re-run ingest scripts |
-| Pinterest images show broken/tiny thumbnails | Using 236x Pinterest URLs | `ingest-pins.mjs` already upgrades to `/originals/`; re-run if needed |
-| Home page shows IdeasExplorer instead of feed | PR #1 not merged | Merge PR #1 |
-| Drops page shows "Coming Soon" | PR #1 not merged | Merge PR #1 |
-| `terraform apply` fails on Lambda | Missing `node_modules` in `src/` | Run `cd infra/src && npm ci` first |
-| `/seed` endpoint returns 500 | Lambda IAM missing DynamoDB write | Check `infra/iam.tf` has `dynamodb:BatchWriteItem` |
+Push to `main`. Vercel auto-deploys from GitHub with Root Directory = `web`. Do **not** deploy with
+the Vercel CLI. The gating check is `npm --prefix web run build`; lint reports one known pre-existing
+error and does not block.
