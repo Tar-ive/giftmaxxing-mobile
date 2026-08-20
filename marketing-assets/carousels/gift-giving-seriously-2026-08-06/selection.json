@@ -1,0 +1,16 @@
+{
+  "concept": "gift giving is my love language",
+  "hook": "when she says she's hard to shop for but gift giving is my love language",
+  "cards": [
+    {"cardIndex":1,"candidateIndex":9,"role":"hook","reason":"1,818 saves plus the cleanest negative space for the hook; the 3,317-save option has distracting laundry behind it"},
+    {"cardIndex":2,"candidateIndex":3,"role":"proof","reason":"neutral cozy recipient theme establishes range"},
+    {"cardIndex":3,"candidateIndex":4,"role":"proof","reason":"pink floral beauty hamper adds abundance"},
+    {"cardIndex":4,"candidateIndex":7,"role":"proof","reason":"highest-save assembled self-care basket becomes proof after losing the hook comparison on text placement"},
+    {"cardIndex":5,"candidateIndex":12,"role":"proof","reason":"vanilla palette and shoes create a distinct recipient theme"},
+    {"cardIndex":6,"candidateIndex":17,"role":"proof","reason":"personal photos and notes add emotional specificity"},
+    {"cardIndex":7,"candidateIndex":19,"role":"proof","reason":"car-seat setting closely matches the reference"},
+    {"cardIndex":8,"candidateIndex":40,"role":"proof","reason":"Stanley-as-container supplies a strong practical variation"},
+    {"cardIndex":9,"candidateIndex":52,"role":"proof","reason":"high-save flowers-and-care gift returns to the car setting"},
+    {"cardIndex":10,"candidateIndex":57,"role":"payoff","reason":"multiple prepared gifts together create the same proof-of-volume ending"}
+  ]
+}

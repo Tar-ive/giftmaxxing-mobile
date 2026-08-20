@@ -1,0 +1,90 @@
+{
+  "reference": {
+    "source": "https://www.giftofflist.com/guides/unique-gifts-for-hikers-25-picks-theyll-actually-use-on-the-trail",
+    "cardCount": 6,
+    "dimensions": {
+      "width": 1080,
+      "height": 1350
+    },
+    "aspectRatio": "4:5"
+  },
+  "opening": {
+    "role": "hook",
+    "differenceFromBody": "four-product visual grid",
+    "text": "hiker gifts that earn\nspace in the pack",
+    "position": "upper left",
+    "treatment": "midnight layout with category accent"
+  },
+  "cards": [
+    {
+      "index": 1,
+      "role": "hook",
+      "content": "hiker gifts that earn\nspace in the pack"
+    },
+    {
+      "index": 2,
+      "role": "product proof",
+      "content": "Hike Crew Socks",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.smartwool.com/en-us/products/hike-crew-socks-sw001614"
+    },
+    {
+      "index": 3,
+      "role": "product proof",
+      "content": "On The Go SPF Set",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://supergoop.com/products/on-the-go-spf-set"
+    },
+    {
+      "index": 4,
+      "role": "product proof",
+      "content": "ACTIK CORE Headlamp",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.petzl.com/US/en/Sport/Headlamps/ACTIK-CORE"
+    },
+    {
+      "index": 5,
+      "role": "product proof",
+      "content": "24oz GeoPress Purifier",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://grayl.com/products/24oz-geopress-filter-purifier-bottle-covert-edition"
+    },
+    {
+      "index": 6,
+      "role": "product proof",
+      "content": "MICROspikes Traction",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://kahtoola.com/traction/microspikes-footwear-traction/"
+    }
+  ],
+  "invariants": [
+    "one product per body card",
+    "live merchant link",
+    "original copy",
+    "price checked before publish",
+    "no visible app branding"
+  ],
+  "variability": [
+    "recipient",
+    "occasion",
+    "accent color",
+    "layout family",
+    "type style"
+  ],
+  "selectionRule": "Only merchant-verified products survive manual visual review."
+}

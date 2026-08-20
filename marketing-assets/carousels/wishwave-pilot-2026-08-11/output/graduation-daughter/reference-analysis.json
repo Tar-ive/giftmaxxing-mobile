@@ -1,0 +1,90 @@
+{
+  "reference": {
+    "source": "https://www.wishwave.com/guides/graduation-gifts-for-daughter",
+    "cardCount": 6,
+    "dimensions": {
+      "width": 1080,
+      "height": 1350
+    },
+    "aspectRatio": "4:5"
+  },
+  "opening": {
+    "role": "hook",
+    "differenceFromBody": "four-product visual grid",
+    "text": "graduation gifts for\nwhat comes next",
+    "position": "upper left",
+    "treatment": "editorial layout with category accent"
+  },
+  "cards": [
+    {
+      "index": 1,
+      "role": "hook",
+      "content": "graduation gifts for\nwhat comes next"
+    },
+    {
+      "index": 2,
+      "role": "product proof",
+      "content": "Classic Diploma Frame",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.framebridge.com/products/the-classic-diploma"
+    },
+    {
+      "index": 3,
+      "role": "product proof",
+      "content": "Camp Snap 2",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.campsnapphoto.com/products/camp-snap-2"
+    },
+    {
+      "index": 4,
+      "role": "product proof",
+      "content": "Away Carry-On",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.awaytravel.com/products/carry-on-misty-purple"
+    },
+    {
+      "index": 5,
+      "role": "product proof",
+      "content": "Daily Planner",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://daydesigner.com/products/2026-27-daily-planner-lemon-floral-sage"
+    },
+    {
+      "index": 6,
+      "role": "product proof",
+      "content": "Birdie personal alarm",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.shesbirdie.com/products/birdie-personal-safety-alarm-3-0"
+    }
+  ],
+  "invariants": [
+    "one product per body card",
+    "live merchant link",
+    "original copy",
+    "price checked before publish",
+    "no visible app branding"
+  ],
+  "variability": [
+    "recipient",
+    "occasion",
+    "accent color",
+    "layout family",
+    "type style"
+  ],
+  "selectionRule": "Only merchant-verified products survive manual visual review."
+}

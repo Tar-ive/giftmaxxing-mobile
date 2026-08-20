@@ -1,0 +1,6 @@
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/scenes/01-forgettable-gifts.mp4'
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/scenes/02-micro-friction.mp4'
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/scenes/03-small-luxury.mp4'
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/scenes/04-inside-callback.mp4'
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/scenes/05-permission-gift.mp4'
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/scenes/06-gift-notes.mp4'

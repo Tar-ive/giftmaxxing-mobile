@@ -1,0 +1,24 @@
+appId: com.giftmaxxing.ios
+name: UGC promo — capture swipe gesture
+---
+- extendedWaitUntil:
+    visible: "You"
+    timeout: 15000
+- tapOn:
+    point: "30%,95%"
+- extendedWaitUntil:
+    visible: "Swipe"
+    timeout: 15000
+- extendedWaitUntil:
+    visible: "1/30"
+    timeout: 20000
+- swipe:
+    start: 50%, 55%
+    end: 86%, 54%
+    duration: 650
+- waitForAnimationToEnd
+- swipe:
+    start: 50%, 55%
+    end: 14%, 54%
+    duration: 650
+- waitForAnimationToEnd

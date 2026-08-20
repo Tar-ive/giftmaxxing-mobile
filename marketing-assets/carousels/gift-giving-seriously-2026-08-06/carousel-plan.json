@@ -1,0 +1,36 @@
+{
+  "canvas": {"width":1080,"height":1920},
+  "defaults": {
+    "font":"/System/Library/Fonts/HelveticaNeue.ttc",
+    "fontSize":48,
+    "textColor":"#ffffff",
+    "strokeColor":"#29231f",
+    "strokeWidth":2
+  },
+  "cards": [
+    {
+      "id":"01",
+      "role":"hook",
+      "images":["source-images/01-968414726136460897.jpg"],
+      "text": {
+        "copy":"when she says she's hard to shop for\nbut gift giving is\nmy love language",
+        "x":480,
+        "y":165,
+        "maxWidth":730,
+        "fontSize":40,
+        "spacing":8,
+        "strokeWidth":1,
+        "align":"center"
+      }
+    },
+    {"id":"02","role":"proof","images":["source-images/02-5981412002639623.jpg"]},
+    {"id":"03","role":"proof","images":["source-images/03-1122663013399479936.jpg"]},
+    {"id":"04","role":"proof","images":["source-images/04-914371530618825417.jpg"]},
+    {"id":"05","role":"proof","images":["source-images/05-8373949304183868.jpg"]},
+    {"id":"06","role":"proof","images":["source-images/06-986780968373826486.jpg"]},
+    {"id":"07","role":"proof","images":["source-images/07-1028228158693730079.jpg"]},
+    {"id":"08","role":"proof","images":["source-images/08-140806234841361.jpg"]},
+    {"id":"09","role":"proof","images":["source-images/09-914862421597847.jpg"]},
+    {"id":"10","role":"payoff","images":["source-images/10-989736455588719656.jpg"]}
+  ]
+}

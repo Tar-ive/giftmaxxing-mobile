@@ -1,0 +1,195 @@
+{
+  "runAt": "2026-08-13T21:07:40.022Z",
+  "api": "https://d21osnvwewgoao.cloudfront.net",
+  "inventory": {
+    "total": 30,
+    "sources": {
+      "tiktok": 16,
+      "wishwave": 9,
+      "giftofflist": 5
+    }
+  },
+  "exposure": {
+    "unique": 30,
+    "totalSlots": 30,
+    "duplicates": 0,
+    "pages": 3
+  },
+  "missing": [],
+  "pages": [
+    {
+      "page": 1,
+      "items": 40,
+      "carousels": 10,
+      "nextCursor": true,
+      "entries": [
+        {
+          "sourcePostId": "7672135662056869133",
+          "title": "Useful gifts, upgraded",
+          "cover": "/curated/2026-08-11.4/7672135662056869133-01.jpg"
+        },
+        {
+          "sourcePostId": "editorial-teacher-gifts",
+          "title": "teacher gifts beyond another novelty mug",
+          "cover": "/curated/2026-08-11.4/editorial-teacher-gifts-01.jpg"
+        },
+        {
+          "sourcePostId": "editorial-sustainable-gifts-under-50",
+          "title": "considered gifts that stay under fifty",
+          "cover": "/curated/2026-08-11.4/editorial-sustainable-gifts-under-50-01.jpg"
+        },
+        {
+          "sourcePostId": "editorial-small-brand-home-gifts",
+          "title": "housewarming gifts with a maker behind them",
+          "cover": "/curated/2026-08-11.4/editorial-small-brand-home-gifts-01.jpg"
+        },
+        {
+          "sourcePostId": "editorial-runner-gifts",
+          "title": "runner gifts that are not another pair of shoes",
+          "cover": "/curated/2026-08-11.4/editorial-runner-gifts-01.jpg"
+        },
+        {
+          "sourcePostId": "editorial-nurse-gifts",
+          "title": "gifts that respect a twelve hour shift",
+          "cover": "/curated/2026-08-11.4/editorial-nurse-gifts-01.jpg"
+        },
+        {
+          "sourcePostId": "editorial-housewarming-gifts",
+          "title": "useful gifts for life after the moving boxes",
+          "cover": "/curated/2026-08-11.4/editorial-housewarming-gifts-01.jpg"
+        },
+        {
+          "sourcePostId": "editorial-hiker-gifts",
+          "title": "hiker gifts that earn space in the pack",
+          "cover": "/curated/2026-08-11.4/editorial-hiker-gifts-01.jpg"
+        },
+        {
+          "sourcePostId": "editorial-graduation-daughter",
+          "title": "graduation gifts for what comes next",
+          "cover": "/curated/2026-08-11.4/editorial-graduation-daughter-01.jpg"
+        },
+        {
+          "sourcePostId": "editorial-dog-lover-gifts",
+          "title": "dog gifts for both ends of the leash",
+          "cover": "/curated/2026-08-11.4/editorial-dog-lover-gifts-01.jpg"
+        }
+      ]
+    },
+    {
+      "page": 2,
+      "items": 40,
+      "carousels": 10,
+      "nextCursor": true,
+      "entries": [
+        {
+          "sourcePostId": "editorial-coffee-gifts",
+          "title": "5 gifts that make every morning better",
+          "cover": "/curated/2026-08-11.4/editorial-coffee-gifts-01.jpg"
+        },
+        {
+          "sourcePostId": "editorial-birdwatcher-gifts",
+          "title": "birding gifts they will actually take outside",
+          "cover": "/curated/2026-08-11.4/editorial-birdwatcher-gifts-01.jpg"
+        },
+        {
+          "sourcePostId": "editorial-beer-lover-gifts",
+          "title": "beer gifts better than a novelty pint glass",
+          "cover": "/curated/2026-08-11.4/editorial-beer-lover-gifts-01.jpg"
+        },
+        {
+          "sourcePostId": "editorial-artist-gifts",
+          "title": "artist gifts without guessing their medium",
+          "cover": "/curated/2026-08-11.4/editorial-artist-gifts-01.jpg"
+        },
+        {
+          "sourcePostId": "editorial-anniversary-boyfriend",
+          "title": "romantic gifts he will actually use",
+          "cover": "/curated/2026-08-11.4/editorial-anniversary-boyfriend-01.jpg"
+        },
+        {
+          "sourcePostId": "7670277671624002830",
+          "title": "Best-friend gifts with a memory",
+          "cover": "/curated/2026-08-11.4/7670277671624002830-01.jpg"
+        },
+        {
+          "sourcePostId": "7670641859131100430",
+          "title": "Make the memory the gift",
+          "cover": "/curated/2026-08-11.4/7670641859131100430-01.jpg"
+        },
+        {
+          "sourcePostId": "7670641318242077966",
+          "title": "Build a basket that isn't random",
+          "cover": "/curated/2026-08-11.4/7670641318242077966-01.jpg"
+        },
+        {
+          "sourcePostId": "7670946847652908301",
+          "title": "Gift basket inspiration",
+          "cover": "/curated/2026-08-11.4/7670946847652908301-01.jpg"
+        },
+        {
+          "sourcePostId": "7670651866773982478",
+          "title": "A couple gift needs a story",
+          "cover": "/curated/2026-08-11.4/7670651866773982478-01.jpg"
+        }
+      ]
+    },
+    {
+      "page": 3,
+      "items": 39,
+      "carousels": 10,
+      "nextCursor": false,
+      "entries": [
+        {
+          "sourcePostId": "7671418075136232717",
+          "title": "Start with who they are",
+          "cover": "/curated/2026-08-11.4/7671418075136232717-01.jpg"
+        },
+        {
+          "sourcePostId": "7671430372646767885",
+          "title": "A Target basket around $25",
+          "cover": "/curated/2026-08-11.4/7671430372646767885-01.jpg"
+        },
+        {
+          "sourcePostId": "7671663894208777485",
+          "title": "Gift by love language",
+          "cover": "/curated/2026-08-11.4/7671663894208777485-01.jpg"
+        },
+        {
+          "sourcePostId": "7670650943305682190",
+          "title": "Four ways to hold a memory",
+          "cover": "/curated/2026-08-11.4/7670650943305682190-01.jpg"
+        },
+        {
+          "sourcePostId": "7671711751519423757",
+          "title": "Seven ways gifts go wrong",
+          "cover": "/curated/2026-08-11.4/7671711751519423757-01.jpg"
+        },
+        {
+          "sourcePostId": "7671936750964477197",
+          "title": "Give them proof you remembered",
+          "cover": "/curated/2026-08-11.4/7671936750964477197-01.jpg"
+        },
+        {
+          "sourcePostId": "7672118727348899086",
+          "title": "College essentials she'll keep",
+          "cover": "/curated/2026-08-11.4/7672118727348899086-01.jpg"
+        },
+        {
+          "sourcePostId": "7672125837486886157",
+          "title": "What a ten-year-old will use",
+          "cover": "/curated/2026-08-11.4/7672125837486886157-01.jpg"
+        },
+        {
+          "sourcePostId": "7672130969398250765",
+          "title": "Little luxuries for her",
+          "cover": "/curated/2026-08-11.4/7672130969398250765-01.jpg"
+        },
+        {
+          "sourcePostId": "7670644980880248077",
+          "title": "Attention over price",
+          "cover": "/curated/2026-08-11.4/7670644980880248077-01.jpg"
+        }
+      ]
+    }
+  ]
+}

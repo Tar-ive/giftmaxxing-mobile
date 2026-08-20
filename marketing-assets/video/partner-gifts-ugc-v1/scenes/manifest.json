@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-08-04T23:19:13.008Z",
+  "shots": [
+    {
+      "name": "01-skip-generic-romance",
+      "input": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/partner-gifts-ugc-v1/stills/01-skip-generic-romance.png",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/partner-gifts-ugc-v1/scenes/01-skip-generic-romance.mp4",
+      "reused": true
+    },
+    {
+      "name": "02-daily-ritual",
+      "input": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/partner-gifts-ugc-v1/stills/02-daily-ritual.png",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/partner-gifts-ugc-v1/scenes/02-daily-ritual.mp4",
+      "reused": true
+    },
+    {
+      "name": "03-shared-memory",
+      "input": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/partner-gifts-ugc-v1/stills/03-shared-memory.png",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/partner-gifts-ugc-v1/scenes/03-shared-memory.mp4",
+      "reused": true
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "generatedAt": "2026-08-04T23:09:20.448Z",
+  "lines": [
+    {
+      "name": "01-forgettable-gifts",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/audio/01-forgettable-gifts.wav",
+      "reused": true
+    },
+    {
+      "name": "02-micro-friction",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/audio/02-micro-friction.wav",
+      "reused": true
+    },
+    {
+      "name": "03-small-luxury",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/audio/03-small-luxury.wav",
+      "reused": true
+    },
+    {
+      "name": "04-inside-callback",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/audio/04-inside-callback.wav",
+      "reused": true
+    },
+    {
+      "name": "05-permission-gift",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/audio/05-permission-gift.wav",
+      "reused": true
+    },
+    {
+      "name": "06-gift-notes",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/audio/06-gift-notes.wav",
+      "reused": true
+    }
+  ]
+}

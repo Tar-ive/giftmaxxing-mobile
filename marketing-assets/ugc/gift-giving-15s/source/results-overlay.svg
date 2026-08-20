@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <rect x="64" y="1475" width="952" height="286" rx="54" fill="#080b12" opacity=".86"/>
+  <text x="112" y="1575" fill="#fff" font-family="Arial, sans-serif"
+        font-size="60" font-weight="800">
+    <tspan x="112" dy="0">Now I know what she&apos;ll</tspan>
+    <tspan x="112" dy="76">actually love.</tspan>
+  </text>
+  <text x="112" y="1712" fill="#ff8a78" font-family="Arial, sans-serif"
+        font-size="30" font-weight="700" letter-spacing="2">NO MORE GUESSING</text>
+</svg>

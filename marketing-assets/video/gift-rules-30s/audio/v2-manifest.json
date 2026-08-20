@@ -1,0 +1,35 @@
+{
+  "generatedAt": "2026-08-04T22:54:35.207Z",
+  "lines": [
+    {
+      "name": "01-forgettable-gifts",
+      "text": "Stop buying forgettable gifts. Great gift givers follow five rules.",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/audio/v2-01-forgettable-gifts.wav"
+    },
+    {
+      "name": "02-micro-friction",
+      "text": "One: solve a micro-friction. Replace the leaky bottle, frayed charger, or cold coffee mug.",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/audio/v2-02-micro-friction.wav"
+    },
+    {
+      "name": "03-small-luxury",
+      "text": "Two: buy the best version of something inexpensive, not the cheapest version of something expensive.",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/audio/v2-03-small-luxury.wav"
+    },
+    {
+      "name": "04-inside-callback",
+      "text": "Three: turn an inside joke into a physical callback.",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/audio/v2-04-inside-callback.wav"
+    },
+    {
+      "name": "05-permission-gift",
+      "text": "Four: give guilt-free permission for the hobby, facial, or experience they never buy themselves.",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/audio/v2-05-permission-gift.wav"
+    },
+    {
+      "name": "06-gift-notes",
+      "text": "Five: keep notes whenever someone mentions a want or annoyance. Don't ask, what should I buy. Ask, what friction or desire can I solve.",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/audio/v2-06-gift-notes.wav"
+    }
+  ]
+}

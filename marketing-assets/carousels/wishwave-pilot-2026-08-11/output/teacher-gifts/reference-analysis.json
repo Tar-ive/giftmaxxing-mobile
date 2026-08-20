@@ -1,0 +1,90 @@
+{
+  "reference": {
+    "source": "https://www.giftofflist.com/guides/25-unique-teacher-gifts-theyll-actually-use-back-to-school-guide",
+    "cardCount": 6,
+    "dimensions": {
+      "width": 1080,
+      "height": 1350
+    },
+    "aspectRatio": "4:5"
+  },
+  "opening": {
+    "role": "hook",
+    "differenceFromBody": "four-product visual grid",
+    "text": "teacher gifts beyond\nanother novelty mug",
+    "position": "upper left",
+    "treatment": "editorial layout with category accent"
+  },
+  "cards": [
+    {
+      "index": 1,
+      "role": "hook",
+      "content": "teacher gifts beyond\nanother novelty mug"
+    },
+    {
+      "index": 2,
+      "role": "product proof",
+      "content": "Citron Swirl Notepad",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://moglea.com/products/citron-swirl-pad-small"
+    },
+    {
+      "index": 3,
+      "role": "product proof",
+      "content": "Weekly Task Planner",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://appointed.co/collections/shop-all/products/26-27-weekly-task-planner"
+    },
+    {
+      "index": 4,
+      "role": "product proof",
+      "content": "Standard BAGGU",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://baggu.com/products/standard-baggu-wild-plum"
+    },
+    {
+      "index": 5,
+      "role": "product proof",
+      "content": "Nitro Cold Brew Case",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://blkandbold.com/products/blk-bold-nitro-cold-brew-coffee-caramel"
+    },
+    {
+      "index": 6,
+      "role": "product proof",
+      "content": "Zen Garden Grow Kit",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://buzzyseeds.com/products/zen-garden-grow-kit-lavender-chamomile"
+    }
+  ],
+  "invariants": [
+    "one product per body card",
+    "live merchant link",
+    "original copy",
+    "price checked before publish",
+    "no visible app branding"
+  ],
+  "variability": [
+    "recipient",
+    "occasion",
+    "accent color",
+    "layout family",
+    "type style"
+  ],
+  "selectionRule": "Only merchant-verified products survive manual visual review."
+}

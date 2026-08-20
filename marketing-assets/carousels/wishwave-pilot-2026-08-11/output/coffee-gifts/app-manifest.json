@@ -1,0 +1,76 @@
+{
+  "id": "editorial-coffee-gifts-v1",
+  "title": "5 gifts that make every morning better",
+  "caption": "Coffee gifts for the person who already has opinions about grind size. Five useful upgrades across five budgets, checked at the merchant before publishing. ☕️ #giftideas #coffeelover #giftmaxxing",
+  "sourceGuide": "https://www.wishwave.com/guides/gifts-for-coffee-lovers",
+  "checkedAt": "2026-08-12T03:59:13.084Z",
+  "status": "prototype_review_required",
+  "products": [
+    {
+      "name": "Baratza Encore",
+      "reason": "the biggest upgrade for anyone still using a blade grinder",
+      "price": "$149.95",
+      "merchant": "Baratza",
+      "url": "https://www.baratza.com/en-us/product/encore-zcg485",
+      "imageUrl": "https://assets.breville.com/cdn-cgi/image/width=1000,format=png/ZCG410/ZCG410_Hero_DE.png?pdp"
+    },
+    {
+      "name": "OutIn Nano",
+      "reason": "real espresso for camping, offices and hotel rooms",
+      "price": "$149.99",
+      "merchant": "OutIn",
+      "url": "https://outin.com/products/nano-portable-espresso-machine-outin-teal",
+      "imageUrl": "https://outin.com/cdn/shop/files/0901_nano_5__1.webp?v=1766421638&width=1200"
+    },
+    {
+      "name": "Hario V60 set",
+      "reason": "a complete pour over ritual in one box",
+      "price": "$46.50",
+      "merchant": "Hario USA",
+      "url": "https://www.hario-usa.com/products/v60-craft-pour-over-set-colors",
+      "imageUrl": "https://www.hario-usa.com/cdn/shop/files/IMG_9528.jpg?v=1757347285&width=1200"
+    },
+    {
+      "name": "Trade coffee subscription",
+      "reason": "fresh bags matched to how they actually drink coffee",
+      "price": "from $66",
+      "merchant": "Trade Coffee",
+      "url": "https://www.drinktrade.com/products/coffee-gift-subscription",
+      "imageUrl": "https://www.drinktrade.com/cdn/shop/files/12-month_5e56ee12-9051-4d1d-be3d-15acc03b82bd.png?v=1762289704&width=1200"
+    },
+    {
+      "name": "Espresso bites",
+      "reason": "coffee they can eat on hikes, drives and long afternoons",
+      "price": "$24",
+      "merchant": "Big Island Coffee Roasters",
+      "url": "https://bigislandcoffeeroasters.com/products/espresso-bites-mixed",
+      "imageUrl": "https://bigislandcoffeeroasters.com/cdn/shop/files/Mixed_Espresso_Bites_Big_Island_Coffee_600x.png?v=1782345550"
+    }
+  ],
+  "slides": [
+    {
+      "index": 0,
+      "file": "slides/01.jpg"
+    },
+    {
+      "index": 1,
+      "file": "slides/02.jpg"
+    },
+    {
+      "index": 2,
+      "file": "slides/03.jpg"
+    },
+    {
+      "index": 3,
+      "file": "slides/04.jpg"
+    },
+    {
+      "index": 4,
+      "file": "slides/05.jpg"
+    },
+    {
+      "index": 5,
+      "file": "slides/06.jpg"
+    }
+  ]
+}

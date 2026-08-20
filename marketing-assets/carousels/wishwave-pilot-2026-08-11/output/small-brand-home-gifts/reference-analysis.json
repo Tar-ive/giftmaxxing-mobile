@@ -1,0 +1,90 @@
+{
+  "reference": {
+    "source": "https://www.giftofflist.com/guides/unique-housewarming-gifts-from-small-brands",
+    "cardCount": 6,
+    "dimensions": {
+      "width": 1080,
+      "height": 1350
+    },
+    "aspectRatio": "4:5"
+  },
+  "opening": {
+    "role": "hook",
+    "differenceFromBody": "four-product visual grid",
+    "text": "housewarming gifts with\na maker behind them",
+    "position": "upper left",
+    "treatment": "paper layout with category accent"
+  },
+  "cards": [
+    {
+      "index": 1,
+      "role": "hook",
+      "content": "housewarming gifts with\na maker behind them"
+    },
+    {
+      "index": 2,
+      "role": "product proof",
+      "content": "Wylie Hand-Blown Vase",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://everlastingcandleco.com/products/wylie-green-x9-wholesale"
+    },
+    {
+      "index": 3,
+      "role": "product proof",
+      "content": "Clyde Electric Kettle",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://fellowproducts.com/products/clyde-electric-kettle"
+    },
+    {
+      "index": 4,
+      "role": "product proof",
+      "content": "The Artist Series Set",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://brightland.co/products/the-artist-series-gift-set"
+    },
+    {
+      "index": 5,
+      "role": "product proof",
+      "content": "Diaspora Co. Cookbook",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.diasporaco.com/products/the-diaspora-co-cookbook"
+    },
+    {
+      "index": 6,
+      "role": "product proof",
+      "content": "Mini Hot Pot Set",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://flybyjing.com/products/the-hot-pot-starter-set"
+    }
+  ],
+  "invariants": [
+    "one product per body card",
+    "live merchant link",
+    "original copy",
+    "price checked before publish",
+    "no visible app branding"
+  ],
+  "variability": [
+    "recipient",
+    "occasion",
+    "accent color",
+    "layout family",
+    "type style"
+  ],
+  "selectionRule": "Only merchant-verified products survive manual visual review."
+}

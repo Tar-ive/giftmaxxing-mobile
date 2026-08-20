@@ -1,0 +1,89 @@
+{
+  "source": "https://www.pinterest.com/trinnab0n/gift-inspo/",
+  "groupingRule": "Use three tiles only when all three images clearly match. Use two tiles when a third image would weaken the theme.",
+  "format": {
+    "canvas": {"width": 1080, "height": 1920, "aspectRatio": "9:16"},
+    "imagesPerCard": "2 or 3, selected by thematic match",
+    "tileLayout": "equal horizontal tiles",
+    "textStyle": {
+      "title": "lowercase regular-weight serif on translucent espresso",
+      "subtitle": "lowercase light sans-serif on muted blush",
+      "placement": "centered at the canvas midpoint",
+      "branding": false
+    }
+  },
+  "carousels": [
+    {
+      "id": "01-paper-gifts",
+      "theme": "formats that physically preserve a personal memory",
+      "caption": "choose one memory, then decide how they should hold it: in a letter, a card, or a frame.",
+      "hashtags": ["giftideas", "diygift", "sentimentalgift", "giftinspo"],
+      "cards": [
+        {
+          "title": "ways to hold a memory",
+          "subtitle": "letter · card · frame",
+          "tileCount": 3,
+          "matchRationale": "each image represents one of the three named memory formats",
+          "tiles": ["01-bed-envelope-postcard.jpg", "03-birthday-scrapbook.jpg", "14-gold-photo-frame.jpg"]
+        },
+        {
+          "title": "the letter set",
+          "subtitle": "scrapbook note · sealed letters",
+          "tileCount": 2,
+          "matchRationale": "these are the only two images centered on written letters and envelopes",
+          "tiles": ["01-bed-envelope-postcard.jpg", "07-desk-letters.jpg"]
+        },
+        {
+          "title": "the birthday cards",
+          "subtitle": "photo page · pop-up · portrait card",
+          "tileCount": 3,
+          "matchRationale": "all three are handmade birthday cards built around personal photos",
+          "tiles": ["03-birthday-scrapbook.jpg", "08-photo-age-card.jpg", "06-photo-birthday-cards.jpg"]
+        },
+        {
+          "title": "the memory frames",
+          "subtitle": "gold collage · story frame · date frame",
+          "tileCount": 3,
+          "matchRationale": "all three are personalized framed displays of a shared memory",
+          "tiles": ["14-gold-photo-frame.jpg", "09-wood-memory-frame.jpg", "10-lego-marriage-frame.jpg"]
+        }
+      ]
+    },
+    {
+      "id": "02-tiny-gifts-for-two",
+      "theme": "paired and personalized gifts tied to a relationship memory",
+      "caption": "the best couple gift is not just matching. it points back to a story only the two of you share.",
+      "hashtags": ["couplegift", "giftideas", "sentimentalgift", "giftinspo"],
+      "cards": [
+        {
+          "title": "gifts made for two",
+          "subtitle": "lockets · keychains · shared song",
+          "tileCount": 3,
+          "matchRationale": "each image is a personalized couple keepsake tied to two people",
+          "tiles": ["13-photo-lockets.jpg", "12-lego-keychains.jpg", "11-anniversary-record.jpg"]
+        },
+        {
+          "title": "the photo keepsakes",
+          "subtitle": "locket · gold frame · story frame",
+          "tileCount": 3,
+          "matchRationale": "all three turn personal photos into displayable keepsakes",
+          "tiles": ["13-photo-lockets.jpg", "14-gold-photo-frame.jpg", "09-wood-memory-frame.jpg"]
+        },
+        {
+          "title": "the lego gifts",
+          "subtitle": "matching keychains · date frame",
+          "tileCount": 2,
+          "matchRationale": "only these two images use personalized LEGO figures",
+          "tiles": ["12-lego-keychains.jpg", "10-lego-marriage-frame.jpg"]
+        },
+        {
+          "title": "our story, two ways",
+          "subtitle": "shared song · shared page",
+          "tileCount": 2,
+          "matchRationale": "both gifts preserve a couple's story in one personal medium",
+          "tiles": ["11-anniversary-record.jpg", "01-bed-envelope-postcard.jpg"]
+        }
+      ]
+    }
+  ]
+}

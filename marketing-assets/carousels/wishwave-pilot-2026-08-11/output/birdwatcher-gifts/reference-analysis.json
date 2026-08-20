@@ -1,0 +1,90 @@
+{
+  "reference": {
+    "source": "https://www.giftofflist.com/guides/the-best-gifts-for-birdwatchers-what-birders-actually-want",
+    "cardCount": 6,
+    "dimensions": {
+      "width": 1080,
+      "height": 1350
+    },
+    "aspectRatio": "4:5"
+  },
+  "opening": {
+    "role": "hook",
+    "differenceFromBody": "four-product visual grid",
+    "text": "birding gifts they will\nactually take outside",
+    "position": "upper left",
+    "treatment": "split layout with category accent"
+  },
+  "cards": [
+    {
+      "index": 1,
+      "role": "hook",
+      "content": "birding gifts they will\nactually take outside"
+    },
+    {
+      "index": 2,
+      "role": "product proof",
+      "content": "Standard Issue Binoculars",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.nocsprovisions.com/products/standard-issue-8x25-waterproof-binoculars?variant=47377224073495"
+    },
+    {
+      "index": 3,
+      "role": "product proof",
+      "content": "Sibley Field Diary",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.birdcollective.com/products/the-sibley-birder-s-life-list-field-diary"
+    },
+    {
+      "index": 4,
+      "role": "product proof",
+      "content": "Foldable Backpack Stool",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://kalsten.com/products/noxord-foldable-backpack-stool"
+    },
+    {
+      "index": 5,
+      "role": "product proof",
+      "content": "230° LED Headlamp",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.nightbuddy.co/products/nightbuddy%E2%84%A2-230-led-headlamp"
+    },
+    {
+      "index": 6,
+      "role": "product proof",
+      "content": "TeleCular Zoom Lens",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.shopapexel.com/products/telecular-3-series-20-60x-zoom-telephoto-lens"
+    }
+  ],
+  "invariants": [
+    "one product per body card",
+    "live merchant link",
+    "original copy",
+    "price checked before publish",
+    "no visible app branding"
+  ],
+  "variability": [
+    "recipient",
+    "occasion",
+    "accent color",
+    "layout family",
+    "type style"
+  ],
+  "selectionRule": "Only merchant-verified products survive manual visual review."
+}

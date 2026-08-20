@@ -1,0 +1,76 @@
+{
+  "id": "editorial-birdwatcher-gifts-v1",
+  "title": "birding gifts they will actually take outside",
+  "caption": "Skip the bird-print mug. These five gifts support spotting, recording and staying comfortable in the field. Merchant availability checked before publishing. 🐦 #birdwatching #outdoorgifts #giftideas",
+  "sourceGuide": "https://www.giftofflist.com/guides/the-best-gifts-for-birdwatchers-what-birders-actually-want",
+  "checkedAt": "2026-08-12T03:59:13.084Z",
+  "status": "prototype_review_required",
+  "products": [
+    {
+      "name": "Standard Issue Binoculars",
+      "reason": "compact waterproof optics for backyard and trail sightings",
+      "price": "$99.95",
+      "merchant": "Nocs Provisions",
+      "url": "https://www.nocsprovisions.com/products/standard-issue-8x25-waterproof-binoculars?variant=47377224073495",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0232/3270/8686/files/Standard-NOC-STD-ALP-main-1000x100017527853275014_21d3caac-d61e-4fb3-9540-61e9862773a4.webp?v=1763398235"
+    },
+    {
+      "name": "Sibley Field Diary",
+      "reason": "a proper place to record sightings and build a life list",
+      "price": "$22",
+      "merchant": "Bird Collective",
+      "url": "https://www.birdcollective.com/products/the-sibley-birder-s-life-list-field-diary",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0251/1126/5366/files/the-sibley-birders-life-list-field-diary-817690.jpg?v=1711473126"
+    },
+    {
+      "name": "Foldable Backpack Stool",
+      "reason": "a seat and carry bag for longer waits at one viewing spot",
+      "price": "$61.99",
+      "merchant": "Kalsten",
+      "url": "https://kalsten.com/products/noxord-foldable-backpack-stool",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0736/8661/4284/files/14578731-f0b2-4b63-3d28-27d4fd5c1800.png?v=1776941291"
+    },
+    {
+      "name": "230° LED Headlamp",
+      "reason": "wide hands-free light for early starts and late returns",
+      "price": "$34.95",
+      "merchant": "NightBuddy",
+      "url": "https://www.nightbuddy.co/products/nightbuddy%E2%84%A2-230-led-headlamp",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0609/9422/4340/files/10_739a6a6d-7c96-4959-a152-3866b4a496d3.png?v=1762458448"
+    },
+    {
+      "name": "TeleCular Zoom Lens",
+      "reason": "pairs long-range observation with phone photography",
+      "price": "from $129.99",
+      "merchant": "APEXEL",
+      "url": "https://www.shopapexel.com/products/telecular-3-series-20-60x-zoom-telephoto-lens",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0069/3161/1701/files/T20-60X_1_1500x1500_ec8875ea-a00a-43ab-94cc-422efce8d06e.webp?v=1776066680"
+    }
+  ],
+  "slides": [
+    {
+      "index": 0,
+      "file": "slides/01.jpg"
+    },
+    {
+      "index": 1,
+      "file": "slides/02.jpg"
+    },
+    {
+      "index": 2,
+      "file": "slides/03.jpg"
+    },
+    {
+      "index": 3,
+      "file": "slides/04.jpg"
+    },
+    {
+      "index": 4,
+      "file": "slides/05.jpg"
+    },
+    {
+      "index": 5,
+      "file": "slides/06.jpg"
+    }
+  ]
+}

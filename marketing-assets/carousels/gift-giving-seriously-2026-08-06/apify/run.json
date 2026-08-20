@@ -1,0 +1,16 @@
+{
+  "actor": "automation-lab/pinterest-scraper",
+  "runId": "eMZcxOX72rXkRV4Gg",
+  "datasetId": "ZohG3PUPOQvuN1eFg",
+  "queries": [
+    "gift baskets i made aesthetic",
+    "pink gift basket for best friend",
+    "neutral cozy self care gift basket",
+    "stanley cup gift basket for her",
+    "mini tote bag gift basket ideas",
+    "multiple gift baskets in car"
+  ],
+  "requestedMaxPinsPerQuery": 12,
+  "returnedItems": 60,
+  "scrapedAt": "2026-08-06T14:36:37.658Z"
+}

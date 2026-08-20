@@ -1,0 +1,3 @@
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-wrapping-ugc-v1/final/01-hook-plain-bag.mp4'
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-wrapping-ugc-v1/final/02-texture-and-detail.mp4'
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-wrapping-ugc-v1/final/03-the-slow-reveal.mp4'

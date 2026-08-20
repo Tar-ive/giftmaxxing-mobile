@@ -1,0 +1,90 @@
+{
+  "reference": {
+    "source": "https://www.wishwave.com/guides/gifts-for-beer-lovers",
+    "cardCount": 6,
+    "dimensions": {
+      "width": 1080,
+      "height": 1350
+    },
+    "aspectRatio": "4:5"
+  },
+  "opening": {
+    "role": "hook",
+    "differenceFromBody": "four-product visual grid",
+    "text": "beer gifts better than\na novelty pint glass",
+    "position": "upper left",
+    "treatment": "midnight layout with category accent"
+  },
+  "cards": [
+    {
+      "index": 1,
+      "role": "hook",
+      "content": "beer gifts better than\na novelty pint glass"
+    },
+    {
+      "index": 2,
+      "role": "product proof",
+      "content": "Fizzics DraftPour",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://store.fizzics.com/products/fizzics-draftpour"
+    },
+    {
+      "index": 3,
+      "role": "product proof",
+      "content": "uKeg Go 64",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://growlerwerks.com/products/ukeg-go-64"
+    },
+    {
+      "index": 4,
+      "role": "product proof",
+      "content": "Wood USA Beer Cap Map",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.beercapmaps.com/products/usa-map"
+    },
+    {
+      "index": 5,
+      "role": "product proof",
+      "content": "Beer Flight Deck",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.33books.com/products/flight-deck-beer-edition"
+    },
+    {
+      "index": 6,
+      "role": "product proof",
+      "content": "Cornbread & Ale mix",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.soberdough.com/products/cornbread-ale-new"
+    }
+  ],
+  "invariants": [
+    "one product per body card",
+    "live merchant link",
+    "original copy",
+    "price checked before publish",
+    "no visible app branding"
+  ],
+  "variability": [
+    "recipient",
+    "occasion",
+    "accent color",
+    "layout family",
+    "type style"
+  ],
+  "selectionRule": "Only merchant-verified products survive manual visual review."
+}

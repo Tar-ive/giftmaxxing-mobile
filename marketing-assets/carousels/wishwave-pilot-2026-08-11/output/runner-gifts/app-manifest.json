@@ -1,0 +1,76 @@
+{
+  "id": "editorial-runner-gifts-v1",
+  "title": "runner gifts that are not another pair of shoes",
+  "caption": "Runner gifts are safest when they support the habit without guessing shoe fit. Five training, carry and recovery upgrades across five budgets. 🏃 #runninggifts #giftideas #giftmaxxing",
+  "sourceGuide": "https://www.wishwave.com/guides/gifts-for-runners",
+  "checkedAt": "2026-08-12T03:59:13.084Z",
+  "status": "prototype_review_required",
+  "products": [
+    {
+      "name": "OpenRun Pro 2",
+      "reason": "open-ear audio leaves the surrounding world audible",
+      "price": "$179.95",
+      "merchant": "Shokz",
+      "url": "https://shokz.com/products/openrunpro2",
+      "imageUrl": "https://shokz.com/cdn/shop/files/LunarWhiteStandard_1.webp?v=1783562552"
+    },
+    {
+      "name": "FlipBelt Classic",
+      "reason": "carries a phone and keys without a loose armband",
+      "price": "from $44",
+      "merchant": "FlipBelt",
+      "url": "https://flipbelt.com/products/flipbelt-classic-running-belt",
+      "imageUrl": "https://flipbelt.com/cdn/shop/files/5_24258f70-e24f-4ee8-98de-c30fbc0071c2.png?v=1770831935"
+    },
+    {
+      "name": "Hidden Comfort Socks",
+      "reason": "a cushioned no-show pair that avoids guessing their shoes",
+      "price": "$17",
+      "merchant": "Balega",
+      "url": "https://balega.com/products/hidden-comfort-no-show-tab",
+      "imageUrl": "https://balega.com/cdn/shop/files/xueedfoc4ytz2b6gucu9_1_4.jpg?v=1741879419"
+    },
+    {
+      "name": "Forerunner 165",
+      "reason": "training data and route tracking without carrying a phone",
+      "price": "$249.99",
+      "merchant": "Garmin",
+      "url": "https://www.garmin.com/en-US/p/1055469/",
+      "imageUrl": "https://res.garmin.com/en/products/010-02863-21/v/cf-lg.jpg"
+    },
+    {
+      "name": "GRID 2.0 Foam Roller",
+      "reason": "a simple recovery tool for post-run routines",
+      "price": "$74.99",
+      "merchant": "TriggerPoint",
+      "url": "https://tptherapy.com/products/grid-2-0-foam-roller",
+      "imageUrl": "https://tptherapy.com/cdn/shop/files/o7ehc6v550ykxbduixqt.jpg?v=1750694295"
+    }
+  ],
+  "slides": [
+    {
+      "index": 0,
+      "file": "slides/01.jpg"
+    },
+    {
+      "index": 1,
+      "file": "slides/02.jpg"
+    },
+    {
+      "index": 2,
+      "file": "slides/03.jpg"
+    },
+    {
+      "index": 3,
+      "file": "slides/04.jpg"
+    },
+    {
+      "index": 4,
+      "file": "slides/05.jpg"
+    },
+    {
+      "index": 5,
+      "file": "slides/06.jpg"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "sources": {
+    "S01": "../S01.mp4",
+    "S02": "../S02.mp4",
+    "S03": "../S03.mp4",
+    "S04": "../S04.mp4",
+    "S05": "../S05.mp4",
+    "S06": "../S06.mp4"
+  },
+  "ranges": [
+    { "source": "S01", "start": 0, "end": 5, "beat": "HOOK", "reason": "Immediate skeptical reaction establishes the problem." },
+    { "source": "S02", "start": 0, "end": 5, "beat": "MICRO_FRICTION", "reason": "Clean visible replacement action." },
+    { "source": "S03", "start": 0, "end": 5, "beat": "SMALL_LUXURY", "reason": "Tactile premium-everyday demonstration." },
+    { "source": "S04", "start": 0, "end": 5, "beat": "INSIDE_CALLBACK", "reason": "Shared laugh is the emotional peak." },
+    { "source": "S05", "start": 0, "end": 5, "beat": "PERMISSION_GIFT", "reason": "Safe personalized skincare consultation moment." },
+    { "source": "S06", "start": 0, "end": 5, "beat": "SYSTEM", "reason": "Phone-note behavior closes the mental model." }
+  ],
+  "grade": "none",
+  "overlays": [
+    { "file": "animations/slot_01/render.mov", "start_in_output": 0, "duration": 5 },
+    { "file": "animations/slot_02/render.mov", "start_in_output": 5, "duration": 5 },
+    { "file": "animations/slot_03/render.mov", "start_in_output": 10, "duration": 5 },
+    { "file": "animations/slot_04/render.mov", "start_in_output": 15, "duration": 5 },
+    { "file": "animations/slot_05/render.mov", "start_in_output": 20, "duration": 5 },
+    { "file": "animations/slot_06/render.mov", "start_in_output": 25, "duration": 5 }
+  ],
+  "total_duration_s": 30
+}

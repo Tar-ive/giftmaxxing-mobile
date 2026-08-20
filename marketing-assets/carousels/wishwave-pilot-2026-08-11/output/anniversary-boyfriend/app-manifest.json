@@ -1,0 +1,76 @@
+{
+  "id": "editorial-anniversary-boyfriend-v1",
+  "title": "romantic gifts he will actually use",
+  "caption": "Anniversary gifts that feel personal without becoming shelf clutter. Pair one useful upgrade with a handwritten note and the gift becomes a memory. ❤️ #anniversarygift #giftideas #giftmaxxing",
+  "sourceGuide": "https://www.wishwave.com/guides/anniversary-gifts-for-boyfriend",
+  "checkedAt": "2026-08-12T03:59:13.084Z",
+  "status": "prototype_review_required",
+  "products": [
+    {
+      "name": "BestSelf Intimacy Deck",
+      "reason": "a date night conversation starter that creates the memory too",
+      "price": "$27",
+      "merchant": "BestSelf",
+      "url": "https://bestself.co/products/intimacy-deck",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/1015/4487/files/intimacy-deck-card-deck-romantic-connection-529185.jpg?v=1758928240"
+    },
+    {
+      "name": "Coco Hinoki candle",
+      "reason": "woodsy atmosphere for staying in together",
+      "price": "$44",
+      "merchant": "Boy Smells",
+      "url": "https://boysmells.com/products/coco-fantome-standard-candle-9oz",
+      "imageUrl": "https://boysmells.com/cdn/shop/files/BS_PDP_Standard_Candle_Vessel_Coco_Hinoki_e13222f8-53fc-4edd-8478-78280f179a02.png?v=1778776257&width=1024"
+    },
+    {
+      "name": "Front pocket wallet",
+      "reason": "a daily carry made personal with initials or your date",
+      "price": "$89",
+      "merchant": "Popov Leather",
+      "url": "https://www.popovleather.com/products/leather-front-pocket-wallet",
+      "imageUrl": "https://www.popovleather.com/cdn/shop/files/leather-front-pocket-wallet-popov-leather-1121197766.jpg?v=1742587542"
+    },
+    {
+      "name": "Graza olive oil duo",
+      "reason": "a cook together date night that keeps paying off",
+      "price": "$42.98",
+      "merchant": "Graza",
+      "url": "https://www.graza.co/products/duo-glass",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0550/0003/9638/files/IMAGE_1_Duo-Glass_51f38d4e-9da3-42fb-a95d-01f337657ae9.jpg?v=1762307678"
+    },
+    {
+      "name": "Clear cocktail ice mold",
+      "reason": "bar style ice for the toast at the end of the night",
+      "price": "$21",
+      "merchant": "W&P",
+      "url": "https://wandp.com/products/silicone-large-clear-cocktail-ice-cube-mold",
+      "imageUrl": "https://wandp.com/cdn/shop/products/WP_VM_Peak_Clear_Ice_01_4x5_Web.jpg?v=1762463330"
+    }
+  ],
+  "slides": [
+    {
+      "index": 0,
+      "file": "slides/01.jpg"
+    },
+    {
+      "index": 1,
+      "file": "slides/02.jpg"
+    },
+    {
+      "index": 2,
+      "file": "slides/03.jpg"
+    },
+    {
+      "index": 3,
+      "file": "slides/04.jpg"
+    },
+    {
+      "index": 4,
+      "file": "slides/05.jpg"
+    },
+    {
+      "index": 5,
+      "file": "slides/06.jpg"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-08-04T23:38:04.827Z",
+  "shots": [
+    {
+      "name": "01-hook-worlds-best-mug",
+      "input": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/parent-gifts-ugc-v1/stills/01-hook-worlds-best-mug.png",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/parent-gifts-ugc-v1/scenes/01-hook-worlds-best-mug.mp4",
+      "reused": true
+    },
+    {
+      "name": "02-the-recipe-card",
+      "input": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/parent-gifts-ugc-v1/stills/02-the-recipe-card.png",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/parent-gifts-ugc-v1/scenes/02-the-recipe-card.mp4",
+      "reused": true
+    },
+    {
+      "name": "03-moms-reaction",
+      "input": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/parent-gifts-ugc-v1/stills/03-moms-reaction.png",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/parent-gifts-ugc-v1/scenes/03-moms-reaction.mp4",
+      "reused": true
+    }
+  ]
+}

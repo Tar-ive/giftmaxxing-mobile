@@ -1,0 +1,120 @@
+{
+  "reference": {
+    "source": "/Users/tarive/Downloads/snaptik-app-7644794673596206366-slides.zip",
+    "cardCount": 10,
+    "dimensions": { "width": 1242, "height": 2208 },
+    "aspectRatio": "9:16",
+    "format": "one full-frame vertical photo per card"
+  },
+  "opening": {
+    "role": "person-led confession hook",
+    "differenceFromBody": "The first card shows the giver's face in a car; every later card is proof of gifts she assembled.",
+    "text": "when someone mentions gift giving but that's something i take VERY seriously",
+    "position": "upper center, roughly 12% from the top",
+    "treatment": "three centered lines, white compact sans-serif, medium weight, subtle dark edge/shadow",
+    "hookMechanism": "identity claim followed by visual proof"
+  },
+  "cards": [
+    {
+      "index": 1,
+      "role": "hook",
+      "content": "young woman taking a dusk car selfie",
+      "shotType": "medium close-up",
+      "text": { "present": true, "position": "upper center", "copy": "when someone mentions gift giving but that's something i take VERY seriously" }
+    },
+    {
+      "index": 2,
+      "role": "proof",
+      "content": "neutral wicker hamper on a tan passenger seat with a candle, snacks, cookies and pink accents",
+      "shotType": "close product shot",
+      "text": { "present": false },
+      "searchIntent": "neutral wicker gift basket on car seat cozy snacks candle"
+    },
+    {
+      "index": 3,
+      "role": "proof",
+      "content": "cream woven self-care basket on a leopard blanket with slippers, skincare and snacks",
+      "shotType": "slightly elevated product shot",
+      "text": { "present": false },
+      "searchIntent": "neutral self care gift basket slippers skincare snacks aesthetic"
+    },
+    {
+      "index": 4,
+      "role": "proof",
+      "content": "bright pink and red candy-and-beauty gift box photographed on a tan car seat",
+      "shotType": "top-down product shot",
+      "text": { "present": false },
+      "searchIntent": "pink candy beauty gift basket best friend car seat"
+    },
+    {
+      "index": 5,
+      "role": "proof",
+      "content": "small green-and-cream canvas tote used as a candy gift basket",
+      "shotType": "front three-quarter product shot",
+      "text": { "present": false },
+      "searchIntent": "mini canvas tote gift basket candy for her"
+    },
+    {
+      "index": 6,
+      "role": "proof",
+      "content": "small round wicker cozy basket with blanket, mug, candle and snacks beside a framed keepsake",
+      "shotType": "slightly elevated product shot",
+      "text": { "present": false },
+      "searchIntent": "small cozy gift basket blanket mug candle keepsake"
+    },
+    {
+      "index": 7,
+      "role": "proof",
+      "content": "three red-and-pink open snack boxes tied with red polka-dot ribbon on a car seat",
+      "shotType": "top-down group shot",
+      "text": { "present": false },
+      "searchIntent": "multiple handmade snack gift boxes ribbon car seat"
+    },
+    {
+      "index": 8,
+      "role": "proof",
+      "content": "pink striped Stanley tumbler stuffed with small accessories and gift items",
+      "shotType": "close product shot",
+      "text": { "present": false },
+      "searchIntent": "pink Stanley cup stuffed gift basket for her"
+    },
+    {
+      "index": 9,
+      "role": "proof",
+      "content": "large beauty and self-care wicker basket on a bed with pink tissue paper",
+      "shotType": "wide product shot",
+      "text": { "present": false },
+      "searchIntent": "large pink beauty self care gift basket on bed"
+    },
+    {
+      "index": 10,
+      "role": "payoff",
+      "content": "an entire back seat filled with several completed gift baskets and snack boxes",
+      "shotType": "wide proof-of-volume shot",
+      "text": { "present": false },
+      "searchIntent": "multiple completed gift baskets lined up in car back seat"
+    }
+  ],
+  "invariants": [
+    "9:16 full-frame photography",
+    "one image per card",
+    "gift contents are already assembled and visibly abundant",
+    "casual phone-camera realism",
+    "no branding, borders or body-card captions",
+    "the sequence reads as gifts made by one attentive giver"
+  ],
+  "variability": [
+    "container: wicker basket, tote, gift box, tumbler",
+    "palette: neutral, pink, red, green",
+    "recipient or theme: cozy, beauty, snacks, character, practical",
+    "location: passenger seat, back seat, bed, home surface",
+    "scale: one small bundle through a whole carload"
+  ],
+  "selectionRule": "Use saves as engagement evidence only after semantic fit and visual clarity pass. Reject product ads, text-heavy graphics, collages, unassembled products and unrelated car-care baskets even when their save counts are higher.",
+  "recommendedRemake": {
+    "concept": "when someone says they don't know what to gift her but i take that personally",
+    "structure": "one confession hook plus nine believable proof shots",
+    "bodyText": false,
+    "ending": "finish with the highest-volume scene: several completed gifts together"
+  }
+}

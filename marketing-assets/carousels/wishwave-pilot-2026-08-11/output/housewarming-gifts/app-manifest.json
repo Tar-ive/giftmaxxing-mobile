@@ -1,0 +1,76 @@
+{
+  "id": "editorial-housewarming-gifts-v1",
+  "title": "useful gifts for life after the moving boxes",
+  "caption": "Housewarming gifts should make the new place easier, warmer or more theirs. Here are five that survive long after the cardboard boxes disappear. 🏡 #housewarming #giftideas #giftmaxxing",
+  "sourceGuide": "https://www.wishwave.com/guides/useful-housewarming-gifts",
+  "checkedAt": "2026-08-12T03:59:13.084Z",
+  "status": "prototype_review_required",
+  "products": [
+    {
+      "name": "Always Pan 2.0",
+      "reason": "one good pan for most weeknight meals",
+      "price": "$135",
+      "merchant": "Our Place",
+      "url": "https://fromourplace.com/products/always-essential-cooking-pan",
+      "imageUrl": "https://fromourplace.com/cdn/shop/products/AP_Spice_1.jpg?v=1772474712"
+    },
+    {
+      "name": "Clean Essentials kit",
+      "reason": "refillable cleaning basics for a fresh start",
+      "price": "$46",
+      "merchant": "Blueland",
+      "url": "https://www.blueland.com/products/the-clean-essentials",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0057/9158/0227/files/Site_PDP_CleanEssentials_Kit_5.jpg?v=1743109160"
+    },
+    {
+      "name": "Little Green cleaner",
+      "reason": "the practical hero for rugs, couches and inevitable spills",
+      "price": "$99.99",
+      "merchant": "Bissell",
+      "url": "https://www.bissell.com/en-us/product/little-green-portable-carpet-upholstery-cleaner-1400B.html",
+      "imageUrl": "https://www.bissell.com/dw/image/v2/BDKV_PRD/on/demandware.static/-/Sites-master-catalog-bissell/default/dw2cf2ad67/pwa-hi-res/Product-Images/1400B/1400B_LittleGreen_Packin_1300x1300_9_24.png?sw=1300&sh=1300&sm=fit"
+    },
+    {
+      "name": "New Home candle",
+      "reason": "a first night ritual that makes the place feel lived in",
+      "price": "$29.95",
+      "merchant": "Homesick",
+      "url": "https://homesick.com/products/new-home-candle",
+      "imageUrl": "https://homesick.com/cdn/shop/files/HMS.NewHome.Ecom.PDP.2.png?v=1764795894"
+    },
+    {
+      "name": "Kitchen cutting board",
+      "reason": "a useful everyday tool that still feels gift worthy",
+      "price": "$25",
+      "merchant": "Epicurean",
+      "url": "https://www.epicureancs.com/product/kitchen-series-cutting-board/",
+      "imageUrl": "https://epicurean.com/cdn/shop/products/KS1.jpg?v=1664636231"
+    }
+  ],
+  "slides": [
+    {
+      "index": 0,
+      "file": "slides/01.jpg"
+    },
+    {
+      "index": 1,
+      "file": "slides/02.jpg"
+    },
+    {
+      "index": 2,
+      "file": "slides/03.jpg"
+    },
+    {
+      "index": 3,
+      "file": "slides/04.jpg"
+    },
+    {
+      "index": 4,
+      "file": "slides/05.jpg"
+    },
+    {
+      "index": 5,
+      "file": "slides/06.jpg"
+    }
+  ]
+}

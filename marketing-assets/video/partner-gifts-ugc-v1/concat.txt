@@ -1,0 +1,3 @@
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/partner-gifts-ugc-v1/final/01-skip-generic-romance.mp4'
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/partner-gifts-ugc-v1/final/02-daily-ritual.mp4'
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/partner-gifts-ugc-v1/final/03-shared-memory.mp4'

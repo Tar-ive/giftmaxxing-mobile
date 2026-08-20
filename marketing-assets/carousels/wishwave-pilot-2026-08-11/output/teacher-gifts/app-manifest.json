@@ -1,0 +1,76 @@
+{
+  "id": "editorial-teacher-gifts-v1",
+  "title": "teacher gifts beyond another novelty mug",
+  "caption": "Useful teacher gifts for planning, carrying, refueling and decompressing. Add a specific thank-you note—that is still the most important part. ✏️ #teachergifts #thankyouteacher #giftideas",
+  "sourceGuide": "https://www.giftofflist.com/guides/25-unique-teacher-gifts-theyll-actually-use-back-to-school-guide",
+  "checkedAt": "2026-08-12T03:59:13.084Z",
+  "status": "prototype_review_required",
+  "products": [
+    {
+      "name": "Citron Swirl Notepad",
+      "reason": "a small-batch desk upgrade for notes and quick lists",
+      "price": "$25",
+      "merchant": "Moglea",
+      "url": "https://moglea.com/products/citron-swirl-pad-small",
+      "imageUrl": "https://moglea.com/cdn/shop/files/NOT407_CitronSwirlPadSmall_2048px_1024x1024.jpg?v=1751568017"
+    },
+    {
+      "name": "Weekly Task Planner",
+      "reason": "a structured weekly view for lessons, meetings and life",
+      "price": "from $32",
+      "merchant": "Appointed",
+      "url": "https://appointed.co/collections/shop-all/products/26-27-weekly-task-planner",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0831/9463/files/26-27_WTP_Hunter.png?v=1776264953"
+    },
+    {
+      "name": "Standard BAGGU",
+      "reason": "an easy extra carryall for papers, supplies and errands",
+      "price": "$16",
+      "merchant": "BAGGU",
+      "url": "https://baggu.com/products/standard-baggu-wild-plum",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0851/3262/files/448034d32dfddeeaf1c3464950ea8cb6e339d6bb-2048x2560.jpg?v=1782713045"
+    },
+    {
+      "name": "Nitro Cold Brew Case",
+      "reason": "a ready-to-grab staff-room or commute refuel",
+      "price": "$45.49",
+      "merchant": "BLK & Bold",
+      "url": "https://blkandbold.com/products/blk-bold-nitro-cold-brew-coffee-caramel",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0023/2223/5445/files/bnb_RTD_PackTrayCan__NitroCaramel.jpg?v=1687379939"
+    },
+    {
+      "name": "Zen Garden Grow Kit",
+      "reason": "a small after-school ritual with lavender and chamomile",
+      "price": "$16.99",
+      "merchant": "Buzzy Seeds",
+      "url": "https://buzzyseeds.com/products/zen-garden-grow-kit-lavender-chamomile",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0605/9137/4512/files/96257_Zen_Garden_WSG_F.png?v=1735677814"
+    }
+  ],
+  "slides": [
+    {
+      "index": 0,
+      "file": "slides/01.jpg"
+    },
+    {
+      "index": 1,
+      "file": "slides/02.jpg"
+    },
+    {
+      "index": 2,
+      "file": "slides/03.jpg"
+    },
+    {
+      "index": 3,
+      "file": "slides/04.jpg"
+    },
+    {
+      "index": 4,
+      "file": "slides/05.jpg"
+    },
+    {
+      "index": 5,
+      "file": "slides/06.jpg"
+    }
+  ]
+}

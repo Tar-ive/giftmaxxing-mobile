@@ -1,0 +1,47 @@
+{
+  "format": { "width": 1080, "height": 1440, "ratio": "3:4" },
+  "carousels": [
+    {
+      "slug": "sentimental-girlfriend",
+      "heading": "gifts she'll keep forever",
+      "caption": "Sentimental girlfriends do not need a bigger gift—they need proof you remembered. Pick one photo, one inside joke, and one tiny artifact from your relationship. Save this for her birthday or your anniversary. #giftideas #girlfriendgift #sentimentalgift #diygift #giftinspo",
+      "slides": [
+        { "imageNumber": 20, "lines": ["gifts she'll keep forever"], "sub": "sentimental edition", "y": 310, "fontSize": 72 },
+        { "imageNumber": 1, "lines": ["wear the memory"], "y": 430, "fontSize": 68 },
+        { "imageNumber": 5, "lines": ["make the story"], "y": 390, "fontSize": 68 },
+        { "imageNumber": 10, "lines": ["gift her obsession"], "y": 390, "fontSize": 68 },
+        { "imageNumber": 18, "lines": ["keep the little things"], "y": 370, "fontSize": 68 },
+        { "imageNumber": 23, "lines": ["write what only she knows"], "y": 380, "fontSize": 66 },
+        { "imageNumber": 29, "lines": ["make it unmistakably hers"], "y": 300, "fontSize": 66 }
+      ]
+    },
+    {
+      "slug": "gift-basket-formula",
+      "heading": "the gift basket formula",
+      "caption": "A good gift basket is not six random pink things. Use this formula: 1 anchor hobby + 1 daily upgrade + 1 comfort item + 1 plan to enjoy it. Save it before the next birthday panic. #giftbasket #giftideasforher #girlfriendgift #giftguide #giftinspo",
+      "slides": [
+        { "imageNumber": 36, "lines": ["the gift basket formula"], "sub": "four things. no filler.", "y": 330, "fontSize": 72 },
+        { "imageNumber": 30, "lines": ["start with her hobby"], "y": 370, "fontSize": 68 },
+        { "imageNumber": 13, "lines": ["add one daily upgrade"], "y": 390, "fontSize": 68 },
+        { "imageNumber": 27, "lines": ["choose her exact favorite"], "y": 400, "fontSize": 66 },
+        { "imageNumber": 35, "lines": ["add something soft"], "y": 400, "fontSize": 70 },
+        { "imageNumber": 31, "lines": ["include a plan"], "y": 370, "fontSize": 70 },
+        { "imageNumber": 6, "lines": ["hobby + upgrade + comfort + plan"], "y": 310, "fontSize": 62 }
+      ]
+    },
+    {
+      "slug": "twenty-dollar-premium",
+      "heading": "make a small gift feel special",
+      "caption": "The difference between cheap and thoughtful is presentation plus specificity. Use one palette, create multiple small reveals, add handwriting, and finish with an inside callback. Save this before you wrap your next gift. #giftwrapping #giftideas #budgetgift #diygift #giftinspo",
+      "slides": [
+        { "imageNumber": 19, "lines": ["make a small gift feel special"], "sub": "attention over price", "y": 320, "fontSize": 68 },
+        { "imageNumber": 25, "lines": ["repeat one color"], "y": 390, "fontSize": 72 },
+        { "imageNumber": 24, "lines": ["create tiny reveals"], "y": 390, "fontSize": 70 },
+        { "imageNumber": 14, "lines": ["handwrite the headline"], "y": 380, "fontSize": 68 },
+        { "imageNumber": 26, "lines": ["add your inside joke"], "y": 430, "fontSize": 68 },
+        { "imageNumber": 33, "lines": ["make one piece yourself"], "y": 360, "fontSize": 66 },
+        { "imageNumber": 7, "lines": ["small budget. big attention."], "y": 320, "fontSize": 70 }
+      ]
+    }
+  ]
+}

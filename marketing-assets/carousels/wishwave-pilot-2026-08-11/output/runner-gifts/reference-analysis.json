@@ -1,0 +1,90 @@
+{
+  "reference": {
+    "source": "https://www.wishwave.com/guides/gifts-for-runners",
+    "cardCount": 6,
+    "dimensions": {
+      "width": 1080,
+      "height": 1350
+    },
+    "aspectRatio": "4:5"
+  },
+  "opening": {
+    "role": "hook",
+    "differenceFromBody": "four-product visual grid",
+    "text": "runner gifts that are\nnot another pair of shoes",
+    "position": "upper left",
+    "treatment": "midnight layout with category accent"
+  },
+  "cards": [
+    {
+      "index": 1,
+      "role": "hook",
+      "content": "runner gifts that are\nnot another pair of shoes"
+    },
+    {
+      "index": 2,
+      "role": "product proof",
+      "content": "OpenRun Pro 2",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://shokz.com/products/openrunpro2"
+    },
+    {
+      "index": 3,
+      "role": "product proof",
+      "content": "FlipBelt Classic",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://flipbelt.com/products/flipbelt-classic-running-belt"
+    },
+    {
+      "index": 4,
+      "role": "product proof",
+      "content": "Hidden Comfort Socks",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://balega.com/products/hidden-comfort-no-show-tab"
+    },
+    {
+      "index": 5,
+      "role": "product proof",
+      "content": "Forerunner 165",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.garmin.com/en-US/p/1055469/"
+    },
+    {
+      "index": 6,
+      "role": "product proof",
+      "content": "GRID 2.0 Foam Roller",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://tptherapy.com/products/grid-2-0-foam-roller"
+    }
+  ],
+  "invariants": [
+    "one product per body card",
+    "live merchant link",
+    "original copy",
+    "price checked before publish",
+    "no visible app branding"
+  ],
+  "variability": [
+    "recipient",
+    "occasion",
+    "accent color",
+    "layout family",
+    "type style"
+  ],
+  "selectionRule": "Only merchant-verified products survive manual visual review."
+}

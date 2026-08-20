@@ -1,0 +1,76 @@
+{
+  "id": "editorial-sustainable-gifts-under-50-v1",
+  "title": "considered gifts that stay under fifty",
+  "caption": "Five useful under-$50 gifts from independent or design-led brands. We checked price and availability at the merchant rather than trusting an old roundup. 🌿 #giftsunder50 #smallbrands #giftideas",
+  "sourceGuide": "https://www.giftofflist.com/guides/sustainable-gifts-under-50-the-indie-edit-for-thoughtful-planet-friendly-finds",
+  "checkedAt": "2026-08-12T03:59:13.084Z",
+  "status": "prototype_review_required",
+  "products": [
+    {
+      "name": "Faber Literary Tote",
+      "reason": "a useful illustrated carryall for books and everyday errands",
+      "price": "$11",
+      "merchant": "Faber",
+      "url": "https://www.faber.co.uk/product/9780571397983-faber-illustrated-literary-tote-bag/",
+      "imageUrl": "https://www.faber.co.uk/wp-content/uploads/2025/04/Faber-Illustrated-Tote-Bag-Blue-credit-Yeshen-Venema-3.jpg"
+    },
+    {
+      "name": "Sunday Morning Candle",
+      "reason": "a compact coconut-wax ritual with a reusable tin",
+      "price": "$20",
+      "merchant": "Homebody Candle Co.",
+      "url": "https://www.homebodycandleco.com/products/sunday-morning-candle-tin-homebodycandleco",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0875/2106/files/Sunday_Morning_Candle_Tin_Studio_K6.png?v=1786364680"
+    },
+    {
+      "name": "Resurrection Hand Balm",
+      "reason": "a frequently used desk or bag upgrade in aluminum packaging",
+      "price": "$35",
+      "merchant": "Aesop",
+      "url": "https://www.aesop.com/hand-body/hand-washes-balms/resurrection-aromatique-hand-balm/BM06.html",
+      "imageUrl": "https://www.aesop.com/dw/image/v2/AANG_PRD/on/demandware.static/-/Sites-aesop-us-master-catalog/default/dwcbe841df/images/products/BM06/ContentEnhancement/Aesop_Hand_Resurrection_Aromatique_Hand_Balm_500mL_Web_Front_2000x2000px.jpg?sw=1400&sh=1400&sm=cut&sfrm=png&q=70&bgcolor=fffef2"
+    },
+    {
+      "name": "Daily Stone Lotion Bar",
+      "reason": "a waterless lotion bar with a refillable bamboo canister option",
+      "price": "from $14",
+      "merchant": "Kate McLeod",
+      "url": "https://www.katemcleod.com/products/daily-stone",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0141/1255/5066/files/1-CORE-DAILY-STONE_5546c3fc-dea5-4bfa-9dae-cac618bd4ec8.jpg?v=1762461208"
+    },
+    {
+      "name": "Raw Honey Sampler",
+      "reason": "three distinct honey profiles for tea, toast and tasting",
+      "price": "$26",
+      "merchant": "Jacobsen Salt Co.",
+      "url": "https://jacobsensalt.com/products/raw-honey-sampler-set",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0894/6416/files/jacobsen-raw-honey-samper-set.jpg?v=1752791062"
+    }
+  ],
+  "slides": [
+    {
+      "index": 0,
+      "file": "slides/01.jpg"
+    },
+    {
+      "index": 1,
+      "file": "slides/02.jpg"
+    },
+    {
+      "index": 2,
+      "file": "slides/03.jpg"
+    },
+    {
+      "index": 3,
+      "file": "slides/04.jpg"
+    },
+    {
+      "index": 4,
+      "file": "slides/05.jpg"
+    },
+    {
+      "index": 5,
+      "file": "slides/06.jpg"
+    }
+  ]
+}

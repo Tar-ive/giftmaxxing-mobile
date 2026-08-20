@@ -1,0 +1,3 @@
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/parent-gifts-ugc-v1/final/01-hook-worlds-best-mug.mp4'
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/parent-gifts-ugc-v1/final/02-the-recipe-card.mp4'
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/parent-gifts-ugc-v1/final/03-moms-reaction.mp4'

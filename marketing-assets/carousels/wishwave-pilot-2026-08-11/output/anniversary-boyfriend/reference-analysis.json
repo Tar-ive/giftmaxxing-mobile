@@ -1,0 +1,90 @@
+{
+  "reference": {
+    "source": "https://www.wishwave.com/guides/anniversary-gifts-for-boyfriend",
+    "cardCount": 6,
+    "dimensions": {
+      "width": 1080,
+      "height": 1350
+    },
+    "aspectRatio": "4:5"
+  },
+  "opening": {
+    "role": "hook",
+    "differenceFromBody": "four-product visual grid",
+    "text": "romantic gifts\nhe will actually use",
+    "position": "upper left",
+    "treatment": "paper layout with category accent"
+  },
+  "cards": [
+    {
+      "index": 1,
+      "role": "hook",
+      "content": "romantic gifts\nhe will actually use"
+    },
+    {
+      "index": 2,
+      "role": "product proof",
+      "content": "BestSelf Intimacy Deck",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://bestself.co/products/intimacy-deck"
+    },
+    {
+      "index": 3,
+      "role": "product proof",
+      "content": "Coco Hinoki candle",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://boysmells.com/products/coco-fantome-standard-candle-9oz"
+    },
+    {
+      "index": 4,
+      "role": "product proof",
+      "content": "Front pocket wallet",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.popovleather.com/products/leather-front-pocket-wallet"
+    },
+    {
+      "index": 5,
+      "role": "product proof",
+      "content": "Graza olive oil duo",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.graza.co/products/duo-glass"
+    },
+    {
+      "index": 6,
+      "role": "product proof",
+      "content": "Clear cocktail ice mold",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://wandp.com/products/silicone-large-clear-cocktail-ice-cube-mold"
+    }
+  ],
+  "invariants": [
+    "one product per body card",
+    "live merchant link",
+    "original copy",
+    "price checked before publish",
+    "no visible app branding"
+  ],
+  "variability": [
+    "recipient",
+    "occasion",
+    "accent color",
+    "layout family",
+    "type style"
+  ],
+  "selectionRule": "Only merchant-verified products survive manual visual review."
+}

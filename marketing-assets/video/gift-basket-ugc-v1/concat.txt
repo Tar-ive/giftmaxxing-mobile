@@ -1,0 +1,3 @@
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-basket-ugc-v1/final/01-hook-random-basket.mp4'
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-basket-ugc-v1/final/02-assembling-the-formula.mp4'
+file '/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-basket-ugc-v1/final/03-the-reaction.mp4'

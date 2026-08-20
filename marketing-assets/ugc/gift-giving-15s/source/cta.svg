@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#040712"/>
+      <stop offset=".5" stop-color="#10172b"/>
+      <stop offset="1" stop-color="#2c1029"/>
+    </linearGradient>
+    <radialGradient id="halo">
+      <stop offset="0" stop-color="#ff6b56" stop-opacity=".38"/>
+      <stop offset=".55" stop-color="#6c71ff" stop-opacity=".2"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1080" height="1920" fill="url(#bg)"/>
+  <circle cx="540" cy="700" r="460" fill="url(#halo)"/>
+  <text x="540" y="1120" text-anchor="middle" fill="#fff"
+        font-family="Arial, sans-serif" font-size="84" font-weight="800">Gift better.</text>
+  <text x="540" y="1210" text-anchor="middle" fill="#ff8a78"
+        font-family="Arial, sans-serif" font-size="43" font-weight="700">Download Giftmaxxing</text>
+  <rect x="212" y="1325" width="656" height="142" rx="71"
+        fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="4"/>
+  <text x="540" y="1418" text-anchor="middle" fill="#fff"
+        font-family="Arial, sans-serif" font-size="48" font-weight="700">Now on the App Store</text>
+</svg>

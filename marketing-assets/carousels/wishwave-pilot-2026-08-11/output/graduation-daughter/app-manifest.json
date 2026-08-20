@@ -1,0 +1,76 @@
+{
+  "id": "editorial-graduation-daughter-v1",
+  "title": "graduation gifts for what comes next",
+  "caption": "Graduation gifts that honor the work and support the next chapter: one keepsake, one creative memory-maker and three genuinely useful upgrades. 🎓 #graduationgift #giftideas #giftmaxxing",
+  "sourceGuide": "https://www.wishwave.com/guides/graduation-gifts-for-daughter",
+  "checkedAt": "2026-08-12T03:59:13.084Z",
+  "status": "prototype_review_required",
+  "products": [
+    {
+      "name": "Classic Diploma Frame",
+      "reason": "honors the work without adding another disposable keepsake",
+      "price": "$140",
+      "merchant": "Framebridge",
+      "url": "https://www.framebridge.com/products/the-classic-diploma",
+      "imageUrl": "https://www.framebridge.com/cdn/shop/files/080817_FA_Sept_Mailer-008.jpg?v=1715203158"
+    },
+    {
+      "name": "Camp Snap 2",
+      "reason": "captures the summer without turning every moment into screen time",
+      "price": "$74.95",
+      "merchant": "Camp Snap",
+      "url": "https://www.campsnapphoto.com/products/camp-snap-2",
+      "imageUrl": "https://www.campsnapphoto.com/cdn/shop/files/Yellow_Front_3b38c8a7-b0eb-4b5d-bce3-80f6526bd159.png?v=1781102349"
+    },
+    {
+      "name": "Away Carry-On",
+      "reason": "useful for visits, interviews and the first independent trips",
+      "price": "$278",
+      "merchant": "Away",
+      "url": "https://www.awaytravel.com/products/carry-on-misty-purple",
+      "imageUrl": "https://www.awaytravel.com/cdn/shop/files/PDP_School_PC_CAR_MistyPurple_02.jpg?v=1783436924"
+    },
+    {
+      "name": "Daily Planner",
+      "reason": "adds structure when life no longer comes with a syllabus",
+      "price": "$68",
+      "merchant": "Day Designer",
+      "url": "https://daydesigner.com/products/2026-27-daily-planner-lemon-floral-sage",
+      "imageUrl": "https://daydesigner.com/cdn/shop/files/U90Xo7fw.jpg?v=1772746392"
+    },
+    {
+      "name": "Birdie personal alarm",
+      "reason": "a pocket-sized confidence boost for a new commute or city",
+      "price": "$34.95",
+      "merchant": "Birdie",
+      "url": "https://www.shesbirdie.com/products/birdie-personal-safety-alarm-3-0",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0259/5808/8792/files/birdie-social.jpg?v=1707225292"
+    }
+  ],
+  "slides": [
+    {
+      "index": 0,
+      "file": "slides/01.jpg"
+    },
+    {
+      "index": 1,
+      "file": "slides/02.jpg"
+    },
+    {
+      "index": 2,
+      "file": "slides/03.jpg"
+    },
+    {
+      "index": 3,
+      "file": "slides/04.jpg"
+    },
+    {
+      "index": 4,
+      "file": "slides/05.jpg"
+    },
+    {
+      "index": 5,
+      "file": "slides/06.jpg"
+    }
+  ]
+}

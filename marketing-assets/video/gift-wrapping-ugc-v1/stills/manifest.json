@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2026-08-04T23:40:41.430Z",
+  "shots": [
+    {
+      "name": "01-hook-plain-bag",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-wrapping-ugc-v1/stills/01-hook-plain-bag.png",
+      "reused": true
+    },
+    {
+      "name": "02-texture-and-detail",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-wrapping-ugc-v1/stills/02-texture-and-detail.png",
+      "reused": true
+    },
+    {
+      "name": "03-the-slow-reveal",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-wrapping-ugc-v1/stills/03-the-slow-reveal.png",
+      "reused": true
+    }
+  ]
+}

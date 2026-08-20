@@ -1,0 +1,134 @@
+{
+  "runAt": "2026-08-13T21:08:15.052Z",
+  "api": "https://d21osnvwewgoao.cloudfront.net",
+  "carousel": {
+    "id": "editorial-hiker-gifts",
+    "sourcePostId": "editorial-hiker-gifts",
+    "title": "hiker gifts that earn space in the pack",
+    "sourceSlides": 6,
+    "productCount": 5
+  },
+  "result": {
+    "verifiedProducts": 5,
+    "swipeEligible": 5,
+    "heldOutsideSwipe": 0
+  },
+  "products": [
+    {
+      "productId": "editorial-hiker-gifts-hike-crew-socks",
+      "title": "Hike Crew Socks",
+      "summary": "a useful merino-blend layer with sizes they can exchange",
+      "mediaCount": 1,
+      "verified": true,
+      "swipeEligible": true,
+      "mediaSource": "retailer_listing",
+      "offerUrl": "https://www.smartwool.com/en-us/products/hike-crew-socks-sw001614",
+      "media": [
+        {
+          "url": "/curated/2026-08-11.3/products/editorial-hiker-gifts-hike-crew-socks/01.jpg",
+          "role": "primary"
+        }
+      ]
+    },
+    {
+      "productId": "editorial-hiker-gifts-on-the-go-spf-set",
+      "title": "On The Go SPF Set",
+      "summary": "portable sun protection for exposed trail days",
+      "mediaCount": 6,
+      "verified": true,
+      "swipeEligible": true,
+      "mediaSource": "retailer_listing",
+      "offerUrl": "https://supergoop.com/products/on-the-go-spf-set",
+      "media": [
+        {
+          "url": "/curated/2026-08-11.3/products/editorial-hiker-gifts-on-the-go-spf-set/01.png",
+          "role": "primary"
+        },
+        {
+          "url": "/curated/2026-08-11.3/products/editorial-hiker-gifts-on-the-go-spf-set/02.png",
+          "role": "gallery"
+        },
+        {
+          "url": "/curated/2026-08-11.3/products/editorial-hiker-gifts-on-the-go-spf-set/03.png",
+          "role": "gallery"
+        },
+        {
+          "url": "/curated/2026-08-11.3/products/editorial-hiker-gifts-on-the-go-spf-set/04.png",
+          "role": "gallery"
+        },
+        {
+          "url": "/curated/2026-08-11.3/products/editorial-hiker-gifts-on-the-go-spf-set/05.png",
+          "role": "gallery"
+        },
+        {
+          "url": "/curated/2026-08-11.3/products/editorial-hiker-gifts-on-the-go-spf-set/06.png",
+          "role": "gallery"
+        }
+      ]
+    },
+    {
+      "productId": "editorial-hiker-gifts-actik-core-headlamp",
+      "title": "ACTIK CORE Headlamp",
+      "summary": "rechargeable trail light for early starts and camp chores",
+      "mediaCount": 1,
+      "verified": true,
+      "swipeEligible": true,
+      "mediaSource": "retailer_listing",
+      "offerUrl": "https://www.petzl.com/US/en/Sport/Headlamps/ACTIK-CORE",
+      "media": [
+        {
+          "url": "/curated/2026-08-11.3/products/editorial-hiker-gifts-actik-core-headlamp/01.jpg",
+          "role": "primary"
+        }
+      ]
+    },
+    {
+      "productId": "editorial-hiker-gifts-24oz-geopress-purifier",
+      "title": "24oz GeoPress Purifier",
+      "summary": "treats water while doubling as the bottle they carry",
+      "mediaCount": 4,
+      "verified": true,
+      "swipeEligible": true,
+      "mediaSource": "retailer_listing",
+      "offerUrl": "https://grayl.com/products/24oz-geopress-filter-purifier-bottle-covert-edition",
+      "media": [
+        {
+          "url": "/curated/2026-08-11.3/products/editorial-hiker-gifts-24oz-geopress-purifier/01.png",
+          "role": "primary"
+        },
+        {
+          "url": "/curated/2026-08-11.3/products/editorial-hiker-gifts-24oz-geopress-purifier/02.png",
+          "role": "gallery"
+        },
+        {
+          "url": "/curated/2026-08-11.3/products/editorial-hiker-gifts-24oz-geopress-purifier/03.png",
+          "role": "gallery"
+        },
+        {
+          "url": "/curated/2026-08-11.3/products/editorial-hiker-gifts-24oz-geopress-purifier/04.png",
+          "role": "gallery"
+        }
+      ]
+    },
+    {
+      "productId": "editorial-hiker-gifts-microspikes-traction",
+      "title": "MICROspikes Traction",
+      "summary": "packable winter traction for icy routes and trailheads",
+      "mediaCount": 2,
+      "verified": true,
+      "swipeEligible": true,
+      "mediaSource": "retailer_listing",
+      "offerUrl": "https://kahtoola.com/traction/microspikes-footwear-traction/",
+      "media": [
+        {
+          "url": "/curated/2026-08-11.3/products/editorial-hiker-gifts-microspikes-traction/01.jpg",
+          "role": "primary"
+        },
+        {
+          "url": "/curated/2026-08-11.3/products/editorial-hiker-gifts-microspikes-traction/02.jpg",
+          "role": "gallery"
+        }
+      ]
+    }
+  ]
+}

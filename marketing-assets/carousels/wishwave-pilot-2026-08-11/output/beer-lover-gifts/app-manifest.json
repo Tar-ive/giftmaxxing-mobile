@@ -1,0 +1,76 @@
+{
+  "id": "editorial-beer-lover-gifts-v1",
+  "title": "beer gifts better than a novelty pint glass",
+  "caption": "Five beer gifts that turn the next pour into an experience: better serving, tasting, collecting and even baking. Merchant links and availability checked before publishing. For adults 21+. 🍺 #beergifts #giftideas #giftmaxxing",
+  "sourceGuide": "https://www.wishwave.com/guides/gifts-for-beer-lovers",
+  "checkedAt": "2026-08-12T03:59:13.084Z",
+  "status": "prototype_review_required",
+  "products": [
+    {
+      "name": "Fizzics DraftPour",
+      "reason": "turns cans and bottles into a smoother draft-style pour",
+      "price": "from $99.99",
+      "merchant": "Fizzics",
+      "url": "https://store.fizzics.com/products/fizzics-draftpour",
+      "imageUrl": "https://store.fizzics.com/cdn/shop/files/DraftPour-Ice-1.png?v=1777479895"
+    },
+    {
+      "name": "uKeg Go 64",
+      "reason": "keeps a growler pressurized and ready to tap",
+      "price": "$99.99",
+      "merchant": "GrowlerWerks",
+      "url": "https://growlerwerks.com/products/ukeg-go-64",
+      "imageUrl": "https://growlerwerks.com/cdn/shop/files/go64_grey1.png?v=1707346257&width=900"
+    },
+    {
+      "name": "Wood USA Beer Cap Map",
+      "reason": "turns favorite bottle caps into wall art with a story",
+      "price": "from $37.50",
+      "merchant": "Beer Cap Maps",
+      "url": "https://www.beercapmaps.com/products/usa-map",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/1896/1353/products/Beer_Cap_Map_USA_Hi_Res.JPG?v=1491786516"
+    },
+    {
+      "name": "Beer Flight Deck",
+      "reason": "a tasting notebook for comparing four pours side by side",
+      "price": "$18",
+      "merchant": "33 Books",
+      "url": "https://www.33books.com/products/flight-deck-beer-edition",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0245/5185/files/33-books-fb-image.jpg"
+    },
+    {
+      "name": "Cornbread & Ale mix",
+      "reason": "a warm loaf they activate with their favorite beer",
+      "price": "$10.99",
+      "merchant": "Soberdough",
+      "url": "https://www.soberdough.com/products/cornbread-ale-new",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0231/2365/products/Soberdough-Cornbread.jpg?v=1523123435"
+    }
+  ],
+  "slides": [
+    {
+      "index": 0,
+      "file": "slides/01.jpg"
+    },
+    {
+      "index": 1,
+      "file": "slides/02.jpg"
+    },
+    {
+      "index": 2,
+      "file": "slides/03.jpg"
+    },
+    {
+      "index": 3,
+      "file": "slides/04.jpg"
+    },
+    {
+      "index": 4,
+      "file": "slides/05.jpg"
+    },
+    {
+      "index": 5,
+      "file": "slides/06.jpg"
+    }
+  ]
+}

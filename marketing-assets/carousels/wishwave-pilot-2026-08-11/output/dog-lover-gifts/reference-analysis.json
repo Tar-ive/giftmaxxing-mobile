@@ -1,0 +1,90 @@
+{
+  "reference": {
+    "source": "https://www.wishwave.com/guides/gifts-for-dog-lovers",
+    "cardCount": 6,
+    "dimensions": {
+      "width": 1080,
+      "height": 1350
+    },
+    "aspectRatio": "4:5"
+  },
+  "opening": {
+    "role": "hook",
+    "differenceFromBody": "four-product visual grid",
+    "text": "dog gifts for both ends\nof the leash",
+    "position": "upper left",
+    "treatment": "editorial layout with category accent"
+  },
+  "cards": [
+    {
+      "index": 1,
+      "role": "hook",
+      "content": "dog gifts for both ends\nof the leash"
+    },
+    {
+      "index": 2,
+      "role": "product proof",
+      "content": "Breed + Health DNA Test",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://shop.embarkvet.com/products/breed-and-health-dog-dna-test-kit"
+    },
+    {
+      "index": 3,
+      "role": "product proof",
+      "content": "Front Range Flex Harness",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://ruffwear.com/products/front-range-flex-harness"
+    },
+    {
+      "index": 4,
+      "role": "product proof",
+      "content": "Travel Dog Water Bottle",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://springlandpets.com/products/22oz-classic-dog-travel-water-bottle"
+    },
+    {
+      "index": 5,
+      "role": "product proof",
+      "content": "Toppl Treat Toy",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.westpaw.com/products/toppl-teal"
+    },
+    {
+      "index": 6,
+      "role": "product proof",
+      "content": "Custom Pet Portrait",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://westandwillow.com/products/custom-desktop-one-pet-portrait"
+    }
+  ],
+  "invariants": [
+    "one product per body card",
+    "live merchant link",
+    "original copy",
+    "price checked before publish",
+    "no visible app branding"
+  ],
+  "variability": [
+    "recipient",
+    "occasion",
+    "accent color",
+    "layout family",
+    "type style"
+  ],
+  "selectionRule": "Only merchant-verified products survive manual visual review."
+}

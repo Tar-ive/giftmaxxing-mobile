@@ -1,0 +1,94 @@
+{
+  "runAt": "2026-08-13T20:13:09.633Z",
+  "api": "https://d21osnvwewgoao.cloudfront.net",
+  "carousel": {
+    "id": "practical-gifts-for-him",
+    "sourcePostId": "7672135662056869133",
+    "title": "Useful gifts, upgraded",
+    "sourceSlides": 11,
+    "productCount": 4
+  },
+  "result": {
+    "verifiedProducts": 2,
+    "swipeEligible": 2,
+    "heldOutsideSwipe": 2
+  },
+  "products": [
+    {
+      "productId": "arcteryx-mantis-26",
+      "title": "Mantis 26 backpack",
+      "summary": "The practical-gifts guide shows and names an Arc'teryx backpack; this is the official Mantis 26 listing.",
+      "mediaCount": 1,
+      "verified": false,
+      "swipeEligible": false,
+      "mediaSource": "curated_inspiration",
+      "offerUrl": "https://arcteryx.com/us/en/shop/mantis-26-backpack-0643",
+      "media": [
+        {
+          "url": "/curated/2026-08-11.4/7672135662056869133-07.jpg",
+          "role": "primary"
+        }
+      ]
+    },
+    {
+      "productId": "hermes-un-jardin-sur-le-nil",
+      "title": "Un Jardin sur le Nil eau de toilette",
+      "summary": "The practical-gifts guide labels Un Jardin sur le Nil; this is the official US product page.",
+      "mediaCount": 1,
+      "verified": false,
+      "swipeEligible": false,
+      "mediaSource": "curated_inspiration",
+      "offerUrl": "https://www.hermes.com/us/en/product/un-jardin-sur-le-nil-eau-de-toilette-V26993/",
+      "media": [
+        {
+          "url": "/curated/2026-08-11.4/7672135662056869133-08.jpg",
+          "role": "primary"
+        }
+      ]
+    },
+    {
+      "productId": "ralph-lauren-chino-cap",
+      "title": "Iconic Cotton Chino Ball Cap",
+      "summary": "A classic cotton-chino cap with Ralph Lauren's embroidered Pony and an adjustable back strap.",
+      "mediaCount": 3,
+      "verified": true,
+      "swipeEligible": true,
+      "mediaSource": "retailer_listing",
+      "offerUrl": "https://www.ralphlauren.com/men-accessories-hats-scarves-gloves/the-iconic-cotton-chino-ball-cap/0070142070.html",
+      "media": [
+        {
+          "url": "/curated/2026-08-11.4/products/ralph-lauren-chino-cap/01.jpg",
+          "role": "primary"
+        },
+        {
+          "url": "/curated/2026-08-11.4/products/ralph-lauren-chino-cap/02.jpg",
+          "role": "gallery"
+        },
+        {
+          "url": "/curated/2026-08-11.4/products/ralph-lauren-chino-cap/03.jpg",
+          "role": "gallery"
+        }
+      ]
+    },
+    {
+      "productId": "apple-watch-se-3",
+      "title": "Apple Watch SE 3",
+      "summary": "The guide recommends Apple Watch as a daily-use upgrade; the linked Apple flow configures the current SE.",
+      "mediaCount": 2,
+      "verified": true,
+      "swipeEligible": true,
+      "mediaSource": "retailer_listing",
+      "offerUrl": "https://www.apple.com/us/shop/buy-watch/apple-watch-se",
+      "media": [
+        {
+          "url": "/curated/2026-08-11.3/products/apple-watch-se-3/01.jpg",
+          "role": "primary"
+        },
+        {
+          "url": "/curated/2026-08-11.3/products/apple-watch-se-3/02.jpg",
+          "role": "gallery"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "generatedAt": "2026-08-04T23:09:20.449Z",
+  "shots": [
+    {
+      "name": "01-forgettable-gifts",
+      "input": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-ugc-v2/stills/01-forgettable-gifts.png",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-ugc-v2/scenes/01-forgettable-gifts.mp4",
+      "reused": true
+    },
+    {
+      "name": "02-micro-friction",
+      "input": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-ugc-v2/stills/02-micro-friction.png",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-ugc-v2/scenes/02-micro-friction.mp4",
+      "reused": true
+    },
+    {
+      "name": "03-small-luxury",
+      "input": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-ugc-v2/stills/03-small-luxury.png",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-ugc-v2/scenes/03-small-luxury.mp4",
+      "reused": true
+    },
+    {
+      "name": "04-inside-callback",
+      "input": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-ugc-v2/stills/04-inside-callback.png",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-ugc-v2/scenes/04-inside-callback.mp4",
+      "reused": true
+    },
+    {
+      "name": "05-permission-gift",
+      "input": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-ugc-v2/stills/05-permission-gift.png",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-ugc-v2/scenes/05-permission-gift.mp4",
+      "reused": true
+    },
+    {
+      "name": "06-gift-notes",
+      "input": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-ugc-v2/stills/06-gift-notes.png",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-ugc-v2/scenes/06-gift-notes.mp4",
+      "reused": true
+    }
+  ]
+}

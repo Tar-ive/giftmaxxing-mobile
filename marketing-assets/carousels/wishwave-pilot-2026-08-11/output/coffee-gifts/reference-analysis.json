@@ -1,0 +1,90 @@
+{
+  "reference": {
+    "source": "https://www.wishwave.com/guides/gifts-for-coffee-lovers",
+    "cardCount": 6,
+    "dimensions": {
+      "width": 1080,
+      "height": 1350
+    },
+    "aspectRatio": "4:5"
+  },
+  "opening": {
+    "role": "hook",
+    "differenceFromBody": "four-product visual grid",
+    "text": "5 gifts that make\nevery morning better",
+    "position": "upper left",
+    "treatment": "editorial layout with category accent"
+  },
+  "cards": [
+    {
+      "index": 1,
+      "role": "hook",
+      "content": "5 gifts that make\nevery morning better"
+    },
+    {
+      "index": 2,
+      "role": "product proof",
+      "content": "Baratza Encore",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.baratza.com/en-us/product/encore-zcg485"
+    },
+    {
+      "index": 3,
+      "role": "product proof",
+      "content": "OutIn Nano",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://outin.com/products/nano-portable-espresso-machine-outin-teal"
+    },
+    {
+      "index": 4,
+      "role": "product proof",
+      "content": "Hario V60 set",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.hario-usa.com/products/v60-craft-pour-over-set-colors"
+    },
+    {
+      "index": 5,
+      "role": "product proof",
+      "content": "Trade coffee subscription",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.drinktrade.com/products/coffee-gift-subscription"
+    },
+    {
+      "index": 6,
+      "role": "product proof",
+      "content": "Espresso bites",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://bigislandcoffeeroasters.com/products/espresso-bites-mixed"
+    }
+  ],
+  "invariants": [
+    "one product per body card",
+    "live merchant link",
+    "original copy",
+    "price checked before publish",
+    "no visible app branding"
+  ],
+  "variability": [
+    "recipient",
+    "occasion",
+    "accent color",
+    "layout family",
+    "type style"
+  ],
+  "selectionRule": "Only merchant-verified products survive manual visual review."
+}

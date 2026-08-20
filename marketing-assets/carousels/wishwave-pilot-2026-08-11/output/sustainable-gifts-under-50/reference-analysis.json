@@ -1,0 +1,90 @@
+{
+  "reference": {
+    "source": "https://www.giftofflist.com/guides/sustainable-gifts-under-50-the-indie-edit-for-thoughtful-planet-friendly-finds",
+    "cardCount": 6,
+    "dimensions": {
+      "width": 1080,
+      "height": 1350
+    },
+    "aspectRatio": "4:5"
+  },
+  "opening": {
+    "role": "hook",
+    "differenceFromBody": "four-product visual grid",
+    "text": "considered gifts that\nstay under fifty",
+    "position": "upper left",
+    "treatment": "paper layout with category accent"
+  },
+  "cards": [
+    {
+      "index": 1,
+      "role": "hook",
+      "content": "considered gifts that\nstay under fifty"
+    },
+    {
+      "index": 2,
+      "role": "product proof",
+      "content": "Faber Literary Tote",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.faber.co.uk/product/9780571397983-faber-illustrated-literary-tote-bag/"
+    },
+    {
+      "index": 3,
+      "role": "product proof",
+      "content": "Sunday Morning Candle",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.homebodycandleco.com/products/sunday-morning-candle-tin-homebodycandleco"
+    },
+    {
+      "index": 4,
+      "role": "product proof",
+      "content": "Resurrection Hand Balm",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.aesop.com/hand-body/hand-washes-balms/resurrection-aromatique-hand-balm/BM06.html"
+    },
+    {
+      "index": 5,
+      "role": "product proof",
+      "content": "Daily Stone Lotion Bar",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.katemcleod.com/products/daily-stone"
+    },
+    {
+      "index": 6,
+      "role": "product proof",
+      "content": "Raw Honey Sampler",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://jacobsensalt.com/products/raw-honey-sampler-set"
+    }
+  ],
+  "invariants": [
+    "one product per body card",
+    "live merchant link",
+    "original copy",
+    "price checked before publish",
+    "no visible app branding"
+  ],
+  "variability": [
+    "recipient",
+    "occasion",
+    "accent color",
+    "layout family",
+    "type style"
+  ],
+  "selectionRule": "Only merchant-verified products survive manual visual review."
+}

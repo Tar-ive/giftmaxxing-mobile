@@ -1,0 +1,382 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - toolbar [ref=e5]:
+      - img "WishWave" [ref=e6] [cursor=pointer]
+      - navigation "Main navigation" [ref=e10]:
+        - button "Wishlists" [ref=e11] [cursor=pointer]
+        - button "Events" [ref=e14] [cursor=pointer]:
+          - generic [ref=e15]:
+            - text: Events
+            - generic [ref=e16]: 
+        - link "Discover" [ref=e17] [cursor=pointer]:
+          - /url: /discover
+        - link "AI wishlist maker" [ref=e18] [cursor=pointer]:
+          - /url: /gift-finder
+        - link "Guides" [ref=e19] [cursor=pointer]:
+          - /url: /guides
+      - button "Log in" [ref=e21] [cursor=pointer]
+  - generic [ref=e24]:
+    - article [ref=e25]:
+      - generic [ref=e27]:
+        - heading "17 Best Gifts for Coffee Lovers in 2026" [level=1] [ref=e28]
+        - paragraph [ref=e29]: From a handmade Moccamaster and the internet's favorite burr grinder to flash-frozen coffee capsules and edible espresso from Hawaii, 17 gifts for coffee lovers with zero filler. Real brands, checked prices, every link verified.
+        - generic [ref=e30]:
+          - link "Sinay Elihay Sinay Elihay Gift and gadget expert" [ref=e31] [cursor=pointer]:
+            - /url: /author/sinay-elihay
+            - img "Sinay Elihay" [ref=e34]
+            - generic [ref=e35]:
+              - generic [ref=e36]: Sinay Elihay
+              - generic [ref=e37]: Gift and gadget expert
+          - generic [ref=e38]: July 12, 2026
+          - generic [ref=e39]: 10 min read
+      - img "17 Best Gifts for Coffee Lovers in 2026" [ref=e42]
+      - generic [ref=e45]:
+        - generic [ref=e46]:
+          - generic [ref=e47]: "A buying guide to the best gifts for coffee lovers in 2026: dream machines and grinders, home brew bar gear, coffee you can drink or eat, and under-$50 picks."
+          - generic [ref=e49]:
+            - generic [ref=e51]:
+              - paragraph [ref=e52]: Coffee people are the easiest and hardest people to shop for at the same time. Easiest, because you already know what they love. Hardest, because they have Opinions, they've already returned one novelty mug, and their kitchen counter is a carefully curated shrine you're scared to touch.
+              - paragraph [ref=e53]:
+                - text: Relax. We did the homework.
+                - link "About two-thirds of American adults drink coffee every day" [ref=e54] [cursor=pointer]:
+                  - /url: https://www.ncausa.org/Research-Trends/Market-Research/NCDT
+                - text: ", and the gear, beans, and gadgets below are the ones that make that daily ritual genuinely better. Nothing on this list is filler, and nothing says World's Okayest Coffee Drinker on it."
+              - paragraph [ref=e55]:
+                - text: We started with what coffee obsessives themselves recommend at places like
+                - link "Low Key Coffee Snobs" [ref=e56] [cursor=pointer]:
+                  - /url: https://www.lowkeycoffeesnobs.com/gifts-for-coffee-snobs/
+                - text: ", then verified every product, price, and link ourselves. Here are 17 gifts for coffee lovers that will actually get used, from serious machines to a five-dollar-feeling stocking stuffer that happens to be edible espresso."
+            - generic [ref=e58]:
+              - heading "What Are the Best Big-Ticket Gifts for Coffee Lovers?" [level=2] [ref=e59]
+              - paragraph [ref=e60]: If you're going all in, these four earn their price tags every single morning. Each one is the kind of upgrade coffee people spend months talking themselves out of buying.
+            - heading "1. Moccamaster KBGV Select Coffee Maker" [level=3] [ref=e63]
+            - img "Moccamaster KBGV Select drip coffee maker, a big-ticket gift for coffee lovers" [ref=e66]
+            - generic [ref=e68]:
+              - paragraph [ref=e69]:
+                - strong [ref=e70]: "Why they'll love it:"
+                - text: Ask a coffee nerd to name the one drip machine that's actually worth it and you'll hear this name, usually said with reverence. Every Moccamaster is still assembled by hand in the Netherlands, hits the exact brewing temperature coffee scientists say matters, and brews a full pot in about six minutes. It also comes in more than twenty colors, looks like a small piece of modern art on the counter, and routinely gets handed down a generation.
+              - paragraph [ref=e71]: SCA Golden Cup certified, copper heating element, 40 oz glass carafe, five-year warranty, and it's built from parts that can be individually replaced instead of tossed.
+            - link "$369 at Moccamaster" [ref=e74] [cursor=pointer]:
+              - /url: https://us.moccamaster.com/products/kbgv
+            - heading "2. Baratza Encore Burr Grinder" [level=3] [ref=e79]
+            - img "Baratza Encore conical burr coffee grinder, a gear upgrade gift for coffee lovers" [ref=e82]
+            - generic [ref=e84]:
+              - paragraph [ref=e85]:
+                - strong [ref=e86]: "Why they'll love it:"
+                - text: "Here's the open secret of good coffee: the grinder matters more than the machine. The Encore is the answer every coffee forum gives to 'what's my first real grinder', and it has held that spot for over a decade. Forty grind settings cover everything from french press to pour-over, the conical burrs keep the grind consistent, and Baratza famously sells every spare part so the thing basically never dies. If your coffee lover is still using a blade grinder, this is the single biggest upgrade you can give them."
+              - paragraph [ref=e87]: 40mm conical steel burrs, 40 grind settings, small counter footprint, and a legendary repair-over-replace parts program.
+            - link "$149.95 at Baratza" [ref=e90] [cursor=pointer]:
+              - /url: https://baratza.com/grinder/encore/
+            - heading "3. OutIn Nano Portable Espresso Machine" [level=3] [ref=e95]
+            - img "OutIn Nano portable espresso machine in teal, a travel gift for coffee lovers" [ref=e98]
+            - generic [ref=e100]:
+              - paragraph [ref=e101]:
+                - strong [ref=e102]: "Why they'll love it:"
+                - text: "This one gets gasps. The Nano is a genuine espresso machine the size of a water bottle: it heats its own water in under four minutes, pulls a proper crema-topped shot, and recharges over USB-C. Campsite espresso, hotel-room espresso, terrible-office-coffee-rescue espresso. For the person whose mood visibly drops when they're away from their machine, this is the most fun gift on the entire list."
+              - paragraph [ref=e103]: Self-heating with a 7500mAh battery, 20 bar pressure, works with both ground coffee and Nespresso-style capsules, and it weighs about 1.5 pounds. The teal colorway is the signature look.
+            - link "$149.99 at OutIn" [ref=e106] [cursor=pointer]:
+              - /url: https://outin.com/products/nano-portable-espresso-machine-outin-teal
+            - heading "4. OHOM Neo Self-Heating Mug Set" [level=3] [ref=e111]
+            - img "OHOM Neo self-heating ceramic mug on its warming coaster, a cozy gift for coffee lovers" [ref=e114]
+            - generic [ref=e116]:
+              - paragraph [ref=e117]:
+                - strong [ref=e118]: "Why they'll love it:"
+                - text: Every coffee drinker knows the sad ritual of the third microwave reheat. OHOM's answer is a beautiful ceramic mug that sits on a heating coaster and just stays at drinking temperature for as long as it's there. No app required, and when the mug comes off, the base doubles as a wireless charger for their phone. It's the rare desk gadget that looks like it came from a pottery studio instead of an electronics aisle.
+              - paragraph [ref=e119]: Ceramic mug with a self-heating induction base, keeps coffee at about 135°F, and the base wirelessly charges phones when the mug is off. Moonmist Blue shown; other glazes available.
+            - link "$89 at OHOM" [ref=e122] [cursor=pointer]:
+              - /url: https://ohom.com/products/neo-self-heating-mug-set-moonmist-blue
+            - generic [ref=e126]:
+              - heading "What Should You Get a Home Barista?" [level=2] [ref=e127]
+              - paragraph [ref=e128]: The home brew bar section. These are the tools that turn making coffee from a chore into the best ten minutes of the day, and none of them care what machine your giftee already owns.
+            - heading "5. Hario V60 Craft Pour Over Set" [level=3] [ref=e131]
+            - img "Hario V60 pour over dripper and glass server set, a brewing gift for coffee lovers" [ref=e134]
+            - generic [ref=e136]:
+              - paragraph [ref=e137]:
+                - strong [ref=e138]: "Why they'll love it:"
+                - text: The V60 is the pour-over. It's the cone you see on every specialty cafe counter from Tokyo to Portland, made by a Japanese glass company that's been at it since 1921. This set bundles the dripper with a matching glass server and filters, so it's a complete morning ritual in one box. Pour-over coffee is slower than a machine, and that's the point. It's ten quiet minutes and a noticeably cleaner, brighter cup.
+              - paragraph [ref=e139]: Includes the V60 02 dripper, a glass range server, and a pack of paper filters. Brews one to four cups.
+            - link "$46.50 at Hario USA" [ref=e142] [cursor=pointer]:
+              - /url: https://hario-usa.com/products/v60-craft-pour-over-set-colors
+            - heading "6. Acaia Pearl Coffee Scale" [level=3] [ref=e147]
+            - img "Acaia Pearl precision coffee brewing scale, a barista gift for coffee lovers" [ref=e150]
+            - generic [ref=e152]:
+              - paragraph [ref=e153]:
+                - strong [ref=e154]: "Why they'll love it:"
+                - text: To normal people it's a scale. To coffee people it's the scale, the one sitting on the counter of basically every serious cafe on earth. The Pearl weighs to a tenth of a gram, times the brew, and tracks pour speed in real time, which is the difference between guessing and repeating that one perfect cup. If the person you're shopping for already weighs their beans on a kitchen scale, upgrading them to a Pearl is like handing a home cook a chef's knife.
+              - paragraph [ref=e155]: 0.1g precision, built-in brew timer and flow-rate indicator, rechargeable battery, water-resistant top, and app connectivity for brewing profiles.
+            - link "$150 at Acaia" [ref=e158] [cursor=pointer]:
+              - /url: https://acaia.co/products/pearl
+            - heading "7. Espro P3 French Press" [level=3] [ref=e163]
+            - img "Espro P3 glass french press with double micro-filter, a brewing gift for coffee lovers" [ref=e166]
+            - generic [ref=e168]:
+              - paragraph [ref=e169]:
+                - strong [ref=e170]: "Why they'll love it:"
+                - text: French press coffee has one flaw, and it's the gritty sludge at the bottom of the cup. Espro fixed it. The P3 uses a double micro-filter basket that catches roughly nine times more sediment than a standard press, so you get all of that rich, full-bodied french press flavor with none of the mud. Anyone who wrote off the french press years ago is about to have a small revelation.
+              - paragraph [ref=e171]: 32 oz glass carafe, patented double micro-filter, stops extraction after plunging so the last cup isn't bitter, and it works for loose leaf tea too.
+            - link "$39.95 at Espro" [ref=e174] [cursor=pointer]:
+              - /url: https://espro.com/products/p3-french-press-coffee-maker-copy
+            - heading "8. Subminimal NanoFoamer" [level=3] [ref=e179]
+            - img "Subminimal NanoFoamer handheld milk frother making microfoam, a latte gift for coffee lovers" [ref=e182]
+            - generic [ref=e184]:
+              - paragraph [ref=e185]:
+                - strong [ref=e186]: "Why they'll love it:"
+                - text: Latte art at home usually requires a thousand-dollar espresso machine with a steam wand. This little wand is the cheat code. The NanoFoamer spins milk through a fine mesh screen to create true silky microfoam, the paint-like texture baristas pour hearts with, not the bubbly froth a normal handheld frother makes. Heat milk, foam for twenty seconds, pour a rosetta. There's a reason this thing became a cult object among home latte people.
+              - paragraph [ref=e187]: Handheld with two interchangeable mesh screens for different foam textures, runs on AA batteries, and includes a wall mount. Works with dairy and alt milks.
+            - link "$49.95 at Subminimal" [ref=e190] [cursor=pointer]:
+              - /url: https://subminimal.com/products/nanofoamer
+            - heading "9. Airscape Ceramic Coffee Canister" [level=3] [ref=e195]
+            - img "Black Airscape ceramic coffee storage canister with bamboo lid, a practical gift for coffee lovers" [ref=e198]
+            - generic [ref=e200]:
+              - paragraph [ref=e201]:
+                - strong [ref=e202]: "Why they'll love it:"
+                - text: Coffee's worst enemy is the air sitting inside the bag, and most people store beans in a rolled-up bag with a binder clip. The Airscape's party trick is an inner lid you press down until it sits directly on top of the beans, forcing the stale air out through a one-way valve. Beans stay noticeably fresher into week two and three. It's the unglamorous gift they'll quietly use every single day for years.
+              - paragraph [ref=e203]: Ceramic body with a patented press-down inner lid and one-way valve, bamboo outer lid, holds about a pound of whole beans.
+            - link "$30 at Planetary Design" [ref=e206] [cursor=pointer]:
+              - /url: https://planetarydesign.com/products/airscape-ceramic-coffee-canister
+            - generic [ref=e211]:
+              - generic [ref=e212]: ✨ Pro Tip
+              - paragraph [ref=e214]: Before buying gear, sneak a look at how they actually brew. A pour-over person, an espresso person, and a drip machine person want different things, and the fastest tell is what's sitting next to their kettle. If you can't snoop, stay in the consumables and mug aisles of this list. Beans, edible espresso, and a beautiful cup work for every coffee drinker alive, no matter what their setup looks like.
+            - generic [ref=e216]:
+              - heading "What Coffee Gifts Can They Actually Drink (or Eat)?" [level=2] [ref=e217]
+              - paragraph [ref=e218]: You can't go wrong with the coffee itself. Consumables are the zero-risk gift for someone whose kitchen is already full of gear, and these four are several notches above a grocery store bag with a bow on it.
+            - heading "10. Trade Coffee Gift Subscription" [level=3] [ref=e221]
+            - img "Trade Coffee gift subscription box with bags of specialty coffee, a subscription gift for coffee lovers" [ref=e224]
+            - generic [ref=e226]:
+              - paragraph [ref=e227]:
+                - strong [ref=e228]: "Why they'll love it:"
+                - text: Trade is like a matchmaking service between your giftee and America's best small roasters. They take a short taste quiz, and Trade ships them a freshly roasted bag from places like Portland, Durham, and Chicago, dialed to their preferences and getting smarter with each rating. It's the gift that keeps showing up on their doorstep for months. And because it's a fixed-term gift, it ends on its own instead of quietly billing you forever.
+              - paragraph [ref=e229]: Gift subscriptions come in 3, 6, or 12-bag terms from 450+ American craft roasters, shipped fresh within days of roasting. The recipient takes the quiz and picks the schedule.
+            - link "From $66 at Trade Coffee" [ref=e232] [cursor=pointer]:
+              - /url: https://drinktrade.com/products/coffee-gift-subscription
+            - heading "11. Onyx Coffee Lab Discovery Box" [level=3] [ref=e237]
+            - img "Onyx Coffee Lab Discovery Box coffee sampler in designed packaging, a tasting gift for coffee lovers" [ref=e240]
+            - generic [ref=e242]:
+              - paragraph [ref=e243]:
+                - strong [ref=e244]: "Why they'll love it:"
+                - text: "Onyx is the Arkansas roaster that keeps winning national roasting championships and somehow also has the best packaging in the entire industry. The Discovery Box is their tasting flight: six little pouches of coffee inside a fold-out kraft box that's printed edge to edge with roast maps and brewing charts. Unboxing it feels closer to opening a fancy chocolate gift than a bag of beans. For the coffee lover who's only ever had grocery store roasts, this is a genuine before-and-after moment."
+              - paragraph [ref=e245]: Six 2 oz coffees spanning Onyx's espresso and filter lineups, in a fold-out gift box with tasting and brewing guidance printed inside.
+            - link "$37 at Onyx Coffee Lab" [ref=e248] [cursor=pointer]:
+              - /url: https://onyxcoffeelab.com/products/discovery-box
+            - heading "12. Cometeer Trial Box" [level=3] [ref=e253]
+            - img "Cometeer flash-frozen coffee capsules trial box, a futuristic gift for coffee lovers" [ref=e256]
+            - generic [ref=e258]:
+              - paragraph [ref=e259]:
+                - strong [ref=e260]: "Why they'll love it:"
+                - text: Cometeer sounds fake until you try it. They brew coffee from top-tier roasters at peak extraction, then flash-freeze it into little pucks with liquid nitrogen. Your person keeps them in the freezer, melts one under hot water, and gets a legitimately excellent cup in thirty seconds, no equipment, no grounds, no cleanup. It's what hotel-room and office coffee should have been all along. Great for iced lattes too.
+              - paragraph [ref=e261]: 32 flash-frozen capsules from award-winning roasters, stored in the freezer for up to three years. Works with hot water, milk, or over ice.
+            - link "$64 at Cometeer" [ref=e264] [cursor=pointer]:
+              - /url: https://cometeer.com/products/starter-box-4-packs
+            - heading "13. Nguyen Coffee Supply Vietnamese Coffee Trio" [level=3] [ref=e269]
+            - img "Nguyen Coffee Supply Vietnamese coffee trio of three bags, a bold-roast gift for coffee lovers" [ref=e272]
+            - generic [ref=e274]:
+              - paragraph [ref=e275]:
+                - strong [ref=e276]: "Why they'll love it:"
+                - text: Most coffee drinkers have never tasted good robusta, the bold, chocolatey bean Vietnam grows better than anywhere on earth. Nguyen Coffee Supply, the first Vietnamese-American-owned importer roasting in Brooklyn, is on a mission to change that. This trio spans their signature roasts, from smooth arabica to full-throttle robusta with nearly double the caffeine. For the person who says every coffee tastes 'a little weak', this is their new favorite thing.
+              - paragraph [ref=e277]: Three 12 oz bags spanning arabica, robusta, and blended roasts, roasted in Brooklyn from direct-trade Vietnamese beans. Choose whole bean or ground.
+            - link "$63 at Nguyen Coffee Supply" [ref=e280] [cursor=pointer]:
+              - /url: https://nguyencoffeesupply.com/products/bundle-vietnamese-coffee-trio
+            - generic [ref=e284]:
+              - heading "What Are the Best Gifts for Coffee Lovers Under $50?" [level=2] [ref=e285]
+              - paragraph [ref=e286]: Small budget, big smile. Every pick here lands under fifty bucks and still feels like you really know them.
+            - heading "14. East Fork The Mug" [level=3] [ref=e289]
+            - img "East Fork handmade ceramic mug in La Sirene glaze, a pottery gift for coffee lovers" [ref=e292]
+            - generic [ref=e294]:
+              - paragraph [ref=e295]:
+                - strong [ref=e296]: "Why they'll love it:"
+                - text: East Fork is the Asheville pottery whose seasonal glaze drops sell out like concert tickets, and The Mug is the reason. It's heavy in the best way, holds a proper amount of coffee, and the glazes are so good people collect them by color. La Sirène is the current stunner, a deep open-ocean blue over raw clay. A handmade mug is the most personal coffee gift there is. It becomes their mug, the one everyone else in the house knows not to take.
+              - paragraph [ref=e297]: Handmade stoneware from Asheville, North Carolina, holds 10 oz, dishwasher and microwave safe. Seasonal glazes rotate, so grab the color while it's around.
+            - link "$44 at East Fork" [ref=e300] [cursor=pointer]:
+              - /url: https://eastfork.com/products/the-mug-in-la-sirene
+            - heading "15. KINTO Travel Tumbler" [level=3] [ref=e305]
+            - img "KINTO stainless steel travel tumbler for coffee, a commuter gift for coffee lovers" [ref=e308]
+            - generic [ref=e310]:
+              - paragraph [ref=e311]:
+                - strong [ref=e312]: "Why they'll love it:"
+                - text: Japanese brand KINTO makes the travel tumbler for people who find most travel mugs a little... much. No logos shouting, no fiddly buttons, just a beautifully machined stainless vessel that keeps coffee hot for six hours and doesn't leak in a bag, ever. The drinking spout is shaped so the flow feels like drinking from a real cup instead of sucking on a valve. Quietly perfect, which is very on brand for KINTO.
+              - paragraph [ref=e313]: 350ml double-walled stainless steel, keeps drinks hot or cold for about six hours, fully leakproof twist lid, and it disassembles for easy cleaning.
+            - link "$34 at KINTO USA" [ref=e316] [cursor=pointer]:
+              - /url: https://kinto-usa.com/products/20931
+            - heading "16. Big Island Espresso Bites Mixed Pack" [level=3] [ref=e321]
+            - img "Big Island Coffee Roasters espresso bites edible coffee snacks, a treat gift for coffee lovers" [ref=e324]
+            - generic [ref=e326]:
+              - paragraph [ref=e327]:
+                - strong [ref=e328]: "Why they'll love it:"
+                - text: "These are exactly what they sound like: award-winning Hawaii-grown espresso pressed into rich, chocolatey bites you eat. One bite carries about half a shot's worth of caffeine, so they're the hiking, road-trip, and 3pm-meeting snack of a caffeine lover's dreams. Big Island grows and roasts on the slopes of the actual Big Island, and the mixed pack covers their classic, latte, and sea salt flavors. Dangerous to leave unattended."
+              - paragraph [ref=e329]: Mixed pack of espresso bites in classic, latte, and sea salt flavors, made from Hawaii-grown coffee. About 50mg of caffeine per bite.
+            - link "$24 at Big Island Coffee Roasters" [ref=e332] [cursor=pointer]:
+              - /url: https://bigislandcoffeeroasters.com/products/espresso-bites-mixed
+            - heading "17. Pop Chart Compendious Coffee Chart" [level=3] [ref=e337]
+            - img "Pop Chart Compendious Coffee Chart art print mapping espresso drinks, a decor gift for coffee lovers" [ref=e340]
+            - generic [ref=e342]:
+              - paragraph [ref=e343]:
+                - strong [ref=e344]: "Why they'll love it:"
+                - text: "Pop Chart's Brooklyn design team diagrams entire subcultures onto gorgeous prints, and this one maps the whole coffee universe: dozens of drinks broken down by their exact ratios of espresso, milk, foam, and water. It settles the cortado-versus-flat-white debate from the kitchen wall. For the coffee lover who has every gadget already, wall art is the move nobody else will think of."
+              - paragraph [ref=e345]: 20 x 16 inch print, pressed on archival stock with vegetable-based inks in Brooklyn. Frame not included.
+            - link "$25 at Pop Chart" [ref=e348] [cursor=pointer]:
+              - /url: https://popchart.co/products/the-compendious-coffee-chart-20x16
+            - generic [ref=e352]:
+              - heading "Frequently Asked Questions" [level=3] [ref=e353]
+              - generic [ref=e354]:
+                - button "Expand \"What is the best gift for a coffee lover?\"" [ref=e358] [cursor=pointer]:
+                  - generic [ref=e359]: What is the best gift for a coffee lover?
+                  - generic [ref=e361]: keyboard_arrow_down
+                - button "Expand \"What should you get a coffee lover who has everything?\"" [ref=e366] [cursor=pointer]:
+                  - generic [ref=e367]: What should you get a coffee lover who has everything?
+                  - generic [ref=e369]: keyboard_arrow_down
+                - button "Expand \"What are good gifts for coffee lovers under $50?\"" [ref=e374] [cursor=pointer]:
+                  - generic [ref=e375]: What are good gifts for coffee lovers under $50?
+                  - generic [ref=e377]: keyboard_arrow_down
+                - button "Expand \"Is a coffee subscription a good gift?\"" [ref=e382] [cursor=pointer]:
+                  - generic [ref=e383]: Is a coffee subscription a good gift?
+                  - generic [ref=e385]: keyboard_arrow_down
+                - button "Expand \"What's the best coffee gift for someone who travels?\"" [ref=e390] [cursor=pointer]:
+                  - generic [ref=e391]: What's the best coffee gift for someone who travels?
+                  - generic [ref=e393]: keyboard_arrow_down
+            - generic [ref=e396]:
+              - paragraph [ref=e397]: Whatever you pick, you're really giving them a better start to every single day, which is a lot of value for one gift. Just accept that you'll be offered a tasting flight and a short lecture on grind size the next time you visit. That's the price of getting it right.
+              - paragraph [ref=e398]:
+                - text: If your coffee lover also lives in the kitchen, our
+                - link "gifts for cooks" [ref=e399] [cursor=pointer]:
+                  - /url: https://wishwave.com/guides/gifts-for-cooks
+                - text: guide covers the savory side of the counter, and the
+                - link "gifts for wine lovers" [ref=e400] [cursor=pointer]:
+                  - /url: https://wishwave.com/guides/gifts-for-wine-lovers
+                - text: guide handles their evening beverage of choice.
+              - paragraph [ref=e401]:
+                - link [ref=e402] [cursor=pointer]:
+                  - /url: https://www.wishwave.com/
+                  - strong [ref=e403]: Create your free wishlist on Wishwave
+                - text: . It takes about 30 seconds. Coffee lovers can list the exact grinder, glaze color, and roast profile they're dreaming about in one place, and you'll never have to guess between a cortado person and a cold brew person again.
+            - link "Create your free wishlist on Wishwave" [ref=e406] [cursor=pointer]:
+              - /url: https://www.wishwave.com/
+        - generic [ref=e411]:
+          - link [ref=e413] [cursor=pointer]:
+            - /url: /author/sinay-elihay
+            - img "Sinay Elihay" [ref=e415]
+          - generic [ref=e416]:
+            - link [ref=e417] [cursor=pointer]:
+              - /url: /author/sinay-elihay
+              - heading "Sinay Elihay" [level=4] [ref=e418]
+            - paragraph [ref=e419]: Gift and gadget expert
+            - paragraph [ref=e421]: Sinay Elihay is a full-stack builder, as well as a writer for Wishwave, focusing on gadgets and gifts. He writes useful articles, reviews, and articles that are useful in finding the perfect gadgets, gifts, and gift ideas. With his product-focused approach, Sinay makes it easy for readers to find the perfect gifts that are useful as well as memorable.
+            - link "linkedin" [ref=e423] [cursor=pointer]:
+              - /url: https://www.linkedin.com/in/sinayelihay/
+    - generic [ref=e425]:
+      - heading "Related Articles" [level=3] [ref=e426]
+      - generic [ref=e427]:
+        - generic [ref=e429] [cursor=pointer]:
+          - link "13 Best Gifts for Wine Lovers That They'll Actually Use (2026)" [ref=e430]:
+            - /url: /guides/gifts-for-wine-lovers
+          - img "13 Best Gifts for Wine Lovers That They'll Actually Use (2026)" [ref=e432]
+          - generic [ref=e439]:
+            - link "Gifting Guide" [ref=e442]:
+              - /url: /guides/category/gifting-guide
+            - heading "13 Best Gifts for Wine Lovers That They'll Actually Use (2026)" [level=3] [ref=e443]
+            - paragraph [ref=e444]: The 15 best gifts for wine lovers that they'll actually use, from Coravin and Zalto to Corkcicle and a proper Riedel decanter. Tested picks for every budget in 2026.
+            - generic [ref=e445]:
+              - link "Sinay Elihay" [ref=e446]:
+                - /url: /author/sinay-elihay
+              - generic [ref=e447]: •
+              - generic [ref=e448]: Apr 14, 2026
+              - generic [ref=e449]: •
+              - generic [ref=e450]: 11 min
+        - generic [ref=e452] [cursor=pointer]:
+          - link "14 Best Gifts for Cooks in 2026 (That They'll Actually Use)" [ref=e453]:
+            - /url: /guides/gifts-for-cooks
+          - img "14 Best Gifts for Cooks in 2026 (That They'll Actually Use)" [ref=e455]
+          - generic [ref=e462]:
+            - link "Gifting Guide" [ref=e465]:
+              - /url: /guides/category/gifting-guide
+            - heading "14 Best Gifts for Cooks in 2026 (That They'll Actually Use)" [level=3] [ref=e466]
+            - paragraph [ref=e467]: The 14 best gifts for cooks in 2026, from a sharp chef's knife and cast iron to cult chili crisp and single-origin spices. Real brands, real prices, picks they'll actually use.
+            - generic [ref=e468]:
+              - link "Sinay Elihay" [ref=e469]:
+                - /url: /author/sinay-elihay
+              - generic [ref=e470]: •
+              - generic [ref=e471]: Jun 17, 2026
+              - generic [ref=e472]: •
+              - generic [ref=e473]: 10 min
+  - contentinfo [ref=e474]:
+    - generic [ref=e475]:
+      - generic [ref=e478]:
+        - generic [ref=e479]:
+          - img "WishWave" [ref=e480] [cursor=pointer]
+          - generic [ref=e484]:
+            - navigation "Social media links" [ref=e485]:
+              - link "Follow us on Facebook" [ref=e486] [cursor=pointer]:
+                - /url: https://www.facebook.com/wishwavehq
+                - img "Facebook" [ref=e488]
+              - link "Follow us on Instagram" [ref=e495] [cursor=pointer]:
+                - /url: https://www.instagram.com/wishwavehq
+                - img "Instagram" [ref=e497]
+              - link "Follow us on Pinterest" [ref=e504] [cursor=pointer]:
+                - /url: https://www.pinterest.com/wishwavehq/
+                - img "Pinterest" [ref=e506]
+              - link "Follow us on YouTube" [ref=e513] [cursor=pointer]:
+                - /url: https://www.youtube.com/@Wishwavehq
+                - img "YouTube" [ref=e515]
+              - link "Follow us on TikTok" [ref=e522] [cursor=pointer]:
+                - /url: https://www.tiktok.com/@wishwavehq
+                - img "TikTok" [ref=e524]
+            - button "Change language" [ref=e531] [cursor=pointer]:
+              - generic [ref=e532]:
+                - generic [ref=e533]: language
+                - text: English
+                - generic [ref=e534]: 
+        - navigation "Footer navigation" [ref=e535]:
+          - generic [ref=e537]:
+            - button "Events" [expanded]: 
+            - region [ref=e538]:
+              - generic [ref=e539]:
+                - link "Birthday wishlist" [ref=e540] [cursor=pointer]:
+                  - /url: /birthday-wishlist
+                - link "Wedding registry" [ref=e542] [cursor=pointer]:
+                  - /url: /wedding-registry
+                - link "Baby registry" [ref=e544] [cursor=pointer]:
+                  - /url: /baby-registry
+                - link "Housewarming registry" [ref=e546] [cursor=pointer]:
+                  - /url: /housewarming-registry
+                - link "Graduation registry" [ref=e548] [cursor=pointer]:
+                  - /url: /graduation-registry
+          - generic [ref=e551]:
+            - button "Features" [expanded]: 
+            - region [ref=e552]:
+              - generic [ref=e553]:
+                - link "AI wishlist maker" [ref=e554] [cursor=pointer]:
+                  - /url: /gift-finder
+                - link "Discover" [ref=e556] [cursor=pointer]:
+                  - /url: /discover
+                - link "Chrome extension" [ref=e558] [cursor=pointer]:
+                  - /url: /chrome-extension
+          - generic [ref=e561]:
+            - button "Resources" [expanded]: 
+            - region [ref=e562]:
+              - generic [ref=e563]:
+                - link "Blog" [ref=e564] [cursor=pointer]:
+                  - /url: /blog
+                - link "Guides" [ref=e566] [cursor=pointer]:
+                  - /url: /guides
+                - button "FAQ" [ref=e568] [cursor=pointer]
+          - generic [ref=e571]:
+            - button "Company" [expanded]: 
+            - region [ref=e572]:
+              - generic [ref=e573]:
+                - button "Contact us" [ref=e574] [cursor=pointer]
+                - button "About" [ref=e576] [cursor=pointer]
+      - contentinfo [ref=e578]:
+        - generic [ref=e579]:
+          - generic [ref=e580]:
+            - generic [ref=e581]: © 2026 Wishwave. All rights reserved.
+            - generic [ref=e582]: As an Amazon Associate, we earn from qualifying purchases.
+          - navigation "Legal links" [ref=e583]:
+            - link "Privacy Policy" [ref=e584] [cursor=pointer]:
+              - /url: /privacy
+            - link "Terms of Service" [ref=e585] [cursor=pointer]:
+              - /url: /terms
+        - generic [ref=e586]:
+          - link "Download Wishwave on Google Play" [ref=e587] [cursor=pointer]:
+            - /url: https://play.google.com/store/apps/details?id=com.wishwave.app
+            - img "Get it on Google Play" [ref=e588]
+          - link "Download Wishwave on the App Store" [ref=e589] [cursor=pointer]:
+            - /url: https://apps.apple.com/us/app/wishwave-wishlist-gift-idea/id6762080684
+            - img "Download on the App Store" [ref=e590]

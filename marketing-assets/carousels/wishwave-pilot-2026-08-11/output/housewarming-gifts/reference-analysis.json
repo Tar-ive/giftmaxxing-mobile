@@ -1,0 +1,90 @@
+{
+  "reference": {
+    "source": "https://www.wishwave.com/guides/useful-housewarming-gifts",
+    "cardCount": 6,
+    "dimensions": {
+      "width": 1080,
+      "height": 1350
+    },
+    "aspectRatio": "4:5"
+  },
+  "opening": {
+    "role": "hook",
+    "differenceFromBody": "four-product visual grid",
+    "text": "useful gifts for life\nafter the moving boxes",
+    "position": "upper left",
+    "treatment": "split layout with category accent"
+  },
+  "cards": [
+    {
+      "index": 1,
+      "role": "hook",
+      "content": "useful gifts for life\nafter the moving boxes"
+    },
+    {
+      "index": 2,
+      "role": "product proof",
+      "content": "Always Pan 2.0",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://fromourplace.com/products/always-essential-cooking-pan"
+    },
+    {
+      "index": 3,
+      "role": "product proof",
+      "content": "Clean Essentials kit",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.blueland.com/products/the-clean-essentials"
+    },
+    {
+      "index": 4,
+      "role": "product proof",
+      "content": "Little Green cleaner",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.bissell.com/en-us/product/little-green-portable-carpet-upholstery-cleaner-1400B.html"
+    },
+    {
+      "index": 5,
+      "role": "product proof",
+      "content": "New Home candle",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://homesick.com/products/new-home-candle"
+    },
+    {
+      "index": 6,
+      "role": "product proof",
+      "content": "Kitchen cutting board",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.epicureancs.com/product/kitchen-series-cutting-board/"
+    }
+  ],
+  "invariants": [
+    "one product per body card",
+    "live merchant link",
+    "original copy",
+    "price checked before publish",
+    "no visible app branding"
+  ],
+  "variability": [
+    "recipient",
+    "occasion",
+    "accent color",
+    "layout family",
+    "type style"
+  ],
+  "selectionRule": "Only merchant-verified products survive manual visual review."
+}

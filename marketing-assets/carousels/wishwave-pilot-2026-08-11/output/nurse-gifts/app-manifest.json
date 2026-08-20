@@ -1,0 +1,76 @@
+{
+  "id": "editorial-nurse-gifts-v1",
+  "title": "gifts that respect a twelve hour shift",
+  "caption": "Useful nurse gifts for the shift and the recovery afterward. No medical promises, no novelty clutter—just five practical ways to show care. 🩺 #nursegifts #giftideas #giftmaxxing",
+  "sourceGuide": "https://www.wishwave.com/guides/gifts-for-nurses",
+  "checkedAt": "2026-08-12T03:59:13.084Z",
+  "status": "prototype_review_required",
+  "products": [
+    {
+      "name": "Knee-high compression socks",
+      "reason": "a polished shift staple with multiple sizes and colors",
+      "price": "$34",
+      "merchant": "Comrad",
+      "url": "https://www.comradsocks.com/products/knee-high-compression-socks-varsity-1",
+      "imageUrl": "https://www.comradsocks.com/cdn/shop/files/KHC-PR-79ZQ_lavender_flat.jpg?v=1778172283"
+    },
+    {
+      "name": "Classic Sport Canteen",
+      "reason": "one-handed hydration that fits a long shift",
+      "price": "from $40",
+      "merchant": "Corkcicle",
+      "url": "https://corkcicle.com/products/sport-canteen",
+      "imageUrl": "https://corkcicle.com/cdn/shop/files/2020GES-2.png?crop=center&height=1024&v=1785869218&width=1024"
+    },
+    {
+      "name": "Manta Sleep Mask",
+      "reason": "a blackout rest ritual for sleep at unusual hours",
+      "price": "$39",
+      "merchant": "Manta Sleep",
+      "url": "https://mantasleep.com/products/manta-sleep-mask",
+      "imageUrl": "https://mantasleep.com/cdn/shop/products/1.5-Mask-Buy-Box-1.png?v=1627037557"
+    },
+    {
+      "name": "Hypervolt Go 3",
+      "reason": "a compact off-duty recovery tool for tired muscles",
+      "price": "$149",
+      "merchant": "Hyperice",
+      "url": "https://hyperice.com/products/hypervolt-go-3",
+      "imageUrl": "https://hyperice.com/cdn/shop/files/Hypervolt-Go-3-pdp-1_02fe1a55-f0c5-4d9c-ae4c-ae9107f701a6.png?v=1780949006&width=1200"
+    },
+    {
+      "name": "Lord Bergamot tea",
+      "reason": "a calmer post-shift ritual in a giftable tin",
+      "price": "from $13.99",
+      "merchant": "Smith Teamaker",
+      "url": "https://www.smithtea.com/products/lord-bergamot",
+      "imageUrl": "https://www.smithtea.com/cdn/shop/files/Lord-Bergamot-Ingredient-Image-2023.jpg?v=1762439464"
+    }
+  ],
+  "slides": [
+    {
+      "index": 0,
+      "file": "slides/01.jpg"
+    },
+    {
+      "index": 1,
+      "file": "slides/02.jpg"
+    },
+    {
+      "index": 2,
+      "file": "slides/03.jpg"
+    },
+    {
+      "index": 3,
+      "file": "slides/04.jpg"
+    },
+    {
+      "index": 4,
+      "file": "slides/05.jpg"
+    },
+    {
+      "index": 5,
+      "file": "slides/06.jpg"
+    }
+  ]
+}

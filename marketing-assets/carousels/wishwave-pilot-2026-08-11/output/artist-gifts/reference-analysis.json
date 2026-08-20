@@ -1,0 +1,90 @@
+{
+  "reference": {
+    "source": "https://www.wishwave.com/guides/gifts-for-artists",
+    "cardCount": 6,
+    "dimensions": {
+      "width": 1080,
+      "height": 1350
+    },
+    "aspectRatio": "4:5"
+  },
+  "opening": {
+    "role": "hook",
+    "differenceFromBody": "four-product visual grid",
+    "text": "artist gifts without\nguessing their medium",
+    "position": "upper left",
+    "treatment": "paper layout with category accent"
+  },
+  "cards": [
+    {
+      "index": 1,
+      "role": "hook",
+      "content": "artist gifts without\nguessing their medium"
+    },
+    {
+      "index": 2,
+      "role": "product proof",
+      "content": "Blackwing Essentials Set",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://blackwing602.com/products/blackwing-pencil-essentials-set"
+    },
+    {
+      "index": 3,
+      "role": "product proof",
+      "content": "Stone Paper Sketchbook",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://karstgoods.com/products/stone-paper-sketchbook"
+    },
+    {
+      "index": 4,
+      "role": "product proof",
+      "content": "Tombow Dual Brush Pens",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://www.tombowusa.com/products/dual-brush-pen-art-markers-mermaids-10-pack"
+    },
+    {
+      "index": 5,
+      "role": "product proof",
+      "content": "Viviva Colorsheets",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://vivivacolors.com/products/original-single-set-16-colors"
+    },
+    {
+      "index": 6,
+      "role": "product proof",
+      "content": "Original Buddha Board",
+      "shotType": "merchant product image",
+      "text": {
+        "present": true
+      },
+      "searchIntent": "https://buddhaboard.com/products/original-buddha-board"
+    }
+  ],
+  "invariants": [
+    "one product per body card",
+    "live merchant link",
+    "original copy",
+    "price checked before publish",
+    "no visible app branding"
+  ],
+  "variability": [
+    "recipient",
+    "occasion",
+    "accent color",
+    "layout family",
+    "type style"
+  ],
+  "selectionRule": "Only merchant-verified products survive manual visual review."
+}

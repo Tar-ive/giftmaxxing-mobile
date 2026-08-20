@@ -1,0 +1,9 @@
+{
+  "scrapedAt": "2026-08-05",
+  "actor": "automation-lab/pinterest-scraper",
+  "boardUrl": "https://www.pinterest.com/awfuldime/gift-inspo/",
+  "requestedPins": 36,
+  "receivedPins": 36,
+  "videos": 0,
+  "output": "apify-raw.json"
+}

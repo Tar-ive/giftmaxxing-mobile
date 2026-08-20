@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-08-04T22:09:46.332Z",
+  "jobs": [
+    {
+      "name": "mini-photo-album",
+      "source": "https://d21osnvwewgoao.cloudfront.net/ugc/public/editorial/pinterest/ukK6yxJmbvEyK5aNV/birthday-gifts-that-feel-personal/4996249584015834.png",
+      "prompt": "A gentle handheld push-in. The hand slowly fans the tiny camera-shaped photo album so the glossy snapshots catch warm light; the twine sways slightly. Preserve the handmade album, fingers, printed photos, and handwritten Barcelona 2023 label exactly. Authentic cozy phone-video look.",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/pinterest-giftgiving/youcam-2026-08-04/outputs/mini-photo-album.mp4",
+      "reused": true
+    },
+    {
+      "name": "self-care-gift-basket",
+      "source": "https://d21osnvwewgoao.cloudfront.net/ugc/public/editorial/pinterest/ukK6yxJmbvEyK5aNV/build-a-better-gift-basket/5911043262770659.jpg",
+      "prompt": "A slow smooth product-camera arc around the pink self-care gift basket. Clear wrapping catches soft highlights and narrow ribbons flutter subtly. Warm afternoon window light, shallow depth of field, realistic premium product video. Preserve every product, brand label, color, and the exact basket arrangement.",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/pinterest-giftgiving/youcam-2026-08-04/outputs/self-care-gift-basket.mp4",
+      "reused": true
+    },
+    {
+      "name": "pink-gift-wrapping",
+      "source": "https://d21osnvwewgoao.cloudfront.net/ugc/public/editorial/pinterest/ukK6yxJmbvEyK5aNV/gift-wrapping-worth-keeping/82612974398668191.jpg",
+      "prompt": "A slow overhead camera drift across the handmade pink wrapped present. Curled ribbons lift and settle gently, the pearl strand glints, and soft natural light moves across the paper. Preserve the exact gift, colors, bow, floral ribbon, pearls, and card. Premium DIY TikTok aesthetic.",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/pinterest-giftgiving/youcam-2026-08-04/outputs/pink-gift-wrapping.mp4",
+      "reused": true
+    }
+  ]
+}

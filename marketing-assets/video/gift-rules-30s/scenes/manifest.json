@@ -1,0 +1,41 @@
+{
+  "generatedAt": "2026-08-04T22:32:22.660Z",
+  "scenes": [
+    {
+      "name": "01-forgettable-gifts",
+      "prompt": "Vertical cinematic social video. A stylish young adult opens a hallway closet and finds an untouched generic candle, bath gift set, and plain gift card among forgotten clutter, then closes the door with disappointment. Warm realistic apartment lighting, subtle handheld push-in, relatable premium TikTok lifestyle aesthetic, no readable text.",
+      "taskId": "25151JCXbpZ8eDLMn92TIwQzUaItlv3_MFxq3bRyVj4tJX-5c7NdvnbJdXfD22vVgoSPcUcP2fmyjG-BFaYohtZY8cwEU94uIC1oKKXx0-U",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/scenes/01-forgettable-gifts.mp4"
+    },
+    {
+      "name": "02-micro-friction",
+      "prompt": "Vertical cinematic close-up in a beautiful home kitchen. A thoughtful hand replaces a messy leaking olive oil bottle with an elegant no-drip glass dispenser, wipes the counter clean, then pours perfectly into a pan. Satisfying precise motion, natural morning light, realistic hands, premium lifestyle commercial.",
+      "taskId": "79HO6511U12gH7mZ5fevG2CKiLZQZH4Tk5_hNpTAZilMv7msc_l9dpNdNSk-1PvW0dcsf0V6L7EzEAczpp0DPzhKjR8i5wM47hulp47WGEE",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/scenes/02-micro-friction.mp4"
+    },
+    {
+      "name": "03-small-luxury",
+      "prompt": "Vertical premium food-film close-up. A beautifully packaged bottle of artisanal maple syrup is opened and poured slowly over a warm breakfast, rich amber highlights and steam, a recipient smiles with genuine delight in the soft background. Small everyday luxury, natural skin, editorial gift campaign, smooth camera arc.",
+      "taskId": "97TeqEmJYr4mo9TjgWzj0yOQSQlXwAgnIHKdUlJ34_rcW3cpVKdX2_IOiDpMTRespY27Gz0vGM7HoWOCPxEjlXL181OyYB0wBjDgvua0HVc",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/scenes/03-small-luxury.mp4"
+    },
+    {
+      "name": "04-inside-callback",
+      "prompt": "Vertical intimate gift moment between two close friends at a coffee table. One unwraps a handcrafted wooden chess set and immediately laughs with recognition of a shared memory; the other smiles. Authentic emotion, tasteful modern apartment, warm afternoon light, realistic natural skin, gentle push-in, no readable text.",
+      "taskId": "vPKxuBEDnRPiwd6oEhgkVDOI6r_fOmPeHDHBjipRqn3OsHbUhFMI1RINDMtm23BsP6JmYaDoTfZoMKBYjeoDaiG5BVuDovcmbXR1eVYgbNo",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/scenes/04-inside-callback.mp4"
+    },
+    {
+      "name": "05-permission-gift",
+      "prompt": "Vertical luxury beauty experience video. A woman relaxes during a personalized professional facial she has wanted for months, a skincare expert gently applies a hydrating treatment, luminous healthy natural skin with realistic texture, peaceful expression, refined clean studio, soft diffused light, slow cinematic movement, clearly an experience gift rather than a generic product.",
+      "taskId": "BjBSicnoJMSGjB6h8s_BNcvzLjtUsexG5eLASLquMdz_mRNzt1tg0g6yej4uAMnp5lRgxFU70elVTtJh8xWk1Xx0TN4k1hrq4B-adA95i9s",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/scenes/05-permission-gift.mp4"
+    },
+    {
+      "name": "06-gift-notes",
+      "prompt": "Vertical over-the-shoulder lifestyle video. After a friend casually mentions something they love, a thoughtful person discreetly opens the notes app on their phone and adds an idea to a neatly organized gift list, then smiles. Screen content remains abstract and unreadable for later graphic overlay. Cozy cafe light, realistic hands, smooth subtle camera motion.",
+      "taskId": "kQRWGDgoQxdzr1krPatByNQuBsO7MtyVVuWlMlTgXbJxOwbOZBBeKuViAlXrKh_pzdYr9-JJpnER4ULLzonKlMNi-G1aqX-S7TarfPrzQQk",
+      "output": "/Users/tarive/giftmaxxing-mobile/marketing-assets/video/gift-rules-30s/scenes/06-gift-notes.mp4"
+    }
+  ]
+}

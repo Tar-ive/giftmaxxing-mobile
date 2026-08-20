@@ -1,0 +1,76 @@
+{
+  "id": "editorial-dog-lover-gifts-v1",
+  "title": "dog gifts for both ends of the leash",
+  "caption": "The best dog-person gifts are useful for the dog, meaningful for the human, or both. Five picks for walks, play, stories and keepsakes. 🐕 #doglovergifts #giftideas #giftmaxxing",
+  "sourceGuide": "https://www.wishwave.com/guides/gifts-for-dog-lovers",
+  "checkedAt": "2026-08-12T03:59:13.084Z",
+  "status": "prototype_review_required",
+  "products": [
+    {
+      "name": "Breed + Health DNA Test",
+      "reason": "turns their dog's breed story into a gift they can explore",
+      "price": "$139",
+      "merchant": "Embark",
+      "url": "https://shop.embarkvet.com/products/breed-and-health-dog-dna-test-kit",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0034/5151/9094/files/DNA_Main_2000x2000_7f5c8368-e7c5-4b75-9cb5-51a0e27accd6.png?v=1774985599"
+    },
+    {
+      "name": "Front Range Flex Harness",
+      "reason": "an adjustable everyday upgrade for shared walks",
+      "price": "$69.99",
+      "merchant": "Ruffwear",
+      "url": "https://ruffwear.com/products/front-range-flex-harness",
+      "imageUrl": "https://ruffwear.com/cdn/shop/files/Compressed_PNG-3072_Front-Range-Knit-Harness_Polar-Blue_Main_STUDIO_882x589.png?v=1768501123"
+    },
+    {
+      "name": "Travel Dog Water Bottle",
+      "reason": "portable water for walks, parks and road trips",
+      "price": "$25",
+      "merchant": "Springer",
+      "url": "https://springlandpets.com/products/22oz-classic-dog-travel-water-bottle",
+      "imageUrl": "https://springlandpets.com/cdn/shop/files/84.png?v=1760464519&width=1920"
+    },
+    {
+      "name": "Toppl Treat Toy",
+      "reason": "a fillable play ritual with three sizes to choose from",
+      "price": "from $20.95",
+      "merchant": "West Paw",
+      "url": "https://www.westpaw.com/products/toppl-teal",
+      "imageUrl": "https://www.westpaw.com/cdn/shop/files/FH083TEL_Small_Toppl_Teal_Unpackaged_Front_Spring26.jpg?v=1775059785&width=2000"
+    },
+    {
+      "name": "Custom Pet Portrait",
+      "reason": "a personal keepsake that celebrates the dog and their person",
+      "price": "from $48",
+      "merchant": "West & Willow",
+      "url": "https://westandwillow.com/products/custom-desktop-one-pet-portrait",
+      "imageUrl": "https://westandwillow.com/cdn/shop/files/Rudy_-_Black.png?v=1729699453"
+    }
+  ],
+  "slides": [
+    {
+      "index": 0,
+      "file": "slides/01.jpg"
+    },
+    {
+      "index": 1,
+      "file": "slides/02.jpg"
+    },
+    {
+      "index": 2,
+      "file": "slides/03.jpg"
+    },
+    {
+      "index": 3,
+      "file": "slides/04.jpg"
+    },
+    {
+      "index": 4,
+      "file": "slides/05.jpg"
+    },
+    {
+      "index": 5,
+      "file": "slides/06.jpg"
+    }
+  ]
+}

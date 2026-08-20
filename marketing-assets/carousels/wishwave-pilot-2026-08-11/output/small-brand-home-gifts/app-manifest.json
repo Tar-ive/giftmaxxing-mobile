@@ -1,0 +1,76 @@
+{
+  "id": "editorial-small-brand-home-gifts-v1",
+  "title": "housewarming gifts with a maker behind them",
+  "caption": "Five small-brand housewarming gifts chosen for daily usefulness, strong design and a real story behind the maker. Merchant pages checked before publishing. 🏡 #smallbusiness #housewarming #giftideas",
+  "sourceGuide": "https://www.giftofflist.com/guides/unique-housewarming-gifts-from-small-brands",
+  "checkedAt": "2026-08-12T03:59:13.084Z",
+  "status": "prototype_review_required",
+  "products": [
+    {
+      "name": "Wylie Hand-Blown Vase",
+      "reason": "a sculptural vessel that works with flowers or candlelight",
+      "price": "$75.60",
+      "merchant": "Everlasting Candle Co.",
+      "url": "https://everlastingcandleco.com/products/wylie-green-x9-wholesale",
+      "imageUrl": "https://everlastingcandleco.com/cdn/shop/products/5G2A0319_62eed180-9b24-4ba6-98f1-8262c317999f.jpg?v=1762530414&width=1024"
+    },
+    {
+      "name": "Clyde Electric Kettle",
+      "reason": "a counter-worthy upgrade for tea, coffee and hosting",
+      "price": "$99.95",
+      "merchant": "Fellow",
+      "url": "https://fellowproducts.com/products/clyde-electric-kettle",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0057/6235/1219/files/Web_PDP_ClydeElectricKettle_Black_1.png?v=1773352146"
+    },
+    {
+      "name": "The Artist Series Set",
+      "reason": "olive oils that make pantry storage look like an art shelf",
+      "price": "$160",
+      "merchant": "Brightland",
+      "url": "https://brightland.co/products/the-artist-series-gift-set",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0020/7978/5023/files/ArtistSeriesGiftSet-1150x1400-1_74ced357-13a6-40b8-964f-6331451a8904.jpg?v=1776360529"
+    },
+    {
+      "name": "Diaspora Co. Cookbook",
+      "reason": "a signed recipe collection built around diasporic spice traditions",
+      "price": "$35",
+      "merchant": "Diaspora Co.",
+      "url": "https://www.diasporaco.com/products/the-diaspora-co-cookbook",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0108/8867/5428/files/1_9d363324-93f7-4835-baec-8e66a41bc5c6.jpg?v=1772449212"
+    },
+    {
+      "name": "Mini Hot Pot Set",
+      "reason": "turns the new kitchen into a communal dinner plan",
+      "price": "$75",
+      "merchant": "Fly By Jing",
+      "url": "https://flybyjing.com/products/the-hot-pot-starter-set",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0065/8515/5653/files/FBJ-HotpotStarterSet-Hero-1200x1200.png?v=1778258393"
+    }
+  ],
+  "slides": [
+    {
+      "index": 0,
+      "file": "slides/01.jpg"
+    },
+    {
+      "index": 1,
+      "file": "slides/02.jpg"
+    },
+    {
+      "index": 2,
+      "file": "slides/03.jpg"
+    },
+    {
+      "index": 3,
+      "file": "slides/04.jpg"
+    },
+    {
+      "index": 4,
+      "file": "slides/05.jpg"
+    },
+    {
+      "index": 5,
+      "file": "slides/06.jpg"
+    }
+  ]
+}

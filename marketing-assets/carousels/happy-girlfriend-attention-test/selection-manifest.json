@@ -1,0 +1,24 @@
+{
+  "theme": "The attention test: five under-$20 gestures that prove you know her",
+  "referenceStyle": "Seven 3:4 phone photos, bold centered white text with a thick black outline, casual step-by-step humor, playful payoff",
+  "rubric": {
+    "semanticFit": 4,
+    "emotionalSpecificity": 3,
+    "cropClarity": 2,
+    "originality": 1
+  },
+  "selected": [
+    { "slide": 1, "pinId": "938296903635661572", "score": 9, "reason": "Flowers plus exact favorite snacks instantly communicates inexpensive personalization.", "source": "https://www.pinterest.com/pin/938296903635661572/" },
+    { "slide": 2, "pinId": "1098878377855285863", "score": 8, "reason": "A box assembled from photos and favorite items proves the gift was built around one person.", "source": "https://www.pinterest.com/pin/1098878377855285863/" },
+    { "slide": 3, "pinId": "4996249584015834", "score": 10, "reason": "The handmade Barcelona photo reel is a literal shared memory made tangible.", "source": "https://www.pinterest.com/pin/4996249584015834/" },
+    { "slide": 4, "pinId": "192317846581291745", "score": 8, "reason": "Premium versions of small everyday comforts support the small-luxury idea.", "source": "https://www.pinterest.com/pin/192317846581291745/" },
+    { "slide": 5, "pinId": "1266706142219574", "score": 9, "reason": "Every paper flower carries a specific message or memory, so the note cannot feel generic.", "source": "https://www.pinterest.com/pin/1266706142219574/" },
+    { "slide": 6, "pinId": "3799980931637449", "score": 8, "reason": "Color-matched, highly personal wrapping clearly signals intention before the gift is opened.", "source": "https://www.pinterest.com/pin/3799980931637449/" },
+    { "slide": 7, "pinId": "1105704146043517015", "score": 10, "reason": "The relationship memory board is the strongest visual payoff for feeling known.", "source": "https://www.pinterest.com/pin/1105704146043517015/" }
+  ],
+  "rejected": [
+    { "pinId": "2744449770213196", "score": 5, "reason": "Near-duplicate of selected pin 1266706142219574." },
+    { "pinId": "420171840206115885", "score": 4, "reason": "Low resolution and reads as generic gift wrap rather than a relationship-specific gesture." },
+    { "pinId": "499618152432587465", "score": 6, "reason": "Useful concept, but the server returned HEIC content with a JPEG extension and the composition overlaps the favorites-basket slide." }
+  ]
+}

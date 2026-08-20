@@ -1,0 +1,76 @@
+{
+  "id": "editorial-artist-gifts-v1",
+  "title": "artist gifts without guessing their medium",
+  "caption": "Artist gifts that invite making without pretending you know their exact paint, paper or brush preferences. Five creative tools, each checked at the merchant. 🎨 #artistgifts #giftideas #giftmaxxing",
+  "sourceGuide": "https://www.wishwave.com/guides/gifts-for-artists",
+  "checkedAt": "2026-08-12T03:59:13.084Z",
+  "status": "prototype_review_required",
+  "products": [
+    {
+      "name": "Blackwing Essentials Set",
+      "reason": "a cult-favorite daily drawing tool in a complete set",
+      "price": "$50",
+      "merchant": "Blackwing",
+      "url": "https://blackwing602.com/products/blackwing-pencil-essentials-set",
+      "imageUrl": "https://blackwing602.com/cdn/shop/files/Essential_Sets-5.jpg?v=1755847519"
+    },
+    {
+      "name": "Stone Paper Sketchbook",
+      "reason": "an ultra-smooth tree-free surface for pen and pencil",
+      "price": "$25",
+      "merchant": "Karst",
+      "url": "https://karstgoods.com/products/stone-paper-sketchbook",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/1598/4825/files/A6SKETCHBOOK.webp?v=1742465397"
+    },
+    {
+      "name": "Tombow Dual Brush Pens",
+      "reason": "dual tips and a ready-made palette for lettering or color",
+      "price": "$32.50",
+      "merchant": "Tombow",
+      "url": "https://www.tombowusa.com/products/dual-brush-pen-art-markers-mermaids-10-pack",
+      "imageUrl": "https://www.tombowusa.com/cdn/shop/files/tom_56256_01.jpg?v=1762533504"
+    },
+    {
+      "name": "Viviva Colorsheets",
+      "reason": "a full watercolor palette that fits in a jacket pocket",
+      "price": "$22",
+      "merchant": "Viviva",
+      "url": "https://vivivacolors.com/products/original-single-set-16-colors",
+      "imageUrl": "https://vivivacolors.com/cdn/shop/files/Amazon_Product_listing.jpg?v=1770030972"
+    },
+    {
+      "name": "Original Buddha Board",
+      "reason": "paint with water, watch it fade and begin again",
+      "price": "$37.95",
+      "merchant": "Buddha Board",
+      "url": "https://buddhaboard.com/products/original-buddha-board",
+      "imageUrl": "https://buddhaboard.com/cdn/shop/files/OBB_Hero.jpg?v=1768077778"
+    }
+  ],
+  "slides": [
+    {
+      "index": 0,
+      "file": "slides/01.jpg"
+    },
+    {
+      "index": 1,
+      "file": "slides/02.jpg"
+    },
+    {
+      "index": 2,
+      "file": "slides/03.jpg"
+    },
+    {
+      "index": 3,
+      "file": "slides/04.jpg"
+    },
+    {
+      "index": 4,
+      "file": "slides/05.jpg"
+    },
+    {
+      "index": 5,
+      "file": "slides/06.jpg"
+    }
+  ]
+}

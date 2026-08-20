@@ -1,0 +1,76 @@
+{
+  "id": "editorial-hiker-gifts-v1",
+  "title": "hiker gifts that earn space in the pack",
+  "caption": "A hiking gift has to justify its weight. These five cover comfort, sun, light, water and traction without guessing their boot size. 🥾 #hikinggifts #outdoors #giftideas",
+  "sourceGuide": "https://www.giftofflist.com/guides/unique-gifts-for-hikers-25-picks-theyll-actually-use-on-the-trail",
+  "checkedAt": "2026-08-12T03:59:13.084Z",
+  "status": "prototype_review_required",
+  "products": [
+    {
+      "name": "Hike Crew Socks",
+      "reason": "a useful merino-blend layer with sizes they can exchange",
+      "price": "from $17.50",
+      "merchant": "Smartwool",
+      "url": "https://www.smartwool.com/en-us/products/hike-crew-socks-sw001614",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0910/5172/1073/files/SW001614100-HERO.jpg?v=1785500828"
+    },
+    {
+      "name": "On The Go SPF Set",
+      "reason": "portable sun protection for exposed trail days",
+      "price": "$31",
+      "merchant": "Supergoop!",
+      "url": "https://supergoop.com/products/on-the-go-spf-set",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/1503/5658/files/OntheGoSPFSet_01.png?v=1741618869"
+    },
+    {
+      "name": "ACTIK CORE Headlamp",
+      "reason": "rechargeable trail light for early starts and camp chores",
+      "price": "$87.95",
+      "merchant": "Petzl",
+      "url": "https://www.petzl.com/US/en/Sport/Headlamps/ACTIK-CORE",
+      "imageUrl": "https://www.petzl.com/sfc/servlet.shepherd/version/download/068Tx000006KwpEIAS"
+    },
+    {
+      "name": "24oz GeoPress Purifier",
+      "reason": "treats water while doubling as the bottle they carry",
+      "price": "$99.95",
+      "merchant": "GRAYL",
+      "url": "https://grayl.com/products/24oz-geopress-filter-purifier-bottle-covert-edition",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/2172/9959/files/GEO_COYOTE_BROWN_STD_1800px_b59f89ab-7244-4fd0-8ea3-5cebfb562fde.png?v=1763347035"
+    },
+    {
+      "name": "MICROspikes Traction",
+      "reason": "packable winter traction for icy routes and trailheads",
+      "price": "$89.95",
+      "merchant": "Kahtoola",
+      "url": "https://kahtoola.com/traction/microspikes-footwear-traction/",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-m69x292sg4/products/115/images/1133/KT02002-KT02003-KT02004-KT02005---MSredSideBot_0046_copy__43268.1766185825.386.513.jpg?c=1"
+    }
+  ],
+  "slides": [
+    {
+      "index": 0,
+      "file": "slides/01.jpg"
+    },
+    {
+      "index": 1,
+      "file": "slides/02.jpg"
+    },
+    {
+      "index": 2,
+      "file": "slides/03.jpg"
+    },
+    {
+      "index": 3,
+      "file": "slides/04.jpg"
+    },
+    {
+      "index": 4,
+      "file": "slides/05.jpg"
+    },
+    {
+      "index": 5,
+      "file": "slides/06.jpg"
+    }
+  ]
+}
