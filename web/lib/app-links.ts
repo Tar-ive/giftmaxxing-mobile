@@ -3,17 +3,21 @@
 //
 // The guest swipe flow runs fully in the mobile browser (zero friction for the
 // viral loop); these helpers power the "get the app" prompts that convert a
-// finished guest into an install or an account. Everything is driven by env so
-// the CTAs stay hidden until a real App Store listing exists:
+// finished guest into an install or an account. The listing is live, so these
+// default to it; env still overrides, for a TestFlight link on a beta deploy:
 //
-//   NEXT_PUBLIC_APP_STORE_URL  e.g. https://apps.apple.com/app/id6740000000
-//                              (or a TestFlight link during beta)
-//   NEXT_PUBLIC_APPLE_APP_ID   numeric App Store id; enables Safari's native
+//   NEXT_PUBLIC_APP_STORE_URL  a full listing or TestFlight URL
+//   NEXT_PUBLIC_APPLE_APP_ID   numeric App Store id; drives Safari's native
 //                              Smart App Banner (apple-itunes-app meta).
 // ────────────────────────────────────────────────────────────────────────────
 
-export const APP_STORE_URL = process.env.NEXT_PUBLIC_APP_STORE_URL ?? "";
-export const APPLE_APP_ID = process.env.NEXT_PUBLIC_APPLE_APP_ID ?? "";
+/** The live App Store listing. */
+export const APP_STORE_LISTING_URL =
+  "https://apps.apple.com/us/app/giftmaxxing/id6788124639";
+
+export const APP_STORE_URL =
+  process.env.NEXT_PUBLIC_APP_STORE_URL || APP_STORE_LISTING_URL;
+export const APPLE_APP_ID = process.env.NEXT_PUBLIC_APPLE_APP_ID || "6788124639";
 
 /** True when an installable app exists to point people at. */
 export function appDownloadAvailable(): boolean {

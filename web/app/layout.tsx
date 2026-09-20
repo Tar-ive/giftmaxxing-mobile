@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { AccountSync } from "@/components/app/account-sync";
 import { AmazonOneLink } from "@/components/amazon-onelink";
 import { Skimlinks } from "@/components/skimlinks";
+import { APPLE_APP_ID } from "@/lib/app-links";
 import { Hanken_Grotesk, Instrument_Serif, Bricolage_Grotesque, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -40,7 +41,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://giftmaxxing.vercel.app"),
   title: "Giftmaxxing — thoughtful gifting, finally figured out",
   description:
-    "Discover thoughtful gifts, remember every moment, and pick together. Giftmaxxing for iPhone is launching soon on the App Store.",
+    "Discover thoughtful gifts, remember every moment, and pick together. Giftmaxxing for iPhone is out now on the App Store.",
   applicationName: "Giftmaxxing",
   keywords: [
     "gifting",
@@ -54,7 +55,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Giftmaxxing — thoughtful gifting, finally figured out",
     description:
-      "Know what they'll love before you buy. Giftmaxxing for iPhone is launching soon.",
+      "Know what they'll love before you buy. Giftmaxxing for iPhone is out now on the App Store.",
     url: "https://giftmaxxing.vercel.app",
     siteName: "Giftmaxxing",
     type: "website",
@@ -64,14 +65,12 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Giftmaxxing — thoughtful gifting, finally figured out",
     description:
-      "Know what they'll love before you buy. Giftmaxxing for iPhone is launching soon.",
+      "Know what they'll love before you buy. Giftmaxxing for iPhone is out now on the App Store.",
   },
   // Safari's native Smart App Banner ("Open in the Giftmaxxing app") on every
   // page, including shared invite links — the lowest-friction app conversion
-  // surface iOS offers. No-op until the App Store id is configured.
-  ...(process.env.NEXT_PUBLIC_APPLE_APP_ID
-    ? { itunes: { appId: process.env.NEXT_PUBLIC_APPLE_APP_ID } }
-    : {}),
+  // surface iOS offers.
+  ...(APPLE_APP_ID ? { itunes: { appId: APPLE_APP_ID } } : {}),
 };
 
 export default function RootLayout({
