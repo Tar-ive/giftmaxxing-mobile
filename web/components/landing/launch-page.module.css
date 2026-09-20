@@ -5,6 +5,7 @@
   --launch-muted: #6b6560;
   --launch-line: #e5e0d8;
   --launch-coral: #fb6f52;
+  --launch-dark: #171422;
   background: var(--launch-bg);
   color: var(--launch-ink);
   min-height: 100vh;
@@ -16,9 +17,58 @@
 .statement,
 .screens,
 .launch,
-.footer {
+.footerMeta {
   margin-inline: auto;
   max-width: 1320px;
+}
+
+.awardBar {
+  background: var(--launch-dark);
+  color: #fff;
+}
+
+.awardBarInner {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: center;
+  margin-inline: auto;
+  max-width: 1320px;
+  min-height: 46px;
+  padding: 9px 32px;
+}
+
+.awardTag {
+  align-items: center;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 8px;
+  letter-spacing: -.01em;
+}
+
+.awardTag svg {
+  color: #f6c453;
+  height: 15px;
+  width: 15px;
+}
+
+.awardRule {
+  background: rgb(255 255 255 / 22%);
+  height: 16px;
+  width: 1px;
+}
+
+.awardLockup {
+  height: 20px;
+  width: auto;
+}
+
+.awardEvent {
+  color: rgb(255 255 255 / 62%);
+  font-size: 13px;
+  font-weight: 550;
 }
 
 .header {
@@ -50,14 +100,14 @@
 }
 
 .header nav,
-.footer nav {
+.footerMeta nav {
   align-items: center;
   display: flex;
   gap: 30px;
 }
 
 .header nav a,
-.footer nav a,
+.footerMeta nav a,
 .textLink {
   color: var(--launch-muted);
   font-size: 14px;
@@ -67,7 +117,7 @@
 }
 
 .header nav a:hover,
-.footer nav a:hover,
+.footerMeta nav a:hover,
 .textLink:hover { color: var(--launch-ink); }
 
 .headerCta {
@@ -142,6 +192,7 @@
   min-height: 54px;
   padding: 0 24px;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .primaryButton {
@@ -157,6 +208,7 @@
   display: inline-flex;
   font-size: 15px;
   gap: 7px;
+  white-space: nowrap;
 }
 
 .secondaryButton {
@@ -382,7 +434,89 @@
   max-width: 650px;
 }
 
-.footer {
+.winners {
+  background: var(--launch-dark);
+  color: #fff;
+  padding: 104px 32px 96px;
+  text-align: center;
+}
+
+.winnersEyebrow {
+  align-items: center;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 8px;
+  margin: 0;
+}
+
+.winnersEyebrow svg {
+  color: #f6c453;
+  height: 15px;
+  width: 15px;
+}
+
+.winners h2 {
+  font-size: clamp(46px, 5vw, 74px);
+  letter-spacing: -.065em;
+  line-height: .98;
+  margin: 18px 0 0;
+}
+
+.winnersLede {
+  color: rgb(255 255 255 / 66%);
+  font-size: 17px;
+  line-height: 1.55;
+  margin: 20px auto 0;
+  max-width: 560px;
+}
+
+.awardBanner {
+  display: block;
+  height: auto;
+  margin: 40px auto 0;
+  max-width: min(100%, 560px);
+  opacity: .9;
+  width: 100%;
+}
+
+.winnerGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 72px;
+  justify-content: center;
+  list-style: none;
+  margin: 56px 0 0;
+  padding: 0;
+}
+
+.winner { width: 210px; }
+
+.winnerPhoto {
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 50%;
+  display: block;
+  height: 140px;
+  margin-inline: auto;
+  object-fit: cover;
+  width: 140px;
+}
+
+.winnerName {
+  color: var(--launch-coral);
+  font-size: 17px;
+  font-weight: 750;
+  letter-spacing: -.02em;
+  margin: 22px 0 0;
+}
+
+.winnerRole {
+  color: rgb(255 255 255 / 60%);
+  font-size: 14px;
+  margin: 7px 0 0;
+}
+
+.footerMeta {
   align-items: center;
   border-top: 1px solid var(--launch-line);
   display: grid;
@@ -391,14 +525,14 @@
   padding: 52px 32px 64px;
 }
 
-.footer p,
-.footer small {
+.footerMeta p,
+.footerMeta small {
   color: var(--launch-muted);
   font-size: 13px;
   margin: 0;
 }
 
-.footer small { grid-column: 1 / -1; }
+.footerMeta small { grid-column: 1 / -1; }
 
 @media (max-width: 900px) {
   .header { grid-template-columns: 1fr auto; }
@@ -410,15 +544,19 @@
   }
   .heroCopy { margin-inline: auto; }
   .lede { margin-inline: auto; }
-  .heroActions { justify-content: center; }
+  .heroActions { flex-wrap: wrap; justify-content: center; }
   .heroVisual { height: 620px; margin-top: 20px; }
   .phoneBack { left: 13%; }
   .phoneFront { right: 13%; }
   .brandStrip { align-items: flex-start; flex-direction: column; gap: 20px; }
   .screenCopy { padding: 54px; }
+  .winnerGrid { gap: 56px; }
 }
 
 @media (max-width: 680px) {
+  .awardBarInner { gap: 10px; padding: 10px 20px; }
+  .awardTag { font-size: 12px; }
+  .awardRule, .awardEvent { display: none; }
   .header { min-height: 72px; padding-inline: 20px; }
   .headerCta { font-size: 12px; padding: 10px 13px; }
   .brand { font-size: 18px; }
@@ -450,12 +588,17 @@
   .launchActions { flex-direction: column; gap: 12px; width: 100%; }
   .primaryButton,
   .secondaryButton { width: min(100%, 330px); }
-  .footer { grid-template-columns: 1fr; padding: 44px 20px; }
-  .footer nav { align-items: flex-start; flex-direction: column; gap: 14px; }
-  .footer small { grid-column: auto; }
+  .winners { padding: 76px 20px 72px; }
+  .winners h2 { font-size: 44px; }
+  .winnerGrid { align-items: center; flex-direction: column; gap: 42px; margin-top: 44px; }
+  .winner { width: min(100%, 270px); }
+  .winnerPhoto { height: 124px; width: 124px; }
+  .footerMeta { grid-template-columns: 1fr; padding: 44px 20px; }
+  .footerMeta nav { align-items: flex-start; flex-direction: column; gap: 14px; }
+  .footerMeta small { grid-column: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .header nav a,
-  .footer nav a { transition: none; }
+  .footerMeta nav a { transition: none; }
 }

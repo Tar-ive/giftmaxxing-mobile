@@ -1,9 +1,25 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowDown, ArrowUpRight, Heart, ShieldCheck, Sparkles, Users } from "lucide-react";
+import { ArrowDown, ArrowUpRight, Heart, ShieldCheck, Sparkles, Trophy, Users } from "lucide-react";
+import { APP_STORE_URL } from "@/lib/app-links";
 import styles from "./launch-page.module.css";
 
 const brands = ["etsy", "target", "walmart", "nike", "shopify", "amazon"];
+
+const AWARD = "Winner · Most Commercializable Hack";
+
+const winners = [
+  {
+    name: "Saksham Adhikari",
+    role: "Co-creator, Giftmaxxing",
+    image: "/team/saksham.jpg",
+  },
+  {
+    name: "Kusum Bhattarai Sharma",
+    role: "Co-creator, Giftmaxxing",
+    image: "/team/kusum.jpg",
+  },
+];
 
 const screens = [
   {
@@ -39,6 +55,23 @@ const screens = [
 export function LaunchPage() {
   return (
     <main className={styles.page}>
+      <div className={styles.awardBar}>
+        <div className={styles.awardBarInner}>
+          <span className={styles.awardTag}>
+            <Trophy aria-hidden="true" /> {AWARD}
+          </span>
+          <span className={styles.awardRule} aria-hidden="true" />
+          <Image
+            src="/award/h0-lockup.png"
+            width={166}
+            height={44}
+            className={styles.awardLockup}
+            alt="Vercel v0 and AWS"
+          />
+          <span className={styles.awardEvent}>H0: Hack the Zero Stack</span>
+        </div>
+      </div>
+
       <header className={styles.header}>
         <Link href="/" className={styles.brand} aria-label="Giftmaxxing home">
           <Image src="/app-icon-v2.png" width={38} height={38} alt="" priority />
@@ -50,14 +83,19 @@ export function LaunchPage() {
           <Link href="/privacy">Privacy</Link>
           <Link href="/support">Support</Link>
         </nav>
-        <a href="#launch" className={styles.headerCta}>
-          App Store soon
+        <a
+          href={APP_STORE_URL}
+          className={styles.headerCta}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Out on the App Store
         </a>
       </header>
 
       <section className={styles.hero} aria-labelledby="hero-title">
         <div className={styles.heroCopy}>
-          <p className={styles.kicker}>for iPhone · launching soon</p>
+          <p className={styles.kicker}>for iPhone · out now on the app store</p>
           <h1 id="hero-title">
             Know what they&apos;ll love.
             <span>Before you buy.</span>
@@ -67,7 +105,15 @@ export function LaunchPage() {
             Maxi makes thoughtful gifting feel effortless.
           </p>
           <div className={styles.heroActions}>
-            <a href="#screens" className={styles.primaryButton}>
+            <a
+              href={APP_STORE_URL}
+              className={styles.primaryButton}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Download on the App Store <ArrowUpRight aria-hidden="true" />
+            </a>
+            <a href="#screens" className={styles.textLink}>
               See the iPhone app <ArrowDown aria-hidden="true" />
             </a>
             <Link href="/feed" className={styles.textLink}>
@@ -163,21 +209,60 @@ export function LaunchPage() {
           className={styles.appIcon}
           alt="Giftmaxxing app icon"
         />
-        <p className={styles.eyebrow}>App Store launch</p>
-        <h2>Your next great gift is almost here.</h2>
+        <p className={styles.eyebrow}>Out now on the App Store</p>
+        <h2>Your next great gift is one download away.</h2>
         <p>
-          Giftmaxxing is currently in App Store review. Explore the web app today,
-          then look for the iPhone app soon.
+          Giftmaxxing for iPhone is live. Download it free, or start on the web
+          and pick up where you left off.
         </p>
         <div className={styles.launchActions}>
-          <Link href="/feed" className={styles.primaryButton}>
-            Try Giftmaxxing now <ArrowUpRight aria-hidden="true" />
-          </Link>
-          <Link href="/support" className={styles.secondaryButton}>Get support</Link>
+          <a
+            href={APP_STORE_URL}
+            className={styles.primaryButton}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Download on the App Store <ArrowUpRight aria-hidden="true" />
+          </a>
+          <Link href="/feed" className={styles.secondaryButton}>Try it on the web</Link>
         </div>
       </section>
 
       <footer className={styles.footer}>
+        <section className={styles.winners} aria-labelledby="winners-title">
+          <p className={styles.winnersEyebrow}>
+            <Trophy aria-hidden="true" /> {AWARD}
+          </p>
+          <h2 id="winners-title">Meet the winners.</h2>
+          <p className={styles.winnersLede}>
+            Giftmaxxing was built at H0 and took home Most Commercializable Hack.
+            The same two people still ship every release.
+          </p>
+          <Image
+            src="/award/h0-banner.png"
+            width={990}
+            height={96}
+            className={styles.awardBanner}
+            alt="H0: Hack the Zero Stack with Vercel v0 & AWS Databases"
+          />
+          <ul className={styles.winnerGrid}>
+            {winners.map((winner) => (
+              <li key={winner.name} className={styles.winner}>
+                <Image
+                  src={winner.image}
+                  width={168}
+                  height={168}
+                  className={styles.winnerPhoto}
+                  alt={winner.name}
+                />
+                <p className={styles.winnerName}>{winner.name}</p>
+                <p className={styles.winnerRole}>{winner.role}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <div className={styles.footerMeta}>
         <div className={styles.brand}>
           <Image src="/app-icon-v2.png" width={34} height={34} alt="" />
           <span>giftmaxxing</span>
@@ -190,6 +275,7 @@ export function LaunchPage() {
           <Link href="/support">Support</Link>
         </nav>
         <small>© 2026 Giftmaxxing</small>
+        </div>
       </footer>
     </main>
   );
