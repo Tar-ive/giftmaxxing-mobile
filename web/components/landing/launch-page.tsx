@@ -22,8 +22,16 @@ const winners = [
 ];
 
 const supporters = [
-  { name: "Franklin Lobb", initials: "FL" },
-  { name: "Sammy Cheung", initials: "SC" },
+  {
+    name: "Franklin Lobb",
+    initials: "FL",
+    profile: "https://builder.aws.com/community/@franklinlobb",
+  },
+  {
+    name: "Sammy Cheung",
+    initials: "SC",
+    profile: "https://builder.aws.com/community/@cloudultrapro",
+  },
 ];
 
 const screens = [
@@ -286,7 +294,16 @@ export function LaunchPage() {
                   <span className={styles.supporterMonogram} aria-hidden="true">
                     {supporter.initials}
                   </span>
-                  <p className={styles.winnerName}>{supporter.name}</p>
+                  <p className={styles.winnerName}>
+                    <a
+                      href={supporter.profile}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.supporterLink}
+                    >
+                      {supporter.name} <ArrowUpRight aria-hidden="true" />
+                    </a>
+                  </p>
                   <p className={styles.winnerRole}>Co-organizer, Austin AWS Users</p>
                 </li>
               ))}

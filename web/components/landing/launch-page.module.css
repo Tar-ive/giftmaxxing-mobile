@@ -566,6 +566,22 @@
   width: 96px;
 }
 
+.supporterLink {
+  align-items: center;
+  color: inherit;
+  display: inline-flex;
+  gap: 4px;
+  text-decoration: none;
+}
+
+.supporterLink svg {
+  height: 15px;
+  opacity: .7;
+  width: 15px;
+}
+
+.supporterLink:hover { text-decoration: underline; text-underline-offset: 4px; }
+
 .footerMeta {
   align-items: center;
   border-top: 1px solid var(--launch-line);
