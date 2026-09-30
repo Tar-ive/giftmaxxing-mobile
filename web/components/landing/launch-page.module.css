@@ -516,6 +516,72 @@
   margin: 7px 0 0;
 }
 
+.thanks {
+  border-top: 1px solid rgb(255 255 255 / 12%);
+  margin: 88px auto 0;
+  max-width: 720px;
+  padding-top: 72px;
+}
+
+.communityLogo {
+  /* The source is a JPEG with white corners; clip to the badge's own hexagon. */
+  clip-path: polygon(50% 4%, 90% 27%, 90% 73%, 50% 96%, 10% 73%, 10% 27%);
+  display: block;
+  height: 88px;
+  margin: 0 auto 24px;
+  width: 88px;
+}
+
+.thanks h3 {
+  font-size: clamp(32px, 3.4vw, 46px);
+  letter-spacing: -.055em;
+  line-height: 1.02;
+  margin: 16px 0 0;
+}
+
+.supporterGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 56px;
+  justify-content: center;
+  list-style: none;
+  margin: 44px 0 0;
+  padding: 0;
+}
+
+.supporter { width: 230px; }
+
+.supporterMonogram {
+  align-items: center;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 50%;
+  color: rgb(255 255 255 / 86%);
+  display: flex;
+  font-size: 26px;
+  font-weight: 700;
+  height: 96px;
+  justify-content: center;
+  letter-spacing: -.03em;
+  margin-inline: auto;
+  width: 96px;
+}
+
+.supporterLink {
+  align-items: center;
+  color: inherit;
+  display: inline-flex;
+  gap: 4px;
+  text-decoration: none;
+}
+
+.supporterLink svg {
+  height: 15px;
+  opacity: .7;
+  width: 15px;
+}
+
+.supporterLink:hover { text-decoration: underline; text-underline-offset: 4px; }
+
 .footerMeta {
   align-items: center;
   border-top: 1px solid var(--launch-line);
@@ -593,6 +659,8 @@
   .winnerGrid { align-items: center; flex-direction: column; gap: 42px; margin-top: 44px; }
   .winner { width: min(100%, 270px); }
   .winnerPhoto { height: 124px; width: 124px; }
+  .thanks { margin-top: 64px; padding-top: 56px; }
+  .supporterGrid { align-items: center; flex-direction: column; gap: 36px; }
   .footerMeta { grid-template-columns: 1fr; padding: 44px 20px; }
   .footerMeta nav { align-items: flex-start; flex-direction: column; gap: 14px; }
   .footerMeta small { grid-column: auto; }
