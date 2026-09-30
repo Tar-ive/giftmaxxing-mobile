@@ -21,6 +21,11 @@ const winners = [
   },
 ];
 
+const supporters = [
+  { name: "Franklin Lobb", initials: "FL" },
+  { name: "Sammy Cheung", initials: "SC" },
+];
+
 const screens = [
   {
     eyebrow: "Discover",
@@ -260,6 +265,33 @@ export function LaunchPage() {
               </li>
             ))}
           </ul>
+
+          <section className={styles.thanks} aria-labelledby="thanks-title">
+            <Image
+              src="/community/austin-aws-users.jpg"
+              width={200}
+              height={200}
+              className={styles.communityLogo}
+              alt="Austin AWS Users"
+            />
+            <p className={styles.winnersEyebrow}>With thanks</p>
+            <h3 id="thanks-title">Possible only by their support.</h3>
+            <p className={styles.winnersLede}>
+              Franklin and Sammy, co-organizers of Austin AWS Users, helped validate
+              the idea and gave us our first feedback on the prototypes.
+            </p>
+            <ul className={styles.supporterGrid}>
+              {supporters.map((supporter) => (
+                <li key={supporter.name} className={styles.supporter}>
+                  <span className={styles.supporterMonogram} aria-hidden="true">
+                    {supporter.initials}
+                  </span>
+                  <p className={styles.winnerName}>{supporter.name}</p>
+                  <p className={styles.winnerRole}>Co-organizer, Austin AWS Users</p>
+                </li>
+              ))}
+            </ul>
+          </section>
         </section>
 
         <div className={styles.footerMeta}>
